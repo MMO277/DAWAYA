@@ -137,7 +137,8 @@ export function DawayaFullWordmark({
       fill="none"
       role="img"
       aria-label="DAWAYA | دوايا"
-      style={{
+      dir="ltr"
+      style={{ direction: 'ltr',
         display: 'block',
         maxWidth: '100%',
         height: 'auto',
@@ -237,17 +238,18 @@ export function DawayaFullWordmark({
         strokeWidth="8"
       />
 
-      {/* Subtitle Underneath WAYA */}
+      {/* Subtitle Underneath WAYA (Separate text nodes to prevent RTL bidi collision) */}
       <text
         x="194"
         y="156"
         fill={subColor}
+        direction="ltr"
         fontFamily="'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif"
-        fontSize="15.5"
+        fontSize="15"
         fontWeight="800"
-        letterSpacing="1.4"
+        letterSpacing="1.2"
       >
-        دوايا | HEALTHCARE PLATFORM
+        HEALTHCARE PLATFORM | دوايا
       </text>
     </svg>
   );
