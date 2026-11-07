@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="none">
+  <defs>
+    <linearGradient id="dawayaNavy" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#101E36"/>
+      <stop offset="100%" stop-color="#162A4A"/>
+    </linearGradient>
+    <linearGradient id="dawayaCyan" x1="20" y1="18" x2="100" y2="102" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00BFD0"/>
+      <stop offset="60%" stop-color="#24C8B8"/>
+      <stop offset="100%" stop-color="#9AE8E8"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="112" height="112" rx="28" fill="url(#dawayaNavy)" stroke="#00BFD0" stroke-width="2" stroke-opacity="0.35"/>
+  <!-- Elegant Stethoscope 'D' Loop & Medical Cross Chestpiece -->
+  <path d="M36 32V62C36 78.5685 49.4315 92 66 92C82.5685 92 96 78.5685 96 62C96 45.4315 82.5685 32 66 32H48" stroke="url(#dawayaCyan)" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Binaural Stethoscope Earpieces -->
+  <path d="M30 24C34 24 36 27 36 32" stroke="#9AE8E8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M54 24C50 24 48 27 48 32" stroke="#9AE8E8" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="29" cy="24" r="4" fill="#FFFFFF"/>
+  <circle cx="55" cy="24" r="4" fill="#FFFFFF"/>
+  <!-- Precision Pulse & Medical Emblem inside loop -->
+  <path d="M48 62H56L61 50L69 74L74 62H82" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Stethoscope Diaphragm Node -->
+  <circle cx="96" cy="62" r="8" fill="#101E36" stroke="#00BFD0" stroke-width="4.5"/>
+  <circle cx="96" cy="62" r="3" fill="#9AE8E8"/>
+</svg>

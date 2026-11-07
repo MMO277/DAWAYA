@@ -1,0 +1,600 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   SHARED 3D CARTOON GAME SHELL EXTENSIONS
+   (Nurse Academy, Medical Mystery, Bacteria Lab, Emergency Shift, Escape the Lab)
+   Builds on top of MedicalSimulator.css with full mobile responsiveness
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.c3d-fictional-ribbon {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  color: #fde68a;
+  font-size: 0.73rem;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  flex-shrink: 0;
+}
+
+/* Hide the secondary fictional ribbon inside the topbar on mobile/tablet so it never squeezes
+   the mission title or wraps word-by-word vertically. */
+.ms-topbar .c3d-fictional-ribbon {
+  display: none !important;
+}
+
+@media (min-width: 1180px) {
+  .ms-topbar .c3d-fictional-ribbon {
+    display: inline-flex !important;
+  }
+}
+
+/* Skippable Cinematic Intro Banner inside 3D Viewport */
+.c3d-cinematic-banner {
+  position: absolute;
+  top: 10px;
+  inset-inline: 10px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  border-radius: 10px;
+  padding: 6px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: #e0f2fe;
+  z-index: 14;
+}
+
+/* Inventory / Keycard / Evidence Bar */
+.c3d-inventory-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+}
+
+.c3d-inv-label {
+  font-weight: 700;
+  color: #5eead4;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.c3d-inv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 8px;
+  font-size: 0.73rem;
+  font-weight: 600;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  color: #94a3b8;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.c3d-inv-chip.collected {
+  background: rgba(16, 185, 129, 0.24);
+  border: 1px solid #34d399;
+  color: #d1fae5;
+}
+
+.c3d-journal-btn {
+  margin-inline-start: auto;
+  background: linear-gradient(135deg, #4f46e5, #3730a3);
+  border: 1px solid #818cf8;
+  color: #ffffff;
+  padding: 3px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Nursing Academy Protocol Checklist Widget */
+.c3d-nursing-card {
+  background: #061c24;
+  border: 1px solid rgba(45, 212, 191, 0.45);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.c3d-nursing-list {
+  display: grid;
+  gap: 6px;
+}
+
+.c3d-nursing-item {
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 9px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.c3d-nursing-item-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.c3d-nursing-item strong {
+  color: #5eead4;
+  display: block;
+}
+
+.c3d-nursing-item span {
+  color: #cbd5e1;
+}
+
+/* Medical Mystery Clue Card & Evidence Journal Board */
+.c3d-mystery-clue-card {
+  background: #11142d;
+  border: 1px solid rgba(129, 140, 248, 0.5);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.c3d-mystery-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #a5b4fc;
+}
+
+.c3d-mystery-evidence {
+  background: rgba(15, 23, 42, 0.85);
+  border-inline-start: 3px solid #818cf8;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #f1f5f9;
+}
+
+.c3d-journal-chain {
+  display: grid;
+  gap: 10px;
+}
+
+.c3d-journal-node {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 5px;
+}
+
+.c3d-journal-node.unlocked {
+  border-color: #34d399;
+  background: rgba(6, 78, 59, 0.28);
+}
+
+.c3d-journal-node.locked {
+  opacity: 0.72;
+  border-style: dashed;
+}
+
+/* Interactive Microscope Mini-Game Widget */
+.c3d-microscope-box {
+  background: #071320;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.c3d-micro-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.c3d-micro-viewport-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.c3d-micro-lens {
+  width: clamp(132px, 36vw, 170px);
+  height: clamp(132px, 36vw, 170px);
+  border-radius: 50%;
+  border: 4px solid #38bdf8;
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.35), inset 0 0 18px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+  background: radial-gradient(circle, #fdf2f8 0%, #f3e8ff 72%, #1e1b4b 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.c3d-micro-svg {
+  width: 100%;
+  height: 100%;
+  transition: filter 0.15s ease, transform 0.2s ease;
+}
+
+.c3d-micro-controls {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.c3d-mag-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.c3d-mag-btn {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #cbd5e1;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.c3d-mag-btn.active {
+  background: #0284c7;
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.c3d-focus-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #bae6fd;
+}
+
+.c3d-focus-row input[type='range'] {
+  flex: 1;
+  accent-color: #38bdf8;
+}
+
+.c3d-focus-status {
+  text-align: center;
+  font-size: 0.78rem;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.c3d-focus-status.sharp {
+  background: rgba(22, 163, 74, 0.25);
+  border: 1px solid #4ade80;
+  color: #bbf7d0;
+}
+
+.c3d-focus-status.blurry {
+  background: rgba(234, 179, 8, 0.2);
+  border: 1px solid #facc15;
+  color: #fef08a;
+}
+
+/* Fictional Culture & AST Susceptibility Report Table */
+.c3d-ast-card {
+  background: #071524;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.c3d-ast-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.8);
+  padding: 7px 9px;
+  border-radius: 10px;
+  font-size: 0.76rem;
+}
+
+.c3d-ast-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.c3d-ast-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+
+.c3d-ast-table th,
+.c3d-ast-table td {
+  padding: 5px 7px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  text-align: start;
+}
+
+.c3d-ast-table th {
+  color: #7dd3fc;
+  font-weight: 700;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.c3d-sir-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 0.74rem;
+}
+
+.c3d-sir-pill.S {
+  background: rgba(22, 163, 74, 0.28);
+  border: 1px solid #4ade80;
+  color: #bbf7d0;
+}
+
+.c3d-sir-pill.I {
+  background: rgba(234, 179, 8, 0.28);
+  border: 1px solid #facc15;
+  color: #fef08a;
+}
+
+.c3d-sir-pill.R {
+  background: rgba(220, 38, 38, 0.3);
+  border: 1px solid #f87171;
+  color: #fecaca;
+}
+
+.c3d-aware-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.c3d-aware-pill.Access {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+}
+
+.c3d-aware-pill.Watch {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fcd34d;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+}
+
+.c3d-aware-pill.Reserve {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+}
+
+/* ER Triage & Vitals Card */
+.c3d-triage-card {
+  background: #160b14;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.c3d-vitals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 5px;
+}
+
+.c3d-vital-cell {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 8px;
+  padding: 4px 6px;
+  text-align: center;
+}
+
+.c3d-vital-cell small {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.68rem;
+}
+
+.c3d-vital-cell strong {
+  color: #38bdf8;
+  font-size: 0.82rem;
+}
+
+.c3d-redflag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.c3d-redflag-chip {
+  background: rgba(220, 38, 38, 0.25);
+  border: 1px solid #f87171;
+  color: #fecaca;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+/* Puzzle Hint Toggle */
+.c3d-hint-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.c3d-hint-btn {
+  align-self: flex-start;
+  background: rgba(234, 179, 8, 0.18);
+  border: 1px solid rgba(250, 204, 21, 0.5);
+  color: #fef08a;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.c3d-hint-box {
+  background: rgba(234, 179, 8, 0.14);
+  border-inline-start: 3px solid #facc15;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: #fef9c3;
+}
+
+@media (max-width: 680px) {
+  .c3d-inv-label {
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-height: 520px) {
+  .c3d-inventory-bar {
+    display: none;
+  }
+}
+
+
+/* Shared immersive HUD behavior for all games using Cartoon3DGameShell. */
+.ms-immersive:not(.ms-hud-expanded) > .ms-topbar { display: none !important; }
+.ms-immersive > .ms-session-bar { display: none !important; }
+.ms-immersive.ms-hud-expanded > .ms-topbar {
+  display: flex !important; position: absolute;
+  inset: max(8px, env(safe-area-inset-top, 0px)) 8px auto 8px;
+  z-index: 60; max-height: min(36vh, 250px); overflow: auto;
+  border-radius: 14px; background: rgba(7,18,32,.94);
+  backdrop-filter: blur(16px); box-shadow: 0 12px 36px rgba(0,0,0,.35);
+}
+.ms-immersive-menu-toggle {
+  display: none; position: absolute; z-index: 70;
+  top: max(8px, env(safe-area-inset-top, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); left: auto;
+  width: 42px; height: 34px; border: 1px solid rgba(226,232,240,.5);
+  border-radius: 12px; color: #f8fafc; background: rgba(15,23,42,.78);
+  box-shadow: 0 4px 16px rgba(0,0,0,.25); font-size: 1.25rem;
+  font-weight: 800; cursor: pointer; backdrop-filter: blur(12px);
+}
+.ms-immersive .ms-immersive-menu-toggle { display: block; }
+.ms-immersive .ms-viewport { border-radius: 0; border: 0; }
+@media (max-width: 700px) {
+  .ms-immersive.ms-hud-expanded > .ms-topbar { flex-direction: column; align-items: stretch; max-height: 42vh; }
+  .ms-immersive .ms-joystick-base { width: 94px; height: 94px; }
+}
+
+.ms-immersive .ms-controls-hint-banner { display: none !important; }
+
+
+/* Guaranteed physical LEFT joystick and physical RIGHT action buttons with explicit bottom anchor */
+html body .ms-wrapper .ms-viewport .ms-hud-controls,
+html.bh-gaming body .ms-wrapper.ms-immersive .ms-hud-controls {
+  position: absolute !important;
+  inset: 0 !important;
+  inset-inline: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  direction: ltr !important;
+  display: block !important;
+  pointer-events: none !important;
+  z-index: 18 !important;
+}
+html body .ms-wrapper .ms-viewport .ms-hud-controls .ms-joystick-zone,
+html.bh-gaming body .ms-wrapper.ms-immersive .ms-joystick-zone {
+  position: absolute !important;
+  direction: ltr !important;
+  inset-inline-start: max(14px, env(safe-area-inset-left, 0px)) !important;
+  inset-inline-end: auto !important;
+  left: max(14px, env(safe-area-inset-left, 0px)) !important;
+  right: auto !important;
+  bottom: max(14px, env(safe-area-inset-bottom, 0px)) !important;
+  top: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 5px !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 19 !important;
+}
+html body .ms-wrapper .ms-viewport .ms-hud-controls .ms-action-zone,
+html.bh-gaming body .ms-wrapper.ms-immersive .ms-action-zone {
+  position: absolute !important;
+  direction: ltr !important;
+  inset-inline-start: auto !important;
+  inset-inline-end: max(14px, env(safe-area-inset-right, 0px)) !important;
+  right: max(14px, env(safe-area-inset-right, 0px)) !important;
+  left: auto !important;
+  bottom: max(14px, env(safe-area-inset-bottom, 0px)) !important;
+  top: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 6px !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 19 !important;
+}

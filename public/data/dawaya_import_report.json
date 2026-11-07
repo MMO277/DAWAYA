@@ -1,0 +1,373 @@
+{
+  "reportTitle": "DAWAYA | دوايا — Full Egyptian Medicine Database Import & Audit Report",
+  "generatedAt": "2026-11-06T23:20:00Z",
+  "sourceFileName": "eg_drugs.csv",
+  "sourceFileFormat": "CSV (UTF-8, 25 columns)",
+  "totalRecordsFound": 26562,
+  "successfullyImportedRecords": 26562,
+  "preservedAntibioticMonographs": 32,
+  "preservedAntibioticCommercialPackages": 206,
+  "totalPlatformMedicinesAvailable": 26768,
+  "invalidRecords": 0,
+  "duplicateIdRecords": 0,
+  "duplicateBrandStrengthFormGroups": 8,
+  "duplicateSharedBarcodes": 395,
+  "recordsWithIncompleteInformation": 16860,
+  "recordsRequiringManualReview": 2876,
+  "fullyCompleteVerifiedRecords": 9702,
+  "uniqueActiveIngredientCombinations": 8991,
+  "multiIngredientMedicinesCount": 10212,
+  "uniqueManufacturersCount": 5303,
+  "verifiedPricesCount": 26435,
+  "verifiedBarcodesCount": 10525,
+  "chunkFilesGenerated": 27,
+  "recordsPerChunk": 1000,
+  "missingFieldsBreakdown": {
+    "barcode": 16037,
+    "manufacturer": 310,
+    "active_ingredient": 2758,
+    "category": 1135,
+    "price": 127
+  },
+  "clinicalWarningFlagsBreakdown": {
+    "high_blood_pressure": 3216,
+    "diabetes": 3133,
+    "pregnancy": 7061,
+    "lactation": 4377,
+    "heart": 5298,
+    "kidney": 6228,
+    "liver": 4072
+  },
+  "therapeuticCategoryBreakdown": {
+    "general_medicine": {
+      "count": 6030,
+      "labelAr": "تخصصات دوائية وطبية أخرى",
+      "labelEn": "Other Pharmaceutical Categories"
+    },
+    "vitamins_supplements": {
+      "count": 5489,
+      "labelAr": "الفيتامينات والمكملات الغذائية والمعادن",
+      "labelEn": "Vitamins, Minerals & Supplements"
+    },
+    "dermatology_personal_care": {
+      "count": 3680,
+      "labelAr": "الأدوية الجلدية والعناية الطبية",
+      "labelEn": "Dermatology & Medical Care"
+    },
+    "cardiovascular": {
+      "count": 2359,
+      "labelAr": "أدوية القلب والضغط والكوليسترول والسيولة",
+      "labelEn": "Cardiovascular, Blood Pressure & Statins"
+    },
+    "antibiotics": {
+      "count": 1881,
+      "labelAr": "المضادات الحيوية ومضادات البكتيريا",
+      "labelEn": "Antibiotics & Antibacterials"
+    },
+    "analgesics_antipyretics": {
+      "count": 1574,
+      "labelAr": "المسكنات ومضادات الالتهاب وخافضات الحرارة",
+      "labelEn": "Analgesics, NSAIDs & Antipyretics"
+    },
+    "neurology_psychiatry": {
+      "count": 1286,
+      "labelAr": "أدوية الأعصاب والطب النفسي والمخ",
+      "labelEn": "Neurology & Psychiatry"
+    },
+    "respiratory_cold_allergy": {
+      "count": 1178,
+      "labelAr": "أدوية البرد والكحة والجهاز التنفسي والحساسية",
+      "labelEn": "Cold, Cough, Respiratory & Allergy"
+    },
+    "gastrointestinal": {
+      "count": 867,
+      "labelAr": "أدوية الجهاز الهضمي والمعدة والقولون",
+      "labelEn": "Gastrointestinal & Acid Control"
+    },
+    "anti_infectives": {
+      "count": 688,
+      "labelAr": "مضادات الفيروسات والفطريات والطفيليات",
+      "labelEn": "Antivirals, Antifungals & Antiparasitics"
+    },
+    "oncology_immunology": {
+      "count": 532,
+      "labelAr": "أدوية الأورام والمناعة",
+      "labelEn": "Oncology & Immunology"
+    },
+    "endocrine_diabetes": {
+      "count": 501,
+      "labelAr": "أدوية السكري والغدد الصماء",
+      "labelEn": "Diabetes & Endocrine Medications"
+    },
+    "ophthalmology_ent": {
+      "count": 497,
+      "labelAr": "أدوية العيون والأنف والأذن",
+      "labelEn": "Ophthalmology & ENT"
+    }
+  },
+  "dosageFormBreakdown": {
+    "suspension": 1854,
+    "tablet": 8195,
+    "vial_iv_im": 1645,
+    "sachet": 1285,
+    "topical_cream_ointment": 5507,
+    "oral_drops": 379,
+    "ampoule": 1404,
+    "suppository": 747,
+    "eye_ear_drops": 2379,
+    "capsule": 2790,
+    "infusion": 377
+  },
+  "routeBreakdown": {
+    "oral": 14503,
+    "parenteral_iv_im": 3426,
+    "topical": 5507,
+    "rectal_vaginal": 747,
+    "ophthalmic_otic": 2379
+  },
+  "manualReviewQueueSamples": [
+    {
+      "id": "eg-28",
+      "nameEn": "giraginine syrup 150 ml",
+      "nameAr": "جيراجينين شراب 150 مل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "barcode"
+      ]
+    },
+    {
+      "id": "eg-94",
+      "nameEn": "act hair shampoo 125 ml",
+      "nameAr": "اكت شامبو للشعر 125 مل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "barcode"
+      ]
+    },
+    {
+      "id": "eg-111",
+      "nameEn": "active hair shampoo 250 ml",
+      "nameAr": "اكتيف هير شامبو 250 مل",
+      "missingOrFlagged": [
+        "active_ingredient"
+      ]
+    },
+    {
+      "id": "eg-113",
+      "nameEn": "irunovar 40mg vial 2 ml",
+      "nameAr": "ايرونوفار 40مجم فيال 2 مل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "manufacturer",
+        "barcode",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-132",
+      "nameEn": "ferrobubble syrup 120 ml",
+      "nameAr": "فيروبابل شراب 120 مل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "manufacturer",
+        "barcode",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-134",
+      "nameEn": "calmabubble syrup 120 ml",
+      "nameAr": "كالمابابل شراب 120 مل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "barcode"
+      ]
+    },
+    {
+      "id": "eg-143",
+      "nameEn": "boston xiamanap 30 tabs",
+      "nameAr": "بوسطن زياماناب 30 قرص",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "barcode",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-152",
+      "nameEn": "masytone massage spray 100 ml",
+      "nameAr": "ماسيتون مساج سبراي 100 مل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "manufacturer",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-157",
+      "nameEn": "safe top syrup 120 ml",
+      "nameAr": "سيف توب شراب 120 مل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-161",
+      "nameEn": "panover gel 50 gm",
+      "nameAr": "بانوفير جل 50 جم",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "barcode"
+      ]
+    },
+    {
+      "id": "eg-175",
+      "nameEn": "brain glow syrup 150 ml",
+      "nameAr": "برين جلو شراب 150 مل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "manufacturer",
+        "barcode"
+      ]
+    },
+    {
+      "id": "eg-176",
+      "nameEn": "rashbrush 4 hair serum 100 ml",
+      "nameAr": "راشبروش سيروم للشعر 100 مل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "manufacturer",
+        "barcode",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-179",
+      "nameEn": "جهاز محاليل",
+      "nameAr": "جهاز محاليل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-181",
+      "nameEn": "advic cream 50 gm",
+      "nameAr": "ادفيك كريم 50 جم",
+      "missingOrFlagged": [
+        "active_ingredient"
+      ]
+    },
+    {
+      "id": "eg-182",
+      "nameEn": "talcomeda skin emollient cream 100gm",
+      "nameAr": "تاكلوميدا كريم جلد مرطب 100 جم",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "manufacturer",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-186",
+      "nameEn": "blanka retinol serum 30 ml",
+      "nameAr": "بلانكا ريتينول سيروم 30 مل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "barcode"
+      ]
+    },
+    {
+      "id": "eg-188",
+      "nameEn": "hiderm soap bar 80 gm",
+      "nameAr": "هاي ديرم صابونة 80 جم",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "manufacturer",
+        "barcode",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-189",
+      "nameEn": "dr oxygen monohexal 30 lozenges",
+      "nameAr": "دكتور اوكسيجين مونوهيكسال 30 قرص مستحلب",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "manufacturer",
+        "barcode",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-191",
+      "nameEn": "irunovar 100 mg vial 5 ml",
+      "nameAr": "ايرونوفار 100مجم فيال 5 مل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "manufacturer",
+        "barcode",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-199",
+      "nameEn": "riomove cream 50 gm",
+      "nameAr": "ريوموف كريم 50 جم",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-203",
+      "nameEn": "wellvive bswift 30 tabs",
+      "nameAr": "ويلفايف بسويفت 30 قرص",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "barcode",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-210",
+      "nameEn": "lysmeg oral drops 15 ml",
+      "nameAr": "لايسميج نقط فم 15 مل",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "manufacturer",
+        "barcode",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-215",
+      "nameEn": "cannula i.v. infusion",
+      "nameAr": "كانيولا محاليل وريدية",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-219",
+      "nameEn": "syringe insulin local",
+      "nameAr": "سرنجة انسولين مصري",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "barcode",
+        "category"
+      ]
+    },
+    {
+      "id": "eg-230",
+      "nameEn": "brand cysteine 20 tablets",
+      "nameAr": "براند سيستايين 20 قرص",
+      "missingOrFlagged": [
+        "active_ingredient",
+        "category"
+      ]
+    }
+  ]
+}

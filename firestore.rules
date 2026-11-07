@@ -1,0 +1,257 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid && uid.size() > 0;
+    }
+
+    function isPassportActivelyShared(uid) {
+      return exists(/databases/$(database)/documents/passportShares/$(uid))
+          && get(/databases/$(database)/documents/passportShares/$(uid)).data.expiresAt is number
+          && get(/databases/$(database)/documents/passportShares/$(uid)).data.expiresAt > 0;
+    }
+
+    function validUserDocWrite() {
+      let d = request.resource.data;
+      return (!('schedules' in d) || d.schedules is list)
+          && (!('deletedScheduleIds' in d) || d.deletedScheduleIds is map)
+          && (!('prescriptions' in d) || d.prescriptions is list)
+          && (!('deletedPrescriptionIds' in d) || d.deletedPrescriptionIds is map)
+          && (!('treatmentEvents' in d) || d.treatmentEvents is list)
+          && (!('radarWorkspace' in d) || d.radarWorkspace is map)
+          && (!('healthProfile' in d) || d.healthProfile is map)
+          && (!('medicalDocuments' in d) || d.medicalDocuments is list)
+          && (!('patientAuditLogs' in d) || d.patientAuditLogs is list)
+          && (!('reminders' in d) || d.reminders is list)
+          && (!('learnDone' in d) || d.learnDone is list);
+    }
+
+    function roleDocPath() {
+      return /databases/$(database)/documents/roles/$(request.auth.uid);
+    }
+
+    function userHasRoleIn(allowedRoles) {
+      return isSignedIn()
+          && (
+            (request.auth.token.role is string && request.auth.token.role in allowedRoles)
+            || (exists(roleDocPath()) && (get(roleDocPath()).data.role in allowedRoles))
+          );
+    }
+
+    function isViewer() { return userHasRoleIn(['viewer', 'editor', 'reviewer', 'admin', 'owner']); }
+    function isEditor() { return userHasRoleIn(['editor', 'reviewer', 'admin', 'owner']); }
+    function isReviewer() { return userHasRoleIn(['reviewer', 'admin', 'owner']); }
+    function isAdmin() { return userHasRoleIn(['admin', 'owner']); }
+    function isPlatformOwner() { return userHasRoleIn(['owner']); }
+
+    // ── Existing Collections (Preserved 100%) ──
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin() || isPassportActivelyShared(uid);
+      allow create, update: if isOwner(uid) && validUserDocWrite();
+      allow delete: if isAdmin();
+
+      // Patient-scoped immutable audit logs for AI & manual health record changes
+      match /auditLogs/{logId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isOwner(uid)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.actionType is string
+          && request.resource.data.timestamp is string;
+        allow update, delete: if false;
+      }
+
+      // Patient-scoped medical documents metadata collection
+      match /medicalDocuments/{docId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && request.resource.data.category in ['prescription', 'lab_report', 'medical_report', 'leaflet', 'other']
+          && request.resource.data.fileName is string;
+        allow delete: if isOwner(uid);
+      }
+
+      // Patient-scoped medication reminders collection
+      match /reminders/{reminderId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Patient-scoped 3D games & simulator cloud progress collection
+      match /gameProgress/{gameId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    match /medicines/{id} {
+      allow read: if true;
+      allow create, update: if isEditor() || isReviewer() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── DAWAYA Unified Medicine Catalog & Content Collections ──
+    match /medicines_catalog/{id} {
+      allow read: if true;
+      allow create, update: if isEditor() || isReviewer() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /articles/{id} {
+      allow read: if true;
+      allow create, update: if isEditor() || isReviewer() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /dataSources/{id} {
+      allow read: if isViewer();
+      allow create, update: if isEditor() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /system_config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /roles/{uid} {
+      allow read: if isOwner(uid) || isViewer();
+      allow write: if isAdmin() || isPlatformOwner();
+    }
+
+    match /surveyResponses/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /surveyConfig/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /researchResponses/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /researchConfig/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /assessmentPairs/{id} {
+      allow create, update: if true;
+      allow read, delete: if isAdmin();
+    }
+
+    match /learningAnalytics/{id} {
+      allow create: if true;
+      allow read, delete: if isAdmin();
+      allow update: if false;
+    }
+
+    match /quizResults/{resultId} {
+      allow create: if true;
+      allow read: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // ── Partner Management & Pharmacy Network Collections ──
+
+    // 1. Public Partners Collection (Public reads public partner cards; privateAdmin is strictly separated below)
+    match /partners/{partnerId} {
+      allow read: if true;
+      allow create, update: if isEditor()
+        && request.resource.data.nameAr is string
+        && request.resource.data.nameEn is string;
+      allow delete: if isAdmin();
+    }
+
+    // 2. Private Administrative Partner Records (Strictly protected: NEVER public)
+    match /partnerPrivateAdmin/{partnerId} {
+      allow read: if isViewer();
+      allow create, update: if isEditor();
+      allow delete: if isAdmin();
+    }
+
+    // 3. Dynamic Partner Categories
+    match /partnerCategories/{categoryId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // 4. Partner & Pharmacy Branches
+    match /partnerBranches/{branchId} {
+      allow read: if true;
+      allow create, update: if isEditor();
+      allow delete: if isAdmin();
+    }
+
+    // 5. Partner Service Areas & Visibility Overrides
+    match /partnerServiceAreas/{areaId} {
+      allow read: if true;
+      allow write: if isEditor();
+    }
+
+    match /partnerVisibility/{partnerId} {
+      allow read: if true;
+      allow write: if isReviewer() || isAdmin();
+    }
+
+    // 6. Partner Integrations (Strictly restricted to Admin/Owner)
+    match /partnerIntegrations/{partnerId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // 7. Partner-to-Medication Mappings
+    match /partnerMedicationMappings/{mappingId} {
+      allow read: if true;
+      allow create, update: if isEditor();
+      allow delete: if isEditor();
+    }
+
+    // 8. Partner Promotions
+    match /partnerPromotions/{promoId} {
+      allow read: if (resource.data.active == true) || isViewer();
+      allow write: if isEditor();
+    }
+
+    // 9. Partner Orders & Prescription Tracking
+    match /partnerOrders/{orderId} {
+      allow create: if request.resource.data.patientName is string
+        && request.resource.data.patientPhone is string
+        && request.resource.data.requiresPrescription == true;
+      allow read: if (isSignedIn() && resource.data.userId == request.auth.uid) || isViewer();
+      allow update: if isEditor();
+      allow delete: if isAdmin();
+    }
+
+    // 10. Administrative Audit Logs (Immutable history, never exposed to ordinary users)
+    match /adminAuditLogs/{logId} {
+      allow read: if isReviewer() || isAdmin();
+      allow create: if isEditor();
+      allow update, delete: if false;
+    }
+
+    // ── Smart Patient Passport ──────────────────────────────────────────────────
+
+    // passportShares: المريض يتحكم في مشاركة بطاقته (يسمح بالقراءة للزائر فقط إذا كانت المشاركة مفعّلة ولم تنتهِ صلاحيتها)
+    match /passportShares/{uid} {
+      allow read, write: if isOwner(uid);
+      allow get: if resource.data.expiresAt is number && resource.data.expiresAt > 0;
+    }
+
+    // سجل الوصول — فرعي تحت passportShares
+    match /passportShares/{uid}/accessLogs/{logId} {
+      allow create: if request.resource.data.accessedAt is number
+        && request.resource.data.note is string;
+      allow read: if isOwner(uid);
+      allow update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 100" width="480" height="100" fill="none">
+  <defs>
+    <linearGradient id="dwCyanH" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00BFD0"/>
+      <stop offset="65%" stop-color="#24C8B8"/>
+      <stop offset="100%" stop-color="#9AE8E8"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(4, 2) scale(0.8)">
+    <rect x="4" y="4" width="112" height="112" rx="28" fill="#101E36" stroke="#00BFD0" stroke-width="2.5" stroke-opacity="0.55"/>
+    <path d="M36 32V62C36 78.5685 49.4315 92 66 92C82.5685 92 96 78.5685 96 62C96 45.4315 82.5685 32 66 32H48" stroke="url(#dwCyanH)" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M30 24C34 24 36 27 36 32" stroke="#9AE8E8" stroke-width="6" stroke-linecap="round"/>
+    <path d="M54 24C50 24 48 27 48 32" stroke="#9AE8E8" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="29" cy="24" r="4" fill="#FFFFFF"/>
+    <circle cx="55" cy="24" r="4" fill="#FFFFFF"/>
+    <path d="M48 62H56L61 50L69 74L74 62H82" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="96" cy="62" r="8" fill="#101E36" stroke="#00BFD0" stroke-width="4.5"/>
+    <circle cx="96" cy="62" r="3" fill="#9AE8E8"/>
+  </g>
+  <text x="114" y="48" fill="currentColor" font-family="'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif" font-size="32" font-weight="800" letter-spacing="1.8">DAWAYA</text>
+  <text x="276" y="48" fill="#00BFD0" font-family="'IBM Plex Sans Arabic', system-ui, sans-serif" font-size="30" font-weight="700">|</text>
+  <text x="296" y="48" fill="#24C8B8" font-family="'IBM Plex Sans Arabic', Tahoma, sans-serif" font-size="32" font-weight="800">دوايا</text>
+  <text x="116" y="76" fill="#00BFD0" font-family="'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif" font-size="14" font-weight="600" letter-spacing="0.5">Your Health. Smarter. • صحتك.. بذكاء أكتر</text>
+</svg>

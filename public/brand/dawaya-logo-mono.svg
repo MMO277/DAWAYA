@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 100" width="480" height="100" fill="none">
+  <g transform="translate(4, 2) scale(0.8)">
+    <rect x="4" y="4" width="112" height="112" rx="28" fill="#101E36"/>
+    <path d="M36 32V62C36 78.5685 49.4315 92 66 92C82.5685 92 96 78.5685 96 62C96 45.4315 82.5685 32 66 32H48" stroke="#FFFFFF" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M30 24C34 24 36 27 36 32" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+    <path d="M54 24C50 24 48 27 48 32" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="29" cy="24" r="4" fill="#FFFFFF"/>
+    <circle cx="55" cy="24" r="4" fill="#FFFFFF"/>
+    <path d="M48 62H56L61 50L69 74L74 62H82" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="96" cy="62" r="8" fill="#101E36" stroke="#FFFFFF" stroke-width="4.5"/>
+  </g>
+  <text x="114" y="48" fill="#101E36" font-family="'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif" font-size="32" font-weight="800" letter-spacing="1.8">DAWAYA | دوايا</text>
+  <text x="116" y="76" fill="#101E36" font-family="'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif" font-size="14" font-weight="600">Your Health. Smarter. • صحتك.. بذكاء أكتر</text>
+</svg>

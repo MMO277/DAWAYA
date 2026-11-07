@@ -1,0 +1,626 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   UPDATE 56 — TWO-CHARACTER CARTOON LOGOUT ANIMATION (DOOR PUSH & ABYSS FALL)
+   Exact 3.0s 4-Scene Storyboard:
+   - Scene 1 (0.0s – 0.6s | 0% – 20%): Character 1 approaches & opens door to deep cyan abyss
+   - Scene 2 (0.6s – 1.2s | 20% – 40%): Character 2 appears behind & pushes Character 1 (surprised reaction)
+   - Scene 3 (1.2s – 2.2s | 40% – 73.3%): Character 1 grabs doorframe, then falls into abyss with particles; Character 2 peers in
+   - Scene 4 (2.2s – 3.0s | 73.3% – 100%): Character 1 vanishes into abyss, Character 2 closes door, "See you soon!"
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.logout-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 35%, rgba(8, 45, 62, 0.85) 0%, rgba(3, 12, 20, 0.92) 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  animation: logoutFadeIn 0.25s ease-out forwards;
+}
+
+.logout-backdrop.is-fading-out {
+  animation: logoutFadeOut 0.38s ease-in forwards;
+}
+
+@keyframes logoutFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes logoutFadeOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.97); }
+}
+
+/* Scene container: the animation itself is the only visible content */
+.logout-scene {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: auto;
+  animation: logoutCardPop 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes logoutCardPop {
+  0% { transform: scale(0.96); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Visually hidden status text for screen readers */
+.logout-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Icon-only corner controls (sound / skip) */
+.logout-corner-controls {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  inset-inline-end: max(10px, env(safe-area-inset-right));
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.logout-icon-btn {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(94, 234, 212, 0.25);
+  background: rgba(4, 19, 29, 0.55);
+  color: #e2f8fa;
+  font-size: 1.05rem;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 0.16s ease, background 0.16s ease;
+}
+
+.logout-icon-btn:hover {
+  opacity: 1;
+  background: rgba(23, 184, 196, 0.25);
+}
+
+.logout-icon-btn:focus-visible {
+  opacity: 1;
+  outline: 2px solid #22d3ee;
+  outline-offset: 2px;
+}
+
+/* Error recovery panel (only rendered when sign-out fails) */
+.logout-card {
+  width: 100%;
+  max-width: 400px;
+  background: linear-gradient(165deg, #ffffff 0%, #f1f8fa 100%);
+  color: #0f172a;
+  border-radius: 20px;
+  padding: 16px 18px;
+  text-align: center;
+  box-shadow: 0 18px 44px -10px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(23, 184, 196, 0.3);
+}
+
+[data-theme='dark'] .logout-card {
+  background: linear-gradient(165deg, #0d2636 0%, #071622 100%);
+  color: #f8fafc;
+}
+
+/* ──────────────────────────────────────────────────────────
+   CINEMATIC 2D CARTOON STAGE
+   Fixed LTR coordinate system inside SVG so character positions
+   toward the door never flip or misalign between RTL and LTR
+   ────────────────────────────────────────────────────────── */
+.logout-stage {
+  position: relative;
+  width: min(94vw, 760px);
+  max-height: 78dvh;
+  aspect-ratio: 380 / 225;
+  margin: 0 auto;
+  direction: ltr;
+  background: radial-gradient(ellipse at 68% 48%, rgba(23, 184, 196, 0.18) 0%, rgba(8, 35, 50, 0.9) 62%, rgba(4, 19, 29, 0) 100%);
+  overflow: hidden;
+  /* soft vignette edges instead of a bordered box */
+  -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 62%, transparent 100%);
+  mask-image: radial-gradient(ellipse at 50% 50%, #000 62%, transparent 100%);
+}
+
+.logout-stage-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ──────────────────────────────────────────────────────────
+   SCENE 1 & 4: THE DOOR & DEEP CYAN ABYSS (0–0.6s open, 2.35–2.75s close)
+   Door hinge is on the right edge of the doorframe (x=298, y=38..188)
+   ────────────────────────────────────────────────────────── */
+.abyss-portal-glow {
+  opacity: 0;
+  transform-origin: 256px 113px;
+}
+
+.logout-animated .abyss-portal-glow {
+  animation: abyssPortalPulse 3s ease-in-out forwards;
+}
+
+@keyframes abyssPortalPulse {
+  0%, 7% { opacity: 0; transform: scale(0.85); }
+  18%, 78% { opacity: 1; transform: scale(1); }
+  90%, 100% { opacity: 0; transform: scale(0.85); }
+}
+
+/* Swirling depth rings inside the abyss */
+.abyss-ring-1,
+.abyss-ring-2,
+.abyss-ring-3 {
+  transform-origin: 256px 120px;
+}
+
+.logout-animated .abyss-ring-1 {
+  animation: abyssDepthPulse 1.1s linear infinite;
+}
+.logout-animated .abyss-ring-2 {
+  animation: abyssDepthPulse 1.1s linear 0.36s infinite;
+}
+.logout-animated .abyss-ring-3 {
+  animation: abyssDepthPulse 1.1s linear 0.72s infinite;
+}
+
+@keyframes abyssDepthPulse {
+  0% { transform: scale(1); opacity: 0.75; }
+  100% { transform: scale(0.22); opacity: 0; }
+}
+
+/* Falling cyan particles inside the abyss during Scene 3 */
+.abyss-particles {
+  opacity: 0;
+}
+
+.logout-animated .abyss-particles {
+  animation: abyssParticlesFlow 3s linear forwards;
+}
+
+@keyframes abyssParticlesFlow {
+  0%, 36% { opacity: 0; transform: translateY(-14px); }
+  45% { opacity: 1; transform: translateY(0px); }
+  74% { opacity: 0.9; transform: translateY(28px); }
+  82%, 100% { opacity: 0; transform: translateY(42px); }
+}
+
+/* Distant sparkle flash at the bottom of the abyss when Character 1 vanishes (2.2s / 73.3%) */
+.abyss-vanish-sparkle {
+  opacity: 0;
+  transform-origin: 258px 146px;
+}
+
+.logout-animated .abyss-vanish-sparkle {
+  animation: vanishSparklePop 3s ease-out forwards;
+}
+
+@keyframes vanishSparklePop {
+  0%, 70% { opacity: 0; transform: scale(0.1) rotate(0deg); }
+  74% { opacity: 1; transform: scale(1.35) rotate(45deg); }
+  80% { opacity: 0.8; transform: scale(0.9) rotate(90deg); }
+  85%, 100% { opacity: 0; transform: scale(0.1) rotate(135deg); }
+}
+
+/* Door Leaf Opening (0.18s–0.58s) and Closing (2.35s–2.75s)
+   Simulated 3D perspective swing anchored at right jamb x=298 */
+.door-leaf-group {
+  transform-origin: 298px 113px;
+}
+
+.logout-animated .door-leaf-group {
+  animation: doorSwingSequence 3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes doorSwingSequence {
+  0%, 6% {
+    /* Closed door */
+    transform: scaleX(1) skewY(0deg);
+  }
+  19%, 77% {
+    /* Swung wide open to the right, revealing the abyss */
+    transform: scaleX(0.22) skewY(-14deg);
+  }
+  91%, 100% {
+    /* Character 2 closes the door firmly at the end */
+    transform: scaleX(1) skewY(0deg);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────
+   CHARACTER 1 (HERO CAPSULE PILL):
+   - Scene 1 (0–20%): Walks to door & grabs handle
+   - Scene 2 (20–40%): Gets pushed from behind & reacts in shock
+   - Scene 3 (40–49%): Grabs doorframe on tiptoe, then (49–73.3%) plunges & spins into the abyss
+   - Scene 4 (73.3–100%): Disappears into the deep abyss
+   ────────────────────────────────────────────────────────── */
+.char1-group {
+  transform-origin: 165px 145px;
+}
+
+.logout-animated .char1-group {
+  animation: char1StorySequence 3s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+
+@keyframes char1StorySequence {
+  /* Scene 1 (0.0s - 0.6s | 0% - 20%): Approaches door & reaches for handle */
+  0% {
+    transform: translate(-34px, 0px) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  8% {
+    transform: translate(-14px, -4px) rotate(3deg) scale(1);
+    opacity: 1;
+  }
+  16%, 24% {
+    /* At the doorway threshold, opening door */
+    transform: translate(8px, 0px) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  /* Scene 2 (0.6s - 1.2s | 20% - 40%): Pushed by Character 2! */
+  29% {
+    /* Impact of the push! Jolts forward with exaggerated surprise */
+    transform: translate(34px, -10px) rotate(18deg) scale(1.05, 0.95);
+    opacity: 1;
+  }
+  38% {
+    /* Lurches to the edge of the open doorway */
+    transform: translate(58px, -6px) rotate(28deg) scale(1);
+    opacity: 1;
+  }
+  /* Scene 3 Part A (1.2s - 1.47s | 40% - 49%): Briefly grabs doorframe & teeters! */
+  43% {
+    transform: translate(66px, -4px) rotate(34deg) scale(1);
+    opacity: 1;
+  }
+  48% {
+    transform: translate(70px, -2px) rotate(42deg) scale(0.98);
+    opacity: 1;
+    /* gravity: accelerate once the grip is lost */
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6);
+  }
+  /* Scene 3 Part B (1.47s - 2.2s | 49% - 73.3%): Loses grip & plunges into the abyss! */
+  56% {
+    transform: translate(84px, -14px) rotate(145deg) scale(0.76);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.45, 0, 0.85, 0.7);
+  }
+  65% {
+    transform: translate(92px, 6px) rotate(320deg) scale(0.42);
+    opacity: 0.92;
+    animation-timing-function: ease-in;
+  }
+  73% {
+    /* Deep inside the abyss */
+    transform: translate(94px, 22px) rotate(520deg) scale(0.08);
+    opacity: 0;
+  }
+  /* Scene 4 (2.2s - 3.0s | 73.3% - 100%): Gone in the abyss */
+  100% {
+    transform: translate(94px, 26px) rotate(540deg) scale(0.02);
+    opacity: 0;
+  }
+}
+
+/* Character 1 Facial Expressions & Shock Badge */
+.char1-face-calm {
+  opacity: 1;
+}
+.char1-face-shock {
+  opacity: 0;
+}
+.char1-shock-badge {
+  opacity: 0;
+  transform-origin: 165px 82px;
+}
+
+.logout-animated .char1-face-calm {
+  animation: char1CalmToggle 3s forwards;
+}
+.logout-animated .char1-face-shock {
+  animation: char1ShockToggle 3s forwards;
+}
+.logout-animated .char1-shock-badge {
+  animation: char1ShockBadgePop 3s ease-out forwards;
+}
+
+@keyframes char1CalmToggle {
+  0%, 27% { opacity: 1; }
+  28%, 100% { opacity: 0; }
+}
+
+@keyframes char1ShockToggle {
+  0%, 27% { opacity: 0; }
+  28%, 100% { opacity: 1; }
+}
+
+@keyframes char1ShockBadgePop {
+  0%, 27% { opacity: 0; transform: scale(0.2) translateY(8px); }
+  31% { opacity: 1; transform: scale(1.25) translateY(-6px); }
+  46% { opacity: 1; transform: scale(1) translateY(-8px); }
+  54%, 100% { opacity: 0; transform: scale(0.4) translateY(-16px); }
+}
+
+/* Character 1 Arm reaching for handle (Scene 1) then grabbing doorframe (Scene 3) */
+.char1-right-arm {
+  transform-origin: 184px 142px;
+}
+
+.logout-animated .char1-right-arm {
+  animation: char1ArmMotion 3s ease-in-out forwards;
+}
+
+@keyframes char1ArmMotion {
+  0%, 8% { transform: rotate(0deg); }
+  14%, 24% { transform: rotate(-38deg); } /* grabs door handle */
+  30%, 48% { transform: rotate(-65deg) scaleX(1.25); } /* desperately grabs doorframe! */
+  55%, 73% { transform: rotate(120deg); } /* flails in abyss */
+  100% { transform: rotate(0deg); }
+}
+
+/* ──────────────────────────────────────────────────────────
+   CHARACTER 2 (CHEEKY ROUND TABLET BUDDY):
+   - Scene 1 (0–20%): Hidden off-stage left
+   - Scene 2 (20–40%): Appears behind Character 1 & pushes Character 1 toward doorway
+   - Scene 3 (40–73.3%): Stays at doorway threshold & peers down into the abyss humorously
+   - Scene 4 (73.3–100%): Closes the door & waves goodbye
+   ────────────────────────────────────────────────────────── */
+.char2-group {
+  transform-origin: 95px 154px;
+}
+
+.logout-animated .char2-group {
+  animation: char2StorySequence 3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes char2StorySequence {
+  /* Scene 1 (0.0s - 0.6s | 0% - 20%): Waiting off-stage left */
+  0%, 17% {
+    transform: translate(-95px, 0px) rotate(0deg);
+    opacity: 0;
+  }
+  /* Scene 2 (0.6s - 1.2s | 20% - 40%): Sneaks in behind Character 1 & pushes! */
+  23% {
+    transform: translate(12px, -4px) rotate(-6deg);
+    opacity: 1;
+  }
+  28%, 35% {
+    /* Lunges forward to push Character 1! */
+    transform: translate(48px, 0px) rotate(14deg) scale(1.06, 0.95);
+    opacity: 1;
+  }
+  40% {
+    transform: translate(56px, 0px) rotate(4deg);
+    opacity: 1;
+  }
+  /* Scene 3 (1.2s - 2.2s | 40% - 73.3%): Steps to doorway & leans forward looking down into abyss */
+  50%, 72% {
+    transform: translate(92px, 2px) rotate(16deg);
+    opacity: 1;
+  }
+  /* Scene 4 (2.2s - 3.0s | 73.3% - 100%): Steps back slightly, pulls door shut & grins */
+  82%, 100% {
+    transform: translate(76px, 0px) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Character 2 Pushing Arms */
+.char2-arms {
+  transform-origin: 112px 150px;
+}
+
+.logout-animated .char2-arms {
+  animation: char2ArmsPush 3s ease-in-out forwards;
+}
+
+@keyframes char2ArmsPush {
+  0%, 24% { transform: translateX(0px) rotate(0deg); }
+  28%, 36% { transform: translateX(14px) rotate(-18deg) scaleX(1.2); } /* Push! */
+  48%, 72% { transform: translateX(6px) translateY(-14px) rotate(-32deg); } /* Hand over brow peering down */
+  80%, 90% { transform: translateX(10px) rotate(-10deg); } /* Pulls door closed */
+  92%, 100% { transform: translateX(0px) rotate(0deg); }
+}
+
+/* Playful Push Impact Ring ("BOOP!") at 0.84s (28%) */
+.push-impact-burst {
+  opacity: 0;
+  transform-origin: 152px 146px;
+}
+
+.logout-animated .push-impact-burst {
+  animation: pushBurstPop 3s ease-out forwards;
+}
+
+@keyframes pushBurstPop {
+  0%, 26% { opacity: 0; transform: scale(0.2); }
+  29% { opacity: 1; transform: scale(1.15); }
+  37% { opacity: 0.7; transform: scale(1.4); }
+  41%, 100% { opacity: 0; transform: scale(1.6); }
+}
+
+/* Error panel text */
+.logout-title {
+  font-size: 1.22rem;
+  font-weight: 800;
+  margin: 0 0 6px;
+  color: inherit;
+}
+
+.logout-subtitle {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+[data-theme='dark'] .logout-subtitle {
+  color: #94a3b8;
+}
+
+/* Action Buttons for Error Recovery */
+.logout-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.logout-btn-primary {
+  background: linear-gradient(135deg, #17b8c4, #0e9aa7);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 8px 18px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-height: 40px;
+  transition: all 0.15s ease;
+}
+
+.logout-btn-primary:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.logout-btn-secondary {
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(100, 116, 139, 0.35);
+  border-radius: 12px;
+  padding: 8px 18px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-height: 40px;
+  transition: all 0.15s ease;
+}
+
+.logout-btn-secondary:hover {
+  background: rgba(100, 116, 139, 0.12);
+}
+
+/* Responsive Mobile Refinements */
+@media (max-width: 480px) {
+  .logout-stage {
+    width: 100vw;
+    -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 70%, transparent 100%);
+    mask-image: radial-gradient(ellipse at 50% 50%, #000 70%, transparent 100%);
+  }
+  .logout-card {
+    padding: 14px;
+    border-radius: 18px;
+  }
+  .logout-title {
+    font-size: 1.12rem;
+  }
+  .logout-subtitle {
+    font-size: 0.84rem;
+    margin-bottom: 8px;
+  }
+}
+
+@media (max-height: 540px) {
+  .logout-stage {
+    max-height: 70dvh;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────
+   DEPTH: ground shadows that stay on the floor, and light spilling
+   from the doorway. Timings mirror the character/door keyframes.
+   ────────────────────────────────────────────────────────── */
+.char1-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.char2-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+}
+
+.logout-animated .char1-shadow {
+  animation: char1ShadowTrack 3s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+.logout-animated .char2-shadow {
+  animation: char2ShadowTrack 3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes char1ShadowTrack {
+  0% { transform: translateX(-34px); opacity: 1; }
+  8% { transform: translateX(-14px); opacity: 1; }
+  16%, 24% { transform: translateX(8px); opacity: 1; }
+  29% { transform: translateX(34px) scale(0.82); opacity: 0.7; } /* airborne from the push */
+  38% { transform: translateX(58px) scale(0.9); opacity: 0.85; }
+  48% { transform: translateX(70px) scale(0.9); opacity: 0.85; }
+  58%, 100% { transform: translateX(84px) scale(0.3); opacity: 0; } /* gone over the edge */
+}
+
+@keyframes char2ShadowTrack {
+  0%, 17% { transform: translateX(-95px); opacity: 0; }
+  23% { transform: translateX(12px); opacity: 1; }
+  28%, 35% { transform: translateX(48px) scale(1.06, 0.95); opacity: 1; }
+  40% { transform: translateX(56px); opacity: 1; }
+  50%, 72% { transform: translateX(92px); opacity: 1; }
+  82%, 100% { transform: translateX(76px); opacity: 1; }
+}
+
+.doorway-light-spill {
+  opacity: 0;
+}
+
+.logout-animated .doorway-light-spill {
+  animation: doorwaySpill 3s ease-in-out forwards;
+}
+
+@keyframes doorwaySpill {
+  0%, 6% { opacity: 0; }
+  19%, 77% { opacity: 1; }
+  91%, 100% { opacity: 0; }
+}
+
+/* Reduced Motion Preference: Short, calm transition without spinning/falling */
+@media (prefers-reduced-motion: reduce) {
+  .logout-scene,
+  .logout-backdrop,
+  .logout-animated .abyss-portal-glow,
+  .logout-animated .abyss-ring-1,
+  .logout-animated .abyss-ring-2,
+  .logout-animated .abyss-ring-3,
+  .logout-animated .abyss-particles,
+  .logout-animated .abyss-vanish-sparkle,
+  .logout-animated .door-leaf-group,
+  .logout-animated .char1-group,
+  .logout-animated .char2-group,
+  .logout-animated .char1-right-arm,
+  .logout-animated .char2-arms,
+  .logout-animated .char1-shadow,
+  .logout-animated .char2-shadow,
+  .logout-animated .doorway-light-spill,
+  .logout-animated .push-impact-burst {
+    animation: none !important;
+    transition: none !important;
+  }
+}
