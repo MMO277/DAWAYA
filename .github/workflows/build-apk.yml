@@ -120,7 +120,7 @@ jobs:
           ]
           existing = [p for p in candidates if os.path.exists(p)]
           if existing:
-              existing.sort(key=lambda p: (os.path.getmtime(p), "512" in p), reverse=True)
+              existing.sort(key=lambda p: ("512" in p, os.path.getmtime(p)), reverse=True)
               src_icon = existing[0]
               print("Using source icon:", src_icon)
               im = Image.open(src_icon).convert("RGBA")
