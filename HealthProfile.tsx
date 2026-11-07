@@ -23,8 +23,13 @@ import {
   savePassportPhotoUrl,
   getPassportPhotoUrl,
   syncProfileToPassportShare,
+  getOrCreateGuestPassportId,
+  buildPassportUrl,
+  generateOfflineQrDataUrl,
+  renderDawayaMedicalIdCardPngBlob,
   PassportShare,
 } from './passportService';
+import { DawayaPassportCardUI } from './SmartPassport';
 import {
   useSyncedSchedules,
   calculateScheduleProgress,
@@ -71,11 +76,13 @@ export default function HealthProfile() {
     syncStatus: journeySyncStatus,
   } = useSyncedSchedules();
 
-  // ── Passport states ──────────────────────────────────────────────────────────
+  // ── Passport states (Supports both Authenticated Users & Guest Mode) ──────────
+  const effectiveUid = user?.uid || getOrCreateGuestPassportId();
   const [passportPhoto, setPassportPhoto] = useState('');
   const [passportPhotoLoading, setPassportPhotoLoading] = useState(false);
   const [passportShare, setPassportShare] = useState<PassportShare | null>(null);
   const [passportLoading, setPassportLoading] = useState(true);
+  const [passportQrDataUrl, setPassportQrDataUrl] = useState('');
   // PIN محفوظ مرة واحدة
   const [savedPin, setSavedPin] = useState('');
   const [pinInput, setPinInput] = useState('');
@@ -91,42 +98,42 @@ export default function HealthProfile() {
 
   // تحميل بيانات البطاقة ومزامنة الملف الصحي والجداول تلقائياً
   useEffect(() => {
-    if (!user) { setPassportLoading(false); return; }
+    setPassportLoading(true);
     Promise.all([
-      getPassportShare(user.uid),
-      getPassportPhotoUrl(user.uid),
+      getPassportShare(effectiveUid),
+      getPassportPhotoUrl(effectiveUid),
     ]).then(([s, photo]) => {
       setPassportShare(s);
       if (s?.pin) setSavedPin(s.pin);
       setPassportPhoto(photo || s?.photoUrl || '');
       setPassportLoading(false);
     });
-  }, [user]);
+  }, [effectiveUid]);
 
   useEffect(() => {
-    if (!user || syncing) return;
-    void syncProfileToPassportShare(user.uid, profile, {
+    if (syncing) return;
+    void syncProfileToPassportShare(effectiveUid, profile, {
       schedules,
       prescriptions,
-      authDisplayName: user.displayName || '',
-      authEmail: user.email || '',
+      authDisplayName: user?.displayName || profile.displayName || '',
+      authEmail: user?.email || '',
     });
-  }, [user, syncing, profile, schedules, prescriptions]);
+  }, [effectiveUid, user, syncing, profile, schedules, prescriptions]);
 
   const handlePassportPhoto = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
     setPassportPhotoLoading(true);
     try {
-      const url = await uploadPassportPhoto(user.uid, file);
-      await savePassportPhotoUrl(user.uid, url);
+      const url = await uploadPassportPhoto(effectiveUid, file);
+      await savePassportPhotoUrl(effectiveUid, url);
       setPassportPhoto(url);
     } catch {
       alert(isAr ? 'فشل رفع الصورة. حاول مرة أخرى.' : 'Photo upload failed. Please try again.');
     } finally {
       setPassportPhotoLoading(false);
     }
-  }, [user, isAr]);
+  }, [effectiveUid, isAr]);
 
   const passportChronicList: string[] = (() => {
     if (profile.chronicConditions && profile.chronicConditions.length > 0) {
@@ -181,17 +188,29 @@ export default function HealthProfile() {
     });
   };
 
+  const passportUrl = buildPassportUrl(effectiveUid, profile, savedPin);
+
+  useEffect(() => {
+    let active = true;
+    generateOfflineQrDataUrl(passportUrl, 200).then((url) => {
+      if (active) setPassportQrDataUrl(url);
+    });
+    return () => {
+      active = false;
+    };
+  }, [passportUrl]);
+
   // حفظ PIN جديد وتفعيل البطاقة فوراً بكامل البيانات
   const handleSavePin = async () => {
-    if (!user || pinInput.length < 4) return;
+    if (pinInput.length < 4) return;
     setPinSaving(true);
-    await sharePassport(user.uid, pinInput, passportHours || 24, profile, {
+    await sharePassport(effectiveUid, pinInput, passportHours || 24, profile, {
       schedules,
       prescriptions,
-      authDisplayName: user.displayName || '',
-      authEmail: user.email || '',
+      authDisplayName: user?.displayName || profile.displayName || '',
+      authEmail: user?.email || '',
     });
-    const s = await getPassportShare(user.uid);
+    const s = await getPassportShare(effectiveUid);
     setPassportShare(s);
     setSavedPin(pinInput);
     setPinInput('');
@@ -199,30 +218,29 @@ export default function HealthProfile() {
     setPinSaving(false);
     setShareSuccess(
       isAr
-        ? '✅ تم حفظ الـ PIN وتفعيل البطاقة ومزامنة جميع بياناتك الصحية للـ QR!'
-        : '✅ PIN saved, passport activated, and all health records synced to QR!'
+        ? '✅ تم حفظ الـ PIN وتفعيل الكارت الطبي ومزامنة جميع بياناتك الصحية للـ QR!'
+        : '✅ PIN saved, Medical ID activated, and all health records synced to QR!'
     );
     setTimeout(() => setShareSuccess(''), 4000);
   };
 
   // تفعيل المشاركة بالـ PIN المحفوظ وتحديث البيانات
   const handlePassportShare = async () => {
-    if (!user || !savedPin) return;
+    if (!savedPin) return;
     setPassportSharing(true);
-    await sharePassport(user.uid, savedPin, passportHours || 24, profile, {
+    await sharePassport(effectiveUid, savedPin, passportHours || 24, profile, {
       schedules,
       prescriptions,
-      authDisplayName: user.displayName || '',
-      authEmail: user.email || '',
+      authDisplayName: user?.displayName || profile.displayName || '',
+      authEmail: user?.email || '',
     });
-    const s = await getPassportShare(user.uid);
+    const s = await getPassportShare(effectiveUid);
     setPassportShare(s);
     setPassportSharing(false);
   };
 
   const handlePassportRevoke = async () => {
-    if (!user) return;
-    await revokePassport(user.uid);
+    await revokePassport(effectiveUid);
     setPassportShare(null);
   };
 
@@ -230,151 +248,51 @@ export default function HealthProfile() {
   const handleShareLink = () => {
     if (navigator.share) {
       navigator.share({
-        title: isAr ? 'بطاقتي الصحية' : 'My Health Passport',
-        text: isAr ? 'بطاقتي الصحية الذكية — الـ PIN مطلوب للوصول' : 'My Smart Health Passport — PIN required',
+        title: isAr ? 'الكارت الطبي الذكي — دوايا | DAWAYA' : 'DAWAYA Smart Medical ID',
+        text: isAr ? 'بطاقتي الصحية الذكية للطوارئ والعيادات' : 'My Smart Medical ID & Passport',
         url: passportUrl,
       });
     } else {
       navigator.clipboard.writeText(passportUrl);
-      setShareSuccess(isAr ? '✅ تم نسخ الرابط!' : '✅ Link copied!');
+      setShareSuccess(isAr ? '✅ تم نسخ الرابط الطبي!' : '✅ Medical ID link copied!');
       setTimeout(() => setShareSuccess(''), 3000);
     }
   };
 
-  // بناء صورة البطاقة بـ Canvas مباشرة بدون html2canvas
+  // بناء وتنزيل صورة الكارت الطبي بدقة عالية بهوية DAWAYA
   const handleShareImage = async () => {
-    if (!user) return;
     try {
-      const canvas = document.createElement('canvas');
-      const W = 800; const H = 450;
-      canvas.width = W; canvas.height = H;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('no ctx');
-
-      const grad = ctx.createLinearGradient(0, 0, W, H);
-      grad.addColorStop(0, '#0b3c5d');
-      grad.addColorStop(0.55, '#1565a8');
-      grad.addColorStop(1, '#0ea5e9');
-      ctx.fillStyle = grad;
-      ctx.roundRect(0, 0, W, H, 28);
-      ctx.fill();
-
-      ctx.fillStyle = 'rgba(255,255,255,0.06)';
-      ctx.beginPath(); ctx.arc(W + 60, -60, 200, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(-50, H + 50, 160, 0, Math.PI * 2); ctx.fill();
-
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
-      ctx.roundRect(32, 28, W - 64, 54, 12); ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 20px system-ui';
-      ctx.fillText('🏥  Antibiotic Awareness — SMART PATIENT PASSPORT', 52, 62);
-
-      ctx.font = 'bold 32px system-ui';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(profile.displayName || 'Patient', 200, 140);
-
-      ctx.font = '18px system-ui';
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillText(`${isAr ? 'العمر' : 'Age'}: ${profile.age || '—'}`, 200, 172);
-      ctx.fillText(`${isAr ? 'النوع' : 'Gender'}: ${profile.gender === 'male' ? (isAr ? 'ذكر' : 'Male') : profile.gender === 'female' ? (isAr ? 'أنثى' : 'Female') : '—'}`, 200, 198);
-
-      ctx.fillStyle = '#e74c3c';
-      ctx.roundRect(200, 212, 120, 36, 8); ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 18px system-ui';
-      ctx.fillText(`🩸 ${profile.bloodType || '?'}`, 216, 235);
-
-      if (profile.allergies.length > 0) {
-        ctx.fillStyle = '#f59e0b';
-        ctx.roundRect(332, 212, 160, 36, 8); ctx.fill();
-        ctx.fillStyle = '#1c1917';
-        ctx.font = 'bold 16px system-ui';
-        ctx.fillText(`⚠️ ${profile.allergies.length} ${isAr ? 'حساسية' : 'Allergies'}`, 348, 235);
-      }
-
-      if (passportPhoto) {
-        try {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          await new Promise<void>((res, rej) => {
-            img.onload = () => res();
-            img.onerror = () => rej();
-            img.src = passportPhoto;
-          });
-          ctx.save();
-          ctx.beginPath();
-          ctx.roundRect(36, 100, 140, 168, 12);
-          ctx.clip();
-          ctx.drawImage(img, 36, 100, 140, 168);
-          ctx.restore();
-          ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-          ctx.lineWidth = 2;
-          ctx.roundRect(36, 100, 140, 168, 12);
-          ctx.stroke();
-        } catch { /* صورة مش متاحة */ }
-      } else {
-        ctx.fillStyle = 'rgba(255,255,255,0.12)';
-        ctx.roundRect(36, 100, 140, 168, 12); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.font = '56px system-ui';
-        ctx.fillText('👤', 62, 200);
-      }
-
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(passportUrl)}&margin=6&color=0b3c5d`;
-      try {
-        const qrImg = new Image();
-        qrImg.crossOrigin = 'anonymous';
-        await new Promise<void>((res, rej) => {
-          qrImg.onload = () => res();
-          qrImg.onerror = () => rej();
-          qrImg.src = qrUrl;
+      const blob = await renderDawayaMedicalIdCardPngBlob({
+        uid: effectiveUid,
+        profile,
+        photoUrl: passportPhoto,
+        qrDataUrl: passportQrDataUrl,
+        passportUrl,
+        isAr,
+      });
+      if (!blob) throw new Error('Failed to render card');
+      const file = new File([blob], 'DAWAYA-Medical-ID.png', { type: 'image/png' });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: isAr ? 'الكارت الطبي الذكي — دوايا | DAWAYA' : 'DAWAYA Smart Medical ID',
         });
-        ctx.fillStyle = '#fff';
-        ctx.roundRect(W - 188, 100, 152, 152, 10); ctx.fill();
-        ctx.drawImage(qrImg, W - 184, 104, 144, 144);
-      } catch { /* QR مش اتحمل */ }
-
-      ctx.fillStyle = 'rgba(255,255,255,0.1)';
-      ctx.roundRect(32, H - 56, W - 64, 34, 8); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.font = '13px monospace';
-      ctx.fillText(`ID: ${user.uid.slice(0,8).toUpperCase()} ${user.uid.slice(8,16).toUpperCase()}`, 48, H - 33);
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.font = '13px system-ui';
-      ctx.textAlign = 'right';
-      ctx.fillText(`💊 ${profile.medications.filter(m => m.status === 'active').length} ${isAr ? 'دواء نشط' : 'Active Meds'}`, W - 48, H - 33);
-      ctx.textAlign = 'left';
-
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], 'health-passport.png', { type: 'image/png' });
-        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: isAr ? 'بطاقتي الصحية الذكية' : 'My Smart Health Passport',
-          });
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = 'health-passport.png'; a.click();
-          URL.revokeObjectURL(url);
-          setShareSuccess(isAr ? '✅ تم تنزيل البطاقة!' : '✅ Passport downloaded!');
-          setTimeout(() => setShareSuccess(''), 3000);
-        }
-      }, 'image/png');
-
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `DAWAYA-Medical-ID-${(profile.displayName || effectiveUid).slice(0, 12)}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setShareSuccess(isAr ? '✅ تم تنزيل الكارت الطبي كصورة PNG!' : '✅ Medical ID downloaded as PNG!');
+        setTimeout(() => setShareSuccess(''), 3000);
+      }
     } catch {
-      setShareSuccess(isAr ? '⚠️ التقط screenshot للبطاقة' : '⚠️ Take a screenshot instead');
+      setShareSuccess(isAr ? '⚠️ يمكنك طباعة الكارت أو التقاط صورة للشاشة' : '⚠️ Print the card or take a screenshot');
       setTimeout(() => setShareSuccess(''), 4000);
     }
   };
 
-  const passportUrl = user
-    ? `${window.location.origin}${window.location.pathname}#/passport/${user.uid}`
-    : '';
-  const passportQrSrc = user
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(passportUrl)}&margin=8&color=0b3c5d`
-    : '';
   const passportIsActive = Boolean(passportShare && passportShare.pin && passportShare.expiresAt > 0 && Date.now() < passportShare.expiresAt);
   const passportRemaining = passportShare ? Math.max(0, Math.round((passportShare.expiresAt - Date.now()) / 60000)) : 0;
 
@@ -620,11 +538,22 @@ export default function HealthProfile() {
 
       {/* Personal Identity Card */}
       <section className="card stack">
-        <div className="card-head-row">
+        <div className="card-head-row" style={{ flexWrap: 'wrap', gap: '8px' }}>
           <h2>📋 {isAr ? 'البيانات الشخصية والحيوية للمريض:' : 'Patient Details & Vitals:'}</h2>
-          <button type="button" className="btn-secondary" onClick={() => setEditingPersonal(!editingPersonal)}>
-            {editingPersonal ? (isAr ? 'إلغاء' : 'Cancel') : (isAr ? '✏️ تعديل البيانات' : '✏️ Edit')}
-          </button>
+          <div className="row wrapRow no-print" style={{ gap: '8px' }}>
+            <button type="button" className="btn-secondary" onClick={() => setEditingPersonal(!editingPersonal)}>
+              {editingPersonal ? (isAr ? 'إلغاء' : 'Cancel') : (isAr ? '✏️ تعديل البيانات' : '✏️ Edit')}
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => window.print()}>
+              📋 {isAr ? 'طباعة الكارت الطبي' : 'Print Medical ID'}
+            </button>
+            <button type="button" className="btn small" style={{ background: '#00BFD0', borderColor: '#00BFD0', color: '#101E36', fontWeight: 800 }} onClick={handleShareImage}>
+              ⬇️ {isAr ? 'تنزيل الكارت PNG' : 'Download ID PNG'}
+            </button>
+            <Link to="/passport" className="btn small ghost">
+              🪪 {isAr ? 'صفحة الكارت الذكي المستقلة' : 'Full ID Page'}
+            </Link>
+          </div>
         </div>
 
         {editingPersonal ? (
@@ -1139,302 +1068,289 @@ export default function HealthProfile() {
         document.body
       )}
 
-      {/* ══════════════ البطاقة الصحية الذكية ══════════════ */}
-      {user && (
-        <section className="card stack" style={{ borderTop: '4px solid #0b3c5d', marginTop: 8 }}>
-          <div className="card-head-row" style={{ flexWrap: 'wrap', gap: '8px' }}>
-            <h2 className="section-title">🪪 {isAr ? 'البطاقة الصحية الذكية (QR الطوارئ للمستشفى والطبيب)' : 'Smart Patient Passport'}</h2>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+      {/* ══════════════ الكارت الطبي الذكي وبطاقة الطوارئ (متاح للزوار والمسجلين) ══════════════ */}
+      <section className="card stack" style={{ borderTop: '4px solid #00BFD0', marginTop: 8 }}>
+        <div className="card-head-row no-print" style={{ flexWrap: 'wrap', gap: '8px' }}>
+          <h2 className="section-title">
+            🪪 {isAr ? 'الكارت الطبي الذكي — دوايا | DAWAYA (QR الطوارئ للمستشفى والطبيب)' : 'DAWAYA Smart Medical ID & Emergency Passport'}
+          </h2>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn small"
+              onClick={() => {
+                setEditingPersonal(true);
+                window.scrollTo({ top: 220, behavior: 'smooth' });
+              }}
+            >
+              ✏️ {isAr ? 'إدخال العمر وفصيلة الدم والوزن' : 'Edit Age & Blood Type'}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary small"
+              onClick={() => setShowAllergyModal(true)}
+            >
+              ➕ {isAr ? 'إضافة حساسية' : 'Add Allergy'}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary small"
+              onClick={() => window.print()}
+            >
+              🖨️ {isAr ? 'طباعة الكارت الطبي' : 'Print Medical ID'}
+            </button>
+            <Link to="/passport" className="btn small ghost">
+              🔎 {isAr ? 'فتح الكارت في شاشة كاملة' : 'Full Screen Card'}
+            </Link>
+          </div>
+        </div>
+
+        {/* الكارت الطبي المرئي بهوية دوايا الشاملة */}
+        <DawayaPassportCardUI
+          name={profile.displayName || profile.fullName || user?.displayName || ''}
+          age={profile.age || (profile.ageYears ? String(profile.ageYears) : '')}
+          weightKg={profile.weightKg}
+          bloodType={profile.bloodType}
+          gender={profile.gender}
+          emergencyContact={profile.emergencyContact}
+          photoUrl={passportPhoto}
+          uid={effectiveUid}
+          qrDataUrl={passportQrDataUrl}
+          isAr={isAr}
+          allergiesCount={profile.allergies.length}
+          medsCount={
+            profile.medications.filter((m) => m.status === 'active').length +
+            (profile.activeMedications?.length || 0) +
+            schedules.length
+          }
+          chronicCount={passportChronicList.length}
+          onPhotoClick={() => photoFileRef.current?.click()}
+          photoLoading={passportPhotoLoading}
+        />
+        <input
+          ref={photoFileRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handlePassportPhoto}
+        />
+
+        {/* أزرار سريعة تحت الكارت مباشرة للتحميل والطباعة والمشاركة */}
+        <div className="row wrapRow no-print" style={{ justifyContent: 'center', gap: '8px', marginTop: '4px' }}>
+          <button
+            type="button"
+            className="btn small"
+            style={{ background: '#00BFD0', borderColor: '#00BFD0', color: '#101E36', fontWeight: 800 }}
+            onClick={handleShareImage}
+          >
+            ⬇️ {isAr ? 'تنزيل الكارت كصورة (HD PNG)' : 'Download ID Card (PNG)'}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary small"
+            onClick={() => window.print()}
+          >
+            📋 {isAr ? 'طباعة الكارت الطبي' : 'Print Medical ID'}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary small"
+            onClick={() => photoFileRef.current?.click()}
+          >
+            📷 {isAr ? 'تغيير صورة الكارت' : 'Change Photo'}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary small"
+            onClick={handleShareLink}
+          >
+            🔗 {isAr ? 'نسخ / مشاركة رابط الـ QR' : 'Copy / Share QR Link'}
+          </button>
+        </div>
+
+        {passportLoading ? (
+          <p className="small muted no-print">{isAr ? 'جارٍ التحميل…' : 'Loading…'}</p>
+        ) : (
+          <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--tint, #f8fafc)', borderRadius: 10, padding: '10px 14px', border: '1px solid var(--line, #e2e8f0)' }}>
+              <div>
+                <div style={{ fontWeight: 800, color: 'var(--text, #101E36)', fontSize: '0.88rem' }}>
+                  🔑 {isAr ? 'كود حماية البطاقة (PIN للطوارئ والعيادات)' : 'Medical ID PIN Code'}
+                </div>
+                <div className="small muted" style={{ marginTop: 2 }}>
+                  {savedPin
+                    ? '● ● ● ●'
+                    : isAr
+                      ? 'اختياري: عيّن PIN لحماية السجل السحابي الكامل، أو اتركه فارغاً ليفتح الـ QR بيانات الطوارئ فوراً'
+                      : 'Optional: Set a PIN for full cloud sync, or leave unset for instant emergency QR view'}
+                </div>
+              </div>
               <button
                 type="button"
                 className="btn small"
-                onClick={() => {
-                  setEditingPersonal(true);
-                  window.scrollTo({ top: 220, behavior: 'smooth' });
-                }}
+                style={{ fontSize: '0.78rem' }}
+                onClick={() => { setShowPinSetup(true); setPinInput(''); }}
               >
-                ✏️ {isAr ? 'إدخال العمر وفصيلة الدم والوزن' : 'Edit Age & Blood Type'}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary small"
-                onClick={() => setShowAllergyModal(true)}
-              >
-                ➕ {isAr ? 'إضافة حساسية' : 'Add Allergy'}
+                {savedPin ? (isAr ? '✏️ تغيير PIN' : '✏️ Change PIN') : (isAr ? '+ تعيين PIN' : '+ Set PIN')}
               </button>
             </div>
-          </div>
 
-          {/* البطاقة المرئية */}
-          <div style={{
-            background: 'linear-gradient(135deg, #0b3c5d 0%, #1565a8 55%, #0ea5e9 100%)',
-            borderRadius: 16, padding: '18px 16px',
-            color: '#fff', position: 'relative', overflow: 'hidden',
-            direction: 'ltr',
-          }}>
-            <div style={{ position:'absolute', top:-40, right:-40, width:150, height:150, borderRadius:'50%', background:'rgba(255,255,255,0.06)' }} />
-            <div style={{ position:'absolute', bottom:-30, left:-30, width:110, height:110, borderRadius:'50%', background:'rgba(255,255,255,0.04)' }} />
-
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
-              <span style={{ fontSize:'1.4rem' }}>🏥</span>
-              <div>
-                <div style={{ fontWeight:700, fontSize:'0.85rem' }}>Antibiotic Awareness</div>
-                <div style={{ fontSize:'0.6rem', opacity:0.7, letterSpacing:1 }}>SMART PATIENT PASSPORT</div>
-              </div>
-              <div style={{ marginInlineStart:'auto', fontSize:'0.6rem', opacity:0.6 }}>🇪🇬 Egypt</div>
-            </div>
-
-            <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
-              <div
-                onClick={() => photoFileRef.current?.click()}
-                style={{
-                  width:70, height:84, borderRadius:8,
-                  background:'rgba(255,255,255,0.12)',
-                  border:'2px solid rgba(255,255,255,0.5)',
-                  overflow:'hidden', flexShrink:0,
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  cursor:'pointer', position:'relative',
-                }}
-              >
-                {passportPhotoLoading
-                  ? <span style={{ fontSize:'1.5rem' }}>⏳</span>
-                  : passportPhoto
-                    ? <img src={passportPhoto} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                    : <div style={{ textAlign:'center' }}>
-                        <div style={{ fontSize:'1.8rem' }}>👤</div>
-                        <div style={{ fontSize:'0.5rem', opacity:0.7, marginTop:2 }}>
-                          {isAr ? 'اضغط لإضافة صورة' : 'tap to add'}
-                        </div>
-                      </div>
-                }
-              </div>
-              <input ref={photoFileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handlePassportPhoto} />
-
-              <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, fontSize:'0.95rem', marginBottom:4 }}>
-                  {profile.displayName || (isAr ? 'الاسم غير مدخل' : 'Name not set')}
+            {showPinSetup && (
+              <div style={{ background: '#eff6ff', borderRadius: 10, padding: '12px 14px', border: '1px solid #bfdbfe' }}>
+                <div style={{ fontWeight: 700, color: '#1e40af', marginBottom: 8, fontSize: '0.85rem' }}>
+                  {savedPin ? (isAr ? 'تغيير الـ PIN' : 'Change PIN') : (isAr ? 'تعيين PIN جديد (4 أرقام على الأقل)' : 'Set New PIN (min 4 digits)')}
                 </div>
-                <div style={{ fontSize:'0.72rem', opacity:0.85, marginBottom:2 }}>
-                  {isAr ? 'العمر:' : 'Age:'} <b>{profile.age || '—'}</b>
-                </div>
-                <div style={{ fontSize:'0.72rem', opacity:0.85, marginBottom:2 }}>
-                  {isAr ? 'النوع:' : 'Gender:'} <b>{profile.gender === 'male' ? (isAr ? 'ذكر' : 'Male') : profile.gender === 'female' ? (isAr ? 'أنثى' : 'Female') : '—'}</b>
-                </div>
-                <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:6 }}>
-                  <span style={{ background:'#e74c3c', borderRadius:6, padding:'2px 8px', fontSize:'0.72rem', fontWeight:700 }}>
-                    🩸 {profile.bloodType || '?'}
-                  </span>
-                  {profile.allergies.length > 0 && (
-                    <span style={{ background:'#f59e0b', color:'#1c1917', borderRadius:6, padding:'2px 8px', fontSize:'0.7rem', fontWeight:700 }}>
-                      ⚠️ {profile.allergies.length} {isAr ? 'حساسية' : 'Allerg.'}
-                    </span>
-                  )}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    className="input"
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={8}
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="● ● ● ●"
+                    style={{ flex: 1, minWidth: 140, textAlign: 'center', fontSize: '1.2rem', letterSpacing: 6 }}
+                  />
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={pinInput.length < 4 || pinSaving}
+                    onClick={handleSavePin}
+                    style={{ background: '#101E36', color: '#fff' }}
+                  >
+                    {pinSaving ? '⏳' : (isAr ? 'حفظ وتفعيل' : 'Save')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setShowPinSetup(false)}
+                  >
+                    {isAr ? 'إلغاء' : 'Cancel'}
+                  </button>
                 </div>
               </div>
+            )}
 
-              <div style={{ background:'#fff', borderRadius:8, padding:3, width:64, height:64, flexShrink:0 }}>
-                <img src={passportQrSrc} alt="QR" style={{ width:58, height:58 }} />
-              </div>
-            </div>
-
-            <div style={{ borderTop:'1px solid rgba(255,255,255,0.2)', paddingTop:8, marginTop:12, display:'flex', justifyContent:'space-between', fontSize:'0.6rem', opacity:0.55, fontFamily:'monospace' }}>
-              <span>{user.uid.slice(0,8).toUpperCase()} {user.uid.slice(8,16).toUpperCase()}</span>
-              <span>💊 {profile.medications.filter(m => m.status === 'active').length} {isAr ? 'دواء' : 'Meds'}</span>
-            </div>
-          </div>
-
-          {passportLoading ? (
-            <p className="small muted">{isAr ? 'جارٍ التحميل…' : 'Loading…'}</p>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', background:'#f8fafc', borderRadius:10, padding:'10px 14px' }}>
-                <div>
-                  <div style={{ fontWeight:700, color:'#0b3c5d', fontSize:'0.85rem' }}>
-                    🔑 {isAr ? 'كود البطاقة (PIN)' : 'Passport PIN'}
-                  </div>
-                  <div className="small muted" style={{ marginTop:2 }}>
-                    {savedPin ? '● ● ● ●' : (isAr ? 'لم يتم تعيين PIN بعد' : 'No PIN set yet')}
-                  </div>
+            {passportIsActive ? (
+              <div style={{ background: '#d1fae5', borderRadius: 10, padding: '12px 14px', border: '1.5px solid #6ee7b7' }}>
+                <div style={{ fontWeight: 800, color: '#065f46', marginBottom: 4 }}>
+                  ✅ {isAr ? 'المشاركة السحابية للبطاقة مفعّلة الآن' : 'Cloud Passport Sharing is Active'}
+                </div>
+                <div className="small" style={{ color: '#047857', marginBottom: 10 }}>
+                  ⏰ {isAr ? `تنتهي بعد ${passportRemaining} دقيقة` : `Expires in ${passportRemaining} min`}
                 </div>
                 <button
-                  className="btn btn-sm"
-                  style={{ fontSize:'0.78rem' }}
-                  onClick={() => { setShowPinSetup(true); setPinInput(''); }}
+                  type="button"
+                  className="btn"
+                  style={{ background: '#ef4444', color: '#fff', border: 'none', width: '100%' }}
+                  onClick={handlePassportRevoke}
                 >
-                  {savedPin ? (isAr ? '✏️ تغيير' : '✏️ Change') : (isAr ? '+ تعيين PIN' : '+ Set PIN')}
+                  🚫 {isAr ? 'إيقاف المشاركة المؤقتة' : 'Stop Sharing'}
                 </button>
               </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <select
+                  className="input"
+                  value={passportHours}
+                  onChange={(e) => setPassportHours(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                >
+                  <option value={1}>{isAr ? 'مدة المشاركة: ساعة واحدة' : 'Duration: 1 Hour'}</option>
+                  <option value={6}>{isAr ? 'مدة المشاركة: 6 ساعات' : 'Duration: 6 Hours'}</option>
+                  <option value={12}>{isAr ? 'مدة المشاركة: 12 ساعة' : 'Duration: 12 Hours'}</option>
+                  <option value={24}>{isAr ? 'مدة المشاركة: 24 ساعة' : 'Duration: 24 Hours'}</option>
+                  <option value={48}>{isAr ? 'مدة المشاركة: 48 ساعة' : 'Duration: 48 Hours'}</option>
+                </select>
+              </div>
+            )}
 
-              {showPinSetup && (
-                <div style={{ background:'#eff6ff', borderRadius:10, padding:'12px 14px', border:'1px solid #bfdbfe' }}>
-                  <div style={{ fontWeight:600, color:'#1e40af', marginBottom:8, fontSize:'0.85rem' }}>
-                    {savedPin ? (isAr ? 'تغيير الـ PIN' : 'Change PIN') : (isAr ? 'تعيين PIN جديد' : 'Set New PIN')}
-                  </div>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <input
-                      className="input"
-                      type="password"
-                      inputMode="numeric"
-                      maxLength={8}
-                      value={pinInput}
-                      onChange={(e) => setPinInput(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="● ● ● ●"
-                      style={{ flex:1, textAlign:'center', fontSize:'1.2rem', letterSpacing:6 }}
-                    />
-                    <button
-                      className="btn"
-                      disabled={pinInput.length < 4 || pinSaving}
-                      onClick={handleSavePin}
-                      style={{ background:'#0b3c5d', color:'#fff' }}
-                    >
-                      {pinSaving ? '⏳' : (isAr ? 'حفظ' : 'Save')}
-                    </button>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => setShowPinSetup(false)}
-                    >
-                      {isAr ? 'إلغاء' : 'Cancel'}
-                    </button>
-                  </div>
-                  <p className="small muted" style={{ marginTop:6 }}>
-                    {isAr ? '4 أرقام على الأقل' : 'At least 4 digits'}
-                  </p>
-                </div>
-              )}
+            {shareSuccess && (
+              <div style={{ background: '#d1fae5', borderRadius: 8, padding: '8px 12px', textAlign: 'center', fontWeight: 700, color: '#065f46', fontSize: '0.85rem' }}>
+                {shareSuccess}
+              </div>
+            )}
 
-              {passportIsActive ? (
-                <div style={{ background:'#d1fae5', borderRadius:10, padding:'12px 14px', border:'1.5px solid #6ee7b7' }}>
-                  <div style={{ fontWeight:700, color:'#065f46', marginBottom:4 }}>
-                    ✅ {isAr ? 'البطاقة مفعّلة الآن' : 'Passport is Active'}
-                  </div>
-                  <div className="small" style={{ color:'#047857', marginBottom:10 }}>
-                    ⏰ {isAr ? `تنتهي بعد ${passportRemaining} دقيقة` : `Expires in ${passportRemaining} min`}
-                  </div>
+            {savedPin && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ flex: '1 1 100%', background: '#059669', color: '#fff', fontSize: '0.86rem' }}
+                  disabled={passportSharing}
+                  onClick={async () => {
+                    await handlePassportShare();
+                    setShareSuccess(
+                      isAr
+                        ? '✅ تم تفعيل الـ QR وتحديث جميع بياناتك الصحية للطبيب والممرض!'
+                        : '✅ QR activated and all health records synced for clinicians!'
+                    );
+                    setTimeout(() => setShareSuccess(''), 4000);
+                  }}
+                >
+                  {passportSharing
+                    ? '⏳'
+                    : passportIsActive
+                      ? (isAr ? '🔄 تحديث بيانات الـ QR وتمديد الصلاحية' : '🔄 Refresh QR Data & Extend')
+                      : (isAr ? '🔓 تفعيل مشاركة البطاقة والـ QR الآن' : '🔓 Activate Passport QR Now')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* الأمراض المزمنة */}
+        <div className="no-print" style={{ borderTop: '1px solid var(--line, #e2e8f0)', paddingTop: 14 }}>
+          <div style={{ fontWeight: 800, color: 'var(--text, #101E36)', marginBottom: 8 }}>
+            🏥 {isAr ? 'الأمراض المزمنة والحالات الصحية (تظهر على الكارت وتُفحص مع 26,562 دواء)' : 'Chronic Conditions (Displayed on ID & Screened Across 26,562 Drugs)'}
+          </div>
+          <p className="small muted" style={{ marginBottom: 10 }}>
+            {isAr ? 'مهمة لتحديد تعارض الأدوية وتحذيرات الضغط والسكر والكلى والكبد والقلب (يمكن إضافتها من هنا أو بأمر مباشر للمساعد الذكي)' : 'Important for drug interaction checks across hypertension, diabetes, renal, hepatic, and cardiac conditions'}
+          </p>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <input
+              className="input"
+              value={chronicInput}
+              onChange={(e) => setChronicInput(e.target.value)}
+              placeholder={isAr ? 'مثال: ضغط الدم، سكري النوع 2، قصور كلوي...' : 'e.g. Hypertension, Type 2 Diabetes'}
+              onKeyDown={(e) => e.key === 'Enter' && addChronic()}
+              style={{ flex: 1 }}
+            />
+            <button type="button" className="btn" onClick={addChronic}>{isAr ? 'إضافة' : 'Add'}</button>
+          </div>
+          {passportChronicList.length === 0 ? (
+            <p className="small muted">{isAr ? 'لا توجد أمراض مزمنة مسجلة' : 'None added yet'}</p>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {passportChronicList.map((c, i) => (
+                <span
+                  key={i}
+                  style={{
+                    background: '#fef3c7',
+                    color: '#92400e',
+                    borderRadius: 20,
+                    padding: '4px 12px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  🔸 {c}
                   <button
-                    className="btn"
-                    style={{ background:'#ef4444', color:'#fff', border:'none', width:'100%' }}
-                    onClick={handlePassportRevoke}
+                    type="button"
+                    onClick={() => removeChronic(i)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b45309', fontWeight: 900, padding: 0 }}
                   >
-                    🚫 {isAr ? 'إيقاف المشاركة' : 'Stop Sharing'}
+                    ×
                   </button>
-                </div>
-              ) : (
-                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                  <div style={{ background:'#fef3c7', borderRadius:8, padding:'8px 12px', border:'1px solid #fcd34d' }}>
-                    <span className="small" style={{ color:'#92400e' }}>
-                      🔒 {isAr ? 'غير مفعّلة — اختر المدة واضغط شارك' : 'Inactive — choose duration and share'}
-                    </span>
-                  </div>
-                  <select
-                    className="input"
-                    value={passportHours}
-                    onChange={(e) => setPassportHours(Number(e.target.value))}
-                    style={{ width:'100%' }}
-                  >
-                    <option value={1}>{isAr ? 'ساعة واحدة' : '1 Hour'}</option>
-                    <option value={6}>{isAr ? '6 ساعات' : '6 Hours'}</option>
-                    <option value={12}>{isAr ? '12 ساعة' : '12 Hours'}</option>
-                    <option value={24}>{isAr ? '24 ساعة' : '24 Hours'}</option>
-                    <option value={48}>{isAr ? '48 ساعة' : '48 Hours'}</option>
-                  </select>
-                </div>
-              )}
-
-              {shareSuccess && (
-                <div style={{ background:'#d1fae5', borderRadius:8, padding:'8px 12px', textAlign:'center', fontWeight:600, color:'#065f46', fontSize:'0.85rem' }}>
-                  {shareSuccess}
-                </div>
-              )}
-
-              {savedPin && (
-                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                  <button
-                    className="btn"
-                    style={{ flex: '1 1 100%', background:'#059669', color:'#fff', fontSize:'0.86rem' }}
-                    disabled={passportSharing}
-                    onClick={async () => {
-                      await handlePassportShare();
-                      setShareSuccess(
-                        isAr
-                          ? '✅ تم تفعيل الـ QR وتحديث جميع بياناتك الصحية للطبيب والممرض!'
-                          : '✅ QR activated and all health records synced for clinicians!'
-                      );
-                      setTimeout(() => setShareSuccess(''), 4000);
-                    }}
-                  >
-                    {passportSharing
-                      ? '⏳'
-                      : passportIsActive
-                        ? (isAr ? '🔄 تحديث بيانات الـ QR وتمديد الصلاحية' : '🔄 Refresh QR Data & Extend')
-                        : (isAr ? '🔓 تفعيل مشاركة البطاقة والـ QR الآن' : '🔓 Activate Passport QR Now')}
-                  </button>
-                  <button
-                    className="btn"
-                    style={{ flex:1, background:'#0b3c5d', color:'#fff', fontSize:'0.82rem' }}
-                    disabled={passportSharing}
-                    onClick={async () => { await handlePassportShare(); handleShareImage(); }}
-                  >
-                    {passportSharing ? '⏳' : (isAr ? '🖼️ شارك صورة' : '🖼️ Share Image')}
-                  </button>
-                  <button
-                    className="btn"
-                    style={{ flex:1, background:'#1a6b9a', color:'#fff', fontSize:'0.82rem' }}
-                    disabled={passportSharing}
-                    onClick={async () => { await handlePassportShare(); handleShareLink(); }}
-                  >
-                    {isAr ? '🔗 شارك رابط' : '🔗 Share Link'}
-                  </button>
-                </div>
-              )}
-
-              {!savedPin && (
-                <p className="small muted" style={{ textAlign:'center' }}>
-                  {isAr ? '⬆️ عيّن PIN أولاً لتفعيل المشاركة' : '⬆️ Set a PIN first to enable sharing'}
-                </p>
-              )}
+                </span>
+              ))}
             </div>
           )}
-
-          {/* الأمراض المزمنة */}
-          <div style={{ borderTop:'1px solid #e2e8f0', paddingTop:14 }}>
-            <div style={{ fontWeight:700, color:'#0b3c5d', marginBottom:8 }}>
-              🏥 {isAr ? 'الأمراض المزمنة والحالات الصحية' : 'Chronic Conditions'}
-            </div>
-            <p className="small muted" style={{ marginBottom:10 }}>
-              {isAr ? 'مهمة لتحديد تعارض الأدوية (يمكن إضافتها من هنا أو بأمر مباشر للمساعد الذكي)' : 'Important for drug interaction checks (can be added here or via the AI Assistant)'}
-            </p>
-            <div style={{ display:'flex', gap:8, marginBottom:10 }}>
-              <input
-                className="input"
-                value={chronicInput}
-                onChange={(e) => setChronicInput(e.target.value)}
-                placeholder={isAr ? 'مثال: سكري النوع 2' : 'e.g. Type 2 Diabetes'}
-                onKeyDown={(e) => e.key === 'Enter' && addChronic()}
-                style={{ flex:1 }}
-              />
-              <button className="btn" onClick={addChronic}>{isAr ? 'إضافة' : 'Add'}</button>
-            </div>
-            {passportChronicList.length === 0
-              ? <p className="small muted">{isAr ? 'لا توجد أمراض مزمنة مسجلة' : 'None added yet'}</p>
-              : (
-                <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-                  {passportChronicList.map((c, i) => (
-                    <span key={i} style={{
-                      background:'#fef3c7', color:'#92400e',
-                      borderRadius:20, padding:'4px 12px', fontSize:'0.82rem',
-                      display:'flex', alignItems:'center', gap:6,
-                    }}>
-                      🔸 {c}
-                      <button onClick={() => removeChronic(i)} style={{ background:'none', border:'none', cursor:'pointer', color:'#b45309', fontWeight:700, padding:0 }}>×</button>
-                    </span>
-                  ))}
-                </div>
-              )
-            }
-          </div>
-        </section>
-      )}
-
+        </div>
+      </section>
     </main>
   );
 }

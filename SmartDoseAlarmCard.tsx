@@ -534,8 +534,8 @@ export default function SmartDoseAlarmCard({
         window.speechSynthesis.cancel();
         const msg = new SpeechSynthesisUtterance(
           isAr
-            ? `تنبيه من منصة الوعي بالمضادات الحيوية: حان الآن موعد جرعة ${state.medicineName}. ${state.doseInstruction}. إكمال الكورس يحميك من البكتيريا المقاومة.`
-            : `Antibiotic Awareness Reminder: It is time for your ${state.medicineName} dose. ${state.doseInstruction}. Completing your full course prevents bacterial resistance.`
+            ? `تنبيه من منصة دوايا (DAWAYA): حان الآن موعد جرعة ${state.medicineName}. ${state.doseInstruction}. إكمال الكورس يحميك من البكتيريا المقاومة.`
+            : `DAWAYA Medication Alarm: It is time for your ${state.medicineName} dose. ${state.doseInstruction}. Completing your full course prevents bacterial resistance.`
         );
         msg.lang = isAr ? 'ar-EG' : 'en-US';
         msg.rate = 0.95;

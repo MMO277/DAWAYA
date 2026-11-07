@@ -324,6 +324,12 @@ export default function Layout({ children }: { children: ReactNode }) {
           shortLabel: tr(lang, 'حاسبة الأطفال', 'Pediatrics', 'Pédiatrie', 'Pediatría'),
         },
         {
+          to: '/cold-shot-warning',
+          key: 'navColdShot',
+          icon: '💉',
+          shortLabel: tr(lang, 'تحذير «حقنة البرد / الخلطة 3×1»', 'Cold Shot 3-in-1 Warning', 'Alerte Injection Rhume 3-en-1', 'Alerta Inyección 3 en 1'),
+        },
+        {
           to: '/side-effects',
           key: 'navSideEffects',
           icon: '🚨',
@@ -369,12 +375,17 @@ export default function Layout({ children }: { children: ReactNode }) {
           shortLabel: tr(lang, 'لوحة المريض الموحدة', 'Patient Dashboard', 'Tableau Patient', 'Panel del Paciente'),
         },
         {
+          to: '/passport',
+          key: 'navPassport',
+          icon: '🪪',
+          shortLabel: tr(lang, 'الكارت الطبي الذكي (Medical ID & QR)', 'Smart Medical ID & QR', 'Carte Médicale Intelligente', 'Tarjeta Médica Inteligente'),
+        },
+        {
           to: '/health-profile',
           key: 'navHealthProfile',
           icon: '👤',
-          shortLabel: tr(lang, 'ملف صحتي وحساسيتي', 'Health Profile', 'Profil Santé', 'Perfil de Salud'),
+          shortLabel: tr(lang, 'ملف صحتي وحساسيتي والكارت الطبي', 'Health Profile & Medical ID', 'Profil Santé', 'Perfil de Salud'),
         },
-
         {
           to: '/safe-disposal',
           key: 'navSafeDisposal',
@@ -435,6 +446,12 @@ export default function Layout({ children }: { children: ReactNode }) {
         'Campaña WAAW, guías educativas, artículos e investigación'
       ),
       items: [
+        {
+          to: '/awareness-week',
+          key: 'navWAAW',
+          icon: '🌍',
+          shortLabel: tr(lang, 'الأسبوع العالمي للوعي الدوائي (نوفمبر)', 'World Awareness Week (Nov)', 'Semaine Mondiale (Nov)', 'Semana Mundial (Nov)'),
+        },
         {
           to: '/learn',
           key: 'navLearn',

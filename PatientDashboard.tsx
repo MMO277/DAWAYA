@@ -199,23 +199,21 @@ export default function PatientDashboard() {
               </div>
             )}
             <div className="row wrapRow" style={{ gap: '8px', marginTop: '12px' }}>
-              {!user ? (
+              <Link
+                to="/passport"
+                className="btn small"
+                style={{ background: '#00BFD0', borderColor: '#00BFD0', color: '#101E36', fontWeight: 800 }}
+              >
+                🪪 {isAr ? 'الكارت الطبي الذكي و QR' : 'Smart Medical ID & QR'}
+              </Link>
+              {!user && (
                 <button
                   type="button"
-                  className="btn small"
-                  style={{ background: '#00BFD0', borderColor: '#00BFD0', color: '#101E36', fontWeight: 800 }}
+                  className="btn small light"
                   onClick={() => openAuthModal('login')}
                 >
                   👤 {isAr ? 'تسجيل الدخول للمزامنة' : 'Sign In to Sync'}
                 </button>
-              ) : (
-                <Link
-                  to="/health-profile"
-                  className="btn small"
-                  style={{ background: '#00BFD0', borderColor: '#00BFD0', color: '#101E36', fontWeight: 800 }}
-                >
-                  🪪 {isAr ? 'البطاقة الصحية و QR' : 'Health Passport & QR'}
-                </Link>
               )}
               <Link to="/assistant" className="btn small light">
                 🤖 {isAr ? 'مساعد دوايا الذكي' : 'DAWAYA AI'}

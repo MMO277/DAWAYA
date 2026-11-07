@@ -7,6 +7,7 @@ import { ARTICLES } from './articlesData';
 import { pick, tr } from './types';
 import Disclaimer from './Disclaimer';
 import DidYouKnow from './DidYouKnow';
+import ResistanceCounter from './ResistanceCounter';
 import { useClinicalProMode } from './clinicalProData';
 import { EGYPTIAN_COMMERCIAL_PRODUCTS } from './egyptianDrugDatabase';
 import {
@@ -135,6 +136,18 @@ export default function Home() {
 
   // Concise Bento Grid Clinical Tools (Exact original icon & card structure, upgraded for all 26,562 medicines)
   const clinicalTools = [
+    {
+      to: '/passport',
+      icon: '🪪',
+      badge: tr(lang, 'كارت الطوارئ و QR', 'Medical ID & QR', 'Carte Médicale', 'Tarjeta Médica'),
+      title: tr(lang, 'الكارت الطبي الذكي (ID Card)', 'Smart Medical ID & Passport', 'Carte Médicale Intelligente', 'Tarjeta Médica Inteligente'),
+      desc: tr(
+        lang,
+        'بطاقتك الصحية الذكية مع فصيلة الدم، الحساسية، الأمراض المزمنة، وأدويتك الحالية بـ QR للطوارئ والطباعة',
+        'Personal emergency ID card with blood type, allergies, chronic conditions, active meds & printable QR'
+      ),
+      color: '#00BFD0',
+    },
     {
       to: '/patient-dashboard',
       icon: '📊',
@@ -278,6 +291,30 @@ export default function Home() {
         'Check storage rules for any medicine and safely dispose of expired drugs'
       ),
       color: '#15803d',
+    },
+    {
+      to: '/cold-shot-warning',
+      icon: '💉',
+      badge: tr(lang, 'تحذير قاتل 3×1', '3-in-1 Danger', 'Danger 3-en-1', 'Peligro 3 en 1'),
+      title: tr(lang, 'تحذير «حقنة البرد / الخلطة 3×1»', 'Cold Shot 3-in-1 Cocktail Warning', 'Alerte Injection 3-en-1', 'Alerta Inyección 3 en 1'),
+      desc: tr(
+        lang,
+        'محاكاة تفاعلية تكشف خطورة خلط المضاد الحيوي والكورتيزون والمسكن في سرنجة واحدة',
+        'Interactive simulation revealing the life-threatening risks of mixing antibiotics, steroids & NSAIDs'
+      ),
+      color: '#dc2626',
+    },
+    {
+      to: '/games',
+      icon: '🎮',
+      badge: tr(lang, 'محاكاة 3D', '3D Simulators', 'Simulateurs 3D', 'Simuladores 3D'),
+      title: tr(lang, 'مركز الألعاب ومحاكي المستشفى 3D', '3D Medical Game & Hospital Center', 'Centre de Jeux Médicaux 3D', 'Centro de Juegos Médicos 3D'),
+      desc: tr(
+        lang,
+        'عالم مفتوح 3D، أكاديمية التمريض، ألغاز العدوى، ومختبر البكتيريا التفاعلي',
+        '3D open-world hospital, Nurse Academy, Medical Mystery cases & Bacteria Lab'
+      ),
+      color: '#8b5cf6',
     },
   ];
 
@@ -869,6 +906,9 @@ export default function Home() {
 
             {/* Quick Access Pill Tags under Search Bar */}
             <div className="hero-quick-tags">
+              <Link to="/passport" className="hero-quick-tag" style={{ background: 'rgba(0, 191, 208, 0.28)', borderColor: '#9AE8E8' }}>
+                🪪 {tr(lang, 'الكارت الطبي الذكي (ID)', 'Smart Medical ID')}
+              </Link>
               <Link to="/patient-dashboard" className="hero-quick-tag">
                 📊 {tr(lang, 'لوحة المريض', 'Patient Dashboard')}
               </Link>
@@ -942,8 +982,8 @@ export default function Home() {
           <div className="bento-grid">
             {(() => {
               const personaPaths: Record<PersonaType, string[]> = {
-                all: ['/patient-dashboard', '/complete-checkup', '/cost-saver', '/pediatric-helper', '/green-prescription', '/prescription-radar'],
-                patient: ['/patient-dashboard', '/complete-checkup', '/cost-saver', '/green-prescription', '/daily-schedule', '/tracker'],
+                all: ['/passport', '/patient-dashboard', '/complete-checkup', '/cost-saver', '/pediatric-helper', '/cold-shot-warning'],
+                patient: ['/passport', '/patient-dashboard', '/complete-checkup', '/cost-saver', '/daily-schedule', '/tracker'],
                 mother: ['/pediatric-helper', '/allergy-checker', '/green-prescription', '/complete-checkup', '/daily-schedule', '/safe-disposal'],
                 doctor: ['/prescription-radar', '/compare', '/allergy-checker', '/interactions', '/complete-checkup', '/cost-saver'],
               };
@@ -1049,8 +1089,141 @@ export default function Home() {
         {/* Dynamic Partner Placement on Homepage */}
         <PublicPartnerPlacementSection placement="homepage_featured" />
 
+        {/* WHO AWaRe & Rational Medication Stewardship Section (Preserved from Original Site inside Comprehensive DAWAYA Identity) */}
+        <section className="card stack" style={{ borderTop: '4px solid #00BFD0' }}>
+          <div className="head" style={{ flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <span className="dawaya-pill-badge" style={{ marginBottom: '6px' }}>
+                <span>🌍</span>
+                <span>
+                  {tr(
+                    lang,
+                    'ركن الأمان الدوائي وترشيد المضادات الحيوية (WHO AWaRe & EDA)',
+                    'Medication Safety & WHO AWaRe Antibiotic Stewardship'
+                  )}
+                </span>
+              </span>
+              <h2 style={{ margin: 0 }}>
+                {tr(
+                  lang,
+                  'تصنيف منظمة الصحة العالمية للمضادات الحيوية (Access • Watch • Reserve)',
+                  'WHO AWaRe Antibiotic Classification (Access • Watch • Reserve)'
+                )}
+              </h2>
+              <p className="small muted" style={{ margin: '4px 0 0' }}>
+                {tr(
+                  lang,
+                  'إلى جانب تغطية أكثر من 26,562 دواء في كافة التخصصات، تدمج منصة دوايا معايير منظمة الصحة العالمية لحماية فعالية المضادات الحيوية المنقذة للحياة:',
+                  'Alongside 26,562+ medicines across all specialties, DAWAYA integrates WHO AWaRe standards to preserve life-saving antibiotics:'
+                )}
+              </p>
+            </div>
+            <div className="row wrapRow" style={{ gap: '8px' }}>
+              <Link to="/awareness-week" className="btn small ghost">
+                🌍 {tr(lang, 'حملة نوفمبر العالمية', 'WAAW Campaign')}
+              </Link>
+              <Link to="/cold-shot-warning" className="btn small ghost" style={{ borderColor: '#dc2626', color: '#dc2626' }}>
+                💉 {tr(lang, 'تحذير حقنة البرد 3×1', 'Cold Shot 3×1 Danger')}
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid">
+            <div className="subcard" style={{ borderInlineStart: '4px solid #16a34a', background: 'rgba(22, 163, 74, 0.06)' }}>
+              <strong style={{ color: '#15803d', fontSize: '0.98rem' }}>
+                🟢 {tr(lang, 'Access (فئة الإتاحة الأساسية — خط أول)', 'Access (First-Line Essential)')}
+              </strong>
+              <p className="small" style={{ margin: '6px 0 0' }}>
+                {tr(
+                  lang,
+                  'مضادات خط الدفاع الأول ذات الطيف المحدد والأمان العالي وأقل قابلية لتكوين بكتيريا مقاومة (مثل أموكسيسيلين، أوجمنتين، فلاجيل، نيتروفيورانتوين).',
+                  'First-line narrow-spectrum antibiotics with high safety and lower resistance potential (e.g., Amoxicillin, Augmentin, Metronidazole).'
+                )}
+              </p>
+            </div>
+
+            <div className="subcard" style={{ borderInlineStart: '4px solid #d97706', background: 'rgba(217, 119, 6, 0.06)' }}>
+              <strong style={{ color: '#b45309', fontSize: '0.98rem' }}>
+                🟡 {tr(lang, 'Watch (فئة المراقبة والحذر)', 'Watch (High Resistance Potential)')}
+              </strong>
+              <p className="small" style={{ margin: '6px 0 0' }}>
+                {tr(
+                  lang,
+                  'مضادات واسعة المجال ذات قابلية أعلى لتكوين سلالات بكتيرية مقاومة وتُصرف لدواعٍ سريرية محددة بوصفة طبية (مثل زيثروماكس، سيبروفار، سيفترياكسون).',
+                  'Broad-spectrum antibiotics requiring strict prescription oversight due to higher resistance risk (e.g., Azithromycin, Ciprofloxacin, Ceftriaxone).'
+                )}
+              </p>
+            </div>
+
+            <div className="subcard" style={{ borderInlineStart: '4px solid #dc2626', background: 'rgba(220, 38, 38, 0.06)' }}>
+              <strong style={{ color: '#b91c1c', fontSize: '0.98rem' }}>
+                🔴 {tr(lang, 'Reserve (فئة الملاذ الأخير بالمستشفيات)', 'Reserve (Last-Resort Hospital Only)')}
+              </strong>
+              <p className="small" style={{ margin: '6px 0 0' }}>
+                {tr(
+                  lang,
+                  'أدوية الخط الدفاعي الأخير المخصصة للعدوى المستشفوية الشرسة متعددة المقاومة (MRSA / VRE / CRE) تحت إشراف متخصص (مثل لينيزوليد، كوليستين، تيجيسيكلين).',
+                  'Last-resort antibiotics reserved strictly for severe multidrug-resistant hospital infections (e.g., Linezolid, Colistin, Tigecycline).'
+                )}
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* Did you know? */}
         <DidYouKnow />
+
+        {/* Real-World AMR Numbers Counter */}
+        <ResistanceCounter />
+
+        {/* Interactive Quiz, Ambassador Certificate & Audio Education Strip */}
+        <div className="grid">
+          <section className="card stack" style={{ justifyContent: 'space-between' }}>
+            <div>
+              <h3 style={{ margin: '0 0 6px' }}>
+                📝 {tr(lang, 'اختبر معلوماتك واحصل على شهادة سفير الوعي الدوائي', 'Take the Quiz & Earn Your Ambassador Certificate')}
+              </h3>
+              <p className="small muted" style={{ margin: 0 }}>
+                {tr(
+                  lang,
+                  'اختبار تفاعلي قصير بـ 3 مستويات مع شرح فوري لكل إجابة وإصدار شهادة سفير الأمان الدوائي باسمك.',
+                  'Interactive 3-level assessment with clinical explanations and a personalized HD Ambassador Certificate.'
+                )}
+              </p>
+            </div>
+            <div className="row wrapRow" style={{ gap: '8px', marginTop: '10px' }}>
+              <Link to="/quiz" className="btn small">
+                🏅 {tr(lang, 'ابدأ الاختبار واستلم شهادتك', 'Start Quiz & Get Certificate')}
+              </Link>
+              <Link to="/games" className="btn small ghost">
+                🎮 {tr(lang, 'محاكي المستشفى 3D', '3D Hospital Sim')}
+              </Link>
+            </div>
+          </section>
+
+          <section className="card stack" style={{ justifyContent: 'space-between' }}>
+            <div>
+              <h3 style={{ margin: '0 0 6px' }}>
+                🎧 {tr(lang, 'استمع وتعلّم (التثقيف الدوائي الصوتي بالعامية والفصحى)', 'Listen & Learn (Audio Medication Guides)')}
+              </h3>
+              <p className="small muted" style={{ margin: 0 }}>
+                {tr(
+                  lang,
+                  'مقاطع صوتية مبسطة باللهجة المصرية والفصحى لكبار السن والمرضى لشرح قواعد الأمان الدوائي والمضادات الحيوية.',
+                  'Accessible audio guides in Egyptian Arabic and English explaining safe medication use for patients and seniors.'
+                )}
+              </p>
+            </div>
+            <div className="row wrapRow" style={{ gap: '8px', marginTop: '10px' }}>
+              <Link to="/listen" className="btn small">
+                🔊 {tr(lang, 'استمع الآن', 'Listen Now')}
+              </Link>
+              <Link to="/myth" className="btn small ghost">
+                💡 {tr(lang, 'خرافة أم حقيقة', 'Myth vs. Fact')}
+              </Link>
+            </div>
+          </section>
+        </div>
 
         {/* Articles & Quick Audio / Quiz Strip */}
         <section>

@@ -103,14 +103,14 @@ const TOUR_STEPS: TourStep[] = [
     titleAr: 'شغال أوفلاين بسرعة البرق + محاكيات 3D',
     titleEn: 'Instant Offline Mode & 3D Medical Simulators',
     descAr:
-      'جميع الأدوات وقاعدة الـ 206 دواء المصري والمنبهات بتشتغل معاك بكامل سرعتها حتى لو مفيش إنترنت خالص على موبايلك.',
+      'جميع الأدوات وقاعدة الـ 26,562+ دواء مصري والكارت الطبي الذكي (ID) والمنبهات بتشتغل معاك بكامل سرعتها حتى لو مفيش إنترنت خالص على موبايلك.',
     descEn:
-      'All 206 Egyptian medicines, clinical calculators, and alarms work at full speed even with zero internet connection.',
+      'All 26,562+ Egyptian medicines, Smart Medical ID, clinical calculators, and alarms work at full speed even with zero internet connection.',
     highlightTipAr: '💡 تقدر في أي وقت تعيد فتح الجولة دي من القائمة الجانبية (☰).',
     highlightTipEn: '💡 You can replay this quick tour anytime from the side menu (☰).',
     targetPath: '/medicines',
-    targetLabelAr: 'تصفح دليل الأدوية (206)',
-    targetLabelEn: 'Browse 206 Medicines',
+    targetLabelAr: 'تصفح موسوعة الأدوية (26,562+)',
+    targetLabelEn: 'Browse 26,562+ Medicines',
     accentColor: '#10b981',
   },
 ];

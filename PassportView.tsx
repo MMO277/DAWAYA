@@ -7,8 +7,8 @@
  *   الوزن، هاتف الطوارئ، الأمراض المزمنة، وظائف الكلى والكبد، الأدوية الحالية، وكورسات المضادات الحيوية)
  */
 
-import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { useLang } from './i18n';
@@ -17,6 +17,7 @@ import {
   getPassportShare,
   isPassportValid,
   logPassportAccess,
+  decodeEmergencyQrSnapshot,
   PassportShare,
 } from './passportService';
 import {
@@ -778,6 +779,9 @@ export default function PassportView() {
   const { lang } = useLang();
   const isAr = lang === 'ar';
   const { uid } = useParams<{ uid: string }>();
+  const [searchParams] = useSearchParams();
+  const snapParam = searchParams.get('snap') || '';
+  const decodedSnap = decodeEmergencyQrSnapshot(snapParam);
 
   const [step, setStep] = useState<'pin' | 'loading' | 'view' | 'error' | 'expired'>('pin');
   const [pinInput, setPinInput] = useState('');
@@ -788,6 +792,31 @@ export default function PassportView() {
   const [authDisplayName, setAuthDisplayName] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Auto-open if emergency snapshot has no PIN set (instant emergency mode)
+  useEffect(() => {
+    if (decodedSnap && !decodedSnap.pin && uid) {
+      let merged = normalizeProfile(decodedSnap.profile);
+      try {
+        const localScoped = loadProfile(uid);
+        merged = mergeProfiles(merged, localScoped);
+      } catch {}
+      setProfile(merged);
+      setStep('view');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, snapParam]);
+
+  const handleEmergencyQuickView = () => {
+    if (!decodedSnap || !uid) return;
+    let merged = normalizeProfile(decodedSnap.profile);
+    try {
+      const localScoped = loadProfile(uid);
+      merged = mergeProfiles(merged, localScoped);
+    } catch {}
+    setProfile(merged);
+    setStep('view');
+  };
+
   const handleSubmit = async () => {
     if (!uid || pinInput.length < 4) return;
     setStep('loading');
@@ -796,12 +825,18 @@ export default function PassportView() {
       // 1. جلب بيانات المشاركة من passportShares/{uid}
       const share: PassportShare | null = await getPassportShare(uid);
 
-      // 2. التحقق من التفعيل والمدة والـ PIN
+      // 2. التحقق من التفعيل والمدة والـ PIN (أو استخدام بيانات الطوارئ المشفرة في الـ QR)
       if (!share || !share.pin || share.expiresAt === 0) {
+        if (decodedSnap && (!decodedSnap.pin || decodedSnap.pin === pinInput.trim())) {
+          const snapProfile = normalizeProfile(decodedSnap.profile);
+          setProfile(snapProfile);
+          setStep('view');
+          return;
+        }
         setErrorMsg(
           isAr
-            ? 'البطاقة غير مفعّلة للمشاركة حالياً. اطلب من المريض فتح «ملف صحتي» وتعيين PIN وتفعيل المشاركة.'
-            : 'Passport sharing is not currently active. Ask the patient to activate sharing in Health Profile.'
+            ? 'البطاقة غير مفعّلة للمشاركة السحابية حالياً. اطلب من المريض فتح «الكارت الطبي الذكي» وتعيين PIN وتفعيل المشاركة.'
+            : 'Passport sharing is not currently active. Ask the patient to activate sharing in Smart Medical ID.'
         );
         setStep('error');
         return;
@@ -917,12 +952,22 @@ export default function PassportView() {
           )}
           <button
             className="btn"
-            style={{ background: '#0b3c5d', color: '#fff', width: '100%' }}
+            style={{ background: '#101E36', borderColor: '#00BFD0', color: '#fff', width: '100%' }}
             disabled={pinInput.length < 4}
             onClick={handleSubmit}
           >
-            {isAr ? '🔓 عرض الملف الصحي للمريض' : '🔓 View Patient Medical Record'}
+            {isAr ? '🔓 عرض الملف الصحي الكامل للمريض (بـ PIN)' : '🔓 View Full Medical Record (with PIN)'}
           </button>
+          {decodedSnap && (
+            <button
+              type="button"
+              className="btn ghost"
+              style={{ marginTop: 10, width: '100%', borderColor: '#ef4444', color: '#ef4444', fontWeight: 800 }}
+              onClick={handleEmergencyQuickView}
+            >
+              🚨 {isAr ? 'وضع الطوارئ العاجل: عرض فصيلة الدم والحساسية فوراً' : 'Emergency Mode: View Blood Type & Allergies Now'}
+            </button>
+          )}
         </div>
       )}
 

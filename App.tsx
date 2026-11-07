@@ -52,6 +52,7 @@ const Interactions = lazyWithRetry(() => import('./Interactions'));
 const CostSaver = lazyWithRetry(() => import('./CostSaver'));
 const ColdShotWarning = lazyWithRetry(() => import('./ColdShotWarning'));
 const DailyScheduleGenerator = lazyWithRetry(() => import('./DailyScheduleGenerator'));
+const SmartPassport = lazyWithRetry(() => import('./SmartPassport'));
 const PassportView = lazyWithRetry(() => import('./PassportView'));
 const Medicines = lazyWithRetry(() => import('./Medicines'));
 const MedicinePage = lazyWithRetry(() => import('./MedicinePage'));
@@ -302,6 +303,8 @@ export default function App() {
               <Route path="/admin" element={configured ? <Dashboard /> : <ConfigMissing />} />
               <Route path="/admin/new" element={configured ? <Editor /> : <ConfigMissing />} />
               <Route path="/admin/medicine/:id" element={configured ? <Editor /> : <ConfigMissing />} />
+              <Route path="/passport" element={<SmartPassport />} />
+              <Route path="/smart-passport" element={<SmartPassport />} />
               <Route path="/passport/:uid" element={<PassportView />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
