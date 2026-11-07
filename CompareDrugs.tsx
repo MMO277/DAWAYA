@@ -193,8 +193,8 @@ export default function CompareDrugs() {
         </h1>
         <p className="muted">
           {isAr
-            ? 'قارن بين أي دواءين من قاعدة بيانات السوق المصري الشاملة (26,562 مستحضر) أو بين المضادات الحيوية والمواد الفعالة من حيث التكافؤ وفارق السعر والتحذيرات السريرية الـ 7.'
-            : 'Compare any 2 medicines from the 26,562 Egyptian drug database or antibiotic packages/active ingredients across equivalence, price, and the 7 clinical condition flags.'}
+            ? 'قارن بين أي دواءين من قاعدة بيانات السوق المصري الشاملة (26,562 مستحضر) أو بين العبوات التجارية والمواد الفعالة المرجعية من حيث التكافؤ وفارق السعر والتحذيرات السريرية الـ 7.'
+            : 'Compare any 2 medicines from the 26,562 Egyptian drug database or reference commercial packages and active ingredients across equivalence, price, and the 7 clinical condition flags.'}
         </p>
       </header>
 
@@ -210,7 +210,7 @@ export default function CompareDrugs() {
           className={`btn ${mode === 'packages' ? '' : 'ghost'}`}
           onClick={() => setMode('packages')}
         >
-          📦 {isAr ? 'مقارنة عبوات المضادات الحيوية (206 عبوة)' : 'Compare Antibiotic Packages (206)'}
+          📦 {isAr ? 'مقارنة العبوات المرجعية الموثقة (206 عبوة)' : 'Compare Verified Reference Packages (206)'}
         </button>
         <button
           className={`btn ${mode === 'ingredients' ? '' : 'ghost'}`}

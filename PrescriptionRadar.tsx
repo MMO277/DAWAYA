@@ -2357,8 +2357,8 @@ export default function PrescriptionRadar() {
         <div className="report-print-header">
           <h2 style={{ margin: '0 0 4px' }}>
             {isAr
-              ? 'تقرير رحلة علاج المريض ومتابعة الروشتة — منصة الوعي بالمضادات الحيوية'
-              : 'Patient Treatment Journey & Prescription Report — Antibiotic Awareness'}
+              ? 'تقرير رحلة علاج المريض ومتابعة الروشتة — منصة دوايا | DAWAYA'
+              : 'Patient Treatment Journey & Prescription Report — DAWAYA | دوايا'}
           </h2>
           <p className="small" style={{ margin: '0 0 6px' }}>
             <b>{isAr ? 'تاريخ ووقت إصدار التقرير:' : 'Report Generation Date:'}</b>{' '}

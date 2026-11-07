@@ -115,7 +115,7 @@ export default function ListenLearn() {
         <p className="muted">
           {lang === 'ar'
             ? 'ميزة تمريضية مخصصة للاستماع إلى المحتوى التوعوي بصوت واضح باللغة العربية والإنجليزية، لخدمة كبار السن وجميع فئات المجتمع بسهولة.'
-            : 'An accessible patient education feature allowing you to listen to verified antibiotic guidance instead of reading.'}
+            : 'An accessible patient education feature allowing you to listen to verified medication safety and patient care guidance instead of reading.'}
         </p>
       </header>
 

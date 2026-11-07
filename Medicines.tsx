@@ -294,8 +294,8 @@ export default function Medicines() {
       <header className="med-head">
         <h1>
           {isAr
-            ? 'موسوعة أدوية دوايا الشاملة للسوق المصري (26,562+ دواء ومضاد حيوي)'
-            : 'DAWAYA Comprehensive Egyptian Medicine & Antibiotic Database (26,562+ Records)'}
+            ? 'موسوعة أدوية دوايا الشاملة للسوق المصري (26,562+ مستحضر دوائي)'
+            : 'DAWAYA Comprehensive Egyptian Medicine Database (26,562+ Records)'}
         </h1>
         <p className="muted">
           {isAr
@@ -408,8 +408,8 @@ export default function Medicines() {
         >
           🦠{' '}
           {isAr
-            ? `سجل المضادات الحيوية الموثق (${allCommercialProducts.length})`
-            : `Antibiotic Packages (${allCommercialProducts.length})`}
+            ? `سجل العبوات الدوائية المرجعية الموثقة (${allCommercialProducts.length})`
+            : `Verified Reference Packages (${allCommercialProducts.length})`}
         </button>
         <button
           className={`btn ${activeTab === 'clinical_monographs' ? '' : 'ghost'}`}
@@ -420,8 +420,8 @@ export default function Medicines() {
         >
           📚{' '}
           {isAr
-            ? `الموسوعة السريرية للمضادات (${items?.length || 32})`
-            : `Antibiotic Monographs (${items?.length || 32})`}
+            ? `المونوجرافات السريرية المرجعية (${items?.length || 32})`
+            : `Clinical Reference Monographs (${items?.length || 32})`}
         </button>
         <button
           className={`btn ${activeTab === 'audit_importer' ? '' : 'ghost'}`}

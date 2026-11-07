@@ -709,7 +709,7 @@ export default function GreenPrescription() {
                   >
                     <strong>💡 {isAr ? 'لماذا لا تتضمن هذه الخطة مضاداً حيوياً؟' : 'Why Does This Plan Not Include an Antibiotic?'} </strong>
                     {isAr
-                      ? 'الأعراض البسيطة كالرشح ونزلات البرد واحتقان الحلق البسيط غالباً ما تتحسن بالرعاية الذاتية الداعمة، وتناول المضادات الحيوية دون وصفة طبية لا يفيد فيها بل يعرضك لآثار جانبية ويزيد من مقاومة البكتيريا للمضادات الحيوية.'
+                      ? 'الأعراض البسيطة كالرشح ونزلات البرد واحتقان الحلق البسيط غالباً ما تتحسن بالرعاية الذاتية الداعمة، وتناول المضادات الحيوية دون وصفة طبية لا يفيد فيها بل يعرضك لآثار جانبية ويزيد من مقاومة البكتيريا لجميع الأدوية والروشتات.'
                       : 'Mild symptoms often improve with supportive self-care. Taking unprescribed antibiotics does not help viral illnesses and increases antimicrobial resistance and side effects.'}
                   </div>
 
@@ -920,7 +920,7 @@ export default function GreenPrescription() {
               </li>
               <li>
                 <a href="https://edaegypt.gov.eg" target="_blank" rel="noopener noreferrer">
-                  {isAr ? 'هيئة الدواء المصرية (EDA) — التوعية بالاستخدام الرشيد للمضادات الحيوية' : 'Egyptian Drug Authority (EDA) — Rational Antibiotic Use'}
+                  {isAr ? 'هيئة الدواء المصرية (EDA) — التوعية بالاستخدام الرشيد لجميع الأدوية والروشتات' : 'Egyptian Drug Authority (EDA) — Rational Antibiotic Use'}
                 </a>
               </li>
             </ul>

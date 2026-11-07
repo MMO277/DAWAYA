@@ -126,7 +126,7 @@ const D: Record<Lang, Record<string, string>> = {
     navGames: 'Medical Game Center 🎮',
     navSimulator: '3D Medical Life Simulator 🏥',
     gamesTitle: 'DAWAYA Medical Game & Simulation Center 🎮',
-    gamesSubtitle: 'Interactive 3D and 2D educational simulations designed to build medication safety and antibiotic stewardship skills.',
+    gamesSubtitle: 'Interactive 3D and 2D medical simulations designed to build comprehensive medication safety skills.',
     playNow: 'Play Now',
     launchSimulator: 'Launch 3D Simulator',
     exitGame: 'Exit Game',

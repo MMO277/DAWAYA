@@ -163,7 +163,7 @@ export default function AmbassadorCertificateModal({ cert, onClose, onUpdateName
       ctx.fillText(
         tr(
           lang,
-          'منصة الوعي بالمضادات الحيوية • مبادرة الاستخدام الرشيد للدواء في مصر',
+          'منصة دوايا | DAWAYA • مبادرة الاستخدام الرشيد للدواء في مصر',
           'ANTIBIOTIC AWARENESS PLATFORM • EGYPT STEWARDSHIP INITIATIVE',
           'PLATEFORME DE SENSIBILISATION AUX ANTIBIOTIQUES • INITIATIVE AMR',
           'PLATAFORMA DE CONCIENCIA SOBRE ANTIBIÓTICOS • INICIATIVA RAM',
@@ -179,7 +179,7 @@ export default function AmbassadorCertificateModal({ cert, onClose, onUpdateName
       ctx.fillText(
         tr(
           lang,
-          'شهادة سفير الوعي بالمضادات الحيوية',
+          'شهادة سفير الأمان والوعي الدوائي — دوايا | DAWAYA',
           'ANTIBIOTIC STEWARDSHIP AMBASSADOR',
           'AMBASSADEUR DU BON USAGE DES ANTIBIOTIQUES',
           'EMBAJADOR DEL USO PRUDENTE DE ANTIBIÓTICOS',
@@ -262,7 +262,7 @@ export default function AmbassadorCertificateModal({ cert, onClose, onUpdateName
         tr(
           lang,
           '🤝 ميثاق وتعهد سفير الوعي الدوائي:',
-          '🤝 Antibiotic Stewardship Ambassador Pledge:',
+          '🤝 DAWAYA Medication Safety Ambassador Pledge:',
           '🤝 Engagement de l’Ambassadeur du Bon Usage :',
           '🤝 Compromiso del Embajador de Uso Prudente:',
           '🤝 Versprechen des Botschafters für Antibiotika-Bewusstsein:'
@@ -409,7 +409,7 @@ export default function AmbassadorCertificateModal({ cert, onClose, onUpdateName
           await navigator.share({
             title: tr(
               lang,
-              'شهادة سفير الوعي بالمضادات الحيوية',
+              'شهادة سفير الأمان والوعي الدوائي — دوايا | DAWAYA',
               'Antibiotic Stewardship Certificate',
               'Certificat Ambassadeur AMR',
               'Certificado Embajador RAM',
@@ -417,8 +417,8 @@ export default function AmbassadorCertificateModal({ cert, onClose, onUpdateName
             ),
             text: tr(
               lang,
-              `حصلت على شهادة سفير الوعي بالمضادات الحيوية بنتيجة ${cert.percentage}%! اختبر معلوماتك الآن:`,
-              `I earned my Antibiotic Stewardship Ambassador Certificate (${cert.percentage}%)! Test your knowledge:`,
+              `حصلت على شهادة سفير الأمان والوعي الدوائي — دوايا | DAWAYA بنتيجة ${cert.percentage}%! اختبر معلوماتك الآن:`,
+              `I earned my DAWAYA Medication Safety Ambassador Certificate (${cert.percentage}%)! Test your knowledge:`,
               `J'ai obtenu mon certificat d'Ambassadeur du Bon Usage des Antibiotiques (${cert.percentage}%) !`,
               `¡Obtuve mi Certificado de Embajador del Uso Prudente de Antibióticos (${cert.percentage}%)!`,
               `Ich habe mein Botschafter-Zertifikat für Antibiotika-Bewusstsein (${cert.percentage} %) erhalten! Teste dein Wissen:`
@@ -472,8 +472,8 @@ export default function AmbassadorCertificateModal({ cert, onClose, onUpdateName
               🏅{' '}
               {tr(
                 lang,
-                'شهادة سفير الوعي بالمضادات الحيوية',
-                'Antibiotic Stewardship Ambassador Certificate',
+                'شهادة سفير الأمان والوعي الدوائي — دوايا | DAWAYA',
+                'DAWAYA Medication Safety Ambassador Certificate',
                 'Certificat d’Ambassadeur AMR',
                 'Certificado de Embajador RAM',
                 'Botschafter-Zertifikat für Antibiotika-Bewusstsein'

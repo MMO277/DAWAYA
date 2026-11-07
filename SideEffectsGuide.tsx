@@ -1,44 +1,66 @@
 import { pick, tr } from './types';
 import { useEmergencyLocation, formatEmergencyText, pickCountryName } from './emergencyLocation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
 import { SYMPTOMS_LIST, EMERGENCY_WARNINGS, SymptomDetail, SymptomSeverity } from './sideEffectsData';
+import {
+  DawayaMedicineRecord,
+  fetchFullDawayaMedicineById,
+  searchDawayaIndex,
+  useDawayaDrugDatabase,
+} from './dawayaDrugDatabaseService';
 
 export default function SideEffectsGuide() {
   const { lang } = useLang();
+  const isAr = lang === 'ar';
   const { emergency, countryName, selectedOverride, setCountryOverride, countriesList } = useEmergencyLocation();
+  const { indexItems } = useDawayaDrugDatabase();
+
   const [selectedSymptomId, setSelectedSymptomId] = useState<string>('anaphylaxis_breathing');
+  const [drugQuery, setDrugQuery] = useState('');
+  const [inspectedMed, setInspectedMed] = useState<DawayaMedicineRecord | null>(null);
+
+  const matchingMeds = useMemo(() => {
+    if (!drugQuery.trim()) return [];
+    return searchDawayaIndex(indexItems, { query: drugQuery }, isAr).slice(0, 8);
+  }, [drugQuery, indexItems, isAr]);
 
   const selectedSymptom: SymptomDetail | undefined = SYMPTOMS_LIST.find((s) => s.id === selectedSymptomId);
 
   const renderBadge = (sev: SymptomSeverity) => {
     switch (sev) {
       case 'emergency':
-        return <span className="sev-badge severe">🚨 {lang === 'ar' ? 'طوارئ فورية (إسعاف)' : 'Immediate Emergency (ER)'}</span>;
+        return <span className="sev-badge severe">🚨 {isAr ? 'طوارئ فورية (إسعاف)' : 'Immediate Emergency (ER)'}</span>;
       case 'prompt':
-        return <span className="sev-badge moderate">⚠️ {lang === 'ar' ? 'استشارة طبية عاجلة خلال ساعات' : 'Prompt Medical Attention'}</span>;
+        return <span className="sev-badge moderate">⚠️ {isAr ? 'استشارة طبية عاجلة خلال ساعات' : 'Prompt Medical Attention'}</span>;
       case 'mild':
-        return <span className="sev-badge safe">🟢 {lang === 'ar' ? 'عرض خفيف — رعاية منزلية' : 'Common / Mild — Home Care'}</span>;
+        return <span className="sev-badge safe">🟢 {isAr ? 'عرض خفيف — رعاية منزلية' : 'Common / Mild — Home Care'}</span>;
     }
   };
 
   return (
     <main className="wrap stack">
       <header className="page-head">
-        <h1>{lang === 'ar' ? 'الآثار الجانبية للمضادات الحيوية: ماذا أفعل؟' : 'Antibiotic Side Effects: What Should I Do?'}</h1>
+        <h1>
+          🚨{' '}
+          {isAr
+            ? 'دليل الآثار الجانبية والتحذيرات والطوارئ لجميع الأدوية (26,562+ دواء)'
+            : 'Medication Side Effects, Warnings & Emergency Guide (26,562+ Drugs)'}
+        </h1>
         <p className="muted">
-          {lang === 'ar'
-            ? 'دليل تثقيفي وتوعوي سريري لمساعدتك على فهم الأعراض الجانبية المحتملة، والتمييز بين الأعراض الخفيفة وعلامات الطوارئ التي تتطلب رعاية عاجلة.'
-            : 'A medically responsible clinical guide helping patients recognize potential side effects, mild symptoms, and emergency warning signs.'}
+          {isAr
+            ? 'ابحث عن أي دواء في السوق المصري للاطلاع على تحذيراته السريرية الـ 7 وموانع استعماله، وتعرّف على كيفية التصرف السليم مع الأعراض الجانبية الخفيفة أو الطارئة.'
+            : 'Search any of the 26,562 Egyptian medications to inspect its 7 clinical condition warnings and contraindications, and learn how to respond to mild or emergency side effects.'}
         </p>
       </header>
 
-      {/* Immediate Emergency Action Box - Category 3 (ALWAYS VISIBLE AT TOP) */}
+      {/* Immediate Emergency Action Box */}
       <section className="alert urgent emergency-top-box" role="alert">
         <div className="emerg-header">
           <span className="emerg-icon">🚨</span>
           <div>
-            <h2>{lang === 'ar' ? 'علامات الطوارئ الخطيرة (طلب الإسعاف فوراً):' : 'Emergency Warning Signs (Seek Help Immediately):'}</h2>
+            <h2>{isAr ? 'علامات الطوارئ الخطيرة لأي دواء (طلب الإسعاف فوراً):' : 'Emergency Drug Reaction Warning Signs (Seek Help Immediately):'}</h2>
             <p className="emerg-text">{formatEmergencyText(pick(EMERGENCY_WARNINGS, lang), emergency, lang)}</p>
           </div>
         </div>
@@ -83,193 +105,146 @@ export default function SideEffectsGuide() {
               </option>
             ))}
           </select>
-          <small className="emerg-sub">
-            {lang === 'ar'
-              ? 'لا تنتظر ولا تكمل أي استبيان في حالات الطوارئ؛ توجه فوراً لأقرب مستشفى!'
-              : 'Do not wait or fill forms during emergencies; proceed directly to the emergency department!'}
-          </small>
         </div>
+      </section>
+
+      {/* NEW: 26,562-Medicine Side Effects & 7-Warning Inspector */}
+      <section className="card stack highlight-card">
+        <h2>💊 {isAr ? 'افحص الآثار الجانبية والتحذيرات السريرية لأي دواء (26,562+ دواء):' : 'Inspect Side Effects & Clinical Warnings for Any Medicine (26,562+ DB):'}</h2>
+        <input
+          type="search"
+          value={drugQuery}
+          onChange={(e) => setDrugQuery(e.target.value)}
+          placeholder={isAr ? 'اكتب اسم الدواء أو المادة الفعالة (مثال: كونكور، بروفين، بنادول، جلوكوفاج، أوجمنتين)...' : 'Type medicine brand or active ingredient...'}
+        />
+        {matchingMeds.length > 0 && (
+          <div className="row wrapRow" style={{ gap: '8px' }}>
+            {matchingMeds.map((it) => (
+              <button
+                key={it.i}
+                type="button"
+                className="chip"
+                onClick={async () => {
+                  const full = await fetchFullDawayaMedicineById(it.i);
+                  if (full) setInspectedMed(full);
+                  setDrugQuery('');
+                }}
+              >
+                {isAr ? it.a || it.n : it.n} ({it.s})
+              </button>
+            ))}
+          </div>
+        )}
+
+        {inspectedMed && (
+          <div className="subcard stack" style={{ borderInlineStart: '4px solid #00BFD0' }}>
+            <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0 }}>{inspectedMed.brandNameAr} ({inspectedMed.brandNameEn})</h3>
+                <div className="small muted">{inspectedMed.genericName} · {inspectedMed.pharmaceuticalCategory}</div>
+              </div>
+              <Link to={`/medicine/${inspectedMed.id}`} className="btn small">
+                📖 {isAr ? 'صفحة الدواء الكاملة' : 'Full Drug Profile'}
+              </Link>
+            </div>
+
+            <div className="row wrapRow" style={{ gap: '6px' }}>
+              {inspectedMed.warningsFlags.pregnancy && <span className="badge danger">🤰 {isAr ? 'تحذير الحمل' : 'Pregnancy Warning'}</span>}
+              {inspectedMed.warningsFlags.lactation && <span className="badge warn">🍼 {isAr ? 'تحذير الرضاعة' : 'Lactation Warning'}</span>}
+              {inspectedMed.warningsFlags.kidney && <span className="badge danger">🫘 {isAr ? 'تحذير الكلى' : 'Kidney Warning'}</span>}
+              {inspectedMed.warningsFlags.liver && <span className="badge danger">🫀 {isAr ? 'تحذير الكبد' : 'Liver Warning'}</span>}
+              {inspectedMed.warningsFlags.heart && <span className="badge danger">❤️ {isAr ? 'تحذير القلب' : 'Heart Warning'}</span>}
+              {inspectedMed.warningsFlags.highBloodPressure && <span className="badge warn">🩸 {isAr ? 'تحذير الضغط' : 'Blood Pressure Warning'}</span>}
+              {inspectedMed.warningsFlags.diabetes && <span className="badge warn">🍬 {isAr ? 'تحذير السكري' : 'Diabetes Warning'}</span>}
+            </div>
+
+            <div>
+              <b>⚠️ {isAr ? 'التحذيرات والآثار الجانبية:' : 'Warnings & Side Effects:'}</b>
+              <p className="small" style={{ margin: '4px 0 0' }}>
+                {isAr ? inspectedMed.warningsSummaryAr : inspectedMed.warningsSummaryEn}
+              </p>
+            </div>
+            <div>
+              <b>🚫 {isAr ? 'موانع الاستعمال:' : 'Contraindications:'}</b>
+              <p className="small" style={{ margin: '4px 0 0' }}>
+                {isAr ? inspectedMed.contraindicationsAr : inspectedMed.contraindicationsEn}
+              </p>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* The 3 Core Categories Overview */}
       <section className="card stack">
-        <h2>📑 {lang === 'ar' ? 'فئات الأعراض الثلاث وكيفية التصرف:' : 'The 3 Side Effect Categories & What To Do:'}</h2>
+        <h2>📑 {isAr ? 'فئات الأعراض الجانبية الثلاث وكيفية التصرف:' : 'The 3 Side Effect Categories & What To Do:'}</h2>
         <div className="categories-grid">
-          {/* Category 1 */}
           <div className="cat-card mild-card">
             <div className="cat-header">
-              <span className="cat-pill safe">🟢 {lang === 'ar' ? 'الفئة 1: شائعة وخفيفة عادة' : 'Category 1: Common / Mild'}</span>
+              <span className="cat-pill safe">🟢 {isAr ? 'الفئة 1: شائعة وخفيفة عادة' : 'Category 1: Common / Mild'}</span>
             </div>
-            <h3>{lang === 'ar' ? 'أعراض هضمية خفيفة' : 'Mild Digestive Symptoms'}</h3>
+            <h3>{isAr ? 'أعراض هضمية أو صداع خفيف' : 'Mild Digestive or Headache Symptoms'}</h3>
             <p className="small">
-              {lang === 'ar'
-                ? 'مثل: الغثيان الخفيف، ليونة البراز المؤقتة، اضطراب المعدة، أو الطعم المعدني. تزول عادة بتناول الدواء مع الطعام أو استخدام البروبيوتيك.'
-                : 'e.g. Mild nausea, slight loose stools, stomach upset, or metallic taste. Usually managed with food and hydration.'}
+              {isAr
+                ? 'مثل: الغثيان الخفيف، اضطراب المعدة البسيط، أو الدوخة الخفيفة عند بدء الدواء. تقل غالباً بتناول الدواء بعد الطعام وشرب الماء.'
+                : 'e.g. Mild nausea, slight stomach upset, or mild drowsiness. Usually managed with food and hydration.'}
             </p>
-            <div className="cat-action">
-              <b>{lang === 'ar' ? 'التصرف:' : 'Action:'}</b> {lang === 'ar' ? 'رعاية منزلية وسوائل؛ استشر الصيدلي إذا اشتدت.' : 'Home care and fluids; consult pharmacist if worsening.'}
-            </div>
           </div>
 
-          {/* Category 2 */}
           <div className="cat-card prompt-card">
             <div className="cat-header">
-              <span className="cat-pill moderate">🟡 {lang === 'ar' ? 'الفئة 2: تستدعي استشارة عاجلة' : 'Category 2: Prompt Medical Advice'}</span>
+              <span className="cat-pill moderate">🟡 {isAr ? 'الفئة 2: تستدعي استشارة الطبيب' : 'Category 2: Prompt Medical Advice'}</span>
             </div>
-            <h3>{lang === 'ar' ? 'أعراض حادة تتطلب التقييم' : 'Symptoms Needing Prompt Assessment'}</h3>
+            <h3>{isAr ? 'أعراض تتطلب تقييم وتعديل الدواء' : 'Symptoms Needing Prompt Assessment'}</h3>
             <p className="small">
-              {lang === 'ar'
-                ? 'مثل: الإسهال المائي المتكرر أو الدموي (خطر C. diff)، ألم مفاجئ بالأوتار، اصفرار العينين (يرقان)، أو طفح جلدي متسع.'
-                : 'e.g. Severe watery diarrhea (C. difficile risk), tendon pain, jaundice, or spreading rash.'}
+              {isAr
+                ? 'مثل: هبوط أو ارتفاع حاد بالضغط أو السكر، طفح جلدي غير فقاعي، إسهال شديد مستمر، أو اصفرار العينين.'
+                : 'e.g. Marked blood pressure/glucose drop, persistent diarrhea, jaundice, or spreading skin rash.'}
             </p>
-            <div className="cat-action">
-              <b>{lang === 'ar' ? 'التصرف:' : 'Action:'}</b> {lang === 'ar' ? 'اتصل بالطبيب أو الصيدلي فوراً لتقييم واستبدال الدواء.' : 'Contact doctor promptly to evaluate and modify therapy.'}
-            </div>
           </div>
 
-          {/* Category 3 */}
           <div className="cat-card severe-card">
             <div className="cat-header">
-              <span className="cat-pill severe">🔴 {lang === 'ar' ? 'الفئة 3: علامات طوارئ قاتلة' : 'Category 3: Emergency Signs'}</span>
+              <span className="cat-pill severe">🔴 {isAr ? 'الفئة 3: علامات طوارئ فورية' : 'Category 3: Emergency Signs'}</span>
             </div>
-            <h3>{lang === 'ar' ? 'صدمة تحسسية وانسداد تنفس' : 'Severe Anaphylaxis & Airway'}</h3>
+            <h3>{isAr ? 'صدمة تحسسية أو ضيق تنفس أو نزيف' : 'Severe Anaphylaxis, Airway or Bleeding'}</h3>
             <p className="small">
-              {lang === 'ar'
-                ? 'مثل: تورم اللسان والحلق، صفير الصدر، ضيق التنفس الشديد، الدوار الشديد والإغماء، أو فقاعات وتقشر الجلد.'
-                : 'e.g. Swollen throat/tongue, wheezing, severe breathing distress, collapse, or blistering skin rash.'}
+              {isAr
+                ? 'مثل: تورم اللسان والحلق، اختناق وصفير الصدر، إغماء، أو نزيف حاد. توجه لأقرب طوارئ فوراً.'
+                : 'e.g. Swollen throat/tongue, wheezing, severe breathing distress, collapse, or severe bleeding.'}
             </p>
-            <div className="cat-action">
-              <b>{lang === 'ar' ? 'التصرف:' : 'Action:'}</b>{' '}
-              {tr(
-                lang,
-                `اتصل بالطوارئ (${emergency.number}) وتوجه لأقرب طوارئ فوراً دون تأخير.`,
-                `Call emergency services (${emergency.number}) and seek immediate emergency care.`,
-                `Appelez les urgences (${emergency.number}) et consultez immédiatement.`,
-                `Llame a emergencias (${emergency.number}) y acuda de inmediato a urgencias.`
-              )}
-            </div>
           </div>
         </div>
       </section>
 
       {/* Interactive Symptom Explorer */}
       <section className="card stack">
-        <h2>🔍 {lang === 'ar' ? 'المستكشف التفاعلي للأعراض الجانبية:' : 'Interactive Symptom Explorer:'}</h2>
-        <p className="muted small">
-          {lang === 'ar'
-            ? 'اختر العرض الذي تشعر به للاطلاع على التقييم السريري والتصرف الفوري ونصيحة التمريض المعتمدة.'
-            : 'Select the symptom you are experiencing to view clinical evaluation and nursing guidance.'}
-        </p>
-
-        <div className="symptom-picker-row">
-          <label><b>{lang === 'ar' ? 'اختر العرض:' : 'Select Symptom:'}</b></label>
-          <select
-            className="select-input"
-            value={selectedSymptomId}
-            onChange={(e) => setSelectedSymptomId(e.target.value)}
-            aria-label="Select Symptom"
-          >
-            {SYMPTOMS_LIST.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.severity === 'emergency' ? '🔴' : s.severity === 'prompt' ? '🟡' : '🟢'} {pick(s.name, lang)}
-              </option>
-            ))}
-          </select>
+        <h2>🔍 {isAr ? 'المستكشف التفاعلي للأعراض الجانبية والتصرف السريري:' : 'Interactive Symptom Response Explorer:'}</h2>
+        <div className="row wrapRow" style={{ gap: '8px' }}>
+          {SYMPTOMS_LIST.map((sym) => (
+            <button
+              key={sym.id}
+              type="button"
+              className={`chip ${selectedSymptomId === sym.id ? 'on' : ''}`}
+              onClick={() => setSelectedSymptomId(sym.id)}
+            >
+              {sym.icon} {pick(sym.name, lang)}
+            </button>
+          ))}
         </div>
 
-        {/* Selected Symptom Detailed Card */}
         {selectedSymptom && (
-          <div className={`card symptom-detail-card ${selectedSymptom.severity}`}>
-            <div className="sym-head">
+          <div className="subcard stack" style={{ marginTop: '10px' }}>
+            <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0 }}>{selectedSymptom.icon} {pick(selectedSymptom.name, lang)}</h3>
               {renderBadge(selectedSymptom.severity)}
-              <h3>{pick(selectedSymptom.name, lang)}</h3>
             </div>
-
-            <div className="sym-content stack">
-              <div className="sym-section">
-                <h4>🔬 {lang === 'ar' ? 'التفسير السريري للعرض:' : 'Clinical Explanation:'}</h4>
-                <p>{pick(selectedSymptom.description, lang)}</p>
-              </div>
-
-              <div className="sym-section action-highlight">
-                <h4>⚡ {lang === 'ar' ? 'ما يجب عليك فعله الآن (الإجراء الفوري):' : 'What You Should Do Now:'}</h4>
-                <p><b>{formatEmergencyText(pick(selectedSymptom.immediateAction, lang), emergency, lang)}</b></p>
-              </div>
-
-              <div className="sym-section offending-drugs">
-                <h4>💊 {lang === 'ar' ? 'أشهر الأدوية المرتبطة بهذا العرض:' : 'Common Culprit Medications:'}</h4>
-                <p><i>{pick(selectedSymptom.commonOffenders, lang)}</i></p>
-              </div>
-
-              <div className="nursing-box">
-                <h4>🩺 {lang === 'ar' ? 'توجيه وتمريض سريري (Nursing Assessment & Care):' : 'Nursing Clinical Guidance:'}</h4>
-                <p>{pick(selectedSymptom.nursingAdvice, lang)}</p>
-              </div>
+            <p>{pick(selectedSymptom.description, lang)}</p>
+            <div className="notice">
+              <b>🩺 {isAr ? 'التصرف الطبي الموصى به:' : 'Recommended Action:'}</b>{' '}
+              {pick(selectedSymptom.whatToDo, lang)}
             </div>
           </div>
         )}
-      </section>
-
-      {/* Allergy Awareness Module */}
-      <section className="card stack allergy-module">
-        <h2>🛡️ {lang === 'ar' ? 'التوعية بالحساسية الدوائية (Allergy Awareness):' : 'Allergy Awareness Guide:'}</h2>
-        <div className="allergy-grid">
-          <div className="allergy-col">
-            <h3>{lang === 'ar' ? 'الفرق بين الحساسية والأثر الجانبي العادي:' : 'Allergy vs Typical Side Effect:'}</h3>
-            <ul>
-              <li>
-                <b>{lang === 'ar' ? 'الحساسية الدوائية الحقيقية (Allergy):' : 'True Drug Allergy:'}</b>{' '}
-                {lang === 'ar'
-                  ? 'تفاعل مناعي يحدث للأشخاص المتحسسين فقط، ويظهر في صورة طفح جلدي حاك، تورم بالوجه أو الشفتين، أو صعوبة تنفس. قد تتكرر وتشتد في المرات القادمة.'
-                  : 'Immune-mediated response presenting as hives, angioedema, or bronchospasm. Can be life-threatening upon re-exposure.'}
-              </li>
-              <li>
-                <b>{lang === 'ar' ? 'الآثار الجانبية العادية (Common Side Effects):' : 'Common Side Effects:'}</b>{' '}
-                {lang === 'ar'
-                  ? 'تأثيرات دوائية مباشرة على الجهاز الهضمي كالاضطراب الخفيف والغثيان أو الإسهال البسيط دون تدخل مناعي.'
-                  : 'Direct pharmacological effects on mucosal tissues such as mild nausea or stomach ache without immune involvement.'}
-              </li>
-            </ul>
-          </div>
-          <div className="allergy-col notice-col">
-            <div className="notice-box">
-              <h4>⚠️ {lang === 'ar' ? 'قاعدة السلامة الذهبية للتمريض:' : 'Golden Nursing Safety Rule:'}</h4>
-              <p>
-                {lang === 'ar'
-                  ? 'أبلغ الطبيب والممرض دائماً وقبل أخذ أي دواء إذا كنت قد تعرضت سابقاً لأي حساسية أو طفح جلدي من أي مضاد حيوي. اسأل دائماً عن اختبار حساسية البنسلين قبل أخذ الحقن الوريدية أو العضلية.'
-                  : 'Always inform your healthcare team of any past antibiotic allergies. Penicillin skin testing is required before parenteral administration.'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* References & Documented Sources */}
-      <section className="card">
-        <h3>📚 {lang === 'ar' ? 'المراجع والمصادر السريرية المعتمدة:' : 'Clinical Sources & Guidelines:'}</h3>
-        <ul className="srclist">
-          <li>
-            <a href="https://www.cdc.gov/antibiotic-use/safety/side-effects.html" target="_blank" rel="noopener noreferrer">
-              CDC — Antibiotic Side Effects and Adverse Reactions
-            </a>
-            <span className="small muted"> · Centers for Disease Control and Prevention · 2024-2026</span>
-          </li>
-          <li>
-            <a href="https://medlineplus.gov/druginformation.html" target="_blank" rel="noopener noreferrer">
-              MedlinePlus Drug Information Monographs
-            </a>
-            <span className="small muted"> · National Library of Medicine (NIH)</span>
-          </li>
-          <li>
-            <a href="https://www.nhs.uk/conditions/antibiotics/side-effects/" target="_blank" rel="noopener noreferrer">
-              NHS — Antibiotics Side Effects & Allergic Reactions
-            </a>
-            <span className="small muted"> · National Health Service</span>
-          </li>
-        </ul>
-        <p className="small muted" style={{ marginTop: '8px' }}>
-          {lang === 'ar' ? 'آخر مراجعة سريرية: 13 أكتوبر 2026 بواسطة لجنة التمريض والترشيد السريري.' : 'Last clinically reviewed: October 13, 2026 by Nursing Stewardship Committee.'}
-        </p>
       </section>
     </main>
   );

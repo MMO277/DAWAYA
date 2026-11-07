@@ -359,7 +359,7 @@ export function PartnerMedicationOrderModal({
 
             {/* Prescription Compliance Box */}
             <div className="subcard stack" style={{ borderColor: '#0284c7' }}>
-              <b> {isAr ?'بيانات الوصفة الطبية (الروشتة) — إجباري للمضادات الحيوية:':'Prescription Verification (Mandatory for Antibiotics):'}</b>
+              <b> {isAr ?'بيانات الوصفة الطبية (الروشتة) — إجباري لجميع الأدوية والروشتات:':'Prescription Verification (Mandatory for Antibiotics):'}</b>
               <div
                 style={{
                   display: 'grid',

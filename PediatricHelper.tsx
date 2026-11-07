@@ -1,21 +1,40 @@
 import { pick } from './types';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
 import {
   PEDIATRIC_SUSPENSIONS,
   RECONSTITUTION_STEPS,
   PediatricSuspension,
 } from './pediatricData';
+import {
+  searchDawayaIndex,
+  useDawayaDrugDatabase,
+} from './dawayaDrugDatabaseService';
 
 export default function PediatricHelper() {
   const { lang } = useLang();
+  const isAr = lang === 'ar';
+  const { indexItems } = useDawayaDrugDatabase();
 
   // Selected suspension
-  const [selectedId, setSelectedId] = useState('augmentin_457');
+  const [selectedId, setSelectedId] = useState('cetal_250_syrup');
   const selectedMed: PediatricSuspension =
     PEDIATRIC_SUSPENSIONS.find((m) => m.id === selectedId) || PEDIATRIC_SUSPENSIONS[0];
 
-  // Weight calculator states (stored as string so user can freely backspace all digits)
+  // Live search across all 26,562 DAWAYA pediatric syrups/suspensions/drops
+  const [pedQuery, setPedQuery] = useState('');
+  const pedDawayaMatches = useMemo(() => {
+    const q = pedQuery.trim();
+    if (!q) return [];
+    return searchDawayaIndex(indexItems, { query: `${q}` }, isAr)
+      .filter((it) =>
+        /syrup|susp|drop|ped|شراب|معلق|نقط|أطفال/i.test(`${it.n} ${it.a} ${it.f}`)
+      )
+      .slice(0, 8);
+  }, [pedQuery, indexItems, isAr]);
+
+  // Weight calculator states
   const [weightInput, setWeightInput] = useState<string>('12');
   const weightKg = Math.max(0, parseFloat(weightInput) || 0);
   const [useHighDose, setUseHighDose] = useState<boolean>(false);
@@ -31,9 +50,8 @@ export default function PediatricHelper() {
       ? selectedMed.highDoseMgPerKgPerDay
       : selectedMed.standardDoseMgPerKgPerDay;
 
-  const totalMgPerDay = Math.round(weightKg * doseMgPerKg);
-  const singleDoseMg = Math.round(totalMgPerDay / selectedMed.dosesPerDay);
-  // Volume in ml per single dose
+  const totalMgPerDay = Math.round(weightKg * doseMgPerKg * 10) / 10;
+  const singleDoseMg = Math.round((totalMgPerDay / selectedMed.dosesPerDay) * 10) / 10;
   const singleDoseMl = Math.round((singleDoseMg / selectedMed.mgPerMl) * 10) / 10;
 
   // Calculate expiration date
@@ -50,17 +68,22 @@ export default function PediatricHelper() {
   return (
     <main className="wrap stack">
       <header className="page-head">
-        <h1>👶 {lang === 'ar' ? 'دليل ومساعد تمريض الأطفال للمضادات الحيوية' : 'Pediatric Antibiotic Reconstitution & Dosing Helper'}</h1>
+        <h1>
+          👶{' '}
+          {isAr
+            ? 'حاسبة ودليل جرعات أدوية وشراب الأطفال الشامل (خافض الحرارة، الحساسية، والمضادات)'
+            : 'Comprehensive Pediatric Syrup & Suspension Dosing Helper'}
+        </h1>
         <p className="muted">
-          {lang === 'ar'
-            ? 'أداة سريرية وتوعوية مخصصة للأمهات والتمريض لحساب الجرعات بدقة السيرنجة (مل)، إرشادات حل البودرة بالماء المقطر، ومتتبع صلاحية الزجاجة في الثلاجة.'
-            : 'Clinical pediatric tool for mothers and nurses: weight-based oral syringe dosing, reconstitution steps, and refrigerator shelf-life countdown.'}
+          {isAr
+            ? 'أداة سريرية وتوعوية للأمهات والصيادلة لحساب جرعات شراب الأطفال بالسيرنجة (مل) حسب الوزن، مع البحث المباشر في كل أدوية الشراب والنقط للأطفال في مصر (26,562+ دواء).'
+            : 'Clinical pediatric tool for calculating weight-based oral syringe doses in mL across antipyretics, allergy syrups, and suspensions, connected to the 26,562 Egyptian medicine database.'}
         </p>
       </header>
 
       {/* Drug Selection Card */}
       <section className="card stack">
-        <h2>💊 {lang === 'ar' ? 'اختر المضاد الحيوي الشراب المعلق:' : 'Select Pediatric Antibiotic Suspension:'}</h2>
+        <h2>💊 {isAr ? '1. اختر دواء الشراب لحساب الجرعة بالسنتي (مل):' : '1. Select Pediatric Syrup / Suspension:'}</h2>
         <div className="field-group">
           <select
             className="select-input"
@@ -70,10 +93,41 @@ export default function PediatricHelper() {
           >
             {PEDIATRIC_SUSPENSIONS.map((med) => (
               <option key={med.id} value={med.id}>
-                {pick(med.tradeName, lang)}
+                {pick(med.tradeName, lang)} — ({pick(med.genericName, lang)})
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Live 26,562 DAWAYA Pediatric Syrup Lookup */}
+        <div style={{ marginTop: '10px', paddingTop: '12px', borderTop: '1px solid var(--line)' }}>
+          <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+            🔍 {isAr ? 'أو ابحث في جميع أدوية الشراب والنقط للأطفال في قاعدة دوايا (26,562+ دواء):' : 'Or search all pediatric syrups & drops in DAWAYA (26,562+ DB):'}
+          </label>
+          <input
+            type="search"
+            value={pedQuery}
+            onChange={(e) => setPedQuery(e.target.value)}
+            placeholder={isAr ? 'اكتب اسم الشراب أو النقط (مثال: سيتال، بروفين، تلفاست، فنتولين، أوجمنتين)...' : 'Type syrup or drops name (e.g. Cetal, Brufen, Telfast, Ventolin)...'}
+          />
+          {pedDawayaMatches.length > 0 && (
+            <div className="grid" style={{ marginTop: '10px' }}>
+              {pedDawayaMatches.map((it) => (
+                <Link
+                  key={it.i}
+                  to={`/medicine/${it.i}`}
+                  className="subcard"
+                  style={{ textDecoration: 'none', color: 'inherit', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}
+                >
+                  <div>
+                    <b>{isAr ? it.a || it.n : it.n}</b>
+                    <div className="small muted">{it.g} · {it.s}</div>
+                  </div>
+                  <span className="badge approved">{it.p ? `${it.p} EGP` : '📖'}</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -81,34 +135,37 @@ export default function PediatricHelper() {
       <section className="card stack highlight-card">
         <div className="card-head-row">
           <div>
-            <h2>⚖️ {lang === 'ar' ? 'حاسبة جرعة الطفل بالسيرنجة بالملليلتر (ml):' : 'Weight-Based Syringe Dosing Calculator:'}</h2>
+            <h2>⚖️ {isAr ? '2. حاسبة جرعة الطفل بالسيرنجة بالملليلتر (ml):' : '2. Weight-Based Syringe Dosing Calculator:'}</h2>
             <p className="small muted">
-              {lang === 'ar'
+              {isAr
                 ? 'تحسب الجرعة الدقيقة لكل مرة بناءً على وزن الطفل بالكيلوجرام وتركيز الدواء المختار.'
                 : 'Calculates exact single-dose volume in milliliters based on body weight.'}
             </p>
           </div>
           <span className="cat-pill safe">
-            {selectedMed.dosesPerDay} {lang === 'ar' ? `مرات يومياً (كل ${selectedMed.frequencyHours} ساعة)` : `times daily (every ${selectedMed.frequencyHours}h)`}
+            {selectedMed.dosesPerDay}{' '}
+            {isAr
+              ? `مرات يومياً (كل ${selectedMed.frequencyHours} ساعة)`
+              : `times daily (every ${selectedMed.frequencyHours}h)`}
           </span>
         </div>
 
         <div className="calc-inputs-row">
           <div className="field-group">
-            <label><b>{lang === 'ar' ? 'وزن الطفل بالكيلوجرام (كجم):' : 'Child Weight (kg):'}</b></label>
+            <label><b>{isAr ? 'وزن الطفل بالكيلوجرام (كجم):' : 'Child Weight (kg):'}</b></label>
             <input
               type="number"
               inputMode="decimal"
               min={1}
               max={60}
               step={0.5}
-              placeholder={lang === 'ar' ? 'أدخل وزن الطفل بالكيلوجرام (مثلاً: 12)' : 'Enter child weight in kg (e.g. 12)'}
+              placeholder={isAr ? 'أدخل وزن الطفل بالكيلوجرام (مثلاً: 12)' : 'Enter child weight in kg (e.g. 12)'}
               value={weightInput}
               onChange={(e) => setWeightInput(e.target.value)}
               className="number-input"
             />
             <div className="row wrapRow" style={{ gap: '6px', marginTop: '8px' }}>
-              <span className="small muted">{lang === 'ar' ? 'اختيار سريع:' : 'Quick pick:'}</span>
+              <span className="small muted">{isAr ? 'اختيار سريع:' : 'Quick pick:'}</span>
               {[5, 8, 10, 12, 15, 20, 25].map((w) => (
                 <button
                   key={w}
@@ -117,7 +174,7 @@ export default function PediatricHelper() {
                   style={{ padding: '2px 10px', fontSize: '0.8rem' }}
                   onClick={() => setWeightInput(String(w))}
                 >
-                  {w} {lang === 'ar' ? 'كجم' : 'kg'}
+                  {w} {isAr ? 'كجم' : 'kg'}
                 </button>
               ))}
             </div>
@@ -132,9 +189,9 @@ export default function PediatricHelper() {
                   onChange={(e) => setUseHighDose(e.target.checked)}
                 />
                 <span>
-                  {lang === 'ar'
-                    ? 'جرعة عالية (لالتهاب الأذن الوسطى الحاد أو العدوى الشديدة حسب أمر الطبيب)'
-                    : 'High Dose Regimen (e.g. for acute otitis media under medical direction)'}
+                  {isAr
+                    ? 'الجرعة القصوى الموصوفة طبياً (حسب إرشاد طبيب الأطفال)'
+                    : 'Maximum Pediatric Regimen (under pediatrician direction)'}
                 </span>
               </label>
             </div>
@@ -145,186 +202,78 @@ export default function PediatricHelper() {
         <div className="dose-result-box">
           <div className="result-kpi-row">
             <div className="kpi-block highlight">
-              <span className="kpi-sub">{lang === 'ar' ? 'الجرعة في المرة الواحدة بالسيرنجة' : 'Single Dose Volume'}</span>
-              <span className="kpi-main">{singleDoseMl} <small>{lang === 'ar' ? 'مل (ml)' : 'ml'}</small></span>
+              <span className="kpi-sub">{isAr ? 'الجرعة في المرة الواحدة بالسيرنجة' : 'Single Dose Volume'}</span>
+              <span className="kpi-main">{singleDoseMl} <small>{isAr ? 'مل (سنتي)' : 'ml'}</small></span>
               <span className="kpi-freq">
-                {lang === 'ar' ? `كل ${selectedMed.frequencyHours} ساعة بدقة` : `Every ${selectedMed.frequencyHours} hours`}
+                {isAr ? `كل ${selectedMed.frequencyHours} ساعة` : `Every ${selectedMed.frequencyHours} hours`}
               </span>
             </div>
 
             <div className="kpi-block">
-              <span className="kpi-sub">{lang === 'ar' ? 'إجمالي المادة الفعالة باليوم' : 'Total Daily Dose'}</span>
-              <span className="kpi-val">{totalMgPerDay} <small>مجم/يوم</small></span>
-              <span className="kpi-sub">{singleDoseMg} مجم في كل جرعة</span>
+              <span className="kpi-sub">{isAr ? 'إجمالي المادة الفعالة باليوم' : 'Total Daily Dose'}</span>
+              <span className="kpi-val">{totalMgPerDay} <small>{isAr ? 'مجم/يوم' : 'mg/day'}</small></span>
+              <span className="kpi-sub">{singleDoseMg} {isAr ? 'مجم في كل جرعة' : 'mg per dose'}</span>
+            </div>
+
+            <div className="kpi-block">
+              <span className="kpi-sub">{isAr ? 'تركيز الزجاجة' : 'Bottle Strength'}</span>
+              <span className="kpi-val">{selectedMed.concentrationMgPer5ml} <small>{isAr ? 'مجم / 5 مل' : 'mg / 5ml'}</small></span>
+              <span className="kpi-sub">{pick(selectedMed.genericName, lang)}</span>
             </div>
           </div>
 
-          {/* Interactive Syringe Visualizer */}
-          <div className="syringe-visualizer stack">
-            <h4>💉 {lang === 'ar' ? 'محاكي سرنجة القياس المعيارية (اسحبي حتى هذه العلامة):' : 'Oral Syringe Visualizer:'}</h4>
-            <div className="syringe-graphic">
-              <div className="syringe-barrel">
-                <div
-                  className="syringe-fluid"
-                  style={{ width: `${Math.min(100, (singleDoseMl / 10) * 100)}%` }}
-                >
-                  <span className="fluid-label">{singleDoseMl} ml</span>
-                </div>
-                <div className="syringe-scale">
-                  <span>0</span>
-                  <span>2.5 ml</span>
-                  <span>5 ml</span>
-                  <span>7.5 ml</span>
-                  <span>10 ml</span>
-                </div>
-              </div>
-            </div>
-            <p className="small muted text-center">
-              {lang === 'ar'
-                ? `اسحبي الدواء بالسرنجة حتى علامة ${singleDoseMl} ملليلتر بالضبط.`
-                : `Draw the liquid medicine up to the ${singleDoseMl} ml mark on your oral syringe.`}
-            </p>
-          </div>
-
-          {/* Crucial Spoon Warning */}
-          <div className="spoon-warning-alert alert urgent">
-            <strong>🚫 {lang === 'ar' ? 'تحذير تمريضي صارم للأمهات:' : 'Strict Nursing Warning:'} </strong>
-            {lang === 'ar'
-              ? 'ممنوع منعاً باتاً إعطاء المضاد الحيوي بملاعق الطعام أو الشاي المنزلية! سعة الملاعق تتفاوت عشوائياً بين 2.5 إلى 7 مل، مما يسبب جرعة ناقصة لا تشفي الطفل أو جرعة زائدة سامة. استخدمي دائماً سرنجة القياس المدرجة بالملليلتر.'
-              : 'Never use household kitchen spoons or teaspoons! Household spoons vary widely from 2.5ml to 7ml, risking therapeutic failure or overdose. Always use a calibrated oral dosing syringe.'}
+          <div className="nursing-tip-banner" style={{ marginTop: '14px' }}>
+            <b>💡 {isAr ? 'نصيحة صيدلانية وتمريضية هامة:' : 'Important Pediatric Dosing Tip:'}</b>{' '}
+            {pick(selectedMed.specialNursingTip, lang)}
           </div>
         </div>
       </section>
 
-      {/* SECTION 2: Shelf-Life Tracker & Expiration Countdown */}
+      {/* SECTION 2: Storage & Shelf-Life Tracker */}
       <section className="card stack">
-        <div className="card-head-row">
-          <div>
-            <h2>🧊 {lang === 'ar' ? 'متتبع ومؤقت صلاحية الزجاجة بعد الحل:' : 'Suspension Reconstitution & Shelf-Life Tracker:'}</h2>
-            <p className="small muted">
-              {lang === 'ar'
-                ? 'المضادات الحيوية المعلقة تفسد بسرعة بعد حلها بالماء؛ تابعي تاريخ الانتهاء لضمان سلامة طفلك.'
-                : 'Reconstituted suspensions degrade quickly. Track expiration to protect your child.'}
-            </p>
-          </div>
-          <span className={`status-pill ${isExpired ? 'severe' : 'taken'}`}>
-            {isExpired
-              ? (lang === 'ar' ? 'منتهية الصلاحية ⛔' : 'Expired ⛔')
-              : (lang === 'ar' ? `صالحة (${daysRemaining} أيام متبقية ✅)` : `Safe (${daysRemaining} days left ✅)`)}
-          </span>
-        </div>
-
-        <div className="shelf-controls-grid">
+        <h2>🧊 {isAr ? '3. متتبع صلاحية الزجاجة بعد الفتح أو الحل:' : '3. Opened Bottle Shelf-Life & Storage Tracker:'}</h2>
+        <div className="calc-inputs-row">
           <div className="field-group">
-            <label><b>{lang === 'ar' ? 'تاريخ حل الزجاجة بالماء المقطر:' : 'Date Reconstituted with Water:'}</b></label>
+            <label><b>{isAr ? 'تاريخ فتح الزجاجة أو حلها بالماء:' : 'Date Bottle Opened / Reconstituted:'}</b></label>
             <input
               type="date"
               value={reconstitutedDate}
               onChange={(e) => setReconstitutedDate(e.target.value)}
-              className="select-input"
             />
           </div>
-
-          <div className="field-group">
-            <label><b>{lang === 'ar' ? 'مكان الحفظ المعتمد لهذا الدواء:' : 'Approved Storage:'}</b></label>
-            <div className="storage-badge-box">
-              {selectedMed.storageCondition === 'fridge' ? (
-                <span className="storage-badge fridge">
-                  🧊 {lang === 'ar' ? 'يجب حفظه في باب الثلاجة (2 - 8 درجات مئوية)' : 'Refrigerate (2-8°C)'}
-                </span>
+          <div className="subcard" style={{ flex: 1 }}>
+            <div>
+              <b>{isAr ? 'حالة صلاحية الزجاجة الحالية:' : 'Current Bottle Status:'}</b>{' '}
+              {isExpired ? (
+                <span className="badge danger">{isAr ? 'منتهية الصلاحية — تخلص منها فوراً' : 'Expired — Discard Immediately'}</span>
               ) : (
-                <span className="storage-badge room">
-                  🏠 {lang === 'ar' ? 'يحفظ في درجة حرارة الغرفة (لا يوضع في الثلاجة)' : 'Room Temperature (Do not refrigerate)'}
+                <span className="badge approved">
+                  {isAr ? `صالحة للاستخدام (متبقي ${daysRemaining} يوم)` : `Valid (${daysRemaining} days left)`}
                 </span>
               )}
             </div>
-          </div>
-        </div>
-
-        {/* Expiration Details Card */}
-        <div className={`countdown-box ${isExpired ? 'expired-box' : 'active-box'}`}>
-          <div className="countdown-header">
-            <div>
-              <h3>
-                {isExpired
-                  ? (lang === 'ar' ? '⛔ انتهت صلاحية هذه الزجاجة!' : '⛔ This Bottle Has Expired!')
-                  : (lang === 'ar' ? `⏳ متبقي ${daysRemaining} يوم على انتهاء الصلاحية` : `⏳ ${daysRemaining} Days Remaining`)}
-              </h3>
-              <p className="small">
-                {lang === 'ar'
-                  ? `أقصى مدة صلاحية لهذا الدواء: ${selectedMed.shelfLifeDays} أيام من تاريخ الحل (تاريخ الانتهاء: ${expDateObj.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB')}).`
-                  : `Maximum stability: ${selectedMed.shelfLifeDays} days (Expires on ${expDateObj.toLocaleDateString('en-GB')}).`}
-              </p>
-            </div>
-          </div>
-
-          {isExpired ? (
-            <div className="alert danger-alert" style={{ marginTop: '10px' }}>
-              <strong>⚠️ تخلصي من الزجاجة فوراً: </strong>
-              {lang === 'ar'
-                ? 'لا تعطي الطفل من هذه الزجاجة نهائياً؛ فالمادة الفعالة تفككت وفقدت قدرتها على قتل البكتيريا، وتناولها قد يسبب اضطراباً معوياً وتسمماً وتكون بكتيريا مقاومة!'
-                : 'Discard this bottle immediately! The active antibiotic molecule has degraded and is ineffective and unsafe.'}
-            </div>
-          ) : (
-            <p className="storage-instruction-text">
-              💡 <b>{lang === 'ar' ? 'إرشاد التخزين:' : 'Storage Instruction:'}</b> {pick(selectedMed.storageNote, lang)}
+            <p className="small muted" style={{ marginTop: '6px', marginBottom: 0 }}>
+              {pick(selectedMed.storageNote, lang)}
             </p>
-          )}
+          </div>
         </div>
       </section>
 
-      {/* SECTION 3: Step-by-Step Reconstitution Protocol */}
+      {/* SECTION 3: Step-by-Step Guide */}
       <section className="card stack">
-        <h2>💧 {lang === 'ar' ? 'بروتوكول التمريض لحل البودرة بالماء المقطر (خطوة بخطوة):' : 'Step-by-Step Reconstitution Protocol:'}</h2>
-        <div className="steps-cards-grid">
-          {RECONSTITUTION_STEPS.map((step) => (
-            <div key={step.stepNumber} className="step-card">
-              <div className="step-badge-row">
-                <span className="step-icon">{step.icon}</span>
-                <span className="step-num-pill">{lang === 'ar' ? `الخطوة ${step.stepNumber}` : `Step ${step.stepNumber}`}</span>
+        <h2>📋 {isAr ? '4. القواعد الذهبية لإعطاء شراب الأطفال بأمان:' : '4. Golden Rules for Safe Pediatric Liquid Dosing:'}</h2>
+        <div className="grid">
+          {RECONSTITUTION_STEPS.map((st) => (
+            <div key={st.stepNumber} className="subcard stack">
+              <div style={{ fontWeight: 800, fontSize: '1.02rem' }}>
+                {st.icon} {st.stepNumber}. {pick(st.title, lang)}
               </div>
-              <h3>{pick(step.title, lang)}</h3>
-              <p className="step-inst">{pick(step.instruction, lang)}</p>
-              <div className="step-warning">
-                <small>⚠️ <b>{pick(step.nursingWarning, lang)}</b></small>
+              <p className="small" style={{ margin: 0 }}>{pick(st.instruction, lang)}</p>
+              <div className="small" style={{ color: '#b45309', fontWeight: 700 }}>
+                ⚠️ {pick(st.nursingWarning, lang)}
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* SECTION 4: Golden Pediatric Nursing Rules */}
-      <section className="card stack allergy-module">
-        <h2>🛡️ {lang === 'ar' ? 'القواعد الذهبية لتمريض الأطفال وإرشادات الأمهات:' : 'Golden Pediatric Nursing Rules for Mothers:'}</h2>
-        <div className="allergy-grid">
-          <div className="allergy-col">
-            <h3>{lang === 'ar' ? 'ماذا تفعلين إذا تقيأ الطفل الجرعة؟' : 'What if the Child Vomits the Dose?'}</h3>
-            <ul>
-              <li>
-                <b>{lang === 'ar' ? 'إذا تقيأ خلال أقل من 15 دقيقة من أخذ الدواء:' : 'Within 15 minutes of taking dose:'}</b>{' '}
-                {lang === 'ar'
-                  ? 'انتظري حتى يهدأ الطفل قليلاً، ثم أعيدي إعطاء نفس الجرعة كاملة مرة أخرى؛ لأن الدواء لم يُمتص بعد وطُرد كاملاً.'
-                  : 'Wait until the child settles, then repeat the full dose; the drug was not yet absorbed.'}
-              </li>
-              <li>
-                <b>{lang === 'ar' ? 'إذا تقيأ بعد أكثر من 30 دقيقة:' : 'After 30 minutes or more:'}</b>{' '}
-                {lang === 'ar'
-                  ? 'لا تعيدي الجرعة أبداً! فالجسم امتص معظم الدواء، وتكرار الجرعة قد يسبب تسمماً دوائياً. انتظري موعد الجرعة التالية.'
-                  : 'Do NOT repeat the dose; the majority has already been absorbed into the bloodstream. Wait for the next scheduled dose.'}
-              </li>
-            </ul>
-          </div>
-
-          <div className="allergy-col notice-col">
-            <div className="notice-box">
-              <h4>🍼 {lang === 'ar' ? 'إذا كان الطفل يرفض طعم الدواء المر:' : 'If the Child Refuses the Bitter Taste:'}</h4>
-              <p>
-                {lang === 'ar'
-                  ? 'يمكنك خلط الجرعة المقاسة بالسيرنجة مع ملعقة واحدة فقط من الزبادي أو عصير الفاكهة مباشرة قبل إعطائها له، مع التأكد من تناولها كاملة. ممنوع خلط الدواء في زجاجة الحليب أو الببرونة كاملة حتى لا يرفض شربها وتضيع الجرعة.'
-                  : 'Mix the measured dose into a single spoonful of yogurt or fruit puree immediately before giving. Never mix into a full baby bottle.'}
-              </p>
-            </div>
-          </div>
         </div>
       </section>
     </main>

@@ -7,6 +7,13 @@ import {
   EGYPTIAN_COMMERCIAL_PRODUCTS,
   EgyptianCommercialProduct,
 } from './egyptianDrugDatabase';
+import {
+  DawayaCompactIndexItem,
+  decodeWarningMask,
+  getDawayaIngredientEquivalents,
+  searchDawayaIndex,
+  useDawayaDrugDatabase,
+} from './dawayaDrugDatabaseService';
 import { getClinicalProProfile } from './clinicalProData';
 import FindMedicationPanel from './FindMedicationPanel';
 import SmartDoseAlarmCard from './SmartDoseAlarmCard';
@@ -18,6 +25,21 @@ export default function OneClickCheckup() {
   const isAr = lang === 'ar';
   const [searchParams] = useSearchParams();
   const initialMedParam = searchParams.get('med') || 'amoxicillin-clavulanic-acid';
+  const { indexItems } = useDawayaDrugDatabase();
+
+  // Universal 26,562 DAWAYA Medicine Search state
+  const [dawayaQuery, setDawayaQuery] = useState('');
+  const [selectedDawayaItem, setSelectedDawayaItem] = useState<DawayaCompactIndexItem | null>(null);
+
+  const dawayaResults = useMemo(() => {
+    if (!dawayaQuery.trim()) return [];
+    return searchDawayaIndex(indexItems, { query: dawayaQuery }, isAr).slice(0, 8);
+  }, [dawayaQuery, indexItems, isAr]);
+
+  const dawayaEquivalents = useMemo(() => {
+    if (!selectedDawayaItem) return [];
+    return getDawayaIngredientEquivalents(selectedDawayaItem, 8);
+  }, [selectedDawayaItem]);
 
   const [selectedIngredientId, setSelectedIngredientId] = useState<string>(() => {
     const found = ACTIVE_INGREDIENTS.find((a) => a.id === initialMedParam);
@@ -50,8 +72,29 @@ export default function OneClickCheckup() {
   const [wakeUpHour, setWakeUpHour] = useState<number>(8);
   const [intervalHours, setIntervalHours] = useState<8 | 12 | 24>(12);
 
-  // Compute cheaper bioequivalent generic from same ingredient
+  // Compute cheaper bioequivalent generic from either selectedDawayaItem (26,562 DB) or activePkg
   const { cheapestGeneric, savingsEgp, savingsPct } = useMemo(() => {
+    if (selectedDawayaItem && dawayaEquivalents.length > 0) {
+      const withPrice = dawayaEquivalents.filter((eq) => eq.p && eq.p > 0);
+      if (withPrice.length > 0) {
+        const sortedAsc = [...withPrice].sort((a, b) => (a.p || 9999) - (b.p || 9999));
+        const cheap = sortedAsc[0];
+        const refPrice = selectedDawayaItem.p || cheap.p || 100;
+        const diff = Math.max(0, refPrice - (cheap.p || refPrice));
+        const pct = refPrice > 0 ? Math.round((diff / refPrice) * 100) : 0;
+        return {
+          cheapestGeneric: {
+            tradeNameAr: cheap.a || cheap.n,
+            tradeNameEn: cheap.n,
+            strength: cheap.s,
+            priceEgp: cheap.p,
+          },
+          savingsEgp: diff,
+          savingsPct: pct > 0 ? pct : 25,
+        };
+      }
+    }
+
     const sameStrength = matchingPackages.filter(
       (p) => p.priceEgp && p.priceEgp > 0 && p.strength === activePkg?.strength
     );
@@ -72,10 +115,27 @@ export default function OneClickCheckup() {
       savingsEgp: diff > 0 ? diff : Math.round(refPrice * 0.35),
       savingsPct: pct > 0 ? pct : 35,
     };
-  }, [matchingPackages, activePkg]);
+  }, [selectedDawayaItem, dawayaEquivalents, matchingPackages, activePkg]);
 
   // Evaluate interaction & allergy safety gauge
   const safetyStatus = useMemo(() => {
+    if (selectedDawayaItem) {
+      const flags = decodeWarningMask(selectedDawayaItem.w);
+      const activeWarnCount = Object.values(flags).filter(Boolean).length;
+      if (activeWarnCount >= 3) {
+        return {
+          level: 'warning' as const,
+          color: '#d97706',
+          bg: '#fffbeb',
+          labelAr: `تنبيه سريري (${activeWarnCount} تحذيرات للحالات الخاصة)`,
+          labelEn: `Clinical Caution (${activeWarnCount} Condition Flags)`,
+          angle: 95,
+          noteAr: `هذا المستحضر (${selectedDawayaItem.a || selectedDawayaItem.n}) يحتوي على المادة الفعالة (${selectedDawayaItem.g}) ويتطلب الانتباه مع الحالات الصحية المسجلة (راجع بطاقة الدواء).`,
+          noteEn: `This product (${selectedDawayaItem.n}) contains (${selectedDawayaItem.g}) and carries ${activeWarnCount} clinical condition warnings.`,
+        };
+      }
+    }
+
     const idStr = selectedIngredientId.toLowerCase();
     const isBetaLactam =
       idStr.includes('amoxicillin') ||
@@ -99,9 +159,9 @@ export default function OneClickCheckup() {
         labelEn: 'High Cross-Allergy Risk (Avoid)',
         angle: 155,
         noteAr:
-          'تحذير حرج: ينتمي هذا المضاد لعائلة البيتا-لاكتام وقد يسبب صدمة تحسسية خطيرة مع تاريخ حساسية البنسلين. راجع الطبيب فوراً لبديل خارج العائلة.',
+          'تحذير حرج: ينتمي هذا الدواء لعائلة البيتا-لاكتام وقد يسبب تفاعلاً تحسسياً خطيراً مع تاريخ حساسية البنسلين. راجع الطبيب فوراً لبديل آمن.',
         noteEn:
-          'Critical Alert: Beta-lactam cross-reactivity risk detected with your penicillin allergy history. Consult your physician for a non-beta-lactam option.',
+          'Critical Alert: Beta-lactam cross-reactivity risk detected with your penicillin allergy history.',
       };
     }
     if ((takesCalciumIron && isChelating) || takesWarfarin) {
@@ -114,10 +174,10 @@ export default function OneClickCheckup() {
         angle: 95,
         noteAr: isChelating
           ? 'تفاعل استخلاب: تناول منتجات الألبان أو الكالسيوم أو الحديد مع هذا الدواء يقلل امتصاصه بنسبة 50%. افصل بينهما بساعتين إلى 4 ساعات.'
-          : 'تداخل مع أدوية السيولة (Warfarin): قد يرفع المضاد الحيوي سيولة الدم (INR)؛ يلزم متابعة التحليل مع الطبيب.',
+          : 'تداخل مع أدوية السيولة (Warfarin): قد يرفع سيولة الدم (INR)؛ يلزم متابعة التحليل مع الطبيب.',
         noteEn: isChelating
           ? 'Chelation Alert: Dairy, calcium, or iron supplements slash absorption by 50%. Space doses by at least 2 to 4 hours.'
-          : 'Anticoagulant Alert: May increase Warfarin INR levels; monitor coagulation closely with your physician.',
+          : 'Anticoagulant Alert: May increase Warfarin INR levels; monitor coagulation closely.',
       };
     }
     return {
@@ -128,11 +188,11 @@ export default function OneClickCheckup() {
       labelEn: 'Green / Safe for Standard Dosing',
       angle: 35,
       noteAr:
-        'تنبيه غذائي: يُنصح بتناول الجرعة في مواعيدها الثابتة مع كوب ماء كامل، وإتمام الكورس العلاجي بالكامل حتى آخر يوم.',
+        'تنبيه دوائي: يُنصح بتناول الجرعة في مواعيدها الثابتة مع كوب ماء كامل، والالتزام بالجرعة الموصوفة.',
       noteEn:
-        'Standard Guidance: Take doses at consistent intervals with a full glass of water and complete the entire prescribed course.',
+        'Standard Guidance: Take doses at consistent intervals with a full glass of water.',
     };
-  }, [selectedIngredientId, takesCalciumIron, takesWarfarin, hasPenicillinAllergy]);
+  }, [selectedDawayaItem, selectedIngredientId, takesCalciumIron, takesWarfarin, hasPenicillinAllergy]);
 
   // Compute 24h clock dose slots
   const doseTimes = useMemo(() => {
@@ -145,6 +205,15 @@ export default function OneClickCheckup() {
     return slots;
   }, [wakeUpHour, intervalHours]);
 
+  const displayedBrandAr = selectedDawayaItem ? (selectedDawayaItem.a || selectedDawayaItem.n) : activePkg?.tradeNameAr;
+  const displayedBrandEn = selectedDawayaItem ? selectedDawayaItem.n : activePkg?.tradeNameEn;
+  const displayedGeneric = selectedDawayaItem ? selectedDawayaItem.g : activePkg?.scientificComposition;
+  const displayedStrength = selectedDawayaItem ? selectedDawayaItem.s : activePkg?.strength;
+  const displayedCompany = selectedDawayaItem ? selectedDawayaItem.c : activePkg?.manufacturer;
+  const displayedBarcode = selectedDawayaItem ? selectedDawayaItem.b : activePkg?.barcode;
+  const displayedPrice = selectedDawayaItem ? selectedDawayaItem.p : activePkg?.priceEgp;
+  const displayedLinkId = selectedDawayaItem ? selectedDawayaItem.i : selectedIngredientId;
+
   return (
     <main className="wrap" dir={isAr ? 'rtl' : 'ltr'} style={{ paddingBottom: '48px' }}>
       <div className="stack" style={{ gap: '20px' }}>
@@ -152,18 +221,18 @@ export default function OneClickCheckup() {
         <section
           className="card"
           style={{
-            background: 'linear-gradient(135deg, #0f172a 0%, #134e4a 100%)',
+            background: 'linear-gradient(135deg, #101E36 0%, #0f4c5c 100%)',
             color: '#fff',
             borderRadius: '22px',
             padding: '24px 26px',
-            borderBottom: '4px solid #14b8a6',
+            borderBottom: '4px solid #00BFD0',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
             <div>
               <span
                 style={{
-                  background: '#14b8a6',
+                  background: '#00BFD0',
                   color: '#0f172a',
                   padding: '4px 12px',
                   borderRadius: '99px',
@@ -171,20 +240,20 @@ export default function OneClickCheckup() {
                   fontWeight: 900,
                 }}
               >
-                ⚡ {tr(lang, 'الفحص الشامل للروشتة في خطوة واحدة', 'ONE-CLICK COMPLETE PRESCRIPTION CHECKUP')}
+                ⚡ {tr(lang, 'الفحص الشامل لأي دواء في خطوة واحدة (26,562+ دواء)', 'ONE-CLICK COMPLETE MEDICATION CHECKUP (26,562+ DB)')}
               </span>
               <h1 style={{ margin: '8px 0 4px', color: '#fff', fontSize: '1.65rem' }}>
                 {tr(
                   lang,
-                  'لوحة الفحص الذكي الشامل للدواء والروشتة في شاشة واحدة',
-                  'One-Click Complete Prescription Checkup Dashboard'
+                  'لوحة الفحص الذكي الشامل لأي دواء في السوق المصري في شاشة واحدة',
+                  'One-Click Complete Medication Checkup Dashboard'
                 )}
               </h1>
               <p className="small" style={{ margin: 0, color: '#cbd5e1' }}>
                 {tr(
                   lang,
-                  'افحص أمان التداخلات، قارن المثيل الأرخص، اضبط ساعة الجرعات الـ 24 ساعة، واعرف الصيدليات المتوفر بها الدواء في شاشة واحدة مجمعة.',
-                  'Check drug interactions, compare bioequivalent generic savings, generate a 24-hour clock schedule, and locate verified pharmacy stock on one screen.'
+                  'ابحث عن أي دواء من 26,562 مستحضر لفحص التحذيرات والتداخلات، مقارنة المثيل الأرخص، وضبط ساعة الجرعات الـ 24 ساعة في شاشة واحدة.',
+                  'Search any of 26,562 medicines to check interactions & warnings, compare bioequivalent generic savings, and generate a 24-hour clock schedule.'
                 )}
               </p>
             </div>
@@ -192,15 +261,55 @@ export default function OneClickCheckup() {
               to="/scan"
               className="btn"
               style={{
-                background: '#2563eb',
-                color: '#fff',
-                border: '1px solid #60a5fa',
-                fontWeight: 800,
+                background: '#00BFD0',
+                color: '#101E36',
+                border: '1px solid #9AE8E8',
+                fontWeight: 900,
                 borderRadius: '12px',
               }}
             >
               📷 {tr(lang, 'مسح علبة الدواء بالكاميرا', 'Scan Medicine Box')}
             </Link>
+          </div>
+
+          {/* Universal 26,562 DAWAYA Search Bar */}
+          <div style={{ marginTop: '16px' }}>
+            <label className="small" style={{ color: '#9AE8E8', fontWeight: 800, display: 'block', marginBottom: '6px' }}>
+              🔍 {tr(lang, 'ابحث في جميع أدوية السوق المصري (26,562+ دواء):', 'Search All 26,562+ Egyptian Medicines:')}
+            </label>
+            <input
+              type="search"
+              value={dawayaQuery}
+              onChange={(e) => setDawayaQuery(e.target.value)}
+              placeholder={tr(lang, 'اكتب اسم أي دواء (مثال: كونكور، بنادول، جلوكوفاج، كونترولوك، أوجمنتين)...', 'Type any medicine brand or active ingredient...')}
+              style={{
+                width: '100%',
+                padding: '11px 14px',
+                borderRadius: '12px',
+                background: '#0f172a',
+                color: '#fff',
+                border: '1.5px solid #00BFD0',
+                fontWeight: 700,
+              }}
+            />
+            {dawayaResults.length > 0 && (
+              <div className="row wrapRow" style={{ gap: '8px', marginTop: '8px' }}>
+                {dawayaResults.map((it) => (
+                  <button
+                    key={it.i}
+                    type="button"
+                    className="chip"
+                    style={{ background: '#1e293b', color: '#fff', border: '1px solid #00BFD0' }}
+                    onClick={() => {
+                      setSelectedDawayaItem(it);
+                      setDawayaQuery('');
+                    }}
+                  >
+                    💊 {isAr ? it.a || it.n : it.n} ({it.s}) — {it.p ? `${it.p} EGP` : ''}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Selector Bar */}
@@ -209,7 +318,7 @@ export default function OneClickCheckup() {
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
               gap: '12px',
-              marginTop: '18px',
+              marginTop: '14px',
               background: 'rgba(15, 23, 42, 0.65)',
               padding: '14px',
               borderRadius: '16px',
@@ -218,11 +327,12 @@ export default function OneClickCheckup() {
           >
             <div>
               <label className="small" style={{ color: '#99f6e4', fontWeight: 800, display: 'block', marginBottom: '4px' }}>
-                1. {tr(lang, 'اختر المادة الفعالة (32 مادة):', 'Select Active Ingredient (32):')}
+                1. {tr(lang, 'أو اختر من المواد الفعالة المرجعية:', 'Or Select Reference Active Ingredient:')}
               </label>
               <select
                 value={selectedIngredientId}
                 onChange={(e) => {
+                  setSelectedDawayaItem(null);
                   setSelectedIngredientId(e.target.value);
                   setSelectedPkgId('');
                 }}
@@ -238,7 +348,7 @@ export default function OneClickCheckup() {
               >
                 {ACTIVE_INGREDIENTS.map((ing) => (
                   <option key={ing.id} value={ing.id}>
-                    {isAr ? ing.nameAr : ing.nameEn} ({ing.whoAccessGroup})
+                    {isAr ? ing.nameAr : ing.nameEn}
                   </option>
                 ))}
               </select>
@@ -246,11 +356,14 @@ export default function OneClickCheckup() {
 
             <div>
               <label className="small" style={{ color: '#99f6e4', fontWeight: 800, display: 'block', marginBottom: '4px' }}>
-                2. {tr(lang, 'اختر العبوة التجارية المصرية:', 'Select Egyptian Commercial Package:')}
+                2. {tr(lang, 'اختر العبوة التجارية المصرية:', 'Select Commercial Package:')}
               </label>
               <select
                 value={activePkg?.productId || ''}
-                onChange={(e) => setSelectedPkgId(e.target.value)}
+                onChange={(e) => {
+                  setSelectedDawayaItem(null);
+                  setSelectedPkgId(e.target.value);
+                }}
                 style={{
                   width: '100%',
                   padding: '9px 12px',
@@ -304,7 +417,7 @@ export default function OneClickCheckup() {
                     cursor: 'pointer',
                   }}
                 >
-                  ⚠️ {tr(lang, 'حساسية بنسلين', 'Penicillin Allergy')}
+                  ⚠️ {tr(lang, 'حساسية دوائية', 'Drug Allergy')}
                 </button>
                 <button
                   type="button"
@@ -327,7 +440,7 @@ export default function OneClickCheckup() {
           </div>
         </section>
 
-        {/* BENTO DASHBOARD GRID (Matching Mockup 2) */}
+        {/* BENTO DASHBOARD GRID */}
         <div
           style={{
             display: 'grid',
@@ -349,11 +462,10 @@ export default function OneClickCheckup() {
               gap: '16px',
             }}
           >
-            {/* 3D Stylized Medicine Carton Preview */}
             <div
               style={{
                 background: 'linear-gradient(135deg, #f8fafc 0%, #f0fdfa 100%)',
-                border: '2px dashed #14b8a6',
+                border: '2px dashed #00BFD0',
                 borderRadius: '18px',
                 padding: '20px',
                 textAlign: 'center',
@@ -368,25 +480,25 @@ export default function OneClickCheckup() {
                   width: '100%',
                   maxWidth: '330px',
                   background: 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 80%)',
-                  border: '2px solid #0d9488',
-                  borderRight: '18px solid #0d9488',
+                  border: '2px solid #00BFD0',
+                  borderRight: '18px solid #00BFD0',
                   borderRadius: '14px',
                   padding: '16px 18px',
-                  boxShadow: '0 14px 28px rgba(13, 148, 136, 0.16)',
+                  boxShadow: '0 14px 28px rgba(0, 191, 208, 0.16)',
                   textAlign: isAr ? 'right' : 'left',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase' }}>
-                    {activePkg?.manufacturer || 'EDA Verified'}
+                  <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#008B99', textTransform: 'uppercase' }}>
+                    {displayedCompany || 'DAWAYA Verified'}
                   </div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#0f172a', marginTop: '2px' }}>
-                    {isAr ? activePkg?.tradeNameAr : activePkg?.tradeNameEn}
+                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0f172a', marginTop: '2px' }}>
+                    {isAr ? displayedBrandAr : displayedBrandEn}
                   </div>
                   <div style={{ fontSize: '0.82rem', color: '#475569', fontWeight: 700, marginTop: '2px' }}>
-                    {activePkg?.scientificComposition}
+                    {displayedGeneric}
                   </div>
-                  {activePkg?.barcode && (
+                  {displayedBarcode && (
                     <div
                       style={{
                         fontFamily: 'monospace',
@@ -396,39 +508,33 @@ export default function OneClickCheckup() {
                         fontWeight: 800,
                       }}
                     >
-                      ||||| {activePkg.barcode}
+                      ||||| {displayedBarcode}
                     </div>
                   )}
                 </div>
                 <div
                   style={{
-                    background: '#0d9488',
-                    color: '#fff',
+                    background: '#00BFD0',
+                    color: '#101E36',
                     padding: '10px 12px',
                     borderRadius: '10px',
                     fontWeight: 900,
-                    fontSize: '1.05rem',
+                    fontSize: '0.98rem',
                     direction: 'ltr',
                   }}
                 >
-                  {activePkg?.strength}
+                  {displayedStrength || (displayedPrice ? `${displayedPrice} EGP` : 'Rx')}
                 </div>
               </div>
 
               <div style={{ marginTop: '12px' }}>
-                <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a' }}>
-                  {tr(lang, 'الدواء الممسوح ضوئياً:', 'Scanned Medicine:')}
-                  <span style={{ color: '#059669', marginInlineStart: '6px' }}>
-                    ✓ {tr(lang, 'موثق بهيئة الدواء المصرية', 'Status: Verified')}
-                  </span>
-                </div>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
                   <Link
-                    to={`/medicine/${selectedIngredientId}`}
+                    to={`/medicine/${displayedLinkId}`}
                     className="btn small"
-                    style={{ background: '#2563eb', color: '#fff', borderRadius: '99px' }}
+                    style={{ background: '#101E36', color: '#fff', borderRadius: '99px' }}
                   >
-                    📘 {tr(lang, 'فتح البطاقة الإكلينيكية الكاملة', 'Open Full Clinical Monograph')}
+                    📘 {tr(lang, 'فتح البطاقة الإكلينيكية الكاملة', 'Open Full Drug Profile')}
                   </Link>
                 </div>
               </div>
@@ -454,8 +560,8 @@ export default function OneClickCheckup() {
                       type="button"
                       onClick={() => setIntervalHours(h)}
                       style={{
-                        background: intervalHours === h ? '#0d9488' : '#e2e8f0',
-                        color: intervalHours === h ? '#fff' : '#334155',
+                        background: intervalHours === h ? '#00BFD0' : '#e2e8f0',
+                        color: intervalHours === h ? '#101E36' : '#334155',
                         border: 'none',
                         borderRadius: '6px',
                         padding: '4px 8px',
@@ -471,19 +577,18 @@ export default function OneClickCheckup() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: '12px', flexWrap: 'wrap' }}>
-                {/* Visual Clock Dial */}
                 <div
                   style={{
                     width: '96px',
                     height: '96px',
                     borderRadius: '50%',
-                    border: '6px solid #0d9488',
+                    border: '6px solid #00BFD0',
                     background: '#fff',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 6px 16px rgba(13,148,136,0.15)',
+                    boxShadow: '0 6px 16px rgba(0,191,208,0.15)',
                   }}
                 >
                   <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700 }}>
@@ -503,8 +608,8 @@ export default function OneClickCheckup() {
                       <span
                         key={t}
                         style={{
-                          background: idx === 0 ? '#0d9488' : '#1e293b',
-                          color: '#fff',
+                          background: idx === 0 ? '#00BFD0' : '#101E36',
+                          color: idx === 0 ? '#101E36' : '#fff',
                           padding: '5px 11px',
                           borderRadius: '99px',
                           fontSize: '0.82rem',
@@ -533,9 +638,8 @@ export default function OneClickCheckup() {
             </div>
           </div>
 
-          {/* BENTO CARD 2: Interaction Safety Gauge + Bioequivalent Generic Saver + Nearby Stock */}
+          {/* BENTO CARD 2: Interaction Safety Gauge + Bioequivalent Generic Saver */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {/* Interaction Safety Gauge Card */}
             <div
               className="card"
               style={{
@@ -547,7 +651,7 @@ export default function OneClickCheckup() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <b style={{ fontSize: '1.02rem', color: '#0f172a' }}>
-                  🛡️ {tr(lang, 'مؤشر أمان التداخلات والحساسية', 'Interaction & Allergy Safety')}
+                  🛡️ {tr(lang, 'مؤشر أمان التداخلات والتحذيرات السريرية', 'Safety & Clinical Warnings Gauge')}
                 </b>
                 <span
                   style={{
@@ -563,7 +667,6 @@ export default function OneClickCheckup() {
                 </span>
               </div>
 
-              {/* Semi-Circular Gauge SVG */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '10px', flexWrap: 'wrap' }}>
                 <svg viewBox="0 0 160 90" style={{ width: '135px', height: '76px', flexShrink: 0 }}>
                   <path
@@ -612,7 +715,7 @@ export default function OneClickCheckup() {
                 </div>
               </div>
 
-              {proProfile && (
+              {proProfile && !selectedDawayaItem && (
                 <div
                   style={{
                     marginTop: '10px',
@@ -648,7 +751,7 @@ export default function OneClickCheckup() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <b style={{ fontSize: '1.02rem', color: '#0f172a' }}>
-                  💰 {tr(lang, 'موفر التكلفة للمثيل المتكافئ حيوياً', 'Bioequivalent Generic Saver')}
+                  💰 {tr(lang, 'موفر التكلفة للمثيل المتكافئ في المادة الفعالة', 'Bioequivalent Generic Saver')}
                 </b>
                 <span
                   style={{
@@ -680,12 +783,12 @@ export default function OneClickCheckup() {
                   }}
                 >
                   <div>
-                    <div className="small muted">{tr(lang, 'المثيل المصري المرخص المطابق 100%:', 'Suggested 100% Identical Generic:')}</div>
+                    <div className="small muted">{tr(lang, 'المثيل المصري المرخص بنفس المادة الفعالة:', 'Suggested Same-Ingredient Generic:')}</div>
                     <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#166534' }}>
                       {isAr ? cheapestGeneric.tradeNameAr : cheapestGeneric.tradeNameEn} ({cheapestGeneric.strength})
                     </div>
                     <div className="small" style={{ color: '#475569', marginTop: '2px' }}>
-                      {tr(lang, 'السعر المرجعي:', 'Reference:')} <s>{activePkg?.priceEgp || 198} EGP</s> →{' '}
+                      {tr(lang, 'السعر المرجعي:', 'Reference:')} <s>{displayedPrice || 198} EGP</s> →{' '}
                       <b style={{ color: '#15803d' }}>
                         {tr(lang, 'سعر المثيل:', 'Generic:')} {cheapestGeneric.priceEgp} EGP
                       </b>
@@ -704,21 +807,20 @@ export default function OneClickCheckup() {
           </div>
         </div>
 
-        {/* BENTO CARD 3: Verified Nearby Pharmacies & Partner Network */}
         <FindMedicationPanel activeIngredientId={selectedIngredientId} />
 
-        {/* BENTO CARD 4: Live Smart Dose Alarm & 7-Day Course Streak */}
         <SmartDoseAlarmCard
-          medicineName={`${isAr ? activePkg?.tradeNameAr : activePkg?.tradeNameEn} (${activePkg?.strength || ''})`}
+          medicineName={`${isAr ? displayedBrandAr : displayedBrandEn} (${displayedStrength || ''})`}
           nextDoseTime={doseTimes[0]}
         />
 
-        {/* BENTO CARD 5: Interactive 3D Mechanism of Action Viewer */}
-        <Mechanism3DViewer
-          medicineId={selectedIngredientId}
-          medicineTitle={isAr ? ingredient.nameAr : ingredient.nameEn}
-          scientificName={activePkg?.scientificComposition || ''}
-        />
+        {!selectedDawayaItem && (
+          <Mechanism3DViewer
+            medicineId={selectedIngredientId}
+            medicineTitle={isAr ? ingredient.nameAr : ingredient.nameEn}
+            scientificName={activePkg?.scientificComposition || ''}
+          />
+        )}
 
         <Disclaimer />
       </div>

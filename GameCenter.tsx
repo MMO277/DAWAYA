@@ -326,8 +326,8 @@ export default function GameCenter() {
 
         <h1 className="gc-hero-title">
           {isAr
-            ? 'تعلّم الاستخدام الآمن للمضادات الحيوية وسلامة المرضى باللعب والمحاكاة ثلاثية الأبعاد'
-            : 'Master Antibiotic Stewardship & Patient Safety Through Play & 3D Simulation'}
+            ? 'تعلّم الأمان الدوائي الشامل ومهارات الرعاية الطبية باللعب والمحاكاة ثلاثية الأبعاد'
+            : 'Master Comprehensive Medication Safety & Clinical Care Through 3D Simulation'}
         </h1>
 
         <p className="gc-hero-sub">
@@ -645,7 +645,7 @@ export default function GameCenter() {
             <h2>
               🛡️{' '}
               {isAr
-                ? 'لماذا نتعلم ترشيد المضادات الحيوية وسلامة المرضى عبر المحاكاة؟'
+                ? 'لماذا نتعلم الأمان الدوائي وسلامة المرضى عبر المحاكاة التفاعلية؟'
                 : 'Why Learn Antibiotic Stewardship & Patient Safety Through Simulation?'}
             </h2>
             <p className="small muted" style={{ marginBottom: '10px' }}>

@@ -35,8 +35,8 @@ const LEVEL_INFO = {
     labelFr: 'Débutant',
     labelEs: 'Principiante',
     labelDe: 'Anfänger',
-    descAr: 'أساسيات الوعي بالمضادات الحيوية',
-    descEn: 'Antibiotic awareness basics',
+    descAr: 'أساسيات الأمان الدوائي وقراءة الروشتة',
+    descEn: 'Medication safety & prescription basics',
     descFr: 'Les bases de la sensibilisation aux antibiotiques',
     descEs: 'Conceptos básicos de conciencia sobre antibióticos',
     descDe: 'Grundlagen des Antibiotika-Bewusstseins',
@@ -372,8 +372,8 @@ export default function Quiz() {
         <p className="muted">
           {tr(
             lang,
-            'اختر مستوى الاختبار الذي يناسبك. عند اجتياز أي مستوى بنسبة 75% أو أكثر تحصل فوراً على «شهادة سفير الوعي بالمضادات الحيوية» وتُحفظ تلقائياً في حسابك السحابي للرجوع إليها في أي وقت.',
-            'Choose your quiz level. Score 75% or higher to earn your official "Antibiotic Stewardship Ambassador Certificate", automatically saved to your cloud history.',
+            'اختر مستوى الاختبار الذي يناسبك. عند اجتياز أي مستوى بنسبة 75% أو أكثر تحصل فوراً على «شهادة سفير الأمان والوعي الدوائي (دوايا | DAWAYA)» وتُحفظ تلقائياً في حسابك السحابي للرجوع إليها في أي وقت.',
+            'Choose your quiz level. Score 75% or higher to earn your official "DAWAYA Medication Safety Ambassador Certificate", automatically saved to your cloud history.',
             'Choisissez votre niveau. Obtenez 75 % ou plus pour recevoir votre Certificat d’Ambassadeur sauvegardé dans le cloud.',
             'Elige tu nivel. Obtén 75% o más para ganar tu Certificado de Embajador guardado en la nube.'
           )}
@@ -660,7 +660,7 @@ export default function Quiz() {
             >
               <div style={{ fontSize: '2rem', marginBottom: '4px' }}>🏅</div>
               <h3 style={{ margin: '0 0 6px', color: '#fde047', fontSize: '1.08rem' }}>
-                {tr(lang, 'شهادة سفير الوعي بالمضادات الحيوية جاهزة!', 'Your Stewardship Ambassador Certificate is Ready!', 'Votre Certificat d’Ambassadeur est Prêt !', '¡Tu Certificado de Embajador está Listo!')}
+                {tr(lang, 'شهادة سفير الأمان والوعي الدوائي (دوايا | DAWAYA) جاهزة!', 'Your Stewardship Ambassador Certificate is Ready!', 'Votre Certificat d’Ambassadeur est Prêt !', '¡Tu Certificado de Embajador está Listo!')}
               </h3>
               <p style={{ margin: '0 0 12px', fontSize: '0.84rem', color: '#cbd5e1' }}>
                 {tr(

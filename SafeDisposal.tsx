@@ -1,21 +1,28 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLang } from './i18n';
 import { Link } from 'react-router-dom';
+import {
+  DawayaMedicineRecord,
+  fetchFullDawayaMedicineById,
+  searchDawayaIndex,
+  useDawayaDrugDatabase,
+} from './dawayaDrugDatabaseService';
 
 type DosageForm = 'suspension' | 'tablets' | 'injections' | 'topicals';
 
 export default function SafeDisposal() {
   const { lang } = useLang();
-  const [selectedForm, setSelectedForm] = useState<DosageForm>('suspension');
-  const [bottlesInput, setBottlesInput] = useState<string>('1');
-  const [blistersInput, setBlistersInput] = useState<string>('2');
-  const bottlesCount = Math.max(0, parseInt(bottlesInput) || 0);
-  const blistersCount = Math.max(0, parseInt(blistersInput) || 0);
-
   const isAr = lang === 'ar';
+  const { indexItems } = useDawayaDrugDatabase();
 
-  // Environmental impact estimate: 1 suspension bottle flushed contaminates ~2,500 L of water with sub-inhibitory antibiotic levels
-  const estimatedWaterSaved = bottlesCount * 2500 + blistersCount * 500;
+  const [selectedForm, setSelectedForm] = useState<DosageForm>('tablets');
+  const [storageQuery, setStorageQuery] = useState('');
+  const [selectedMed, setSelectedMed] = useState<DawayaMedicineRecord | null>(null);
+
+  const storageMatches = useMemo(() => {
+    if (!storageQuery.trim()) return [];
+    return searchDawayaIndex(indexItems, { query: storageQuery }, isAr).slice(0, 8);
+  }, [storageQuery, indexItems, isAr]);
 
   return (
     <main className="wrap stack">
@@ -27,288 +34,131 @@ export default function SafeDisposal() {
           <div>
             <h1>
               {isAr
-                ? 'دليل التخلص الآمن من بقايا الأدوية والرعاية الصحية الخضراء'
-                : 'Safe Antibiotic Disposal & Green Healthcare Guide'}
+                ? 'دليل الحفظ الصحيح والتخلص الآمن من جميع الأدوية المنزلية (26,562+ دواء)'
+                : 'Safe Medication Storage & Household Drug Disposal Guide (26,562+ DB)'}
             </h1>
             <p className="muted">
               {isAr
-                ? 'مبادرة التمريض السريري لحماية مياه النيل والبيئة المصرية من انتشار السلالات البكتيرية المقاومة (Eco-Stewardship).'
-                : 'Clinical nursing initiative to protect ecosystems and water supplies from antimicrobial resistance.'}
+                ? 'ابحث عن شروط الحفظ والتخزين لأي دواء في صيدلية منزلك، وتعرّف على الطريقة الآمنة للتخلص من الأدوية منتهية الصلاحية لحماية أطفالك والبيئة.'
+                : 'Look up exact storage instructions for any medicine in your home cabinet and learn safe disposal steps for expired medications.'}
             </p>
           </div>
         </div>
       </header>
 
-      {/* Primary Alert Banner */}
-      <section className="notice urgent" style={{ borderLeft: '5px solid #ef4444', padding: '16px' }}>
-        <h3 style={{ color: '#b91c1c', margin: '0 0 8px' }}>
-          ⚠️ {isAr ? 'لماذا يُمنع سكب المضاد الحيوي في الحوض أو المرحاض؟' : 'Why Never Flush Antibiotics Down the Drain?'}
-        </h3>
-        <p style={{ margin: 0, lineHeight: 1.6 }}>
-          {isAr
-            ? 'سكب الأدوية في شبكات الصرف الصحي يُعرّض البكتيريا في المياه والتربة لجرعات خفيفة مزمنة دون أن يقتلها؛ مما يحفزها على تحوير جيناتها وتكوين مناعة شرسة تتحول معها إلى «سوبر بكتيريا» مقاومة لا تستجيب لأعتى الأدوية في المستشفيات!'
-            : 'Flushing antibiotics exposes environmental microbes to chronic sub-lethal concentrations. Bacteria develop mutated resistance genes, evolving into superbugs that contaminate rivers, irrigation, and tap water.'}
-        </p>
+      {/* Live 26,562-Medicine Storage Finder */}
+      <section className="card stack highlight-card">
+        <h2>🧊 {isAr ? 'ابحث عن درجة وطريقة الحفظ الصحيحة لأي دواء (26,562+ دواء):' : 'Check Storage Conditions for Any Medicine (26,562+ DB):'}</h2>
+        <input
+          type="search"
+          value={storageQuery}
+          onChange={(e) => setStorageQuery(e.target.value)}
+          placeholder={isAr ? 'اكتب اسم الدواء لمعرفة شروط حفظه وتخزينه...' : 'Type medicine name to check its storage rules...'}
+        />
+        {storageMatches.length > 0 && (
+          <div className="row wrapRow" style={{ gap: '8px' }}>
+            {storageMatches.map((it) => (
+              <button
+                key={it.i}
+                type="button"
+                className="chip"
+                onClick={async () => {
+                  const full = await fetchFullDawayaMedicineById(it.i);
+                  if (full) setSelectedMed(full);
+                  setStorageQuery('');
+                }}
+              >
+                {isAr ? it.a || it.n : it.n} ({it.s})
+              </button>
+            ))}
+          </div>
+        )}
+        {selectedMed && (
+          <div className="subcard stack" style={{ borderInlineStart: '4px solid #00BFD0' }}>
+            <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <b>{selectedMed.brandNameAr} ({selectedMed.brandNameEn})</b>
+              <Link to={`/medicine/${selectedMed.id}`} className="btn small ghost">
+                📖 {isAr ? 'تفاصيل الدواء' : 'Drug Details'}
+              </Link>
+            </div>
+            <p className="small" style={{ margin: 0 }}>
+              <b>🌡️ {isAr ? 'تعليمات الحفظ والتخزين:' : 'Storage Instructions:'}</b>{' '}
+              {isAr ? selectedMed.storageInfoAr : selectedMed.storageInfoEn}
+            </p>
+          </div>
+        )}
       </section>
 
       {/* Interactive Disposal Navigator */}
-      <section className="card highlight-card">
-        <h2>🛠️ {isAr ? 'فاحص الطريقة الصحيحة للتخلص من دوائك' : 'Interactive Medicine Disposal Guide'}</h2>
-        <p className="small muted">
-          {isAr
-            ? 'اختر شكل ونوع الدواء المتبقي لديك لمعرفة الخطوات التمريضية الدقيقة للتخلص منه دون تلويث البيئة:'
-            : 'Select the dosage form of your leftover medication to view precise step-by-step nursing guidelines:'}
-        </p>
-
-        {/* Tab Buttons */}
-        <div className="row wrapRow" style={{ gap: '8px', margin: '14px 0 20px' }}>
-          <button
-            className={`btn ${selectedForm === 'suspension' ? '' : 'ghost'}`}
-            onClick={() => setSelectedForm('suspension')}
-          >
-            🍼 {isAr ? 'شراب الأطفال المعلق' : 'Pediatric Suspensions'}
-          </button>
+      <section className="card stack">
+        <h2>🛠️ {isAr ? 'الطريقة الصحيحة للتخلص من الأدوية منتهية الصلاحية حسب شكلها:' : 'Step-by-Step Safe Disposal by Dosage Form:'}</h2>
+        <div className="row wrapRow" style={{ gap: '8px', margin: '8px 0 14px' }}>
           <button
             className={`btn ${selectedForm === 'tablets' ? '' : 'ghost'}`}
             onClick={() => setSelectedForm('tablets')}
           >
-            💊 {isAr ? 'أقراص وكبسولات صلبة' : 'Tablets & Capsules'}
+            💊 {isAr ? 'الأقراص والكبسولات' : 'Tablets & Capsules'}
+          </button>
+          <button
+            className={`btn ${selectedForm === 'suspension' ? '' : 'ghost'}`}
+            onClick={() => setSelectedForm('suspension')}
+          >
+            🍼 {isAr ? 'أدوية الشراب والنقط' : 'Syrups & Suspensions'}
           </button>
           <button
             className={`btn ${selectedForm === 'injections' ? '' : 'ghost'}`}
             onClick={() => setSelectedForm('injections')}
           >
-            💉 {isAr ? 'حقن وأمبولات وسرنجات' : 'Injections & Sharps'}
+            💉 {isAr ? 'الحقن والأنسولين والسرنجات' : 'Injections, Insulin & Sharps'}
           </button>
           <button
             className={`btn ${selectedForm === 'topicals' ? '' : 'ghost'}`}
             onClick={() => setSelectedForm('topicals')}
           >
-            🧴 {isAr ? 'مراهم وقطرات عيون' : 'Ointments & Eye Drops'}
+            🧴 {isAr ? 'المراهم وقطرات العيون' : 'Ointments & Eye Drops'}
           </button>
         </div>
 
-        {/* Dynamic Detail Card */}
-        {selectedForm === 'suspension' && (
-          <div className="card" style={{ background: 'var(--bg-subtle, #f8fafc)', border: '1px solid #cbd5e1' }}>
-            <h3 style={{ color: '#0369a1' }}>
-              🍼 {isAr ? 'البروتوكول السريري لشراب الأطفال (أوجمنتين، كلافيموكس، فلاجيل شراب):' : 'Protocol for Pediatric Suspensions:'}
-            </h3>
-            <ul style={{ paddingRight: isAr ? '20px' : '0', paddingLeft: isAr ? '0' : '20px', lineHeight: 1.8 }}>
-              <li>
-                <b>{isAr ? 'مدة الصلاحية الصارمة:' : 'Strict Expiry Window:'} </b>
-                {isAr
-                  ? 'بمجرد إضافة الماء لبودرة المضاد الحيوي، تنتهي صلاحيته تماماً خلال 7 إلى 14 يوماً فقط (حتى لو كانت الزجاجة محفوظة في الثلاجة). تناول الدواء بعد هذا التاريخ يسبب تسمماً وتكاثراً بكتيرياً!'
-                  : 'Once reconstituted with water, oral antibiotic suspensions expire strictly within 7-14 days, even when refrigerated.'}
-              </li>
-              <li>
-                <b>{isAr ? 'طريقة الامتصاص الآمنة:' : 'Absorption Technique:'} </b>
-                {isAr
-                  ? 'لا تسكب الشراب في الحوض! افتح الزجاجة وأفرغ الشراب في كيس بلاستيكي يحتوي على مادة ماصة منفرة (مثل تفل القهوة المستعمل، نشارة خشب، تراب نظيف، أو فضلات قطط).'
-                  : 'Never pour into the sink. Mix remaining syrup with unpalatable absorbent material (used coffee grounds, cat litter, sawdust).'}
-              </li>
-              <li>
-                <b>{isAr ? 'إغلاق وإلقاء الكيس:' : 'Sealing & Bagging:'} </b>
-                {isAr
-                  ? 'اربط الكيس البلاستيكي بإحكام وضعه في سلة المهملات المنزلية العادية حتى لا تتمكن الحيوانات الضالة أو الأطفال من تذوقه أو ابتلاعه.'
-                  : 'Seal the bag tightly and place into regular household trash away from pets and children.'}
-              </li>
-              <li>
-                <b>{isAr ? 'طمس البيانات الشخصية:' : 'Privacy Protection:'} </b>
-                {isAr
-                  ? 'اشطب اسم الطفل وتفاصيل الروشتة المكتوبة على الزجاجة بالقلم الجاف لحماية خصوصية أسرتك قبل رمي العبوة الكرتونية.'
-                  : 'Scratch out patient name and prescription labels before recycling packaging.'}
-              </li>
+        {selectedForm === 'tablets' && (
+          <div className="subcard stack">
+            <h3>💊 {isAr ? 'بروتوكول التخلص من الأقراص والكبسولات (أدوية الضغط، السكر، المسكنات، الفيتامينات):' : 'Protocol for Tablets & Capsules:'}</h3>
+            <ul>
+              <li>{isAr ? 'لا تلقِ الأقراص مكشوفة في سلة المهملات حتى لا يبتلعها الأطفال أو الحيوانات الأليفة.' : 'Never throw loose pills into open trash.'}</li>
+              <li>{isAr ? 'أفرغ الأقراص في كيس مغلق مع بقايا تفل القهوة أو الشاي المستعمل وأغلقه بإحكام.' : 'Mix pills in a sealed plastic bag with used coffee grounds or tea leaves.'}</li>
+              <li>{isAr ? 'اطمس أي بيانات شخصية للمريض على العبوة الخارجية قبل إلقائها.' : 'Scratch out personal patient information on prescription boxes.'}</li>
             </ul>
           </div>
         )}
 
-        {selectedForm === 'tablets' && (
-          <div className="card" style={{ background: 'var(--bg-subtle, #f8fafc)', border: '1px solid #cbd5e1' }}>
-            <h3 style={{ color: '#0369a1' }}>
-              💊 {isAr ? 'البروتوكول السريري للأقراص والكبسولات (سيبروفار، كلاسيد، زيثروماكس):' : 'Protocol for Solid Tablets & Capsules:'}
-            </h3>
-            <ul style={{ paddingRight: isAr ? '20px' : '0', paddingLeft: isAr ? '0' : '20px', lineHeight: 1.8 }}>
-              <li>
-                <b>{isAr ? 'استخراج الحبوب دون طحنها:' : 'Do Not Crush:'} </b>
-                {isAr
-                  ? 'أخرج الحبوب أو الكبسولات من الشريط الفضي وضعها في كيس قابل للقفل (Ziploc). إياك وطحن الحبوب؛ لأن تطاير الغبار الدوائي في هواء المنزل قد يسبب حساسية واختناقاً للأطفال.'
-                  : 'Remove tablets from blisters into a sealable plastic bag. Do NOT crush them to avoid airborne exposure.'}
-              </li>
-              <li>
-                <b>{isAr ? 'الخلط بمادة منفرة (Coffee Grounds Method):' : 'Coffee Grounds Mixture:'} </b>
-                {isAr
-                  ? 'أضف تفل شاي أو قهوة أو رمل إلى الكيس، واخلط الحبوب برفق حتى تفقد شكلها الجذاب ولا يغري أي طفل أو حيوان بابتلاعها.'
-                  : 'Mix with coffee grounds or soil to make it undesirable for children or scavengers.'}
-              </li>
-              <li>
-                <b>{isAr ? 'إغلاق الكيس بالقمامة:' : 'Sealing:'} </b>
-                {isAr
-                  ? 'أغلق الكيس بإحكام ثم ألقه في كيس القمامة العادي.'
-                  : 'Seal the bag and place it in the household trash bin.'}
-              </li>
+        {selectedForm === 'suspension' && (
+          <div className="subcard stack">
+            <h3>🍼 {isAr ? 'بروتوكول أدوية الشراب والنقط:' : 'Protocol for Syrups & Drops:'}</h3>
+            <ul>
+              <li>{isAr ? 'الأدوية البودرة التي تُحل بالماء تنتهي صلاحيتها خلال 7 إلى 14 يوماً من الحل، والشراب الجاهز خلال 1 إلى 6 أشهر من الفتح حسب المدون على العبوة.' : 'Reconstituted suspensions expire in 7-14 days; opened syrups expire in 1-6 months.'}</li>
+              <li>{isAr ? 'تجنب سكب الأدوية المركزة في الحوض؛ فرّغها في كيس به مادة ماصة وأغلقه جيداً.' : 'Avoid pouring concentrated medicines down the sink; absorb in a sealed bag.'}</li>
             </ul>
           </div>
         )}
 
         {selectedForm === 'injections' && (
-          <div className="card" style={{ background: 'var(--bg-subtle, #f8fafc)', border: '1px solid #cbd5e1' }}>
-            <h3 style={{ color: '#0369a1' }}>
-              💉 {isAr ? 'البروتوكول السريري للأمبولات وسرنجات الحقن (سيفوتاكس، سيفترياكسون، جاراميسين):' : 'Protocol for Sharps, Vials & Injections:'}
-            </h3>
-            <ul style={{ paddingRight: isAr ? '20px' : '0', paddingLeft: isAr ? '0' : '20px', lineHeight: 1.8 }}>
-              <li>
-                <b>{isAr ? 'خطر وخز الإبر القاتل:' : 'Sharps Needle-Stick Hazard:'} </b>
-                {isAr
-                  ? 'رمي الإبر مكشوفة في أكياس القمامة الخفيفة يتسبب في وخز عمال النظافة ونقل فيروسات خطيرة مثل التهاب الكبد B وC وفيروس نقص المناعة.'
-                  : 'Loose needles puncture thin garbage bags and cause life-threatening accidental needle-stick injuries to sanitation workers.'}
-              </li>
-              <li>
-                <b>{isAr ? 'حاوية الأدوات الحادة المنزلية:' : 'Improvised Sharps Container:'} </b>
-                {isAr
-                  ? 'ضع السنون والسرنجات المستعملة داخل وعاء بلاستيكي سميك وصلب ومقاوم للثقب (مثل زجاجة مسحوق غسيل سميكة أو زجاجة مياه مقوى) وليس في كيس شيبسي أو بلاستيك خفيف.'
-                  : 'Place needles into a heavy-duty, puncture-resistant plastic container (e.g. laundry detergent bottle).'}
-              </li>
-              <li>
-                <b>{isAr ? 'إحكام الغطاء بشريط لاصق:' : 'Tape Closure:'} </b>
-                {isAr
-                  ? 'عند امتلاء ثلاثة أرباع الزجاجة، أحكم إغلاق الغطاء وثبّته بشريط لاصق قوي (Duct Tape) واكتب عليه بخط واضح «مخلفات حادة - خطر» قبل رميها.'
-                  : 'When 3/4 full, secure cap with heavy tape, label clearly “BIOHAZARD / SHARPS - DO NOT RECYCLE”, and dispose.'}
-              </li>
+          <div className="subcard stack">
+            <h3>💉 {isAr ? 'بروتوكول الحقن وأقلام الأنسولين والسرنجات:' : 'Protocol for Injections, Insulin Pens & Needles:'}</h3>
+            <ul>
+              <li>{isAr ? 'يُحفظ الأنسولين غير المفتوح في باب الثلاجة (2-8°C) ولا يُجمد أبداً.' : 'Store unopened insulin in the refrigerator door (2-8°C); never freeze.'}</li>
+              <li>{isAr ? 'ضع السنون والإبر المستعملة داخل علبة بلاستيكية سميكة محكمة الغلق (Sharps Container) قبل التخلص منها لمنع وخز عمال النظافة.' : 'Place used needles and lancets inside a rigid puncture-resistant plastic container.'}</li>
             </ul>
           </div>
         )}
 
         {selectedForm === 'topicals' && (
-          <div className="card" style={{ background: 'var(--bg-subtle, #f8fafc)', border: '1px solid #cbd5e1' }}>
-            <h3 style={{ color: '#0369a1' }}>
-              🧴 {isAr ? 'البروتوكول السريري لقطرات العيون والأذن والمراهم الحيوية:' : 'Protocol for Eye Drops & Topical Ointments:'}
-            </h3>
-            <ul style={{ paddingRight: isAr ? '20px' : '0', paddingLeft: isAr ? '0' : '20px', lineHeight: 1.8 }}>
-              <li>
-                <b>{isAr ? 'قاعدة الـ 28 يوماً للقطرات:' : 'The 28-Day Rule:'} </b>
-                {isAr
-                  ? 'قطرات العيون والأذن المحتوية على مضادات حيوية تصبح ملوثة بكتيرياً وتفقد تعقيمها بعد 28 يوماً من فتحها، حتى لو كان المحلول يبدو رائقاً وشفافاً.'
-                  : 'Eye and ear antibiotic drops lose sterility and must be discarded 28 days post-opening to prevent severe corneal infections.'}
-              </li>
-              <li>
-                <b>{isAr ? 'التخلص الصحي:' : 'Safe Disposal:'} </b>
-                {isAr
-                  ? 'أفرغ المتبقي على منديل ورقي سميك وضعه في كيس بلاستيكي، ولا تسكب المحاليل في أحواض غسيل الوجه.'
-                  : 'Express remaining liquid onto paper towels, place into a sealed bag, and throw in trash.'}
-              </li>
+          <div className="subcard stack">
+            <h3>🧴 {isAr ? 'بروتوكول قطرات العيون والمراهم:' : 'Protocol for Eye Drops & Ointments:'}</h3>
+            <ul>
+              <li>{isAr ? 'جميع قطرات ومراهم العيون تنتهي صلاحيتها بعد 28 يوماً من فتح الزجاجة لمنع تلوث العين بالبكتيريا.' : 'All eye drops and ophthalmic ointments expire strictly 28 days after opening.'}</li>
+              <li>{isAr ? 'دوّن تاريخ الفتح بالقلم على زجاجة القطرة فور استخدامها لأول مرة.' : 'Always write the opening date directly on the eye drop bottle.'}</li>
             </ul>
           </div>
         )}
-      </section>
-
-      {/* 4 Cardinal Sins to Avoid */}
-      <section className="card">
-        <h2>🚫 {isAr ? 'المحظورات الأربعة الشائعة في المنازل المصرية' : 'The 4 Dangerous Practices to Avoid'}</h2>
-        <div className="grid2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '16px', marginTop: '12px' }}>
-          <div className="card" style={{ borderTop: '4px solid #ef4444' }}>
-            <h4>❌ {isAr ? '«سيب الباقي في التلاجة للمرة الجاية»' : 'Saving Leftovers for Next Sickness'}</h4>
-            <p className="small muted">
-              {isAr
-                ? 'إعطاء بواقي الشراب القديم لطفلك عند تكرار الكحة أو الحرارة بعد شهر يجعله يتناول جرعة غير فعالة أو دواء فاسداً، ويؤخر تشخيص المرض الحقيقي.'
-                : 'Leftover doses are inadequate to cure recurrent infections and only select for resistant pathogen strains.'}
-            </p>
-          </div>
-          <div className="card" style={{ borderTop: '4px solid #ef4444' }}>
-            <h4>❌ {isAr ? '«إدي باقي المضاد لأخوه أو جارك»' : 'Sharing Prescriptions with Family/Neighbors'}</h4>
-            <p className="small muted">
-              {isAr
-                ? 'كل مريض يختلف وزنه ووظائف كلاه وحساسيته الدوائية؛ مشاركة المضاد الحيوي قد تسبب صدمة حساسية أو فشلاً كلوياً لقريبك!'
-                : 'Dosing depends on individual weight and organ function. Sharing may trigger fatal anaphylaxis or acute toxicity.'}
-            </p>
-          </div>
-          <div className="card" style={{ borderTop: '4px solid #ef4444' }}>
-            <h4>❌ {isAr ? 'سكب الدواء في مجرى الصرف والمرحاض' : 'Flushing Liquid Down the Toilet'}</h4>
-            <p className="small muted">
-              {isAr
-                ? 'محطات تنقية مياه الصرف الصحي لا تستطيع إزالة جزيئات المضادات الحيوية، فتعود للمصارف والترع ملوثة للثروة السمكية والزراعية.'
-                : 'Municipal water treatment plants cannot eliminate antibiotic molecules, contaminating rivers and agriculture.'}
-            </p>
-          </div>
-          <div className="card" style={{ borderTop: '4px solid #ef4444' }}>
-            <h4>❌ {isAr ? 'رمي الحقن مكشوفة السن' : 'Discarding Uncapped Sharps'}</h4>
-            <p className="small muted">
-              {isAr
-                ? 'وخز عمال النظافة بالإبر المكشوفة يمثل كارثة مهنية وإنسانية؛ دائماً استخدم علبة بلاستيكية صلبة مغلقة.'
-                : 'Needle sticks pose severe viral and bacterial infection risks to sanitation teams. Always use a rigid container.'}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Interactive Eco Impact Calculator */}
-      <section className="card highlight-card" style={{ background: '#f0fdf4', borderColor: '#86efac' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '2rem' }}>🌿</span>
-          <div>
-            <h3 style={{ color: '#166534', margin: 0 }}>
-              {isAr ? 'حاسبة أثرك البيئي كصديق للصحة والطبيعة' : 'Your Eco-Health Impact Calculator'}
-            </h3>
-            <p className="small muted" style={{ margin: '4px 0 0' }}>
-              {isAr
-                ? 'شاهد كيف يحمي التزامك البسيط البيئة المائية ومصادر المياه العذبة في مصر:'
-                : 'Calculate the volume of freshwater ecosystems you protect from antimicrobial contamination:'}
-            </p>
-          </div>
-        </div>
-
-        <div className="row wrapRow" style={{ gap: '20px', margin: '16px 0', alignItems: 'center' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '4px' }}>
-              {isAr ? 'عدد زجاجات الشراب التي تخلصت منها بأمان:' : 'Suspension bottles safely disposed:'}
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="50"
-              value={bottlesInput}
-              onChange={(e) => setBottlesInput(e.target.value)}
-              style={{ width: '90px', padding: '6px 10px' }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '4px' }}>
-              {isAr ? 'عدد شرائط الأقراص التي أعدمتها بطريقة الكيس المنفر:' : 'Tablet blister strips safely disposed:'}
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={blistersInput}
-              onChange={(e) => setBlistersInput(e.target.value)}
-              style={{ width: '90px', padding: '6px 10px' }}
-            />
-          </div>
-        </div>
-
-        <div style={{ padding: '14px', background: '#fff', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
-          <p style={{ margin: 0, fontSize: '1.05rem', color: '#15803d', fontWeight: 600 }}>
-            💧 {isAr
-              ? `بفضل وعيك اليوم، حميت ما يُقدّر بـ ${estimatedWaterSaved.toLocaleString()} لتر من المياه والبيئة من التلوث الدوائي وبكتيريا السوبر!`
-              : `Through your conscious disposal, you saved an estimated ${estimatedWaterSaved.toLocaleString()} Liters of freshwater ecosystems from superbug proliferation!`}
-          </p>
-        </div>
-      </section>
-
-      {/* Community Take-back Pharmacy Guidance */}
-      <section className="card">
-        <h3>🏥 {isAr ? 'مبادرة صيدليات الاسترداد الآمن (Take-Back Programs)' : 'Pharmacy Medicine Take-Back Programs'}</h3>
-        <p style={{ lineHeight: 1.6 }}>
-          {isAr
-            ? 'تتعاون نقابة الصيادلة وهيئة الدواء المصرية مع مستشفيات وزارة الصحة والجامعات لإطلاق صناديق خاصة لاستلام الأدوية منتهية الصلاحية والتالفة من المنازل وإعدامها بالمحارق الطبية الرسمية بدرجات حرارة عالية تكسر المادة الفعالة دون تلويث الهواء أو الماء.'
-            : 'National health authorities and teaching hospitals encourage returning expired pharmaceuticals to designated collection receptacles for high-temperature incineration, neutralizing active substances safely.'}
-        </p>
-        <p className="small muted">
-          {isAr
-            ? '💡 اسأل صيدليتك المحلية أو المستشفيات الجامعية عن توفر صندوق استرجاع الأدوية المنتهية قبل التخلص المنزلي منها.'
-            : '💡 Ask your local pharmacy or university hospital about active disposal drop-boxes before disposing at home.'}
-        </p>
       </section>
     </main>
   );

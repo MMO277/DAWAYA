@@ -14,8 +14,8 @@ export default function Articles() {
       <p className="muted">
         {tr(
           lang,
-          'مقالات وإرشادات توعوية مبسطة حول الاستخدام الرشيد للمضادات الحيوية والوقاية من المقاومة البكتيرية.',
-          'Educational articles and clinical guides on responsible antibiotic use and antimicrobial resistance prevention.',
+          'مقالات وإرشادات طبية وصيدلانية موثقة حول الأمان الدوائي، التداخلات، قراءة الروشتة، والاستخدام الصحيح لجميع الأدوية.',
+          'Verified clinical articles and patient guides on medication safety, drug interactions, and smart healthcare.',
           'Articles éducatifs et guides cliniques sur le bon usage des antibiotiques et la prévention de l’antibiorésistance.',
           'Artículos educativos y guías clínicas sobre el uso responsable de los antibióticos y la prevención de la resistencia antimicrobiana.'
         )}

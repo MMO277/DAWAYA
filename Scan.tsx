@@ -1257,8 +1257,8 @@ export default function Scan() {
       >
         <p style={{ margin: '0 0 6px', fontSize: '0.96rem', color: '#0369a1', fontWeight: 700 }}>
           {isAr
-            ? '🛡️ قراءة تلقائية شاملة لجميع المضادات الحيوية (بالعربية أو الإنجليزية):'
-            : '🛡️ Universal Automatic Reading for All Antibiotics (Arabic or English):'}
+            ? '🛡️ قراءة ذكية تلقائية لجميع الأدوية والروشتات (26,562+ دواء بالعربية أو الإنجليزية):'
+            : '🛡️ Universal Smart Scanner for All 26,562+ Medicines & Prescriptions (Arabic or English):'}
         </p>
         <p style={{ margin: 0, fontSize: '0.88rem', color: '#0c4a6e', lineHeight: 1.65 }}>
           {isAr

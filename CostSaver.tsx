@@ -153,7 +153,7 @@ export default function CostSaver() {
               {tr(
                 lang,
                 'ابحث عن الدواء الموصوف لك لعرض المثائل المصرية المتطابقة 100% في المادة الفعالة والتركيز والشكل الصيدلاني، واحسب قيمة التوفير الفوري بالجنيه المصري أو اعثر على البديل المتوفر حال وجود نقص في الصيدليات.',
-                'Search your prescribed antibiotic to discover 100% identical Egyptian Drug Authority (EDA) licensed generic equivalents with the exact same active ingredient, strength, and dosage form—and calculate your instant savings in EGP.',
+                'Search any prescribed medication across 26,562+ Egyptian drugs to discover 100% identical licensed generic equivalents with the exact same active ingredient, strength, and dosage form—and calculate your instant savings in EGP.',
                 'Recherchez votre antibiotique pour trouver les génériques homologués 100% identiques (même principe actif, dosage et forme) et calculez vos économies.',
                 'Busca tu antibiótico recetado para encontrar genéricos autorizados 100% idénticos (mismo principio activo, concentración y forma) y calcula tu ahorro.'
               )}

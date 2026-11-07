@@ -4,6 +4,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
 import { Bi, pick, tr } from './types';
 import Disclaimer from './Disclaimer';
+import {
+  searchDawayaIndex,
+  useDawayaDrugDatabase,
+} from './dawayaDrugDatabaseService';
 
 export type IntervalHours = 24 | 12 | 8 | 6;
 export type MealInstructionKey =
@@ -23,7 +27,7 @@ export interface ScheduleMedRow {
   color: string;
 }
 
-const ROW_COLORS = ['#0e9aa7', '#15803d', '#4f46e5', '#d97706', '#be123c'];
+const ROW_COLORS = ['#00BFD0', '#15803d', '#4f46e5', '#d97706', '#be123c'];
 
 const MEAL_RULE_LABELS: Record<MealInstructionKey, Bi> = {
   after_meal: {
@@ -31,15 +35,15 @@ const MEAL_RULE_LABELS: Record<MealInstructionKey, Bi> = {
     en: '🍽️ Immediately after a meal (reduces stomach upset)',
   },
   empty_stomach: {
-    ar: '⏳ على معدة فارغة (قبل الأكل بساعة أو بعده بساعتين)',
-    en: '⏳ Empty stomach (1h before or 2h after food)',
+    ar: '⏳ على معدة فارغة (قبل الأكل بنصف ساعة أو ساعة)',
+    en: '⏳ Empty stomach (30-60 min before food)',
   },
   with_water_upright: {
     ar: '💧 مع كوب ماء كامل وعدم الاستلقاء لمدة 30 دقيقة',
     en: '💧 With a full glass of water; stay upright 30 min',
   },
   no_dairy_iron: {
-    ar: '🥛🚫 افصل ساعتين عن الحليب والجبن والحديد والكالسيوم',
+    ar: '🥛🚫 افصل ساعتين عن الحليب والحديد والكالسيوم',
     en: '🥛🚫 Separate by 2h from dairy, iron, calcium & antacids',
   },
   anytime: {
@@ -60,6 +64,42 @@ interface PresetMedTemplate {
 
 const PRESET_TEMPLATES: PresetMedTemplate[] = [
   {
+    labelAr: 'كونكور 5 مجم للضغط والقلب (Concor 5mg)',
+    labelEn: 'Concor 5mg (Bisoprolol)',
+    doseAr: 'قرص واحد صباحاً',
+    doseEn: '1 Tablet Daily',
+    intervalHours: 24,
+    mealRule: 'anytime',
+    durationDays: 14,
+  },
+  {
+    labelAr: 'جلوكوفاج 1000 مجم للسكري (Glucophage 1000mg)',
+    labelEn: 'Glucophage 1000mg (Metformin)',
+    doseAr: 'قرص واحد',
+    doseEn: '1 Tablet',
+    intervalHours: 12,
+    mealRule: 'after_meal',
+    durationDays: 14,
+  },
+  {
+    labelAr: 'كونترولوك 40 مجم للمعدة (Controloc 40mg)',
+    labelEn: 'Controloc 40mg (Pantoprazole)',
+    doseAr: 'قرص واحد قبل الإفطار',
+    doseEn: '1 Tablet before breakfast',
+    intervalHours: 24,
+    mealRule: 'empty_stomach',
+    durationDays: 14,
+  },
+  {
+    labelAr: 'بنادول أدفانس 500 مجم مسكن (Panadol Advance)',
+    labelEn: 'Panadol Advance 500mg',
+    doseAr: 'قرص إلى قرصين',
+    doseEn: '1-2 Tablets',
+    intervalHours: 8,
+    mealRule: 'anytime',
+    durationDays: 5,
+  },
+  {
     labelAr: 'أوجمنتين / هاي بيوتك 1 جم (Augmentin 1g)',
     labelEn: 'Augmentin / Hibiotic 1g',
     doseAr: 'قرص واحد (1 جم)',
@@ -69,48 +109,12 @@ const PRESET_TEMPLATES: PresetMedTemplate[] = [
     durationDays: 7,
   },
   {
-    labelAr: 'زيثروماكس / زيثرون 500 مجم (Zithromax 500mg)',
-    labelEn: 'Zithromax / Xithrone 500mg',
-    doseAr: 'كبسولة / قرص واحد',
-    doseEn: '1 Capsule / Tablet',
+    labelAr: 'زيرتك 10 مجم للحساسية (Zyrtec 10mg)',
+    labelEn: 'Zyrtec 10mg (Cetirizine)',
+    doseAr: 'قرص واحد مساءً',
+    doseEn: '1 Tablet at night',
     intervalHours: 24,
-    mealRule: 'empty_stomach',
-    durationDays: 3,
-  },
-  {
-    labelAr: 'سيبروفار / سيبروباي 500 مجم (Ciprofloxacin 500mg)',
-    labelEn: 'Ciprofar / Ciprobay 500mg',
-    doseAr: 'قرص واحد (500 مجم)',
-    doseEn: '1 Tablet (500mg)',
-    intervalHours: 12,
-    mealRule: 'no_dairy_iron',
-    durationDays: 7,
-  },
-  {
-    labelAr: 'فلاجيل / أمريزول 500 مجم (Flagyl 500mg)',
-    labelEn: 'Flagyl / Amrizole 500mg',
-    doseAr: 'قرص واحد (500 مجم)',
-    doseEn: '1 Tablet (500mg)',
-    intervalHours: 8,
-    mealRule: 'after_meal',
-    durationDays: 7,
-  },
-  {
-    labelAr: 'فيبراميسين / دوكسيكوست 100 مجم (Doxycycline 100mg)',
-    labelEn: 'Vibramycin / Doxycost 100mg',
-    doseAr: 'كبسولة واحدة (100 مجم)',
-    doseEn: '1 Capsule (100mg)',
-    intervalHours: 12,
-    mealRule: 'with_water_upright',
-    durationDays: 7,
-  },
-  {
-    labelAr: 'دالاسين سي / كليندام 300 مجم (Clindamycin 300mg)',
-    labelEn: 'Dalacin C / Clindam 300mg',
-    doseAr: 'كبسولة واحدة (300 مجم)',
-    doseEn: '1 Capsule (300mg)',
-    intervalHours: 8,
-    mealRule: 'with_water_upright',
+    mealRule: 'anytime',
     durationDays: 7,
   },
 ];
@@ -146,15 +150,22 @@ export default function DailyScheduleGenerator() {
   const isAr = lang === 'ar';
   const [sp] = useSearchParams();
   const medParam = sp.get('med') || '';
+  const { indexItems } = useDawayaDrugDatabase();
 
   const [patientName, setPatientName] = useState<string>('');
   const [wakeHour, setWakeHour] = useState<number>(8);
   const [copiedMsg, setCopiedMsg] = useState<string>('');
+  const [dawayaSearchQ, setDawayaSearchQ] = useState<string>('');
+
+  const dawayaMatches = useMemo(() => {
+    if (!dawayaSearchQ.trim()) return [];
+    return searchDawayaIndex(indexItems, { query: dawayaSearchQ }, isAr).slice(0, 6);
+  }, [dawayaSearchQ, indexItems, isAr]);
 
   const [rows, setRows] = useState<ScheduleMedRow[]>(() => [
     {
       id: 'row-1',
-      name: medParam || (isAr ? 'أوجمنتين 1 جم أقراص' : 'Augmentin 1g Tablets'),
+      name: medParam || (isAr ? 'كونكور 5 مجم أقراص (Concor 5mg)' : 'Concor 5mg Tablets'),
       doseText: isAr ? 'قرص واحد' : '1 Tablet',
       intervalHours: 12,
       mealRule: 'after_meal',
@@ -198,8 +209,8 @@ export default function DailyScheduleGenerator() {
   // Build WhatsApp share text
   const whatsappShareText = useMemo(() => {
     const header = isAr
-      ? `📅 *جدول مواعيد الجرعات اليومي*${patientName.trim() ? ` — ${patientName.trim()}` : ''}\n━━━━━━━━━━━━━━`
-      : `📅 *Daily Medication Schedule*${patientName.trim() ? ` — ${patientName.trim()}` : ''}\n━━━━━━━━━━━━━━`;
+      ? `📅 *جدول مواعيد الأدوية اليومي (دوايا | DAWAYA)*${patientName.trim() ? ` — ${patientName.trim()}` : ''}\n━━━━━━━━━━━━━━`
+      : `📅 *Daily Medication Schedule (DAWAYA)*${patientName.trim() ? ` — ${patientName.trim()}` : ''}\n━━━━━━━━━━━━━━`;
 
     const lines = validRows.map((r, idx) => {
       const hours = computeDoseHours(wakeHour, r.intervalHours)
@@ -212,8 +223,8 @@ export default function DailyScheduleGenerator() {
     });
 
     const footer = isAr
-      ? `\n✅ تذكير: التزم بإكمال الكورس العلاجي بالكامل في مواعيده حتى لو اختفت الأعراض.\n🔗 منصة الوعي بالمضادات الحيوية`
-      : `\n✅ Reminder: Complete your full prescribed course on time even if symptoms improve.\n🔗 Antibiotic Awareness Portal`;
+      ? `\n✅ تذكير: التزم بمواعيد أدويتك اليومية بدقة وحسب إرشادات الطبيب أو الصيدلي.\n🔗 منصة دوايا | DAWAYA — صحتك.. بذكاء أكتر.`
+      : `\n✅ Reminder: Follow your daily medication schedule as directed by your physician or pharmacist.\n🔗 DAWAYA — Your Health. Smarter.`;
 
     return [header, ...lines, footer].join('\n\n');
   }, [validRows, patientName, wakeHour, isAr, lang]);
@@ -233,7 +244,6 @@ export default function DailyScheduleGenerator() {
     }
   };
 
-  // High-Resolution HTML5 Canvas Image Generator for Saving as PNG
   const handleDownloadPngImage = () => {
     const canvas = document.createElement('canvas');
     const width = 1080;
@@ -247,14 +257,12 @@ export default function DailyScheduleGenerator() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Background
     ctx.fillStyle = '#f8fafc';
     ctx.fillRect(0, 0, width, height);
 
-    // Header gradient banner
     const grad = ctx.createLinearGradient(0, 0, width, headerHeight);
-    grad.addColorStop(0, '#072a40');
-    grad.addColorStop(1, '#0e9aa7');
+    grad.addColorStop(0, '#101E36');
+    grad.addColorStop(1, '#00BFD0');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, headerHeight);
 
@@ -264,23 +272,21 @@ export default function DailyScheduleGenerator() {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 34px system-ui, -apple-system, sans-serif';
     const titleStr = isAr
-      ? `📅 جدول مواعيد الأدوية اليومي${patientName.trim() ? ` — ${patientName.trim()}` : ''}`
-      : `📅 Daily Medication Schedule${patientName.trim() ? ` — ${patientName.trim()}` : ''}`;
+      ? `📅 جدول مواعيد الأدوية اليومي (دوايا)${patientName.trim() ? ` — ${patientName.trim()}` : ''}`
+      : `📅 Daily Medication Schedule (DAWAYA)${patientName.trim() ? ` — ${patientName.trim()}` : ''}`;
     ctx.fillText(titleStr, width / 2, 68);
 
     ctx.fillStyle = '#cffafe';
     ctx.font = '20px system-ui, -apple-system, sans-serif';
     const subStr = isAr
-      ? 'التزم بالمواعيد المحددة بالساعة وإرشادات الطعام لضمان الشفاء ومنع مقاومة البكتيريا'
-      : 'Follow exact clock intervals and meal instructions to ensure full recovery';
+      ? 'التزم بالمواعيد المحددة بالساعة وإرشادات الطعام لضمان أقصى استفادة علاجية وأمان دوائي'
+      : 'Follow exact clock intervals and meal instructions for optimal therapeutic safety';
     ctx.fillText(subStr, width / 2, 115);
 
-    // Draw each medication card
     validRows.forEach((r, idx) => {
       const y = headerHeight + idx * rowHeight + 16;
       const cardH = rowHeight - 22;
 
-      // White card box
       ctx.fillStyle = '#ffffff';
       ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 2;
@@ -289,7 +295,6 @@ export default function DailyScheduleGenerator() {
       ctx.fill();
       ctx.stroke();
 
-      // Colored accent bar
       ctx.fillStyle = r.color;
       ctx.beginPath();
       if (isAr) {
@@ -302,7 +307,6 @@ export default function DailyScheduleGenerator() {
       ctx.textAlign = isAr ? 'right' : 'left';
       const textX = isAr ? width - 70 : 68;
 
-      // Drug name & dose
       ctx.fillStyle = '#0f172a';
       ctx.font = 'bold 25px system-ui, -apple-system, sans-serif';
       const medHeading = isAr
@@ -310,7 +314,6 @@ export default function DailyScheduleGenerator() {
         : `💊 ${r.name}  (${r.doseText} — every ${r.intervalHours}h for ${r.durationDays} days)`;
       ctx.fillText(medHeading, textX, y + 42);
 
-      // Clock times
       const hoursStr = computeDoseHours(wakeHour, r.intervalHours)
         .map((h) => formatHour12(h, isAr))
         .join('   |   ');
@@ -318,57 +321,49 @@ export default function DailyScheduleGenerator() {
       ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
       ctx.fillText(`⏰ ${isAr ? 'المواعيد:' : 'Times:'}  ${hoursStr}`, textX, y + 80);
 
-      // Meal rule
       ctx.fillStyle = '#475569';
       ctx.font = '19px system-ui, -apple-system, sans-serif';
       ctx.fillText(pick(MEAL_RULE_LABELS[r.mealRule], lang), textX, y + 112);
     });
 
-    // Footer
     ctx.textAlign = 'center';
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 19px system-ui, -apple-system, sans-serif';
     ctx.fillText(
       isAr
-        ? '✅ لا توقف المضاد الحيوي عند تحسن الأعراض — أكمل الكورس الموصوف بالكامل | منصة الوعي بالمضادات الحيوية'
-        : '✅ Never stop your antibiotic early when symptoms improve — complete the full course | Antibiotic Awareness',
+        ? '✅ التزم بجدول أدويتك اليومي ولا تغير الجرعات إلا باستشارة الطبيب أو الصيدلي | منصة دوايا DAWAYA'
+        : '✅ Follow your daily medication schedule and consult your doctor or pharmacist | DAWAYA',
       width / 2,
       height - 38
     );
 
     const link = document.createElement('a');
-    link.download = 'daily-medication-schedule.png';
+    link.download = 'dawaya-daily-medication-schedule.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
   };
 
   return (
     <main className="wrap stack">
-      {/* Live Smart Dose Alarm & Voice Reminder */}
       <SmartDoseAlarmCard />
-      {/* Hero & Builder Controls (Hidden when printing) */}
       <section className="card no-print schedule-gen-hero">
         <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
           <div>
             <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 700, marginBottom: '8px' }}>
-              📅 {tr(lang, 'أداة تنظيم مواعيد الأدوية للمنزل والواتساب والطباعة', 'Printable & WhatsApp Daily Schedule Generator')}
+              📅 {tr(lang, 'تنظيم مواعيد جميع الأدوية المزمنة واليومية (26,562+ دواء)', 'Printable & WhatsApp Daily Schedule Generator (26,562+ Drugs)')}
             </span>
             <h1 style={{ margin: '4px 0 8px' }}>
               {tr(
                 lang,
-                'مولّد جدول الجرعات اليومي (للطباعة أو الحفظ كصورة أو الإرسال عبر واتساب)',
-                'Daily Dose Schedule Generator (Download Image, Share on WhatsApp & Print)',
-                'Générateur de Calendrier Quotidien des Doses (Image PNG, WhatsApp & Impression)',
-                'Generador de Horario Diario de Dosis (Imagen PNG, WhatsApp e Impresión)'
+                'مولّد جدول الجرعات اليومي الذكي لجميع الأدوية (صورة PNG، واتساب، وطباعة A4)',
+                'Smart Daily Medication Schedule Generator (PNG Image, WhatsApp & A4 Print)'
               )}
             </h1>
             <p className="muted" style={{ maxWidth: '74ch', margin: 0 }}>
               {tr(
                 lang,
-                'حدد ساعة استيقاظك وأضف أدويتك ليقوم الموقع بحساب المواعيد الدقيقة بالساعة مع تعليمات الأكل، ثم احفظ الجدول كصورة ملونة على هاتفك أو أرسله عبر واتساب أو اطبعه لتعليقه بالمنزل.',
-                'Set your wake-up time and add your medications to automatically calculate exact clock intervals and food rules—then download a high-res PNG image, share via WhatsApp, or print an A4 fridge chart.',
-                'Définissez votre heure de réveil et vos médicaments pour générer un planning coloré téléchargeable en PNG, partageable sur WhatsApp ou imprimable.',
-                'Configura tu hora de despertar y tus medicamentos para generar un horario en imagen PNG, compartir por WhatsApp o imprimir.'
+                'ابحث وأضف أي دواء من قاعدة أدوية السوق المصري (26,562+ مستحضر للضغط، السكري، المعدة، المسكنات، الفيتامينات، أو المضادات) لحساب مواعيده بالساعة وتصديره كصورة أو عبر واتساب.',
+                'Search and add any medication from the 26,562 Egyptian drug database to calculate exact clock intervals and export as a high-res PNG, WhatsApp message, or printed chart.'
               )}
             </p>
           </div>
@@ -394,7 +389,7 @@ export default function DailyScheduleGenerator() {
               className="input"
               value={patientName}
               onChange={(e) => setPatientName(e.target.value)}
-              placeholder={tr(lang, 'مثال: أ. محمد أحمد / الطفل عمر...', 'e.g., Ahmed / Omar...')}
+              placeholder={tr(lang, 'مثال: أ. محمد أحمد / الوالدة...', 'e.g., Ahmed / Mom...')}
             />
           </div>
 
@@ -417,10 +412,48 @@ export default function DailyScheduleGenerator() {
           </div>
         </div>
 
+        {/* Live 26,562 DAWAYA Medicine Search to Add Directly */}
+        <div style={{ marginTop: '14px' }}>
+          <label className="small" style={{ fontWeight: 800, display: 'block', marginBottom: '6px' }}>
+            🔍 {tr(lang, 'ابحث وأضف أي دواء من قاعدة بيانات دوايا (26,562+ دواء):', 'Search & Add Any Medicine from DAWAYA Database (26,562+):')}
+          </label>
+          <input
+            type="search"
+            value={dawayaSearchQ}
+            onChange={(e) => setDawayaSearchQ(e.target.value)}
+            placeholder={tr(lang, 'اكتب اسم الدواء بالعربية أو الإنجليزية أو المادة الفعالة لإضافته للجدول...', 'Type medicine brand or active ingredient to add to schedule...')}
+          />
+          {dawayaMatches.length > 0 && (
+            <div className="row wrapRow" style={{ gap: '8px', marginTop: '8px' }}>
+              {dawayaMatches.map((it) => (
+                <button
+                  key={it.i}
+                  type="button"
+                  className="chip"
+                  onClick={() => {
+                    addMedicationRow({
+                      labelAr: `${it.a || it.n} (${it.s})`,
+                      labelEn: `${it.n} (${it.s})`,
+                      doseAr: /syrup|susp|شراب|معلق/i.test(`${it.n} ${it.f}`) ? '5 مل (ملعقة/سرنجة)' : 'قرص واحد',
+                      doseEn: /syrup|susp/i.test(`${it.n} ${it.f}`) ? '5 mL' : '1 Tablet',
+                      intervalHours: 12,
+                      mealRule: 'after_meal',
+                      durationDays: 7,
+                    });
+                    setDawayaSearchQ('');
+                  }}
+                >
+                  ➕ {isAr ? it.a || it.n : it.n} ({it.s})
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Quick-Add Presets */}
         <div style={{ marginTop: '12px' }}>
           <span className="small muted" style={{ fontWeight: 700, display: 'block', marginBottom: '6px' }}>
-            ⚡ {tr(lang, 'إضافة سريعة لأشهر المضادات الحيوية (مع ضبط تلقائي لتعليمات الطعام):', 'Quick-add common antibiotics (auto-fills food rules & interval):')}
+            ⚡ {tr(lang, 'إضافة سريعة لأشهر الأدوية اليومية والمزمنة:', 'Quick-add common daily medications:')}
           </span>
           <div className="row wrapRow" style={{ gap: '6px' }}>
             {PRESET_TEMPLATES.map((preset, idx) => (
@@ -496,13 +529,13 @@ export default function DailyScheduleGenerator() {
               </div>
 
               <div className="schedule-row-field days-col">
-                <label className="small muted">{tr(lang, 'مدة الكورس', 'Duration')}</label>
+                <label className="small muted">{tr(lang, 'مدة الكورس / المتابعة', 'Duration')}</label>
                 <select
                   className="input"
                   value={row.durationDays}
                   onChange={(e) => updateRow(row.id, { durationDays: Number(e.target.value) })}
                 >
-                  {[3, 5, 7, 10, 14].map((d) => (
+                  {[3, 5, 7, 10, 14, 30].map((d) => (
                     <option key={d} value={d}>
                       {d} {tr(lang, 'أيام', 'days')}
                     </option>
@@ -533,12 +566,11 @@ export default function DailyScheduleGenerator() {
             ➕ {tr(lang, 'إضافة دواء آخر للجدول', 'Add Another Medication')}
           </button>
 
-          {/* 3 Export Actions */}
           <div className="row wrapRow" style={{ gap: '8px' }}>
             <button
               type="button"
               className="btn small"
-              style={{ background: '#0e9aa7' }}
+              style={{ background: '#00BFD0' }}
               onClick={handleDownloadPngImage}
             >
               📥 {tr(lang, 'تحميل الجدول كصورة (PNG)', 'Download Image (PNG)')}
@@ -561,7 +593,7 @@ export default function DailyScheduleGenerator() {
             <button
               type="button"
               className="btn small"
-              style={{ background: '#1e293b' }}
+              style={{ background: '#101E36' }}
               onClick={() => window.print()}
             >
               🖨️ {tr(lang, 'طباعة الجدول (A4)', 'Print Schedule')}
@@ -580,7 +612,7 @@ export default function DailyScheduleGenerator() {
         <div className="schedule-poster-header">
           <div>
             <h2 style={{ margin: 0 }}>
-              📅 {tr(lang, 'جدول مواعيد الأدوية اليومي المنسق', 'Personalized Daily Medication Schedule')}
+              📅 {tr(lang, 'جدول مواعيد الأدوية اليومي المنسق (دوايا | DAWAYA)', 'Personalized Daily Medication Schedule (DAWAYA)')}
               {patientName.trim() ? ` — ${patientName.trim()}` : ''}
             </h2>
             <p className="small muted" style={{ margin: '4px 0 0' }}>
@@ -620,7 +652,6 @@ export default function DailyScheduleGenerator() {
                   </span>
                 </div>
 
-                {/* Clock Slots */}
                 <div className="schedule-clock-slots">
                   {hours.map((h, hIdx) => {
                     const badge = getTimeOfDayBadge(h, isAr);
@@ -636,13 +667,12 @@ export default function DailyScheduleGenerator() {
                   })}
                 </div>
 
-                {/* Check-off Days Strip for Print & Fridge Tracking */}
                 <div className="schedule-days-checkstrip">
                   <span className="small muted" style={{ fontWeight: 700 }}>
-                    ☑️ {tr(lang, 'متابعة أيام الكورس:', 'Course Day Check-off:')}
+                    ☑️ {tr(lang, 'متابعة أيام العلاج:', 'Day Check-off:')}
                   </span>
                   <div className="row wrapRow" style={{ gap: '6px' }}>
-                    {Array.from({ length: row.durationDays }).map((_, dIdx) => (
+                    {Array.from({ length: Math.min(row.durationDays, 14) }).map((_, dIdx) => (
                       <span key={dIdx} className="schedule-day-box">
                         ☐ {tr(lang, `يوم ${dIdx + 1}`, `Day ${dIdx + 1}`)}
                       </span>
@@ -656,12 +686,12 @@ export default function DailyScheduleGenerator() {
 
         <div className="report-disclaimer-box" style={{ marginTop: '14px' }}>
           <strong>
-            ⚠️ {tr(lang, 'قاعدة ذهبية للأمان الدوائي:', 'Golden Rule of Antibiotic Stewardship:')}
+            ⚠️ {tr(lang, 'قاعدة ذهبية للأمان الدوائي:', 'Golden Rule of Medication Safety:')}
           </strong>{' '}
           {tr(
             lang,
-            'أكمل كورس المضاد الحيوي بالكامل حتى آخر يوم قرره الطبيب حتى لو شعرت بتحسن تام؛ إيقاف الدواء مبكراً ينشط البكتيريا المقاومة ويسبب انتكاس العدوى.',
-            'Always complete the full prescribed course even if you feel completely better; stopping early selects for resistant bacteria.'
+            'التزم بمواعيد أدويتك اليومية بدقة ولا توقف أي دواء مزمن أو كورس علاجي من تلقاء نفسك دون استشارة الطبيب أو الصيدلي.',
+            'Follow your daily schedule consistently and never stop prescribed medications without consulting your physician or pharmacist.'
           )}
         </div>
       </section>

@@ -175,7 +175,7 @@ export default function Learn() {
     <main className="wrap narrow stack">
       <h1>
         {L(
-          'رحلة التعلم: مقاومة مضادات الميكروبات',
+          'رحلة التعلم الذكي: الأمان الدوائي والاستخدام الصحيح للأدوية',
           'Learning journey: antimicrobial resistance',
           'Parcours d’apprentissage : la résistance aux antimicrobiens',
           'Ruta de aprendizaje: resistencia a los antimicrobianos',

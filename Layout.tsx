@@ -244,8 +244,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         lang,
         'موسوعة دوايا الشاملة (26,562+ دواء)، فحص الباركود، والبدائل، والصيدليات',
         '26,562+ medicines database, barcode scanner, generics & pharmacies',
-        'Registre (206), scanner code-barres & comparaison',
-        'Registro (206), escáner de código y comparación'
+        'Base de 26 562+ médicaments, scanner & génériques',
+        'Base de 26.562+ medicamentos, escáner y genéricos'
       ),
       items: [
         {
@@ -322,12 +322,6 @@ export default function Layout({ children }: { children: ReactNode }) {
           key: 'navPediatric',
           icon: '👶',
           shortLabel: tr(lang, 'حاسبة الأطفال', 'Pediatrics', 'Pédiatrie', 'Pediatría'),
-        },
-        {
-          to: '/cold-shot-warning',
-          key: '',
-          icon: '💉',
-          shortLabel: tr(lang, 'تحذير «حقنة البرد / الخلطة 3×1»', '3-in-1 Cold Shot Warning', 'Alerte Injection Rhume 3-en-1', 'Alerta Inyección 3 en 1', 'Warnung: 3-in-1-Erkältungsspritze'),
         },
         {
           to: '/side-effects',
@@ -435,18 +429,12 @@ export default function Layout({ children }: { children: ReactNode }) {
       shortTitle: tr(lang, 'التوعية والأبحاث', 'Awareness & Research', 'Sensibilisation', 'Concientización', 'Aufklärung'),
       subtitle: tr(
         lang,
-        'حملة نوفمبر العالمية، الدليل التوعوي، المقالات، والأبحاث',
-        'WAAW campaign, educational guides, articles & research',
+        'الدليل الدوائي التوعوي، المقالات الطبية، والأبحاث',
+        'Medication safety guides, medical articles & research',
         'Campagne WAAW, guides éducatifs, articles & recherche',
         'Campaña WAAW, guías educativas, artículos e investigación'
       ),
       items: [
-        {
-          to: '/awareness-week',
-          key: 'navWAAW',
-          icon: '🌍',
-          shortLabel: tr(lang, 'حملة نوفمبر العالمية', 'WAAW Campaign', 'Campagne WAAW', 'Campaña WAAW'),
-        },
         {
           to: '/learn',
           key: 'navLearn',

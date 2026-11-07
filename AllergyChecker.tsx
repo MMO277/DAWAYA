@@ -166,7 +166,7 @@ export default function AllergyChecker() {
         <div className="check-grid">
           <div className="field-group">
             <label>
-              <b>1. {isAr ? 'اختر من المواد الفعالة للمضادات الحيوية (32 مادة):' : '1. Select Antibiotic Active Ingredient (32):'}</b>
+              <b>1. {isAr ? 'اختر من المواد الفعالة المرجعية السريعة:' : '1. Select Reference Active Ingredient:'}</b>
             </label>
             <select
               className="select-input"
