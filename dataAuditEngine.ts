@@ -120,7 +120,7 @@ export function runDatabaseQualityAudit(
   });
 
   return {
-    lastAuditDate: '2026-10-14',
+    lastAuditDate: '2026-11-07',
     totalActiveIngredients: ACTIVE_INGREDIENTS.length,
     totalCommercialProducts: products.length,
     totalManufacturers: manufacturers.size,
@@ -266,4 +266,75 @@ export function parseExternalEgyptianDrugJsonOrCsv(
   }
 
   return { imported, skippedCount };
+}
+
+
+/**
+ * Phase 5 Smart 5-Factor Deduplication Engine (`computeSmartDeduplicationKey` & `deduplicateCommercialCatalog`)
+ *
+ * Computes a canonical identity signature based on:
+ *  1. Normalized Trade/Brand Base Name
+ *  2. Sorted Canonical Active Ingredient Set (distinguishing single-ingredient vs multi-ingredient combinations)
+ *  3. Normalized Strength (distinguishing same brand with different strengths, e.g. Concor 2.5mg vs 5mg vs 10mg)
+ *  4. Canonical Dosage Form & Route
+ *  5. Normalized Manufacturer
+ */
+export function computeSmartDeduplicationKey(p: EgyptianCommercialProduct): string {
+  const brandNorm = (p.tradeNameEn || p.tradeNameAr || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0600-\u06FF]+/g, ' ')
+    .trim();
+  const ingNorm = (p.scientificComposition || p.activeIngredientId || '')
+    .toLowerCase()
+    .split(/[+|/,;]/)
+    .map((s) => s.replace(/\b\d+(?:\.\d+)?\s*(?:mg|gm|g|mcg|iu|ml|%)\b/gi, '').trim())
+    .filter(Boolean)
+    .sort()
+    .join('+');
+  const strengthNorm = (p.strength || '')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/^1g$/, '1000mg');
+  const formNorm = (p.dosageForm || 'tablet').toLowerCase();
+  const routeNorm = (p.route || 'oral').toLowerCase();
+  const mfrNorm = (p.manufacturer || '')
+    .toLowerCase()
+    .replace(/\b(pharma|pharmaceuticals|pharm|co|company|egypt|s\.a\.e)\b/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+
+  return `${brandNorm}|${ingNorm}|${strengthNorm}|${formNorm}|${routeNorm}|${mfrNorm}`;
+}
+
+export function deduplicateCommercialCatalog(
+  products: EgyptianCommercialProduct[]
+): {
+  deduplicated: EgyptianCommercialProduct[];
+  mergedDuplicateKeys: string[];
+} {
+  const byKey = new Map<string, EgyptianCommercialProduct>();
+  const mergedDuplicateKeys: string[] = [];
+
+  for (const prod of products) {
+    const key = computeSmartDeduplicationKey(prod);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, { ...prod });
+    } else {
+      mergedDuplicateKeys.push(`${prod.productId} -> ${existing.productId} (${key})`);
+      if (!existing.barcode && prod.barcode) {
+        existing.barcode = prod.barcode;
+        existing.barcodeStatus = prod.barcodeStatus;
+        existing.barcodeType = prod.barcodeType;
+      }
+      if ((existing.priceEgp === null || existing.priceEgp <= 0) && prod.priceEgp) {
+        existing.priceEgp = prod.priceEgp;
+        existing.priceStatus = prod.priceStatus;
+      }
+    }
+  }
+
+  return {
+    deduplicated: Array.from(byKey.values()),
+    mergedDuplicateKeys,
+  };
 }

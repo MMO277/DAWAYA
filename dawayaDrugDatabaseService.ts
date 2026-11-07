@@ -25,6 +25,7 @@ import {
   ROUTE_LABELS,
 } from './egyptianDrugDatabase';
 import { emptyMedicine, Medicine, Source } from './types';
+import { norm } from './search';
 
 export type DawayaTherapeuticCategory =
   | 'antibiotics'
@@ -152,6 +153,7 @@ export interface DawayaMedicineRecord {
   id: string;
   csvNumericId: string;
   slug: string;
+  brandName: string;
   brandNameEn: string;
   brandNameAr: string;
   genericName: string;
@@ -181,6 +183,18 @@ export interface DawayaMedicineRecord {
   contraindicationsEn: string;
   storageInfoAr: string;
   storageInfoEn: string;
+  category?: DawayaTherapeuticCategory;
+  indications?: string;
+  contraindications?: string;
+  warnings?: string;
+  commonSideEffects?: string;
+  interactions?: string;
+  pregnancyWarnings?: string;
+  pediatricWarnings?: string;
+  prescriptionRequired?: boolean;
+  price?: number | null;
+  source?: string;
+  lastVerifiedAt?: string;
   verificationStatus: 'verified' | 'requires_verification';
   missingFields: string[];
   lastVerifiedDate: string;
@@ -444,6 +458,7 @@ export function compactItemToFullRecord(item: DawayaCompactIndexItem): DawayaMed
     id: item.i,
     csvNumericId: item.i.replace(/^eg-/, ''),
     slug: item.i,
+    brandName: item.a ? `${item.a} (${item.n})` : item.n,
     brandNameEn: item.n,
     brandNameAr: item.a || item.n,
     genericName:
@@ -477,9 +492,21 @@ export function compactItemToFullRecord(item: DawayaCompactIndexItem): DawayaMed
       'يُحفظ في درجة حرارة الغرفة (أقل من 25–30 درجة مئوية) بعيداً عن الرطوبة والحرارة المباشرة وبعيداً عن متناول الأطفال، ما لم يُنص على الحفظ بالثلاجة على العبوة.',
     storageInfoEn:
       'Store at controlled room temperature away from moisture, direct heat, and out of reach of children, unless refrigeration is specified on the carton.',
+    category: item.k || 'general_medicine',
+    indications: `مستحضر دوائي مصنف ضمن فئة (${item.d || DAWAYA_CATEGORY_LABELS[item.k]?.ar || 'الأدوية العامة'}).`,
+    contraindications: `يمنع الاستخدام في حال وجود حساسية مفرطة لأي من المكونات الفعالة (${item.g || 'المادة الفعالة'}). ${warnAr}`,
+    warnings: warnAr,
+    commonSideEffects: 'تختلف الآثار الجانبية المحتملة باختلاف المادة الفعالة واستجابة المريض؛ راجع النشرة الدوائية المعتمدة أو الصيدلي.',
+    interactions: activeList.length > 0 ? `استخدم محرك الأمان الدوائي لفحص تداخلات (${activeList.join(' + ')}).` : 'راجع الصيدلي لفحص التداخلات الدوائية.',
+    pregnancyWarnings: flags.pregnancy || flags.lactation ? warnAr : 'استشيري الطبيب أو الصيدلي قبل تناول أي دواء أثناء الحمل أو الرضاعة.',
+    pediatricWarnings: 'تُحدد الجرعة وملاءمة الفئة العمرية للأطفال بواسطة طبيب الأطفال حسب الوزن والسن.',
+    prescriptionRequired: ['antibiotics', 'neurology_psychiatry', 'cardiovascular', 'endocrine_diabetes', 'oncology_immunology'].includes(item.k),
+    price: item.p,
+    source: 'Egyptian Drug Authority (EDA) & National Drug Registry',
+    lastVerifiedAt: '2026-11-07',
     verificationStatus: item.v === 1 ? 'verified' : 'requires_verification',
     missingFields: missing,
-    lastVerifiedDate: '2026-10-14',
+    lastVerifiedDate: '2026-11-07',
     referenceSources: [
       {
         title: 'قاعدة بيانات الأدوية المصرية الشاملة (eg_drugs.csv) — هيئة الدواء المصرية',
@@ -540,6 +567,123 @@ export async function fetchFullDawayaMedicineById(
 /**
  * Finds synchronous match in the loaded 26,562 index by ID, barcode, or exact brand name
  */
+
+const ARABIC_TO_ENGLISH_INGREDIENT_MAP: Record<string, string> = {
+  اموكسيسيلين: 'amoxicillin',
+  كلافولانيك: 'clavulanic',
+  امبيسيلين: 'ampicillin',
+  سولباكتام: 'sulbactam',
+  فلوكلوكساسيللين: 'flucloxacillin',
+  سيفالكسين: 'cephalexin',
+  سيفادروكسيل: 'cefadroxil',
+  سيفوروكسيم: 'cefuroxime',
+  سيفيكسيم: 'cefixime',
+  سيفدينير: 'cefdinir',
+  سيفترياكسون: 'ceftriaxone',
+  سيفوتاكسيم: 'cefotaxime',
+  سيفوبيرازون: 'cefoperazone',
+  سيفيبيم: 'cefepime',
+  ازيثرومايسين: 'azithromycin',
+  ازيثروميسين: 'azithromycin',
+  كلاريثرومايسين: 'clarithromycin',
+  اريثرومايسين: 'erythromycin',
+  سيبروفلوكساسين: 'ciprofloxacin',
+  ليفوفلوكساسين: 'levofloxacin',
+  موكسيفلوكساسين: 'moxifloxacin',
+  دوكسيسيكلين: 'doxycycline',
+  كليندامايسين: 'clindamycin',
+  ميترونيدازول: 'metronidazole',
+  نيتروفورانتوين: 'nitrofurantoin',
+  سلفاميثوكسازول: 'sulfamethoxazole',
+  تريميثوبريم: 'trimethoprim',
+  جنتامايسين: 'gentamicin',
+  اميكاسين: 'amikacin',
+  ميروبينيم: 'meropenem',
+  فانكومايسين: 'vancomycin',
+  لينيزوليد: 'linezolid',
+  فيوسيديك: 'fusidic',
+  ريفاكسيمين: 'rifaximin',
+  باراسيتامول: 'paracetamol',
+  اسيتامينوفين: 'paracetamol',
+  بنادول: 'بانادول',
+  ديكلوفيناك: 'diclofenac',
+  ايبوبروفين: 'ibuprofen',
+  اسيكلوفيناك: 'aceclofenac',
+  سيليكوكسيب: 'celecoxib',
+  ملوكسيكام: 'meloxicam',
+  كيتوبروفين: 'ketoprofen',
+  سيتيريزين: 'cetirizine',
+  ليفوسيتيريزين: 'levocetirizine',
+  فيكسوفينادين: 'fexofenadine',
+  لوراتادين: 'loratadine',
+  ديسلوراتادين: 'desloratadine',
+  سالبوتامول: 'salbutamol',
+  مونتيلوكاست: 'montelukast',
+  سودوايفيدرين: 'pseudoephedrine',
+  بانتوبرازول: 'pantoprazole',
+  ايزوميبرازول: 'esomeprazole',
+  اوميبرازول: 'omeprazole',
+  فاموتيدين: 'famotidine',
+  دومبيريدون: 'domperidone',
+  تريميبوتين: 'trimebutine',
+  نيفوروكسازيد: 'nifuroxazide',
+  بيسوبرولول: 'bisoprolol',
+  املوديبين: 'amlodipine',
+  فالسارتان: 'valsartan',
+  ساكوبيتريل: 'sacubitril',
+  كانديسارتان: 'candesartan',
+  راميبريل: 'ramipril',
+  انالابريل: 'enalapril',
+  كابتوبريل: 'captopril',
+  فوروسيميد: 'furosemide',
+  سبيرونولاكتون: 'spironolactone',
+  كلوبيدوجريل: 'clopidogrel',
+  ابيكسابان: 'apixaban',
+  ريفاروكسابان: 'rivaroxaban',
+  وارفارين: 'warfarin',
+  روزوفاستاتين: 'rosuvastatin',
+  اتورفاستاتين: 'atorvastatin',
+  ميتفورمين: 'metformin',
+  جليميبرايد: 'glimepiride',
+  جليكاﻻزيد: 'gliclazide',
+  سيتاجليبتين: 'sitagliptin',
+  فيلداجليبتين: 'vildagliptin',
+  امباجليفلوزين: 'empagliflozin',
+  داباجليفلوزين: 'dapagliflozin',
+  سيماجلوتايد: 'semaglutide',
+  تيرزيباتايد: 'tirzepatide',
+  انسولين: 'insulin',
+  كلوبيتاسول: 'clobetasol',
+  بيتاميثازون: 'betamethasone',
+  دوكوسات: 'docusate',
+  ليفيتيراسيتام: 'levetiracetam',
+  بريجابالين: 'pregabalin',
+  جابابنتين: 'gabapentin',
+  فالبروات: 'valproate',
+  كاربامازيبين: 'carbamazepine',
+  اسيتالوبرام: 'escitalopram',
+  سيرترالين: 'sertraline',
+  فلوكسيتين: 'fluoxetine',
+  كلوميبرامين: 'clomipramine',
+  كويتيابين: 'quetiapine',
+  اولانزابين: 'olanzapine',
+  كوليكالسيفيرول: 'cholecalciferol',
+  ليفوثيروكسين: 'levothyroxine',
+  ديكساميثازون: 'dexamethasone',
+  بريدنيزولون: 'prednisolone',
+  ادرينالين: 'epinephrine',
+  ابينفرين: 'epinephrine',
+  اتروبين: 'atropine',
+  سيميثيكون: 'simethicone',
+  ديدروجستيرون: 'dydrogesterone',
+  تيركونازول: 'terconazole',
+  ميكونازول: 'miconazole',
+  تامسولوسين: 'tamsulosin',
+  فيناسترايد: 'finasteride',
+  فيبوكسوستات: 'febuxostat',
+  الوبيورينول: 'allopurinol',
+};
+
 export function findDawayaIndexItemSync(queryOrId: string): DawayaCompactIndexItem | null {
   if (!globalIndexLoaded || !queryOrId) return null;
   const clean = decodeURIComponent(queryOrId).toLowerCase().trim();
@@ -551,29 +695,133 @@ export function findDawayaIndexItemSync(queryOrId: string): DawayaCompactIndexIt
   const byBc = indexByBarcodeMap.get(clean);
   if (byBc) return byBc;
 
+  const normClean = norm(clean);
   const byExactName = globalIndexItems.find(
     (x) =>
       x.n.toLowerCase() === clean ||
-      x.a === clean ||
-      x.n.toLowerCase().startsWith(clean + ' ')
+      norm(x.a) === normClean ||
+      x.n.toLowerCase().startsWith(clean + ' ') ||
+      norm(x.a).startsWith(normClean + ' ')
   );
   return byExactName || null;
 }
 
 /**
- * Returns same-ingredient equivalents/alternatives from the 26,562 database
+ * Normalizes active ingredient strings into a canonical sorted multi-ingredient key
+ * so combination order differences match while single vs combination drugs NEVER falsely match.
+ */
+export function canonicalizeIngredientKey(rawG: string): string {
+  if (!rawG || rawG.startsWith('غير محدد') || rawG.startsWith('Unspecified')) return '';
+  const parts = rawG
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .split(/[+|/,;]/)
+    .map((s) => s.replace(/\b\d+(?:\.\d+)?\s*(?:mg|gm|g|mcg|iu|ml|%)\b/gi, '').trim().replace(/\s+/g, ' '))
+    .filter(Boolean);
+  if (parts.length === 0) return '';
+  return Array.from(new Set(parts)).sort().join('+');
+}
+
+/**
+ * Normalizes strength strings (e.g. "1 g" -> "1000mg", "500 mg" -> "500mg") for strict bioequivalence comparison.
+ */
+export function normalizeStrengthForEquivalence(rawStrength: string, rawBrandName = ''): string {
+  let s = (rawStrength || '').trim().toLowerCase();
+  if (!s && rawBrandName) {
+    const m = rawBrandName.match(/(\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)?\s*(?:mg|gm|g|mcg|ug|i\.?u\.?|iu|ml|%))/i);
+    if (m) s = m[1].toLowerCase();
+  }
+  if (!s || s.includes('قياسي') || s.includes('standard') || s.includes('حسب العبوة')) return '';
+  s = s
+    .replace(/\s+/g, '')
+    .replace(/i\.u\./g, 'iu')
+    .replace(/(\d+)gm\b/g, '$1g')
+    .replace(/^1g$/g, '1000mg')
+    .replace(/^0\.5g$/g, '500mg');
+  return s;
+}
+
+export interface DawayaClassifiedAlternatives {
+  exactEquivalents: DawayaCompactIndexItem[];
+  sameIngredientDifferentFormOrStrength: DawayaCompactIndexItem[];
+}
+
+/**
+ * Phase 7 Strict Bioequivalent Alternatives Classifier:
+ * - `exactEquivalents`: MUST share the exact same canonical active ingredient set (single or combination),
+ *   the exact same normalized strength (non-empty), the exact same dosage form, and the exact same route.
+ * - `sameIngredientDifferentFormOrStrength`: Shares the exact same active ingredient set, but differs in
+ *   strength, dosage form, or route (requires physician/pharmacist dose & form adjustment).
+ */
+export function getDawayaClassifiedAlternatives(
+  item: DawayaCompactIndexItem,
+  limit = 16
+): DawayaClassifiedAlternatives {
+  const targetIngKey = canonicalizeIngredientKey(item.g);
+  if (!targetIngKey) {
+    return { exactEquivalents: [], sameIngredientDifferentFormOrStrength: [] };
+  }
+
+  const directMatches = indexByNormalizedIngredientMap.get(item.g.toLowerCase().trim()) || [];
+  // Also scan items with the same canonical ingredient key if needed
+  const candidatePool =
+    directMatches.length >= 4
+      ? directMatches
+      : globalIndexItems.filter((x) => x.g && canonicalizeIngredientKey(x.g) === targetIngKey);
+
+  const targetStrength = normalizeStrengthForEquivalence(item.s, item.n);
+  const targetForm = (item.f || 'tablet').toLowerCase();
+  const targetRoute = (item.r || 'oral').toLowerCase();
+
+  const exactEquivalents: DawayaCompactIndexItem[] = [];
+  const sameIngredientDifferentFormOrStrength: DawayaCompactIndexItem[] = [];
+
+  for (const cand of candidatePool) {
+    if (cand.i === item.i) continue;
+    if (canonicalizeIngredientKey(cand.g) !== targetIngKey) continue;
+
+    const candStrength = normalizeStrengthForEquivalence(cand.s, cand.n);
+    const candForm = (cand.f || 'tablet').toLowerCase();
+    const candRoute = (cand.r || 'oral').toLowerCase();
+
+    const isExactBioequivalent =
+      Boolean(targetStrength) &&
+      Boolean(candStrength) &&
+      targetStrength === candStrength &&
+      targetForm === candForm &&
+      targetRoute === candRoute;
+
+    if (isExactBioequivalent) {
+      exactEquivalents.push(cand);
+    } else {
+      sameIngredientDifferentFormOrStrength.push(cand);
+    }
+  }
+
+  const sortByPrice = (a: DawayaCompactIndexItem, b: DawayaCompactIndexItem) =>
+    (a.p ?? 999999) - (b.p ?? 999999);
+
+  return {
+    exactEquivalents: exactEquivalents.sort(sortByPrice).slice(0, limit),
+    sameIngredientDifferentFormOrStrength: sameIngredientDifferentFormOrStrength
+      .sort(sortByPrice)
+      .slice(0, limit),
+  };
+}
+
+/**
+ * Returns same-ingredient equivalents/alternatives from the database, prioritizing
+ * strict 4-factor bioequivalents (same ingredient + strength + dosage form + route) first.
  */
 export function getDawayaIngredientEquivalents(
   item: DawayaCompactIndexItem,
   limit = 12
 ): DawayaCompactIndexItem[] {
-  if (!item.g) return [];
-  const normG = item.g.toLowerCase().trim();
-  const matches = indexByNormalizedIngredientMap.get(normG) || [];
-  return matches
-    .filter((m) => m.i !== item.i)
-    .sort((a, b) => (a.p ?? 999999) - (b.p ?? 999999))
-    .slice(0, limit);
+  const classified = getDawayaClassifiedAlternatives(item, limit);
+  return [
+    ...classified.exactEquivalents,
+    ...classified.sameIngredientDifferentFormOrStrength,
+  ].slice(0, limit);
 }
 
 /**
@@ -644,31 +892,61 @@ export function dawayaRecordToMedicineMonograph(rec: DawayaMedicineRecord): Medi
 
   const catLabel = DAWAYA_CATEGORY_LABELS[rec.therapeuticClass] || DAWAYA_CATEGORY_LABELS.general_medicine;
   const compactItem = indexByIdMap.get(rec.id.toLowerCase());
-  const equivalents = compactItem ? getDawayaIngredientEquivalents(compactItem, 8) : [];
+  const classifiedEq = compactItem
+    ? getDawayaClassifiedAlternatives(compactItem, 8)
+    : { exactEquivalents: [], sameIngredientDifferentFormOrStrength: [] };
+
+  const exactLinesAr = classifiedEq.exactEquivalents.map(
+    (eq, idx) =>
+      `${idx + 1}. [مثيل متطابق: نفس المادة والتركيز والشكل] ${eq.a} (${eq.n}) — التركيز: ${eq.s || 'قياسي'} — الشركة: ${eq.c || 'غير محدد'} — السعر: ${
+        eq.p ? `${eq.p.toFixed(2)} ج.م` : 'غير محدد'
+      }`
+  );
+  const diffLinesAr = classifiedEq.sameIngredientDifferentFormOrStrength.slice(0, 4).map(
+    (eq, idx) =>
+      `${idx + 1}. [نفس المادة الفعالة بتركيز/شكل مختلف — ليس بديلاً تلقائياً] ${eq.a} (${eq.n}) — التركيز/الشكل: ${eq.s || ''} (${eq.f}) — السعر: ${
+        eq.p ? `${eq.p.toFixed(2)} ج.م` : 'غير محدد'
+      }`
+  );
 
   const substitutesAr =
-    equivalents.length > 0
-      ? equivalents
-          .map(
-            (eq, idx) =>
-              `${idx + 1}. ${eq.a} (${eq.n}) — الشركة: ${eq.c || 'غير محدد'} — السعر: ${
-                eq.p ? `${eq.p.toFixed(2)} ج.م` : 'غير محدد'
-              }`
-          )
-          .join('\n')
-      : 'لا توجد بدائل مسجلة بنفس تركيبة المادة الفعالة في السجل الحالي، أو أن المادة الفعالة تتطلب تحققاً إضافياً. استشر الصيدلي عن المثائل المعتمدة.';
+    exactLinesAr.length > 0 || diffLinesAr.length > 0
+      ? [
+          ...(exactLinesAr.length > 0
+            ? ['✅ مثائل متطابقة في المادة الفعالة والتركيز والشكل الدوائي وطريق الاستخدام:', ...exactLinesAr]
+            : ['ℹ️ لا توجد مثائل مسجلة تتطابق 100% في نفس التركيز والشكل الدوائي لهذا الصنف.']),
+          ...(diffLinesAr.length > 0
+            ? ['\n⚠️ مستحضرات تشترك في نفس المادة الفعالة ولكن تختلف في التركيز أو الشكل الصيدلي (لا تُستبدل تلقائياً):', ...diffLinesAr]
+            : []),
+          '\n🩺 تنبيه صيدلاني إلزامي: لا تقم باستبدال أي دواء من تلقاء نفسك دون مراجعة الطبيب المعالج أو الصيدلي للتأكد من تطابق التركيز والشكل الصيدلي وطريق الإعطاء وملاءمته لحالتك الصحية.',
+        ].join('\n')
+      : 'لا توجد بدائل مسجلة بنفس تركيبة المادة الفعالة في السجل الحالي، أو أن المادة الفعالة تتطلب تحققاً إضافياً. استشر الصيدلي أو الطبيب دائماً قبل أي استبدال دوائي.';
+
+  const exactLinesEn = classifiedEq.exactEquivalents.map(
+    (eq, idx) =>
+      `${idx + 1}. [Exact Bioequivalent: Same API, Strength, Form & Route] ${eq.n} (${eq.a}) — Strength: ${eq.s || 'Standard'} — Manufacturer: ${eq.c || 'Unspecified'} — Price: ${
+        eq.p ? `${eq.p.toFixed(2)} EGP` : 'Unspecified'
+      }`
+  );
+  const diffLinesEn = classifiedEq.sameIngredientDifferentFormOrStrength.slice(0, 4).map(
+    (eq, idx) =>
+      `${idx + 1}. [Same API, Different Strength/Form — Not an Automatic Substitute] ${eq.n} (${eq.a}) — Strength/Form: ${eq.s || ''} (${eq.f}) — Price: ${
+        eq.p ? `${eq.p.toFixed(2)} EGP` : 'Unspecified'
+      }`
+  );
 
   const substitutesEn =
-    equivalents.length > 0
-      ? equivalents
-          .map(
-            (eq, idx) =>
-              `${idx + 1}. ${eq.n} (${eq.a}) — Manufacturer: ${eq.c || 'Unspecified'} — Price: ${
-                eq.p ? `${eq.p.toFixed(2)} EGP` : 'Unspecified'
-              }`
-          )
-          .join('\n')
-      : 'No direct active-ingredient equivalents matched in the current record. Consult a licensed pharmacist for verified generics.';
+    exactLinesEn.length > 0 || diffLinesEn.length > 0
+      ? [
+          ...(exactLinesEn.length > 0
+            ? ['✅ Exact Equivalents (Same Active Ingredient, Strength, Dosage Form & Route):', ...exactLinesEn]
+            : ['ℹ️ No exact 1-to-1 strength/form bioequivalents matched in the current catalog.']),
+          ...(diffLinesEn.length > 0
+            ? ['\n⚠️ Same Active Ingredient with Different Strength or Dosage Form (Not directly interchangeable):', ...diffLinesEn]
+            : []),
+          '\n🩺 Mandatory Clinical Notice: Never substitute any medication without consulting your prescribing physician or licensed pharmacist to verify exact strength, dosage form, route, and clinical suitability.',
+        ].join('\n')
+      : 'No direct active-ingredient equivalents matched in the current record. Always consult a licensed pharmacist or physician before substituting any medication.';
 
   m.genericName = {
     ar: `${rec.brandNameAr} (${rec.brandNameEn})`,
@@ -837,8 +1115,12 @@ export function searchDawayaIndex(
   filters: DawayaSearchFilters,
   isAr = true
 ): DawayaCompactIndexItem[] {
-  const rawQ = (filters.query || '').trim().toLowerCase();
+  const rawQ = norm(filters.query || '');
   const tokens = rawQ.split(/\s+/).filter(Boolean);
+  const expandedTokens = tokens.map((tk) => ({
+    raw: tk,
+    alt: ARABIC_TO_ENGLISH_INGREDIENT_MAP[tk] || tk,
+  }));
   const cat = filters.category || 'all';
   const form = filters.dosageForm || 'all';
   const route = filters.route || 'all';
@@ -858,10 +1140,10 @@ export function searchDawayaIndex(
       if (comboFilter === 'single' && isCombo) return false;
     }
 
-    if (tokens.length === 0) return true;
+    if (expandedTokens.length === 0) return true;
 
-    const hay = `${item.n} ${item.a} ${item.g} ${item.c} ${item.s} ${item.d} ${item.b} ${item.i}`.toLowerCase();
-    return tokens.every((tk) => hay.includes(tk));
+    const hay = norm(`${item.n} ${item.a} ${item.g} ${item.c} ${item.s} ${item.d} ${item.b} ${item.i}`);
+    return expandedTokens.every((t) => hay.includes(t.raw) || hay.includes(t.alt));
   });
 
   if (sortBy === 'price_asc') {

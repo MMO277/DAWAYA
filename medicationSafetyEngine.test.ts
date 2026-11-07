@@ -32,6 +32,7 @@ import {
 import { findInteractionRule, resolveTargetId } from './interactionsData';
 import { normalizeRadarWorkspace } from './trackerData';
 import { ACTIVE_INGREDIENTS, EGYPTIAN_COMMERCIAL_PRODUCTS } from './egyptianDrugDatabase';
+import { runDatabaseQualityAudit, deduplicateCommercialCatalog, computeSmartDeduplicationKey } from './dataAuditEngine';
 import { searchMeds } from './search';
 import { SEED } from './seedData';
 import { emptyMedicine } from './types';
@@ -510,6 +511,98 @@ export async function runAllSafetyEngineTests(): Promise<TestCaseResult[]> {
         'سيبروفلوكساسين'
       );
       assertCondition(seedRes.length > 0, 'searchMeds Arabic query must return Ciprofloxacin');
+    }
+  );
+
+
+  // TEST 14: Expanded 22-Category Non-Antibiotic Duplicate & Combination Overlap (Bisoprolol, Pantoprazole, Power Caps + Brufen)
+  await runTest(
+    14,
+    'Expanded 22-category non-antibiotic resolution, duplicate detection & combination overlap (Concor + Bistol, Power Caps + Brufen)',
+    () => {
+      const bisoReport = evaluateMedicationSafety({
+        medications: ['Concor 5mg Tablets', 'Bistol 5mg Tablets'],
+      });
+      assertCondition(
+        bisoReport.groupedFindings.duplicates.length === 1,
+        'Must detect Bisoprolol duplicate between Concor 5mg and Bistol 5mg'
+      );
+
+      const comboColdReport = evaluateMedicationSafety({
+        medications: ['Power Caps 300mg/45mg Capsules', 'Brufen 400mg Tablets'],
+      });
+      assertCondition(
+        comboColdReport.groupedFindings.duplicates.length === 1,
+        'Must detect Ibuprofen overlap between Power Caps (Ibuprofen+Pseudoephedrine) and Brufen (Ibuprofen)'
+      );
+      assertCondition(
+        comboColdReport.groupedFindings.duplicates[0].reason.en.includes('do NOT have identical composition'),
+        'Must warn that Power Caps and Brufen do not have identical composition'
+      );
+    }
+  );
+
+  // TEST 15: Phase 5 Smart 5-Factor Deduplication Engine & Database Integrity Audit
+  await runTest(
+    15,
+    'Phase 5 Smart 5-Factor Deduplication Engine & Zero Duplicate IDs/Barcodes across expanded catalog',
+    () => {
+      const audit = runDatabaseQualityAudit(EGYPTIAN_COMMERCIAL_PRODUCTS);
+      assertCondition(
+        audit.duplicateProductIds.length === 0,
+        `Expected 0 duplicate productIds, found: ${audit.duplicateProductIds.join(', ')}`
+      );
+      assertCondition(
+        audit.duplicateBarcodes.length === 0,
+        `Expected 0 duplicate barcodes, found: ${audit.duplicateBarcodes.join(', ')}`
+      );
+      assertCondition(
+        audit.passedAllIntegrityChecks,
+        'Expanded EGYPTIAN_COMMERCIAL_PRODUCTS must pass all integrity checks'
+      );
+
+      // Verify smart deduplication merges true duplicates while keeping different strengths/brands separate
+      const cetal500 = EGYPTIAN_COMMERCIAL_PRODUCTS.find((p) => p.productId === 'EG-MED-209')!;
+      const cetalSusp = EGYPTIAN_COMMERCIAL_PRODUCTS.find((p) => p.productId === 'EG-MED-210')!;
+      const abimol500 = EGYPTIAN_COMMERCIAL_PRODUCTS.find((p) => p.productId === 'EG-MED-208')!;
+      assertCondition(
+        computeSmartDeduplicationKey(cetal500) !== computeSmartDeduplicationKey(cetalSusp),
+        'Same brand with different strength/form (Cetal 500mg Tablet vs Cetal 250mg/5ml Susp) must have distinct keys'
+      );
+      assertCondition(
+        computeSmartDeduplicationKey(cetal500) !== computeSmartDeduplicationKey(abimol500),
+        'Same active ingredient with different brand names (Cetal 500mg vs Abimol 500mg) must have distinct keys'
+      );
+      const dedupRes = deduplicateCommercialCatalog([cetal500, { ...cetal500, productId: 'DUP-TEST', barcode: '6221011002310' }, cetalSusp]);
+      assertCondition(
+        dedupRes.deduplicated.length === 2 && dedupRes.mergedDuplicateKeys.length === 1,
+        'deduplicateCommercialCatalog must merge exact duplicate while preserving distinct strength/form'
+      );
+    }
+  );
+
+  // TEST 16: Phase 7 Strict 4-Factor Bioequivalent Alternatives (Same API + Strength + Form + Route)
+  await runTest(
+    16,
+    'Phase 7 Strict 4-Factor Bioequivalent Alternatives (Paracetamol 500mg Tablet vs Suspension/Drops/IV Infusion)',
+    () => {
+      const cetalTab = EGYPTIAN_COMMERCIAL_PRODUCTS.find((p) => p.productId === 'EG-MED-209')!;
+      const alts = getClassifiedAlternatives(cetalTab, EGYPTIAN_COMMERCIAL_PRODUCTS);
+      const exactIds = alts.exactEquivalents.map((p) => p.productId);
+      const diffIds = alts.sameIngredientDifferentFormOrStrength.map((p) => p.productId);
+
+      assertCondition(
+        exactIds.includes('EG-MED-207') && exactIds.includes('EG-MED-208'),
+        'Panadol Advance 500mg Tablets and Abimol 500mg Tablets must be exactEquivalents of Cetal 500mg Tablets'
+      );
+      assertCondition(
+        !exactIds.includes('EG-MED-210') && !exactIds.includes('EG-MED-211') && !exactIds.includes('EG-MED-212'),
+        'Cetal Suspension, Pediatric Drops, and Perfalgan IV Infusion must NEVER appear in exactEquivalents for an oral tablet'
+      );
+      assertCondition(
+        diffIds.includes('EG-MED-210') && diffIds.includes('EG-MED-211') && diffIds.includes('EG-MED-212'),
+        'Cetal Suspension, Pediatric Drops, and Perfalgan IV Infusion must appear in sameIngredientDifferentFormOrStrength'
+      );
     }
   );
 

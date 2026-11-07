@@ -16,6 +16,7 @@ import { QuickProductEditorModal } from './CommercialCatalogEditor';
 import {
   dawayaIndexItemToCommercialProduct,
   findDawayaIndexItemSync,
+  getDawayaClassifiedAlternatives,
   getDawayaIngredientEquivalents,
   searchDawayaIndex,
   useDawayaDrugDatabase,
@@ -93,16 +94,17 @@ export default function CostSaver() {
   const alternatives = useMemo(() => {
     const dawayaItem = findDawayaIndexItemSync(selectedProduct.productId.toLowerCase());
     if (dawayaItem) {
-      const eqs = getDawayaIngredientEquivalents(dawayaItem, 16).map((x) =>
-        dawayaIndexItemToCommercialProduct(x)
-      );
-      const exactEquivalents = eqs.filter((e) => e.dosageForm === selectedProduct.dosageForm);
-      const sameIngredientDifferentFormOrStrength = eqs.filter(
-        (e) => e.dosageForm !== selectedProduct.dosageForm
-      );
+      const classified = getDawayaClassifiedAlternatives(dawayaItem, 18);
       return {
-        exactEquivalents: exactEquivalents.length > 0 ? exactEquivalents : eqs,
-        sameIngredientDifferentFormOrStrength,
+        // Strict 4-factor bioequivalence: same active ingredient set + same strength + same dosage form + same route.
+        // Never fallback to different strengths or dosage forms as automatic exact equivalents!
+        exactEquivalents: classified.exactEquivalents.map((x) =>
+          dawayaIndexItemToCommercialProduct(x)
+        ),
+        sameIngredientDifferentFormOrStrength:
+          classified.sameIngredientDifferentFormOrStrength.map((x) =>
+            dawayaIndexItemToCommercialProduct(x)
+          ),
         therapeuticClassAlternatives: [],
       };
     }

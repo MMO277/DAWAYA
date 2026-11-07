@@ -4,6 +4,7 @@ import { Medicine } from './types';
 export const norm = (s: string) =>
   (s || '')
     .toLowerCase()
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
     .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
     .replace(/[إأآٱ]/g, 'ا')
     .replace(/ى/g, 'ي')
