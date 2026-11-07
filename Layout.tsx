@@ -832,14 +832,27 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="wrap bar">
           <div className="brand-group">
             <Link to="/" className="brand" style={{ gap: '10px' }}>
-              <div className="brand-logo-circle" style={{ overflow: 'hidden', padding: 0, background: 'transparent', border: 'none' }}>
-                <DawayaIconMark size={38} />
+              <div className="brand-logo-circle" style={{ overflow: 'hidden', padding: 0 }}>
+                <img
+                  src={`${import.meta.env.BASE_URL}favicon-192.png`}
+                  alt={t('appName')}
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (!img.src.endsWith('favicon.svg')) {
+                      img.src = `${import.meta.env.BASE_URL}favicon.svg`;
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    borderRadius: 'inherit',
+                    display: 'block',
+                  }}
+                />
               </div>
-              <span className="brand-title-wrap" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-                <b style={{ letterSpacing: '0.6px', fontSize: '1.08rem' }}>DAWAYA <span style={{ color: '#00BFD0' }}>|</span> دوايا</b>
-                <small style={{ color: '#9AE8E8', fontSize: '0.7rem', fontWeight: 600 }}>
-                  {isAr ? 'صحتك.. بذكاء أكتر.' : 'Your Health. Smarter.'}
-                </small>
+              <span className="brand-title-wrap">
+                <b style={{ whiteSpace: 'nowrap' }}>{t('appName')}</b>
               </span>
             </Link>
           </div>

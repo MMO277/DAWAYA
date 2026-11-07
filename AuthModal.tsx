@@ -19,7 +19,7 @@ import {
   SavedGoogleAccount,
 } from './authContext';
 import { useLang } from './i18n';
-import { configured } from './firebase';
+import { configured, saveRuntimeFirebaseConfigFromText } from './firebase';
 
 /* ── Lamp intro helpers (UPDATE 49) ─────────────────────────────────────── */
 const LAMP_SEEN_KEY = 'aa_lamp_seen';
@@ -676,7 +676,7 @@ export default function AuthModal() {
   };
 
   const handleOpenChromeOneTimeBridge = (targetEmail: string) => {
-    const webUrl = `https://mmo277.github.io/antibiotic-awareness/?auto_bridge_email=${encodeURIComponent(targetEmail)}`;
+    const webUrl = `https://mmo277.github.io/DAWAYA/?auto_bridge_email=${encodeURIComponent(targetEmail)}`;
     if (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)) {
       const intentUri = `intent://mmo277.github.io/antibiotic-awareness/?auto_bridge_email=${encodeURIComponent(targetEmail)}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
       const a = document.createElement('a');
@@ -782,14 +782,48 @@ export default function AuthModal() {
               </p>
             </div>
 
-            {/* Guest Mode Notice when Firebase is not configured */}
+            {/* Instant Mobile Firebase Cloud Connector when Firebase is not configured */}
             {!configured && (
-              <div className="auth-guest">
-                <strong>{isAr ? '⚠️ تنبيه وضع الزائر:' : '⚠️ Guest Mode Notice:'}</strong>{' '}
-                {isAr
-                  ? 'خدمة الحسابات السحابية غير مفعّلة في هذه النسخة لعدم توفر إعدادات Firebase. يمكنك متابعة استخدام وتصفح جميع أقسام وأدوات الموقع كضيف بشكل كامل وآمن محلياً.'
-                  : 'Cloud accounts are not configured in this build. You can continue safely using all platform tools offline as a guest.'}
-                <div>
+              <div className="auth-guest" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <strong>{isAr ? '☁️ ربط سحابة Firebase مباشرة من الموبايل:' : '☁️ Instant Firebase Cloud Setup:'}</strong>
+                <span>
+                  {isAr
+                    ? 'الصق كود firebaseConfig الخاص بك من Firebase Console هنا لتفعيل تسجيل الدخول بحساب Google والمزامنة السحابية فوراً:'
+                    : 'Paste your firebaseConfig snippet from Firebase Console below to activate Google Sign-In & Cloud Sync immediately:'}
+                </span>
+                <textarea
+                  id="runtime-firebase-paste"
+                  rows={4}
+                  dir="ltr"
+                  placeholder={`apiKey: "AIza...",
+projectId: "your-project-id",
+appId: "1:..."`}
+                  style={{
+                    width: '100%',
+                    borderRadius: '10px',
+                    padding: '8px',
+                    fontSize: '0.78rem',
+                    background: 'rgba(15, 23, 42, 0.9)',
+                    color: '#5eead4',
+                    border: '1px solid #14b8a6',
+                    fontFamily: 'monospace',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById('runtime-firebase-paste') as HTMLTextAreaElement | null;
+                      if (el && saveRuntimeFirebaseConfigFromText(el.value)) {
+                        window.location.reload();
+                      } else {
+                        alert(isAr ? 'يرجى لصق كود firebaseConfig المحتوي على apiKey و projectId.' : 'Please paste valid firebaseConfig containing apiKey and projectId.');
+                      }
+                    }}
+                    style={{ background: '#00BFD0', color: '#101E36', fontWeight: 900 }}
+                  >
+                    ✅ {isAr ? 'حفظ وتفعيل الفايربيز الآن' : 'Save & Activate Firebase'}
+                  </button>
                   <button type="button" onClick={closeAuthModal}>
                     {isAr ? 'متابعة التصفح كزائر' : 'Continue as Guest'}
                   </button>
