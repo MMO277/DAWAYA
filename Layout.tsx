@@ -849,7 +849,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="wrap bar">
           <div className="brand-group">
             <Link to="/" className="brand" style={{ gap: '10px' }}>
-              <div className="brand-logo-circle" style={{ overflow: 'hidden', padding: 0 }}>
+              <div className="brand-logo-circle" style={{ overflow: 'hidden', padding: 0, borderRadius: '50%', background: '#D2D1A3' }}>
                 <img
                   src={`${import.meta.env.BASE_URL}favicon-192.png`}
                   alt={t('appName')}
@@ -1152,7 +1152,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   src={`${import.meta.env.BASE_URL}favicon-192.png`}
                   alt=""
                   aria-hidden="true"
-                  style={{ width: '34px', height: '34px', borderRadius: '9px', objectFit: 'cover', flexShrink: 0 }}
+                  style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, background: '#D2D1A3' }}
                 />
                 <div className="drawer-brand-text">
                   <b>{tr(lang, 'أقسام المنصة السريرية', 'Clinical Portal Menu', 'Menu du Portail Clinique', 'Menú del Portal Clínico')}</b>
@@ -1402,7 +1402,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 src={`${import.meta.env.BASE_URL}favicon-192.png`}
                 alt=""
                 aria-hidden="true"
-                style={{ width: '36px', height: '36px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }}
+                style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, background: '#D2D1A3' }}
               />
               <div>
                 <b style={{ fontSize: '1.05rem', color: '#fff' }}>{t('appName')}</b>

@@ -1,3 +1,4 @@
+import { DawayaFullWordmark } from './DawayaLogo';
 import { PersonaType } from './SmartPersonaAndSpotlight';
 import { PublicPartnerPlacementSection } from './PartnersDirectory';
 import { CSSProperties, FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
@@ -708,9 +709,19 @@ export default function Home() {
         }
       `}</style>
 
-      {/* Clean, Actionable DAWAYA Hero Section with Exact Original Icon & Search Layout */}
+      {/* Clean, Actionable DAWAYA Hero Section with Signature Stethoscope-D Wordmark & Search Layout */}
       <section className="modern-hero">
         <div className="wrap modern-hero-inner">
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+            <DawayaFullWordmark
+              width={255}
+              theme="sage"
+              style={{
+                border: '1.5px solid rgba(255, 255, 255, 0.35)',
+                boxShadow: '0 10px 28px rgba(16, 30, 54, 0.32)',
+              }}
+            />
+          </div>
           <div className="modern-hero-kicker">
             <span>💊</span>
             <span>

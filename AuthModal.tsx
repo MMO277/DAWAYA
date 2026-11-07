@@ -60,7 +60,8 @@ function BrandMark({ size }: { size: number }) {
       style={{
         width: `${size}px`,
         height: `${size}px`,
-        borderRadius: `${Math.round(size * 0.24)}px`,
+        borderRadius: '50%',
+        background: '#D2D1A3',
         objectFit: 'cover',
         display: 'block',
       }}
