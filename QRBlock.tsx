@@ -6,7 +6,7 @@ export default function QRBlock({ id, name }: { id: string; name: string }) {
 
   const fullUrl = typeof window !== 'undefined'
     ? `${window.location.origin}${window.location.pathname}#/medicine/${id}`
-    : `https://mmo277.github.io/antibiotic-awareness/#/medicine/${id}`;
+    : `https://mmo277.github.io/DAWAYA/#/medicine/${id}`;
 
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(fullUrl)}`;
 

@@ -23,7 +23,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   bundledWebRuntime: false,
   server: {
-    url: 'https://mmo277.github.io/antibiotic-awareness/',
+    url: 'https://mmo277.github.io/DAWAYA/',
     androidScheme: 'https',
     cleartext: true,
     allowNavigation: [

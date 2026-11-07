@@ -9,7 +9,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 const DISMISS_KEY = 'pwa-install-dismissed';
 export const APK_DIRECT_DOWNLOAD_URL =
-  'https://github.com/MMO277/antibiotic-awareness/releases/latest/download/Antibiotic-Awareness.apk';
+  'https://github.com/MMO277/DAWAYA/releases/latest/download/DAWAYA.apk';
 
 function isStandalone(): boolean {
   if (typeof window === 'undefined') return false;

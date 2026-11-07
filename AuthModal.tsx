@@ -678,7 +678,7 @@ export default function AuthModal() {
   const handleOpenChromeOneTimeBridge = (targetEmail: string) => {
     const webUrl = `https://mmo277.github.io/DAWAYA/?auto_bridge_email=${encodeURIComponent(targetEmail)}`;
     if (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)) {
-      const intentUri = `intent://mmo277.github.io/antibiotic-awareness/?auto_bridge_email=${encodeURIComponent(targetEmail)}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
+      const intentUri = `intent://mmo277.github.io/DAWAYA/?auto_bridge_email=${encodeURIComponent(targetEmail)}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
       const a = document.createElement('a');
       a.href = intentUri;
       a.style.display = 'none';

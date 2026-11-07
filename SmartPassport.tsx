@@ -28,7 +28,7 @@ import {
 function getPassportUrl(uid: string) {
   return typeof window !== 'undefined'
     ? `${window.location.origin}${window.location.pathname}#/passport/${uid}`
-    : `https://mmo277.github.io/antibiotic-awareness/#/passport/${uid}`;
+    : `https://mmo277.github.io/DAWAYA/#/passport/${uid}`;
 }
 
 function qrSrc(uid: string, size = 200) {

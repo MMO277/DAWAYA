@@ -871,7 +871,7 @@ export default function GreenPrescription() {
           <div className="notice">
             <strong>📌 {isAr ? 'ملاحظة تقنية هامة:' : 'Technical Note:'} </strong>
             {isAr
-              ? 'يعمل رمز QR على الهواتف والأجهزة الأخرى فور نشر الموقع على الرابط العام (GitHub Pages: https://mmo277.github.io/antibiotic-awareness/#/green-prescription). إذا كنت تشغل الموقع محلياً على جهازك فقط (localhost)، فلن يفتح الرمز على أجهزة خارجية إلا بعد رفعه على الرابط العام.'
+              ? 'يعمل رمز QR على الهواتف والأجهزة الأخرى فور نشر الموقع على الرابط العام (GitHub Pages: https://mmo277.github.io/DAWAYA/#/green-prescription). إذا كنت تشغل الموقع محلياً على جهازك فقط (localhost)، فلن يفتح الرمز على أجهزة خارجية إلا بعد رفعه على الرابط العام.'
               : 'The QR code works across external mobile devices once deployed to your public GitHub Pages URL.'}
           </div>
         </section>
