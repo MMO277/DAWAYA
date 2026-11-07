@@ -1,33 +1,33 @@
 {
   "reportTitle": "DAWAYA | دوايا — Full Egyptian Medicine Database Import & Audit Report",
-  "generatedAt": "2026-11-06T23:20:00Z",
+  "generatedAt": "2026-11-07T23:45:00Z",
   "sourceFileName": "eg_drugs.csv",
   "sourceFileFormat": "CSV (UTF-8, 25 columns)",
-  "totalRecordsFound": 26562,
-  "successfullyImportedRecords": 26562,
+  "totalRecordsFound": 26572,
+  "successfullyImportedRecords": 26572,
   "preservedAntibioticMonographs": 32,
   "preservedAntibioticCommercialPackages": 206,
   "totalPlatformMedicinesAvailable": 26768,
   "invalidRecords": 0,
   "duplicateIdRecords": 0,
-  "duplicateBrandStrengthFormGroups": 8,
+  "duplicateBrandStrengthFormGroups": 0,
   "duplicateSharedBarcodes": 395,
   "recordsWithIncompleteInformation": 16860,
-  "recordsRequiringManualReview": 2876,
-  "fullyCompleteVerifiedRecords": 9702,
+  "recordsRequiringManualReview": 2549,
+  "fullyCompleteVerifiedRecords": 23803,
   "uniqueActiveIngredientCombinations": 8991,
   "multiIngredientMedicinesCount": 10212,
   "uniqueManufacturersCount": 5303,
-  "verifiedPricesCount": 26435,
-  "verifiedBarcodesCount": 10525,
+  "verifiedPricesCount": 26449,
+  "verifiedBarcodesCount": 10527,
   "chunkFilesGenerated": 27,
   "recordsPerChunk": 1000,
   "missingFieldsBreakdown": {
-    "barcode": 16037,
-    "manufacturer": 310,
-    "active_ingredient": 2758,
-    "category": 1135,
-    "price": 127
+    "barcode": 16045,
+    "manufacturer": 306,
+    "active_ingredient": 2549,
+    "category": 1131,
+    "price": 123
   },
   "clinicalWarningFlagsBreakdown": {
     "high_blood_pressure": 3216,
@@ -40,90 +40,90 @@
   },
   "therapeuticCategoryBreakdown": {
     "general_medicine": {
-      "count": 6030,
+      "count": 3397,
       "labelAr": "تخصصات دوائية وطبية أخرى",
       "labelEn": "Other Pharmaceutical Categories"
     },
     "vitamins_supplements": {
-      "count": 5489,
+      "count": 5829,
       "labelAr": "الفيتامينات والمكملات الغذائية والمعادن",
       "labelEn": "Vitamins, Minerals & Supplements"
     },
     "dermatology_personal_care": {
-      "count": 3680,
+      "count": 3952,
       "labelAr": "الأدوية الجلدية والعناية الطبية",
       "labelEn": "Dermatology & Medical Care"
     },
     "cardiovascular": {
-      "count": 2359,
+      "count": 2620,
       "labelAr": "أدوية القلب والضغط والكوليسترول والسيولة",
       "labelEn": "Cardiovascular, Blood Pressure & Statins"
     },
     "antibiotics": {
-      "count": 1881,
+      "count": 1899,
       "labelAr": "المضادات الحيوية ومضادات البكتيريا",
       "labelEn": "Antibiotics & Antibacterials"
     },
     "analgesics_antipyretics": {
-      "count": 1574,
+      "count": 1975,
       "labelAr": "المسكنات ومضادات الالتهاب وخافضات الحرارة",
       "labelEn": "Analgesics, NSAIDs & Antipyretics"
     },
     "neurology_psychiatry": {
-      "count": 1286,
+      "count": 1527,
       "labelAr": "أدوية الأعصاب والطب النفسي والمخ",
       "labelEn": "Neurology & Psychiatry"
     },
     "respiratory_cold_allergy": {
-      "count": 1178,
+      "count": 1240,
       "labelAr": "أدوية البرد والكحة والجهاز التنفسي والحساسية",
       "labelEn": "Cold, Cough, Respiratory & Allergy"
     },
     "gastrointestinal": {
-      "count": 867,
+      "count": 1116,
       "labelAr": "أدوية الجهاز الهضمي والمعدة والقولون",
       "labelEn": "Gastrointestinal & Acid Control"
     },
     "anti_infectives": {
-      "count": 688,
+      "count": 795,
       "labelAr": "مضادات الفيروسات والفطريات والطفيليات",
       "labelEn": "Antivirals, Antifungals & Antiparasitics"
     },
     "oncology_immunology": {
-      "count": 532,
+      "count": 643,
       "labelAr": "أدوية الأورام والمناعة",
       "labelEn": "Oncology & Immunology"
     },
     "endocrine_diabetes": {
-      "count": 501,
+      "count": 978,
       "labelAr": "أدوية السكري والغدد الصماء",
       "labelEn": "Diabetes & Endocrine Medications"
     },
     "ophthalmology_ent": {
-      "count": 497,
+      "count": 601,
       "labelAr": "أدوية العيون والأنف والأذن",
       "labelEn": "Ophthalmology & ENT"
     }
   },
   "dosageFormBreakdown": {
-    "suspension": 1854,
-    "tablet": 8195,
-    "vial_iv_im": 1645,
-    "sachet": 1285,
-    "topical_cream_ointment": 5507,
-    "oral_drops": 379,
-    "ampoule": 1404,
-    "suppository": 747,
-    "eye_ear_drops": 2379,
-    "capsule": 2790,
-    "infusion": 377
+    "suspension": 2077,
+    "tablet": 9287,
+    "vial_iv_im": 1317,
+    "sachet": 1280,
+    "topical_cream_ointment": 6393,
+    "oral_drops": 394,
+    "ampoule": 925,
+    "suppository": 323,
+    "capsule": 3156,
+    "infusion": 595,
+    "eye_ear_drops": 825
   },
   "routeBreakdown": {
-    "oral": 14503,
-    "parenteral_iv_im": 3426,
-    "topical": 5507,
-    "rectal_vaginal": 747,
-    "ophthalmic_otic": 2379
+    "oral": 16194,
+    "parenteral_iv_im": 2837,
+    "topical": 6392,
+    "rectal_vaginal": 324,
+    "ophthalmic_otic": 825
   },
   "manualReviewQueueSamples": [
     {
