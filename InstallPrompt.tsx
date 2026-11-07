@@ -8,8 +8,34 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const DISMISS_KEY = 'pwa-install-dismissed';
-export const APK_DIRECT_DOWNLOAD_URL =
-  'https://github.com/MMO277/DAWAYA/releases/latest/download/DAWAYA.apk';
+
+/**
+ * Dynamically resolves the correct GitHub Release APK URL whether the site is hosted
+ * under `/DAWAYA/` or `/antibiotic-awareness/`, with a fallback to the official DAWAYA release.
+ */
+export function resolveApkDownloadUrl(): string {
+  if (typeof window !== 'undefined') {
+    const path = window.location.pathname || '';
+    const match = path.match(/^\/([^/]+)\//);
+    const repoName = match && match[1] ? match[1] : 'DAWAYA';
+    if (repoName.toLowerCase() === 'antibiotic-awareness') {
+      return 'https://github.com/MMO277/antibiotic-awareness/releases/latest/download/DAWAYA.apk';
+    }
+    return `https://github.com/MMO277/${repoName}/releases/latest/download/DAWAYA.apk`;
+  }
+  return 'https://github.com/MMO277/DAWAYA/releases/latest/download/DAWAYA.apk';
+}
+
+export const APK_DIRECT_DOWNLOAD_URL = resolveApkDownloadUrl();
+
+// Capture beforeinstallprompt globally in case it fires before React mounts
+let globalDeferredPrompt: BeforeInstallPromptEvent | null = null;
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    globalDeferredPrompt = e as BeforeInstallPromptEvent;
+  });
+}
 
 function isStandalone(): boolean {
   if (typeof window === 'undefined') return false;
@@ -27,15 +53,24 @@ function isIos(): boolean {
 
 export default function InstallPrompt() {
   const { lang } = useLang();
-  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(() => globalDeferredPrompt);
   const [hidden, setHidden] = useState<boolean>(() => {
     try { return localStorage.getItem(DISMISS_KEY) === '1'; } catch { return false; }
   });
   const [installed, setInstalled] = useState<boolean>(() => isStandalone());
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
 
   useEffect(() => {
-    const onPrompt = (e: Event) => { e.preventDefault(); setDeferred(e as BeforeInstallPromptEvent); };
-    const onInstalled = () => { setInstalled(true); setDeferred(null); };
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      globalDeferredPrompt = e as BeforeInstallPromptEvent;
+      setDeferred(e as BeforeInstallPromptEvent);
+    };
+    const onInstalled = () => {
+      setInstalled(true);
+      globalDeferredPrompt = null;
+      setDeferred(null);
+    };
     window.addEventListener('beforeinstallprompt', onPrompt);
     window.addEventListener('appinstalled', onInstalled);
     return () => {
@@ -49,66 +84,137 @@ export default function InstallPrompt() {
 
   const ios = isIos();
   const ar = lang === 'ar';
+  const apkUrl = resolveApkDownloadUrl();
+
   const dismiss = () => {
     setHidden(true);
     try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* ignore */ }
   };
-  const install = async () => {
-    if (!deferred) return;
-    await deferred.prompt();
-    await deferred.userChoice;
-    setDeferred(null);
+
+  const installPwa = async () => {
+    if (deferred) {
+      await deferred.prompt();
+      await deferred.userChoice;
+      globalDeferredPrompt = null;
+      setDeferred(null);
+    } else {
+      setShowInstallHelp((v) => !v);
+    }
   };
 
   return (
     <div
       role="dialog"
-      aria-label={ar ? 'تثبيت وتحميل التطبيق' : 'Install & Download App'}
+      aria-label={ar ? 'تثبيت وتحميل تطبيق دوايا' : 'Install & Download DAWAYA App'}
       style={{
-        position: 'fixed', insetInline: 12, bottom: 'calc(12px + env(safe-area-inset-bottom))', zIndex: 9999,
-        background: '#0B3C5D', color: '#fff', borderRadius: 14, padding: '12px 14px',
-        boxShadow: '0 6px 24px rgba(0,0,0,.35)', display: 'flex', gap: 10, alignItems: 'center',
-        flexWrap: 'wrap', maxWidth: 540, marginInline: 'auto', fontSize: '.9rem', lineHeight: 1.5,
+        position: 'fixed',
+        insetInline: 12,
+        bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))',
+        zIndex: 9999,
+        background: 'linear-gradient(135deg, #101E36 0%, #162B4D 100%)',
+        color: '#fff',
+        borderRadius: 16,
+        padding: '12px 14px',
+        border: '1.5px solid rgba(0, 191, 208, 0.5)',
+        boxShadow: '0 10px 30px rgba(0,0,0,.45)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        maxWidth: 560,
+        marginInline: 'auto',
+        fontSize: '.88rem',
+        lineHeight: 1.5,
       }}
     >
-      <div style={{ flex: '1 1 200px' }}>
-        {ios
-          ? (ar ? 'على iPhone/iPad: اضغط زر المشاركة ثم «إضافة إلى الشاشة الرئيسية».' : 'On iPhone/iPad: tap Share, then “Add to Home Screen”.')
-          : (ar ? '📱 حمّل تطبيق الأندرويد الرسمي (APK) لتنبيهات الجرعات والوصول السريع:' : '📱 Download the official Android App (APK) for exact dose alarms & quick access:')}
-      </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        {!ios && (
-          <a
-            href={APK_DIRECT_DOWNLOAD_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              background: '#2EC4B6', color: '#0B3C5D', textDecoration: 'none',
-              borderRadius: 8, padding: '8px 12px', fontWeight: 800, fontSize: '.86rem', whiteSpace: 'nowrap',
-            }}
-          >
-            {ar ? '📥 تحميل APK' : '📥 Download APK'}
-          </a>
-        )}
-        {deferred && (
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 200px', fontWeight: 700 }}>
+          {ios
+            ? (ar ? '📲 على iPhone: اضغط زر المشاركة (Share) ثم «إضافة إلى الشاشة الرئيسية».' : '📲 On iPhone: tap Share, then “Add to Home Screen”.')
+            : (ar ? '📱 ثبّت تطبيق «دوايا | DAWAYA» على هاتفك للتشغيل بدون إنترنت ومنبه الجرعات:' : '📱 Install the DAWAYA App for full offline access & exact dose alarms:')}
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {!ios && (
+            <button
+              type="button"
+              onClick={installPwa}
+              style={{
+                background: '#00BFD0',
+                color: '#101E36',
+                border: 'none',
+                borderRadius: 10,
+                padding: '8px 13px',
+                fontWeight: 900,
+                fontSize: '.84rem',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {ar ? '⚡ تثبيت فوري على الموبايل' : '⚡ Instant Install'}
+            </button>
+          )}
+          {!ios && (
+            <a
+              href={apkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowInstallHelp(true)}
+              style={{
+                background: 'rgba(255,255,255,0.14)',
+                color: '#9AE8E8',
+                border: '1px solid rgba(154,232,232,0.4)',
+                textDecoration: 'none',
+                borderRadius: 10,
+                padding: '7px 11px',
+                fontWeight: 800,
+                fontSize: '.82rem',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {ar ? '📥 تحميل APK' : '📥 Download APK'}
+            </a>
+          )}
           <button
-            onClick={install}
+            type="button"
+            onClick={dismiss}
+            aria-label={ar ? 'إغلاق' : 'Close'}
             style={{
-              background: 'rgba(255,255,255,0.16)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: 8, padding: '7px 11px', fontWeight: 700, fontSize: '.84rem', cursor: 'pointer', whiteSpace: 'nowrap',
+              background: 'transparent',
+              color: '#cbd5e1',
+              border: 0,
+              fontSize: '1.15rem',
+              cursor: 'pointer',
+              paddingInline: 4,
             }}
           >
-            {ar ? 'تثبيت ويب' : 'Install Web'}
+            ✕
           </button>
-        )}
-        <button
-          onClick={dismiss}
-          aria-label={ar ? 'إغلاق' : 'Close'}
-          style={{ background: 'transparent', color: '#fff', border: 0, fontSize: '1.15rem', cursor: 'pointer', paddingInline: 4 }}
-        >
-          ✕
-        </button>
+        </div>
       </div>
+
+      {showInstallHelp && (
+        <div
+          style={{
+            background: 'rgba(0, 191, 208, 0.12)',
+            border: '1px solid rgba(154, 232, 232, 0.3)',
+            borderRadius: 10,
+            padding: '8px 12px',
+            fontSize: '0.78rem',
+            color: '#e2e8f0',
+          }}
+        >
+          {ar ? (
+            <>
+              <div>✅ <b>الطريقة الأسرع (تثبيت مباشر بدون أخطاء الحماية):</b> من قائمة متصفح Chrome العلوية <b>(⋮)</b> اختر <b>«تثبيت التطبيق / Install app»</b> أو <b>«الإضافة إلى الشاشة الرئيسية»</b>.</div>
+              <div style={{ marginTop: 4 }}>💡 <b>عند تثبيت ملف الـ APK:</b> إذا ظهرت رسالة <i>«التطبيق غير مثبت»</i> احذف أي نسخة قديمة من التطبيق أولاً، أو اضغط <b>«مزيد من التفاصيل ← التثبيت على أي حال»</b> في نافذة Play Protect.</div>
+            </>
+          ) : (
+            <>
+              <div>✅ <b>Fastest Install:</b> Open browser menu <b>(⋮)</b> and tap <b>“Install app”</b> or <b>“Add to Home screen”</b>.</div>
+              <div style={{ marginTop: 4 }}>💡 <b>If installing APK:</b> Uninstall any older version first, or tap <b>“More details → Install anyway”</b> if Play Protect prompts.</div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

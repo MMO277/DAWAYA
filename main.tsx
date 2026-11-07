@@ -17,9 +17,16 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 );
 
-// Register the privacy-safe service worker (static assets only) in production builds.
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => { /* PWA is optional; ignore failures */ });
-  });
+// Register Service Worker immediately so Chrome/Edge/Android enables 1-tap PWA Installation right away.
+if ('serviceWorker' in navigator) {
+  const registerSw = () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {
+      /* PWA is optional; ignore failures */
+    });
+  };
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    registerSw();
+  } else {
+    window.addEventListener('DOMContentLoaded', registerSw);
+  }
 }
