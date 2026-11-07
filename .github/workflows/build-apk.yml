@@ -37,7 +37,7 @@ jobs:
         run: |
           cat << 'EOF' > capacitor.config.ts
           const config = {
-            appId: 'com.antibiotic.awareness',
+            appId: 'com.dawaya.health',
             appName: 'DAWAYA',
             webDir: 'dist',
             bundledWebRuntime: false,
@@ -140,8 +140,17 @@ jobs:
                   im.resize(sz, Image.Resampling.LANCZOS).save(dest, format="PNG")
           PYEOF
 
-      - name: Build Web Application
-        run: npm run build
+      - name: Build Lightweight Web Application for Android APK (Prevents 38MB APK Installer Crash)
+        run: |
+          mkdir -p /tmp/dawaya_chunks_backup
+          if [ -d "public/data/chunks" ]; then
+            mv public/data/chunks/* /tmp/dawaya_chunks_backup/ || true
+            echo "[]" > public/data/chunks/meds_chunk_0.json
+          fi
+          npm run build
+          if [ -d "/tmp/dawaya_chunks_backup" ]; then
+            mv /tmp/dawaya_chunks_backup/* public/data/chunks/ || true
+          fi
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
@@ -263,8 +272,8 @@ jobs:
               f.write(xml)
           '
 
-          cat << 'EOF' > android/app/src/main/java/com/antibiotic/awareness/DoseAlarmReceiver.java
-          package com.antibiotic.awareness;
+          cat << 'EOF' > android/app/src/main/java/com/dawaya/health/DoseAlarmReceiver.java
+          package com.dawaya.health;
 
           import android.app.Notification;
           import android.app.NotificationChannel;
@@ -402,8 +411,8 @@ jobs:
           }
           EOF
 
-          cat << 'EOF' > android/app/src/main/java/com/antibiotic/awareness/MainActivity.java
-          package com.antibiotic.awareness;
+          cat << 'EOF' > android/app/src/main/java/com/dawaya/health/MainActivity.java
+          package com.dawaya.health;
 
           import android.accounts.AccountManager;
           import android.annotation.SuppressLint;
@@ -603,7 +612,7 @@ jobs:
                           if (am == null) return false;
 
                           Intent intent = new Intent(ctx, DoseAlarmReceiver.class);
-                          intent.setAction("com.antibiotic.awareness.DOSE_ALARM_" + id);
+                          intent.setAction("com.dawaya.health.DOSE_ALARM_" + id);
                           intent.putExtra("id", id);
                           intent.putExtra("title", title);
                           intent.putExtra("body", body);
@@ -662,7 +671,7 @@ jobs:
                           AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
                           if (am == null) return false;
                           Intent intent = new Intent(ctx, DoseAlarmReceiver.class);
-                          intent.setAction("com.antibiotic.awareness.DOSE_ALARM_" + id);
+                          intent.setAction("com.dawaya.health.DOSE_ALARM_" + id);
                           int flags = PendingIntent.FLAG_UPDATE_CURRENT;
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                               flags |= PendingIntent.FLAG_IMMUTABLE;
@@ -898,12 +907,47 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Build Android APK with Gradle
+      - name: Configure Gradle Release Signing (V1 + V2) & Build Signed Release APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-          cp app/build/outputs/apk/debug/app-debug.apk ../DAWAYA.apk
+          keytool -genkeypair -v \
+            -keystore app/dawaya-release.keystore \
+            -alias dawaya_key \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass dawaya2026 \
+            -keypass dawaya2026 \
+            -dname "CN=DAWAYA Health, OU=Medical, O=DAWAYA, L=Cairo, S=Cairo, C=EG"
+
+          python3 - << 'PYGRADLE'
+          p = "app/build.gradle"
+          with open(p, "r", encoding="utf-8") as f:
+              g = f.read()
+          signing_block = '''
+              signingConfigs {
+                  release {
+                      storeFile file("dawaya-release.keystore")
+                      storePassword "dawaya2026"
+                      keyAlias "dawaya_key"
+                      keyPassword "dawaya2026"
+                      v1SigningEnabled true
+                      v2SigningEnabled true
+                  }
+              }
+          '''
+          if "signingConfigs" not in g:
+              g = g.replace("buildTypes {", signing_block + "\n    buildTypes {", 1)
+              g = g.replace("release {", "release {\n            signingConfig signingConfigs.release", 1)
+          with open(p, "w", encoding="utf-8") as f:
+              f.write(g)
+          PYGRADLE
+
+          ./gradlew assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../DAWAYA.apk
+          cp app/build/outputs/apk/release/app-release.apk ../Antibiotic-Awareness.apk
+          ls -lh ../DAWAYA.apk
 
       - name: Upload Android APK Artifact
         uses: actions/upload-artifact@v4
@@ -917,9 +961,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if gh release view v1.0.0 --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release upload v1.0.0 DAWAYA.apk --repo "${{ github.repository }}" --clobber
+            gh release upload v1.0.0 DAWAYA.apk Antibiotic-Awareness.apk --repo "${{ github.repository }}" --clobber
           else
-            gh release create v1.0.0 DAWAYA.apk \
+            gh release create v1.0.0 DAWAYA.apk Antibiotic-Awareness.apk \
               --repo "${{ github.repository }}" \
               --target "${{ github.sha }}" \
               --title "تطبيق دوايا | DAWAYA الرسمي للأندرويد (Official Android APK)" \
