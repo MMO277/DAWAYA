@@ -316,6 +316,13 @@ export default function Layout({ children }: { children: ReactNode }) {
           shortLabel: tr(lang, 'دليل سلامة الحامل', 'Pregnancy Safety Hub', 'Sécurité Grossesse', 'Seguridad Embarazo'),
         },
         {
+          to: '/baby-first-year',
+          key: '',
+          icon: '👶',
+          shortLabel: tr(lang, 'عيادة أول سنة مع طفلك', 'Newborn & 1st Year Hub', 'Clinique Bébé 1 An', 'Clínica del Bebé'),
+        },
+
+        {
           to: '/allergy-checker',
           key: 'navAllergyChecker',
           icon: '🛡️',

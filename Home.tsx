@@ -143,6 +143,18 @@ export default function Home() {
   // Concise Bento Grid Clinical Tools (Exact original icon & card structure, upgraded for all 26,562 medicines)
   const clinicalTools = [
     {
+      to: '/baby-first-year',
+      icon: '👶',
+      badge: tr(lang, 'عيادة الرضيع وأول سنة', 'Newborn & 1st Year Hub', 'Clinique Bébé 1 An', 'Clínica del Bebé 1er Año'),
+      title: tr(lang, 'موسوعة وعيادة «أول سنة مع طفلك»', 'First-Year Baby & Newborn Complete Clinic', 'Guide Complet Première Année Bébé', 'Guía Completa del Primer Año del Bebé'),
+      desc: tr(
+        lang,
+        'الممنوعات القاتلة قبل سنة (العسل، اللبن البقري، المشاية)، جدول تطعيمات الصحة والروتا، جدول الأكل شهر بشهر، كاشف ألوان البراز، وطوارئ الصفراء والشرقة',
+        'Complete newborn & infant clinic: under-1 forbidden foods/meds, Egypt vaccine schedule, weaning roadmap, stool color decoder, milestones & choking/jaundice protocols'
+      ),
+      color: '#0284c7',
+    },
+    {
       to: '/pregnancy-guide',
       icon: '🤰',
       badge: tr(lang, 'استشاري 40 سنة خبرة', 'Senior Ob-Gyn 40y', 'Gynécologie 40 Ans', 'Ginecología 40 Años'),
