@@ -12,6 +12,97 @@ import {
   useDawayaDrugDatabase,
 } from './dawayaDrugDatabaseService';
 
+
+function VisualDosingSyringe({ doseMl, isAr }: { doseMl: number; isAr: boolean }) {
+  // Syringe scale: 0 to 10 ml
+  const maxScale = 10;
+  const pct = Math.min(100, Math.max(0, (doseMl / maxScale) * 100));
+
+  return (
+    <div
+      style={{
+        padding: '14px',
+        borderRadius: '16px',
+        background: 'linear-gradient(135deg, rgba(13, 31, 56, 0.05) 0%, rgba(19, 136, 102, 0.08) 100%)',
+        border: '1.5px solid rgba(19, 136, 102, 0.25)',
+        marginTop: '12px',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <b style={{ fontSize: '0.9rem', color: '#0D1F38', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          💉 {isAr ? 'معيار السرنجة الفموية بالملليلتر (سنتي):' : 'Oral Syringe Volume Level (mL):'}
+        </b>
+        <span
+          className="badge"
+          style={{ background: '#138866', color: '#fff', fontWeight: 800, fontSize: '0.86rem' }}
+        >
+          {doseMl.toFixed(1)} {isAr ? 'مل (سم³)' : 'mL'}
+        </span>
+      </div>
+
+      {/* Graphical Syringe Barrel */}
+      <div
+        style={{
+          position: 'relative',
+          height: '32px',
+          background: '#FFFFFF',
+          borderRadius: '8px',
+          border: '2px solid #0D1F38',
+          overflow: 'hidden',
+          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)',
+        }}
+      >
+        {/* Liquid Fill */}
+        <div
+          style={{
+            height: '100%',
+            width: `${pct}%`,
+            background: 'linear-gradient(90deg, #138866 0%, #22c55e 100%)',
+            transition: 'width 0.3s ease',
+            borderRadius: '4px',
+          }}
+        />
+
+        {/* Ticks 0 to 10 ml */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            justifyContent: 'space-between',
+            paddingInline: '4px',
+            alignItems: 'center',
+            pointerEvents: 'none',
+          }}
+        >
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((t) => (
+            <div
+              key={t}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                height: '100%',
+                justifyContent: 'space-between',
+                paddingBlock: '2px',
+              }}
+            >
+              <span style={{ width: '1.5px', height: t % 5 === 0 ? '12px' : '6px', background: '#0D1F38', opacity: 0.7 }} />
+              <span style={{ fontSize: '0.62rem', fontWeight: 800, color: '#0D1F38' }}>{t}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="small muted" style={{ marginTop: '6px', textAlign: isAr ? 'right' : 'left' }}>
+        {isAr
+          ? '💡 اسحبي الدواء بالسرنجة الفموية حتى علامة الرقم الموضحة بالأعلى بدقة (1 مل = 1 سم³).'
+          : '💡 Draw medication in an oral dosing syringe exactly to the indicated mark above (1 mL = 1 cc).'}
+      </div>
+    </div>
+  );
+}
+
 export default function PediatricHelper() {
   const { lang } = useLang();
   const isAr = lang === 'ar';
@@ -222,9 +313,68 @@ export default function PediatricHelper() {
             </div>
           </div>
 
+          <VisualDosingSyringe doseMl={singleDoseMl} isAr={isAr} />
+
+          {/* 1-Tap WhatsApp Mother Dose Button */}
+          <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                isAr
+                  ? `🍼 جرعة ${pick(selectedMed.tradeName, lang)} للطفل (وزن ${weightInput} كجم):\n• الجرعة بالسيرنجة: ${singleDoseMl} مل (سنتي) كل ${selectedMed.frequencyHours} ساعات عند اللزوم.\n• التركيز: ${selectedMed.concentrationMgPer5ml} مجم/5مل (${pick(selectedMed.genericName, lang)}).\n• نصيحة: ${pick(selectedMed.specialNursingTip, lang)}\n🔗 منصة دوايا: https://mmo277.github.io/DAWAYA/#/pediatric-helper`
+                  : `🍼 Dose for ${pick(selectedMed.tradeName, lang)} (Weight: ${weightInput} kg):\n• Syringe Dose: ${singleDoseMl} mL every ${selectedMed.frequencyHours}h as needed.\n• Strength: ${selectedMed.concentrationMgPer5ml} mg/5mL.\n• Tip: ${pick(selectedMed.specialNursingTip, lang)}\n🔗 DAWAYA: https://mmo277.github.io/DAWAYA/#/pediatric-helper`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn"
+              style={{ background: '#138866', color: '#fff', fontWeight: 800, flex: '1 1 220px', textAlign: 'center' }}
+            >
+              📲 {isAr ? 'إرسال الجرعة للأم على واتساب' : 'Send Dose to Mother on WhatsApp'}
+            </a>
+          </div>
+
           <div className="nursing-tip-banner" style={{ marginTop: '14px' }}>
             <b>💡 {isAr ? 'نصيحة صيدلانية وتمريضية هامة:' : 'Important Pediatric Dosing Tip:'}</b>{' '}
             {pick(selectedMed.specialNursingTip, lang)}
+          </div>
+        </div>
+      </section>
+
+
+      {/* Egyptian Antipyretic Safety Guide Card */}
+      <section className="card stack" style={{ borderInlineStart: '4px solid #138866' }}>
+        <h2>🛡️ {isAr ? 'دليل الأمان الطبي لخوافض الحرارة للأطفال في مصر:' : 'Egyptian Pediatric Antipyretic Safety Matrix:'}</h2>
+        <div className="grid">
+          <div style={{ padding: '12px', borderRadius: '12px', background: 'rgba(22, 163, 74, 0.08)', border: '1px solid rgba(22, 163, 74, 0.25)' }}>
+            <strong style={{ color: '#15803d', display: 'block', marginBottom: '4px' }}>
+              🟢 {isAr ? 'باراسيتامول (سيتال / بيرال / بارامول)' : 'Paracetamol (Cetal / Pyral)'}
+            </strong>
+            <p className="small" style={{ margin: 0 }}>
+              {isAr
+                ? '✅ مسموح من عمر يوم (حديثي الولادة) بأمان تام. الجرعة: 10–15 مجم/كجم كل 4–6 ساعات عند اللزوم (بحد أقصى 4 مرات يومياً).'
+                : '✅ Safe from day 1 (neonates). Dose: 10-15 mg/kg every 4-6h as needed (max 4 times/day).'}
+            </p>
+          </div>
+
+          <div style={{ padding: '12px', borderRadius: '12px', background: 'rgba(217, 119, 6, 0.08)', border: '1px solid rgba(217, 119, 6, 0.25)' }}>
+            <strong style={{ color: '#b45309', display: 'block', marginBottom: '4px' }}>
+              🟡 {isAr ? 'إيبوبروفين (بروفين / بروف)' : 'Ibuprofen (Brufen / Prof)'}
+            </strong>
+            <p className="small" style={{ margin: 0 }}>
+              {isAr
+                ? '⚠️ ممنوع تماماً قبل عمر 6 أشهر. مسموح بعد 6 أشهر والوزن فوق 5 كجم. يُفضل بعد الرضاعة أو الأكل لحماية المعدة وتجنب استخدامه مع الجفاف.'
+                : '⚠️ Strictly prohibited under 6 months. Safe after 6 months (weight > 5kg) with food/milk. Avoid in dehydration.'}
+            </p>
+          </div>
+
+          <div style={{ padding: '12px', borderRadius: '12px', background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.25)' }}>
+            <strong style={{ color: '#b91c1c', display: 'block', marginBottom: '4px' }}>
+              🔴 {isAr ? 'ديكلوفيناك (دولفين / كتافلاي)' : 'Diclofenac (Dolphin / Catafly)'}
+            </strong>
+            <p className="small" style={{ margin: 0 }}>
+              {isAr
+                ? '⛔ ممنوع قبل عمر سنة كاملة (12 شهراً) ويُعطى بدقة تحت إشراف الطبيب لأقصر مدة ممكنة عند الحرارة الشديدة فقط.'
+                : '⛔ Strictly prohibited under 1 year of age. Use strictly under pediatrician supervision for high persistent fevers.'}
+            </p>
           </div>
         </div>
       </section>

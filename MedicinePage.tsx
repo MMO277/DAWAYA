@@ -71,6 +71,56 @@ export default function MedicinePage() {
   const [addingPkg, setAddingPkg] = useState(false);
   const [dawayaRecord, setDawayaRecord] = useState<DawayaMedicineRecord | null>(null);
   const [actionToast, setActionToast] = useState<string>('');
+  const [inWatchlist, setInWatchlist] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const raw = localStorage.getItem('dawaya_shortage_watchlist_v1');
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) && list.some((x: { id: string }) => x.id === id);
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleWatchlist = () => {
+    const medTitle = dawayaRecord
+      ? (isAr ? dawayaRecord.brandNameAr : dawayaRecord.brandNameEn)
+      : name;
+    try {
+      const raw = localStorage.getItem('dawaya_shortage_watchlist_v1');
+      const prev = raw ? JSON.parse(raw) : [];
+      let next: Array<{ id: string; name: string; price: number | null; date: string }>;
+      if (inWatchlist) {
+        next = prev.filter((x: { id: string }) => x.id !== id);
+        setInWatchlist(false);
+        setActionToast(
+          isAr
+            ? `ℹ️ تم إلغاء تتبع (${medTitle}) من قائمة النواقص.`
+            : `ℹ️ Removed (${medTitle}) from shortage watchlist.`
+        );
+      } else {
+        next = [
+          {
+            id,
+            name: medTitle,
+            price: dawayaRecord?.priceEgp ?? null,
+            date: new Date().toISOString().slice(0, 10),
+          },
+          ...prev.filter((x: { id: string }) => x.id !== id),
+        ].slice(0, 30);
+        setInWatchlist(true);
+        setActionToast(
+          isAr
+            ? `🔔 تم تفعيل التنبيه! ستتلقى إشعاراً فور رصد توفر (${medTitle}) أو تحديث سعره في السوق.`
+            : `🔔 Watchlist active! You will be notified when (${medTitle}) is in stock or repriced.`
+        );
+      }
+      localStorage.setItem('dawaya_shortage_watchlist_v1', JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+    window.setTimeout(() => setActionToast(''), 4500);
+  };
 
   const [m, setM] = useState<Medicine | null | undefined>(() => findLocalMedicine(id) ?? undefined);
 
@@ -263,6 +313,15 @@ export default function MedicinePage() {
           <Link to={`/tracker?med=${encodeURIComponent(name)}`} className="btn small ghost">
             ⏰ {isAr ? 'ضبط منبه جرعات' : 'Set Reminder'}
           </Link>
+          <button
+            type="button"
+            className="btn small ghost"
+            onClick={handleToggleWatchlist}
+            style={inWatchlist ? { background: '#138866', color: '#fff', borderColor: '#138866' } : { borderColor: '#d97706', color: '#b45309' }}
+            title={isAr ? 'تتبع توفر هذا الدواء وسعره عند النقص' : 'Watch for stock & price updates'}
+          >
+            {inWatchlist ? '🔔 ' + (isAr ? 'قيد المتابعة ✓' : 'Watching ✓') : '🔔 ' + (isAr ? 'أبلغني عند التوفر' : 'Notify If Available')}
+          </button>
           <Link to={`/daily-schedule?med=${encodeURIComponent(name)}`} className="btn ghost small">
             📅 {tr(lang, 'جدول مواعيد الجرعات', 'Dose Schedule')}
           </Link>

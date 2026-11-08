@@ -684,6 +684,81 @@ export default function DailyScheduleGenerator() {
           })}
         </div>
 
+        
+        {/* Family Fridge Schedule Poster (Grouped by Day Time for Elderly Parents) */}
+        <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '2px dashed var(--line)' }}>
+          <div className="head" style={{ marginBottom: '10px' }}>
+            <div>
+              <h3 style={{ margin: 0, color: '#0D1F38', fontSize: '1.15rem' }}>
+                🧲 {tr(lang, 'ملصق الثلاجة المنزلي المقسم حسب فترات اليوم (لكبار السن والأسرة)', 'Family Fridge Daily Dose Poster (By Time of Day)')}
+              </h3>
+              <p className="small muted" style={{ margin: '2px 0 0' }}>
+                {tr(lang, 'تقسيم مرئي كبير وسهل القراءة يلخص كل ما يؤخذ في كل فترة من اليوم:', 'Easy-to-read chart grouping all meds into 4 daily time periods:')}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid">
+            {[
+              { id: 'morning', icon: '🌅', labelAr: 'الصباح (مع الفطور)', labelEn: 'Morning (With Breakfast)', hours: [6, 7, 8, 9, 10] },
+              { id: 'afternoon', icon: '☀️', labelAr: 'الظهيرة (مع الغداء)', labelEn: 'Afternoon (With Lunch)', hours: [12, 13, 14, 15, 16] },
+              { id: 'evening', icon: '🌇', labelAr: 'المساء (مع العشاء)', labelEn: 'Evening (With Dinner)', hours: [18, 19, 20, 21] },
+              { id: 'night', icon: '🌙', labelAr: 'قبل النوم', labelEn: 'Bedtime (Before Sleep)', hours: [22, 23, 0] },
+            ].map((period) => {
+              const periodMeds = validRows.filter((r) => {
+                const hours = computeDoseHours(wakeHour, r.intervalHours);
+                return hours.some((h) => period.hours.includes(h));
+              });
+
+              return (
+                <div
+                  key={period.id}
+                  style={{
+                    padding: '14px',
+                    borderRadius: '16px',
+                    background: 'var(--tint)',
+                    border: '1.5px solid var(--line)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div>
+                    <b style={{ color: '#0D1F38', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {period.icon} {isAr ? period.labelAr : period.labelEn}
+                    </b>
+                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {periodMeds.length > 0 ? (
+                        periodMeds.map((pm) => (
+                          <div
+                            key={pm.id}
+                            style={{
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              background: 'var(--white)',
+                              borderInlineStart: `4px solid ${pm.color}`,
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                            }}
+                          >
+                            <b style={{ fontSize: '0.9rem', color: pm.color }}>💊 {pm.name}</b>
+                            <div className="small muted">
+                              {pm.doseText} · {pick(MEAL_RULE_LABELS[pm.mealRule], lang)}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="small muted" style={{ fontStyle: 'italic' }}>
+                          {isAr ? 'لا توجد أدوية مجدولة في هذه الفترة.' : 'No medications scheduled.'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="report-disclaimer-box" style={{ marginTop: '14px' }}>
           <strong>
             ⚠️ {tr(lang, 'قاعدة ذهبية للأمان الدوائي:', 'Golden Rule of Medication Safety:')}

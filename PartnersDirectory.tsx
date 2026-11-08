@@ -38,7 +38,7 @@ export default function PartnersDirectoryPage() {
   const { lang } = useLang();
   const isAr = lang === 'ar';
   const [sp, setSp] = useSearchParams();
-  const activeTab = (sp.get('tab') as 'directory' | 'nearby' | 'orders') || 'directory';
+  const activeTab = (sp.get('tab') as 'directory' | 'nearby' | 'orders' | 'emergency') || 'directory';
 
   const { categories, branches, orders, getVisiblePartners } = usePartnerEcosystem();
   const { products: liveCatalogProducts } = useLiveDrugCatalog();
@@ -245,11 +245,25 @@ export default function PartnersDirectoryPage() {
           >
              {isAr ?`متابعة طلباتي (${orders.length})`:`My Orders (${orders.length})`}
           </button>
+
+          <button
+            type="button"
+            className="btn small"
+            style={{
+              background: activeTab === 'emergency' ? '#dc2626' : 'rgba(239, 68, 68, 0.22)',
+              color: '#ffffff',
+              fontWeight: 800,
+              border: '1px solid #ef4444',
+            }}
+            onClick={() => setSp({ tab: 'emergency' })}
+          >
+            🚨 {isAr ? 'أرقام الطوارئ ومراكز السموم وسلاسل الصيدليات' : 'Emergency & Poison Centers'}
+          </button>
         </div>
       </header>
 
       {/* Filters Bar (for Directory & Nearby tabs) */}
-      {activeTab !== 'orders' && (
+      {(activeTab === 'directory' || activeTab === 'nearby') && (
         <section className="card stack" style={{ gap: '12px' }}>
           <div
             style={{
@@ -502,6 +516,103 @@ export default function PartnersDirectoryPage() {
             </div>
           )}
         </section>
+      )}
+
+      
+      {/* 4. EMERGENCY & POISON CENTERS DIRECTORY */}
+      {activeTab === 'emergency' && (
+        <div className="stack">
+          {/* National Hotlines Strip */}
+          <section className="card highlight-card" style={{ borderInlineStart: '4px solid #dc2626' }}>
+            <h2>🚑 {isAr ? 'أرقام الطوارئ الرسمية والخطوط الساخنة الوطنية في مصر:' : 'National Emergency & Health Hotlines in Egypt:'}</h2>
+            <div className="grid">
+              <div style={{ padding: '14px', borderRadius: '12px', background: '#fef2f2', border: '1px solid #fecaca' }}>
+                <b style={{ color: '#991b1b', fontSize: '1.05rem', display: 'block' }}>🚑 {isAr ? 'هيئة الإسعاف المصرية' : 'Egyptian Ambulance Authority'}</b>
+                <span className="small muted">{isAr ? 'للحالات الحرجة والحوادث ونقل الطوارئ' : 'Emergency Medical Services'}</span>
+                <div style={{ marginTop: '8px' }}>
+                  <a href="tel:123" className="btn small" style={{ background: '#dc2626', color: '#fff', fontWeight: 800 }}>
+                    📞 {isAr ? 'اتصل بالإسعاف (123)' : 'Call 123'}
+                  </a>
+                </div>
+              </div>
+
+              <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--tint)', border: '1px solid var(--line)' }}>
+                <b style={{ color: '#0D1F38', fontSize: '1.05rem', display: 'block' }}>🏥 {isAr ? 'طوارئ وزارة الصحة وبنوك الدم' : 'MOH Emergency & Blood Bank'}</b>
+                <span className="small muted">{isAr ? 'أماكن أسرّة الرعاية المركزة وبنوك الدم' : 'ICU beds and emergency blood supply'}</span>
+                <div style={{ marginTop: '8px' }}>
+                  <a href="tel:137" className="btn small ghost" style={{ fontWeight: 800 }}>
+                    📞 {isAr ? 'اتصل بـ (137)' : 'Call 137'}
+                  </a>
+                </div>
+              </div>
+
+              <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--tint)', border: '1px solid var(--line)' }}>
+                <b style={{ color: '#0D1F38', fontSize: '1.05rem', display: 'block' }}>💊 {isAr ? 'هيئة الدواء المصرية (EDA)' : 'Egyptian Drug Authority Hotline'}</b>
+                <span className="small muted">{isAr ? 'البلاغ عن الأدوية المغشوشة والنواقص والأعراض' : 'Report shortages & adverse drug reactions'}</span>
+                <div style={{ marginTop: '8px' }}>
+                  <a href="tel:15301" className="btn small ghost" style={{ fontWeight: 800 }}>
+                    📞 {isAr ? 'الخط الساخن (15301)' : 'Call 15301'}
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Poison Control Centers in Egyptian Universities */}
+          <section className="card stack">
+            <h2>🧪 {isAr ? 'مراكز علاج التسمم الجامعية بمحافظات مصر (طوارئ 24 ساعة مجاناً):' : 'Egyptian University Poison Control Centers (24/7 Free Emergency):'}</h2>
+            <div className="grid">
+              {[
+                { nameAr: 'مركز سموم قصر العيني (جامعة القاهرة)', tel: '0223640123', loc: 'المنيل، القاهرة' },
+                { nameAr: 'مركز سموم مستشفى الدمرداش (جامعة عين شمس)', tel: '0226840902', loc: 'العباسية، القاهرة' },
+                { nameAr: 'مركز سموم المستشفى الرئيسي الجامعي (جامعة الإسكندرية)', tel: '034862244', loc: 'محطة الرمل، الإسكندرية' },
+                { nameAr: 'مركز سموم مستشفى الطوارئ (جامعة المنصورة)', tel: '0502202672', loc: 'المنصورة، الدقهلية' },
+                { nameAr: 'مركز سموم مستشفيات جامعة أسيوط', tel: '0882413550', loc: 'أسيوط، صعيد مصر' },
+                { nameAr: 'مركز سموم مستشفيات جامعة طنطا', tel: '0403300185', loc: 'طنطا، الغربية' },
+              ].map((pc) => (
+                <div key={pc.nameAr} style={{ padding: '14px', borderRadius: '12px', background: 'var(--tint)', border: '1px solid var(--line)' }}>
+                  <b>{pc.nameAr}</b>
+                  <div className="small muted">📍 {pc.loc} · ⏱️ 24 ساعة مجاناً</div>
+                  <div style={{ marginTop: '8px' }}>
+                    <a href={`tel:${pc.tel}`} className="btn small" style={{ background: '#138866', color: '#fff', fontWeight: 800 }}>
+                      📞 {isAr ? `اتصال سريع (${pc.tel})` : `Call ${pc.tel}`}
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Major Egyptian Pharmacy Chains Hotlines */}
+          <section className="card stack">
+            <h2>🏪 {isAr ? 'الخطوط الساخنة لأشهر سلاسل الصيدليات في مصر (توصيل واستفسار عن الأدوية):' : 'Major Egyptian Pharmacy Chain Hotlines:'}</h2>
+            <div className="grid">
+              {[
+                { nameAr: 'صيدليات العزبي (El Ezaby)', tel: '19600', wa: '2019600' },
+                { nameAr: 'صيدليات رشدي (Roushdy)', tel: '19661', wa: '2019661' },
+                { nameAr: 'صيدليات مصر (Misr Pharmacies)', tel: '19110', wa: '2019110' },
+                { nameAr: 'صيدليات سيف (Seif Pharmacies)', tel: '19199', wa: '2019199' },
+                { nameAr: 'صيدليات 19011', tel: '19011', wa: '2019011' },
+                { nameAr: 'صيدليات دوائي (Dawaee)', tel: '19968', wa: '2019968' },
+              ].map((ph) => (
+                <div key={ph.nameAr} style={{ padding: '14px', borderRadius: '12px', background: 'var(--tint)', border: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <b>{ph.nameAr}</b>
+                    <div className="small muted">الخط الساخن الموحد: {ph.tel}</div>
+                  </div>
+                  <div className="row wrapRow" style={{ gap: '6px' }}>
+                    <a href={`tel:${ph.tel}`} className="btn small" style={{ background: '#0D1F38', color: '#CFD29D', fontWeight: 800 }}>
+                      📞 {ph.tel}
+                    </a>
+                    <a href={`https://wa.me/${ph.wa}`} target="_blank" rel="noopener noreferrer" className="btn small" style={{ background: '#138866', color: '#fff', fontWeight: 800 }}>
+                      💬 واتساب
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
       )}
 
       {/* TAB 3: PATIENT ORDER TRACKING & HISTORY */}

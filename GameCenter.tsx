@@ -31,6 +31,42 @@ export interface GameRegistryItem {
 
 export const GAME_CENTER_REGISTRY: GameRegistryItem[] = [
   {
+    id: 'otc-community-pharmacy',
+    route: '/cost-saver',
+    badgeAr: 'جديد • معمل تدريب الصيدلي الشاب وبدائل الأدوية المصرية',
+    badgeEn: 'NEW • Community Pharmacy OTC & Generic Training Lab',
+    modeAr: 'محاكاة تدريب صيدلاني وحاسبة بدائل سريرية متقدمة',
+    modeEn: 'Clinical Pharmacy Training & Bioequivalent Generics Lab',
+    titleAr: 'معمل تدريب الصيدلي وحالات الـ OTC (Pharmacy Clinical Lab)',
+    titleEn: 'Community Pharmacy OTC & Generic Lab',
+    subtitleAr: 'تدرب على حالات الصيدلية اليومية: اختيار البدائل المتكافئة حيوياً، كشف التعارضات، وحساب وفر الروشتة',
+    subtitleEn: 'Master community pharmacy scenarios: bioequivalent generic substitution, interaction screening, and prescription savings',
+    descriptionAr:
+      'معمل تدريبي وتفاعلي مخصص لطلبة وخريجي كليات الصيدلة والصيادلة الجدد في مصر: تدرب على استخراج البدائل المتطابقة 100% في المادة الفعالة والتركيز من بين 26,572 دواءً، كشف تداخلات الأدوية والأطعمة، واستخدام رادار الروشتة لتقديم مشورة صيدلانية احترافية.',
+    descriptionEn:
+      'A practical training lab for pharmacy students, interns, and community pharmacists in Egypt: practice selecting 100% bioequivalent generics across 26,572+ medications, screening food-drug interactions, and optimizing prescription costs for patients.',
+    featuresAr: [
+      'التدريب العملي على قواعد التكافؤ الحيوي (Bioequivalence) وفروق الأسعار في السوق المصري',
+      'كشف أخطاء تعارض الأدوية، تكرار المادة الفعالة، وتحذيرات حقنة البرد 3×1 القاتلة',
+      'حاسبة جرعات الأطفال بالسرنجة الفموية بالملليلتر لتفادي أخطاء الجرعات الزائدة',
+      'توليد جدول مواعيد الأدوية اليومي وإرسال روشتة التوفير مباشرة للمريض على واتساب',
+    ],
+    featuresEn: [
+      'Clinical training on 4-factor bioequivalence substitution and Egyptian market generic pricing',
+      'Screening dangerous drug interactions, duplicate active ingredients, and 3-in-1 cold shot risks',
+      'Accurate weight-based pediatric syringe dosing to prevent accidental hepatotoxicity',
+      '1-click export of prescription savings and family dose schedules via WhatsApp',
+    ],
+    controlsAr: 'متاح فوراً على جميع الأجهزة: الموبايل، التابلت، والكمبيوتر | تجربة تفاعلية مباشرة',
+    controlsEn: 'Available instantly on all mobile, tablet, and desktop browsers',
+    ctaAr: 'افتح معمل الصيدلي وتدريب البدائل 🩺',
+    ctaEn: 'Launch Pharmacy Generic & OTC Lab 🩺',
+    accentColor: '#138866',
+    secondaryColor: '#CFD29D',
+    visualType: 'lab3d',
+    category: 'all',
+  },
+  {
     id: 'open-health-world', route: '/open-world', badgeAr: 'محدّث • محاكاة مستشفى التمريض المفتوح 3D (8 مهام)', badgeEn: 'UPGRADED • 3D OPEN-WORLD NURSING HOSPITAL (8 MISSIONS)',
     modeAr: 'محاكاة مناوبة تمريض ومستشفى مفتوح ثلاثي الأبعاد', modeEn: 'Third-Person 3D Open-World Nursing Simulation',
     titleAr: 'مستشفى التمريض والعالم الصحي المفتوح 3D', titleEn: 'Open-World Nursing Hospital Simulation 3D',

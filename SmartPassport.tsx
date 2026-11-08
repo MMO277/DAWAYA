@@ -79,7 +79,7 @@ export function DawayaPassportCardUI({
       id="passport-card"
       className="printable-medical-id-card"
       style={{
-        background: 'linear-gradient(135deg, #101E36 0%, #162B4D 55%, #008B99 100%)',
+        background: 'linear-gradient(135deg, #0D1F38 0%, #152E52 55%, #138866 100%)',
         borderRadius: 22,
         padding: '22px 20px 18px',
         color: '#fff',
@@ -87,7 +87,7 @@ export function DawayaPassportCardUI({
         width: '100%',
         margin: '0 auto',
         boxShadow: '0 14px 42px rgba(16, 30, 54, 0.38)',
-        border: '2px solid rgba(0, 191, 208, 0.45)',
+        border: '2px solid #CFD29D',
         position: 'relative',
         overflow: 'hidden',
         direction: 'ltr',

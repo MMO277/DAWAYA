@@ -389,6 +389,91 @@ export default function Interactions() {
           </div>
         </section>
       )}
+
+      {/* Egyptian Table Food & Beverage Drug Interaction Guide */}
+      <section className="card stack" style={{ borderInlineStart: '4px solid #138866', marginTop: '16px' }}>
+        <div className="head" style={{ flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h2 style={{ margin: 0 }}>
+              🍽️ {isAr ? 'دليل تعارض الأدوية مع أطعمة ومشروبات المائدة المصرية والعادات الشائعة' : 'Egyptian Table Food & Beverage Drug Interaction Guide'}
+            </h2>
+            <p className="small muted" style={{ margin: '4px 0 0' }}>
+              {isAr
+                ? 'أهم التداخلات الموثقة سريرياً بين الأدوية المتداولة والأطعمة والمشروبات اليومية في المطبخ والبيت المصري:'
+                : 'Clinically verified interactions between common medications and traditional Egyptian foods and beverages:'}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid">
+          <div style={{ padding: '14px', borderRadius: '14px', background: 'var(--tint)', border: '1px solid var(--line)' }}>
+            <b style={{ color: '#0D1F38', fontSize: '0.96rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              ☕ {isAr ? 'الشاي بالنعناع والقهوة vs الحديد والكالسيوم' : 'Black Tea & Coffee vs. Iron & Calcium'}
+            </b>
+            <p className="small" style={{ margin: '6px 0 0' }}>
+              {isAr
+                ? '⚠️ التانينات والكافيين ترتبط بالحديد (فيروترون، فيروجلوبين) وتمنع امتصاصه بالأمعاء بنسبة 80%، كما تزيد حموضة المعدة مع المسكنات. الحل: افصل ساعتين على الأقل بين الشاي وحبوب الحديد.'
+                : '⚠️ Tannins bind dietary iron reducing absorption up to 80%. Space tea and iron supplements by at least 2 hours.'}
+            </p>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '14px', background: 'var(--tint)', border: '1px solid var(--line)' }}>
+            <b style={{ color: '#0D1F38', fontSize: '0.96rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              🥛 {isAr ? 'الحليب ومنتجات الألبان vs السيبروفلوكساسين والدوكسيسيكلين' : 'Milk & Dairy vs. Ciprofloxacin & Doxycycline'}
+            </b>
+            <p className="small" style={{ margin: '6px 0 0' }}>
+              {isAr
+                ? '⚠️ الكالسيوم يخلب المضادات الحيوية الفلوروكينولونات والتتراسيكلين، مما يبطل مفعول المضاد في علاج الصديد والمسالك. الحل: تناول المضاد قبل الحليب بساعتين أو بعده بـ 3 ساعات.'
+                : '⚠️ Calcium chelates quinolones & tetracyclines, blocking absorption. Space dairy and antibiotic doses by 2-3 hours.'}
+            </p>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '14px', background: 'var(--tint)', border: '1px solid var(--line)' }}>
+            <b style={{ color: '#0D1F38', fontSize: '0.96rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              🍊 {isAr ? 'عصير الجريب فروت والبرتقال المر vs أدوية الضغط والدهون' : 'Grapefruit vs. Statins & Blood Pressure Drugs'}
+            </b>
+            <p className="small" style={{ margin: '6px 0 0' }}>
+              {isAr
+                ? '⛔ يثبط إنزيم الكبد (CYP3A4) فيضاعف تركيز أدوية الدهون (أتور، كريستور) وأدوية الضغط (أملوديبين) بالدم مما يسبب سمية عضلية أو هبوطاً مفاجئاً. ممنوع تناوله مع هذه الأدوية.'
+                : '⛔ Potently inhibits intestinal CYP3A4, multiplying systemic levels of statins and CCBs, risking rhabdomyolysis or severe hypotension.'}
+            </p>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '14px', background: 'var(--tint)', border: '1px solid var(--line)' }}>
+            <b style={{ color: '#0D1F38', fontSize: '0.96rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              🥤 {isAr ? 'عرقسوس رمضان vs أدوية الضغط ومدرات البول' : 'Licorice vs. Antihypertensives & Diuretics'}
+            </b>
+            <p className="small" style={{ margin: '6px 0 0' }}>
+              {isAr
+                ? '⛔ يحتوي على حمض الجليسريزيك الذي يحبس الصوديوم ويطرد البوتاسيوم، فيرفع ضغط الدم بشدة ويبطل مفعول مدرات البول (لازيكس) وأدوية الضغط (كونكور وكابوتن).'
+                : '⛔ Glycyrrhizin causes pseudoaldosteronism, retaining sodium and wasting potassium, triggering hypertensive crisis in cardiac patients.'}
+            </p>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '14px', background: 'var(--tint)', border: '1px solid var(--line)' }}>
+            <b style={{ color: '#0D1F38', fontSize: '0.96rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              🍌 {isAr ? 'الموز والتمر vs سبيرونولاكتون وأدوية الضغط (ACEI/ARBs)' : 'Bananas & Dates vs. Potassium-Sparing Drugs'}
+            </b>
+            <p className="small" style={{ margin: '6px 0 0' }}>
+              {isAr
+                ? '⚠️ الإفراط في الأطعمة الغنية بالبوتاسيوم مع أدوية (ألداكتون، زستريل، إكسفورج) قد يسبب تراكم البوتاسيوم بالدم واضطراب كهربية القلب. احرص على الفحص المعملي الدوري.'
+                : '⚠️ Hyperkalemia risk when combined with spironolactone or ACEI/ARBs. Moderate dietary potassium intake and monitor electrolytes.'}
+            </p>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '14px', background: 'var(--tint)', border: '1px solid var(--line)' }}>
+            <b style={{ color: '#0D1F38', fontSize: '0.96rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              🧄 {isAr ? 'الثوم والزنجبيل المركز vs مسيلات الدم (وارفارين، بلافيكس، أسبرين)' : 'Concentrated Garlic & Ginger vs. Anticoagulants'}
+            </b>
+            <p className="small" style={{ margin: '6px 0 0' }}>
+              {isAr
+                ? '⚠️ كبسولات ومشروبات الثوم والزنجبيل والجنكة المركزة تزيد سيولة الدم وخطر النزيف مع مميعات التجلط والأسبرين. اعتدل في الطهي وتجنب المكملات المركزة.'
+                : '⚠️ High-dose garlic, ginger, and ginkgo extracts inhibit platelet aggregation and potentiate warfarin/clopidogrel bleeding risks.'}
+            </p>
+          </div>
+        </div>
+      </section>
+
     </main>
   );
 }

@@ -1589,6 +1589,9 @@ export default function Scan() {
                 >
                   🗓️ {isAr ? 'توثيق الروشتة وبدء رحلة العلاج ←' : 'Verify Rx & Start Treatment Journey →'}
                 </button>
+                <Link to={`/cost-saver?prod=${encodeURIComponent(scanResult.matchedIngredientId || '')}`} className="btn ghost" style={{ color: '#138866', borderColor: '#138866', fontWeight: 700 }}>
+                  💰 {isAr ? 'حساب وفر هذا الدواء في حاسبة الروشتة 🛒' : 'Calculate Savings in Rx Optimizer 🛒'}
+                </Link>
                 <Link to="/prescription-radar" className="btn ghost">
                   📡 {isAr ? 'فحص الدواء في رادار الروشتة 24 ساعة' : 'Check in 24h Prescription Radar'}
                 </Link>
