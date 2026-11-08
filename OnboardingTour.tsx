@@ -35,9 +35,9 @@ const TOUR_STEPS: TourStep[] = [
     titleAr: 'الفحص الشامل للروشتة ورادار الأدوية',
     titleEn: 'One-Click Prescription Checkup & Drug Radar',
     descAr:
-      'صوّر روشتتك بالكاميرا أو اكتب اسم المضاد الحيوي، والتطبيق هيفحص فوراً لو فيه أي تعارض خطر مع أدويتك أو حساسيتك.',
+      'صوّر روشتتك بالكاميرا أو ابحث في أكثر من 26,572 دواء في السوق المصري، والتطبيق هيفحص فوراً لو فيه أي تعارض خطر مع أدويتك أو حساسيتك.',
     descEn:
-      'Snap a photo of your prescription or type the antibiotic name to instantly check for dangerous interactions or allergies.',
+      'Snap a photo of your prescription or search across 26,572+ Egyptian medicines to instantly check for interactions or allergies.',
     highlightTipAr: '💡 يعرض لك كمان البديل المصري المرخص الأرخص بنفس المادة الفعالة والتركيز بالظبط (توفير حتى 60%).',
     highlightTipEn: '💡 Also shows identical EDA-licensed generic alternatives to save up to 60%.',
     targetPath: '/complete-checkup',

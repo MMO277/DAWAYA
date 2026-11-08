@@ -111,7 +111,7 @@ export default function InstallPrompt() {
         insetInline: 12,
         bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))',
         zIndex: 9999,
-        background: 'linear-gradient(135deg, #101E36 0%, #162B4D 100%)',
+        background: 'linear-gradient(135deg, #0D1F38 0%, #162B4D 100%)',
         color: '#fff',
         borderRadius: 16,
         padding: '12px 14px',
@@ -138,9 +138,9 @@ export default function InstallPrompt() {
               type="button"
               onClick={installPwa}
               style={{
-                background: '#00BFD0',
-                color: '#101E36',
-                border: 'none',
+                background: '#138866',
+                color: '#FFFFFF',
+                border: '1px solid #CFD29D',
                 borderRadius: 10,
                 padding: '8px 13px',
                 fontWeight: 900,
@@ -160,7 +160,7 @@ export default function InstallPrompt() {
               onClick={() => setShowInstallHelp(true)}
               style={{
                 background: 'rgba(255,255,255,0.14)',
-                color: '#9AE8E8',
+                color: '#CFD29D',
                 border: '1px solid rgba(154,232,232,0.4)',
                 textDecoration: 'none',
                 borderRadius: 10,

@@ -835,6 +835,20 @@ export default function Medicines() {
                     >
                       ➕ {isAr ? 'لملفي' : '+Profile'}
                     </button>
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(
+                        isAr
+                          ? `💊 دواء: ${item.a || item.n} (${item.n})\n🧪 المادة الفعالة: ${item.g || 'راجع النشرة'}\n💰 السعر الرسمي: ${item.p ? item.p.toFixed(2) + ' ج.م' : 'غير محدد'}\n🔗 التفاصيل والبدائل على منصة دوايا: https://mmo277.github.io/DAWAYA/#/medicine/${item.i}`
+                          : `💊 Medicine: ${item.n} (${item.a})\n🧪 Active Ingredient: ${item.g || 'See leaflet'}\n💰 Official Price: ${item.p ? item.p.toFixed(2) + ' EGP' : 'N/A'}\n🔗 Details & Generics on DAWAYA: https://mmo277.github.io/DAWAYA/#/medicine/${item.i}`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn small ghost"
+                      title={isAr ? 'مشاركة بيانات الدواء وسعره عبر واتساب' : 'Share medicine & price on WhatsApp'}
+                      style={{ color: '#138866', borderColor: 'rgba(19, 136, 102, 0.35)' }}
+                    >
+                      📤 {isAr ? 'واتساب' : 'Share'}
+                    </a>
                   </div>
                 </div>
               );

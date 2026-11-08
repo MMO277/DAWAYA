@@ -6712,7 +6712,10 @@ header.top.dawaya-v2-header {
 
 @media (max-width: 768px) {
   body {
-    padding-bottom: 84px !important;
+    padding-bottom: 88px !important;
+  }
+  .floating-fab-stack {
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
   }
   .dawaya-floating-bottom-dock {
     position: fixed;
@@ -6720,7 +6723,7 @@ header.top.dawaya-v2-header {
     left: 12px;
     right: 12px;
     height: 64px;
-    z-index: 950;
+    z-index: 9050;
     display: grid;
     grid-template-columns: 1fr 1fr 1.15fr 1fr 1fr;
     align-items: center;

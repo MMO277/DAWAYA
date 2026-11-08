@@ -2562,7 +2562,7 @@ export const NURSE_ACADEMY_CONFIG: Cartoon3DGameConfig = {
           "speaker": "patientSamira",
           "targetNpc": "patientSamira",
           "objectiveHint": {
-            "ar": "افحص منصة التوعية بالمضادات الحيوية، ثم قدم التثقيف الصحي لأ. سميرة ونسق مع د. طارق.",
+            "ar": "افحص منصة دوايا | DAWAYA، ثم قدم التثقيف الصحي لأ. سميرة ونسق مع د. طارق.",
             "en": "Inspect the Antibiotic Education Kiosk, counsel Ms. Samira, and review stewardship points with Dr. Tarek."
           },
           "dialogue": {
@@ -2611,7 +2611,7 @@ export const NURSE_ACADEMY_CONFIG: Cartoon3DGameConfig = {
           "speaker": "doctorTarek",
           "targetNpc": "doctorTarek",
           "objectiveHint": {
-            "ar": "افحص منصة التوعية بالمضادات الحيوية، ثم قدم التثقيف الصحي لأ. سميرة ونسق مع د. طارق.",
+            "ar": "افحص منصة دوايا | DAWAYA، ثم قدم التثقيف الصحي لأ. سميرة ونسق مع د. طارق.",
             "en": "Inspect the Antibiotic Education Kiosk, counsel Ms. Samira, and review stewardship points with Dr. Tarek."
           },
           "dialogue": {
@@ -2657,7 +2657,7 @@ export const NURSE_ACADEMY_CONFIG: Cartoon3DGameConfig = {
         }
       },
       "safeActionDemonstrated": {
-        "ar": "افحص منصة التوعية بالمضادات الحيوية، ثم قدم التثقيف الصحي لأ. سميرة ونسق مع د. طارق.",
+        "ar": "افحص منصة دوايا | DAWAYA، ثم قدم التثقيف الصحي لأ. سميرة ونسق مع د. طارق.",
         "en": "Inspect the Antibiotic Education Kiosk, counsel Ms. Samira, and review stewardship points with Dr. Tarek."
       },
       "educationalTakeaway": {
