@@ -853,6 +853,68 @@ export default function MedicinePage() {
             </section>
           )}
 
+          
+      {/* 4-Question Street-Arabic Simplified Patient Leaflet (مترجم النشرة بالعامية المبسطة) */}
+      <section
+        className="card"
+        style={{
+          background: 'linear-gradient(135deg, rgba(13, 31, 56, 0.04) 0%, rgba(19, 136, 102, 0.08) 100%)',
+          borderRadius: '18px',
+          border: '1.5px solid #138866',
+        }}
+      >
+        <div className="head" style={{ marginBottom: '10px' }}>
+          <div>
+            <span className="badge" style={{ background: '#138866', color: '#fff', fontWeight: 800, marginBottom: '6px' }}>
+              💡 {isAr ? 'النشرة الدوائية المبسطة لراحة بالك' : 'Simplified Patient Leaflet'}
+            </span>
+            <h2 style={{ margin: 0, fontSize: '1.18rem', color: '#0D1F38' }}>
+              📖 {isAr ? `نشرة (${name}) في 4 إجابات حاسمة بدون تعقيد مصطلحات:` : `Monograph of (${name}) in 4 Simple Answers:`}
+            </h2>
+          </div>
+        </div>
+
+        <div className="grid">
+          <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--white)', border: '1px solid var(--line)', borderInlineStart: '4px solid #138866' }}>
+            <b style={{ color: '#0D1F38', fontSize: '0.94rem', display: 'block', marginBottom: '4px' }}>
+              🎯 1. {isAr ? 'الدواء ده بيعالج إيه بالظبط؟' : '1. What is this medicine used for?'}
+            </b>
+            <p className="small" style={{ margin: 0 }}>
+              {uses || (isAr ? m.approvedUses.ar : m.approvedUses.en)}
+            </p>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--white)', border: '1px solid var(--line)', borderInlineStart: '4px solid #0891b2' }}>
+            <b style={{ color: '#0D1F38', fontSize: '0.94rem', display: 'block', marginBottom: '4px' }}>
+              ⏱️ 2. {isAr ? 'آخده إمتى وإزاي؟ (قبل ولا بعد الأكل؟)' : '2. When and how should I take it?'}
+            </b>
+            <p className="small" style={{ margin: 0 }}>
+              {isAr ? m.dosingReference.ar : m.dosingReference.en}
+            </p>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--white)', border: '1px solid var(--line)', borderInlineStart: '4px solid #d97706' }}>
+            <b style={{ color: '#b45309', fontSize: '0.94rem', display: 'block', marginBottom: '4px' }}>
+              🔔 3. {isAr ? 'لو نسيت الجرعة.. أتصرف إزاي؟' : '3. What if I miss a dose?'}
+            </b>
+            <p className="small" style={{ margin: 0 }}>
+              {isAr
+                ? 'لو تذكرتها قبل موعد الجرعة التالية بعدة ساعات خذها فوراً؛ أما إذا اقترب موعد الجرعة القادمة فتجاهل الجرعة المنسية ولا تضاعف الجرعة نهائياً لتفادي أي تسمم كبدي أو هبوط.'
+                : 'Take the missed dose as soon as you remember unless it is almost time for your next scheduled dose. Never double up to make up for a missed dose.'}
+            </p>
+          </div>
+
+          <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--white)', border: '1px solid var(--line)', borderInlineStart: '4px solid #dc2626' }}>
+            <b style={{ color: '#991b1b', fontSize: '0.94rem', display: 'block', marginBottom: '4px' }}>
+              ⛔ 4. {isAr ? 'مين في البيت ممنوع يلمس الدواء ده؟' : '4. Who should strictly avoid this medicine?'}
+            </b>
+            <p className="small" style={{ margin: 0 }}>
+              {isAr ? m.contraindications.ar : m.contraindications.en}
+            </p>
+          </div>
+        </div>
+      </section>
+
           {/* All Clinical Monograph Sections (Overview, Active Ingredients, Uses, Warnings, Contraindications, Side Effects, Interactions, Storage, Patient Education) */}
           {displayOrder.filter((f) => FIELD_LABELS[f]).map((f) => {
             const v = pick(m[f], lang);

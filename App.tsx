@@ -35,6 +35,9 @@ function lazyWithRetry<T extends ComponentType<any>>(
 }
 
 // Lazy-loaded clinical tools, directories & pages
+const HomeMedicineCabinet = lazyWithRetry(() => import('./HomeMedicineCabinet'));
+const RamadanFastingClock = lazyWithRetry(() => import('./RamadanFastingClock'));
+const TravelMedKit = lazyWithRetry(() => import('./TravelMedKit'));
 const PatientDashboard = lazyWithRetry(() => import('./PatientDashboard'));
 const OneClickCheckup = lazyWithRetry(() => import('./OneClickCheckup'));
 const PrescriptionRadar = lazyWithRetry(() => import('./PrescriptionRadar'));
@@ -218,6 +221,12 @@ export default function App() {
               <Route path="/partner/:id" element={<PartnerPublicProfilePage />} />
               <Route path="/cost-saver" element={<CostSaver />} />
               <Route path="/cold-shot-warning" element={<ColdShotWarning />} />
+                            <Route path="/home-cabinet" element={<HomeMedicineCabinet />} />
+              <Route path="/cabinet" element={<HomeMedicineCabinet />} />
+              <Route path="/ramadan-clock" element={<RamadanFastingClock />} />
+              <Route path="/fasting-clock" element={<RamadanFastingClock />} />
+              <Route path="/travel-kit" element={<TravelMedKit />} />
+              <Route path="/travel" element={<TravelMedKit />} />
               <Route path="/daily-schedule" element={<DailyScheduleGenerator />} />
               <Route path="/green-prescription" element={<GreenPrescription />} />
               <Route path="/awareness-week" element={<AwarenessWeek />} />

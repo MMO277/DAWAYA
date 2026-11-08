@@ -403,6 +403,24 @@ export default function Layout({ children }: { children: ReactNode }) {
           shortLabel: tr(lang, 'ملف صحتي وحساسيتي والكارت الطبي', 'Health Profile & Medical ID', 'Profil Santé', 'Perfil de Salud'),
         },
         {
+          to: '/home-cabinet',
+          key: '',
+          icon: '🗄️',
+          shortLabel: tr(lang, 'كاشف صيدلية البيت', 'Cabinet Auditor', 'Pharmacie Maison', 'Botiquín'),
+        },
+        {
+          to: '/ramadan-clock',
+          key: '',
+          icon: '🕌',
+          shortLabel: tr(lang, 'أمان صيام رمضان', 'Ramadan Clock', 'Horloge Ramadan', 'Reloj Ramadán'),
+        },
+        {
+          to: '/travel-kit',
+          key: '',
+          icon: '🧳',
+          shortLabel: tr(lang, 'حقيبة أدوية السفر', 'Travel Kit', 'Kit Voyage', 'Kit Viaje'),
+        },
+        {
           to: '/safe-disposal',
           key: 'navSafeDisposal',
           icon: '♻️',

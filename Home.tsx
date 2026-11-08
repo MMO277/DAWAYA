@@ -143,6 +143,42 @@ export default function Home() {
   // Concise Bento Grid Clinical Tools (Exact original icon & card structure, upgraded for all 26,562 medicines)
   const clinicalTools = [
     {
+      to: '/home-cabinet',
+      icon: '🗄️',
+      badge: tr(lang, 'فرز الدرج والأشرطة', 'Drawer Audit', 'Pharmacie Maison', 'Botiquín'),
+      title: tr(lang, 'كاشف وفرز صيدلية البيت', 'Home Medicine Cabinet Auditor', 'Audit Pharmacie Maison', 'Auditor de Botiquín'),
+      desc: tr(
+        lang,
+        'فرز أدوية الدرج المجهولة واكتشاف الأدوية الفاسدة بعد فتحها (كالقطرات بعد 28 يوماً) وحماية العائلة',
+        'Audit mystery strips in your drawer, detect post-opening expiration & purge toxic meds'
+      ),
+      color: '#138866',
+    },
+    {
+      to: '/ramadan-clock',
+      icon: '🕌',
+      badge: tr(lang, 'إفطار وسحور', 'Iftar & Suhur', 'Ramadan', 'Ramadán'),
+      title: tr(lang, 'رادار أمان صيام رمضان والنوافل', 'Ramadan & Fasting Medication Clock', 'Horloge Médicale Ramadan', 'Reloj de Ayuno Ramadán'),
+      desc: tr(
+        lang,
+        'إعادة جدولة الأدوية للصائمين بين الإفطار والسحور بأمان وتجنب هبوط السكر وجفاف الكلى',
+        'Safely reschedule daily medications between Iftar and Suhur to avoid dehydration'
+      ),
+      color: '#0d9488',
+    },
+    {
+      to: '/travel-kit',
+      icon: '🧳',
+      badge: tr(lang, 'طوارئ المصيف والعمرة', 'Travel Meds', 'Kit Voyage', 'Kit de Viaje'),
+      title: tr(lang, 'حقيبة أدوية السفر والمصيف والعمرة', 'Travel & Vacation Med Kit', 'Trousse Médicale Voyage', 'Botiquín de Viaje'),
+      desc: tr(
+        lang,
+        'قائمة مجهزة لحقيبة السفر: دوار الطريق، المغص، النزلات المعوية، وحروق الشمس بالأدوية المصرية',
+        'Smart travel emergency kit: motion sickness, traveler diarrhea, bites & sunburns'
+      ),
+      color: '#0284c7',
+    },
+    {
       to: '/passport',
       icon: '🪪',
       badge: tr(lang, 'كارت الطوارئ و QR', 'Medical ID & QR', 'Carte Médicale', 'Tarjeta Médica'),
