@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { DosageFormVectorBadge } from './DawayaVectorIcons';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
 import { pick, tr } from './types';
@@ -48,6 +49,68 @@ export default function CostSaver() {
   const { products: liveCatalogProducts } = useLiveDrugCatalog();
   const { indexItems, totalCount } = useDawayaDrugDatabase();
   const [editingProd, setEditingProd] = useState<EgyptianCommercialProduct | null>(null);
+  const [editingProd, setEditingProd] = useState<EgyptianCommercialProduct | null>(null);
+  const [viewMode, setViewMode] = useState<'single' | 'basket'>('single');
+  const [basketSearchQ, setBasketSearchQ] = useState('');
+
+  // Initial sample Egyptian prescription basket (Augmentin 1g + Concor 5mg + Controloc 40mg)
+  const [basket, setBasket] = useState<EgyptianCommercialProduct[]>(() => {
+    const aug = liveCatalogProducts.find((p) => p.productId === 'EG-ABX-001') || EGYPTIAN_COMMERCIAL_PRODUCTS[0];
+    const conc = EGYPTIAN_COMMERCIAL_PRODUCTS.find((p) => p.productId === 'EG-MED-233');
+    const cont = EGYPTIAN_COMMERCIAL_PRODUCTS.find((p) => p.productId === 'EG-MED-229');
+    return [aug, conc, cont].filter((p): p is EgyptianCommercialProduct => Boolean(p));
+  });
+
+  const basketResults = useMemo(() => {
+    return basket.map((item) => {
+      const dawayaItem = findDawayaIndexItemSync(item.productId.toLowerCase());
+      let cheapest: EgyptianCommercialProduct | null = null;
+      if (dawayaItem) {
+        const classified = getDawayaClassifiedAlternatives(dawayaItem, 16);
+        const exact = classified.exactEquivalents.map((x) => dawayaIndexItemToCommercialProduct(x));
+        const cheaper = exact.filter((e) => e.priceEgp && e.priceEgp < (item.priceEgp || 0) - 0.5);
+        if (cheaper.length > 0) cheapest = cheaper[0];
+      } else {
+        const alts = getClassifiedAlternatives(item, liveCatalogProducts);
+        const cheaper = alts.exactEquivalents.filter((e) => e.priceEgp && e.priceEgp < (item.priceEgp || 0) - 0.5);
+        if (cheaper.length > 0) cheapest = cheaper[0];
+      }
+      const itemPrice = item.priceEgp || 0;
+      const genericPrice = cheapest?.priceEgp ?? itemPrice;
+      const saved = Math.max(0, itemPrice - genericPrice);
+      return { item, cheapest, itemPrice, genericPrice, saved };
+    });
+  }, [basket, liveCatalogProducts, indexItems]);
+
+  const basketTotalOriginal = useMemo(() => basketResults.reduce((acc, r) => acc + r.itemPrice, 0), [basketResults]);
+  const basketTotalGeneric = useMemo(() => basketResults.reduce((acc, r) => acc + r.genericPrice, 0), [basketResults]);
+  const basketTotalSaved = Math.max(0, basketTotalOriginal - basketTotalGeneric);
+  const basketSavedPercent = basketTotalOriginal > 0 ? Math.round((basketTotalSaved / basketTotalOriginal) * 100) : 0;
+
+  const handleAddToBasket = (prod: EgyptianCommercialProduct) => {
+    if (basket.some((b) => b.productId === prod.productId)) return;
+    setBasket((prev) => [...prev, prod]);
+    setBasketSearchQ('');
+  };
+
+  const handleRemoveFromBasket = (productId: string) => {
+    setBasket((prev) => prev.filter((b) => b.productId !== productId));
+  };
+
+  const basketSearchResults = useMemo(() => {
+    const clean = norm(basketSearchQ);
+    if (!clean || clean.length < 2) return [];
+    const abxMatches = liveCatalogProducts.filter((p) => {
+      const hay = norm(`${p.tradeNameAr} ${p.tradeNameEn} ${p.scientificComposition}`);
+      return hay.includes(clean);
+    }).slice(0, 4);
+    const dawayaMatches = searchDawayaIndex(indexItems, { query: basketSearchQ.trim() }, isAr)
+      .slice(0, 8 - abxMatches.length)
+      .map((item) => dawayaIndexItemToCommercialProduct(item));
+    return [...abxMatches, ...dawayaMatches].filter(
+      (cand, idx, arr) => arr.findIndex((x) => x.productId === cand.productId) === idx
+    );
+  }, [basketSearchQ, liveCatalogProducts, indexItems, isAr]);
 
   const initialProduct = useMemo(() => {
     if (prodParam) {
@@ -162,6 +225,21 @@ export default function CostSaver() {
             </p>
           </div>
           <div className="row wrapRow" style={{ gap: '8px' }}>
+            <button
+              type="button"
+              className={`btn small ${viewMode === 'single' ? '' : 'ghost'}`}
+              onClick={() => setViewMode('single')}
+            >
+              🔍 {tr(lang, 'مقارنة بديل دواء واحد', 'Single Drug Generic Finder')}
+            </button>
+            <button
+              type="button"
+              className={`btn small ${viewMode === 'basket' ? '' : 'ghost'}`}
+              onClick={() => setViewMode('basket')}
+              style={viewMode === 'basket' ? { background: '#138866', color: '#fff' } : { borderColor: '#138866', color: '#138866' }}
+            >
+              🛒 {tr(lang, `حاسبة وفر روشتة كاملة (${basket.length} أدوية)`, `Prescription Basket Savings (${basket.length})`)}
+            </button>
             <Link to="/medicines" className="btn ghost small">
               💊 {tr(lang, 'السجل الدوائي الكامل', 'Full Drug Registry')}
             </Link>
@@ -171,7 +249,208 @@ export default function CostSaver() {
           </div>
         </div>
 
-        {/* Search Input & Pack Count Selector */}
+        {/* View Mode 2: Multi-Medicine Prescription Savings Optimizer (Basket Splitter) */}
+        {viewMode === 'basket' && (
+          <div className="stack" style={{ marginTop: '16px' }}>
+            {/* Grand Total Savings Banner */}
+            <section
+              className="card"
+              style={{
+                background: 'linear-gradient(135deg, rgba(13, 31, 56, 0.96) 0%, rgba(19, 136, 102, 0.88) 100%)',
+                color: '#fff',
+                borderRadius: '20px',
+                padding: '24px 20px',
+                border: '1.5px solid #CFD29D',
+                boxShadow: '0 12px 32px rgba(13, 31, 56, 0.35)',
+              }}
+            >
+              <div className="head" style={{ marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <span
+                    className="badge"
+                    style={{ background: '#CFD29D', color: '#0D1F38', fontWeight: 800, marginBottom: '6px' }}
+                  >
+                    🛒 {tr(lang, 'حاسبة وفر الروشتة الذكية من دوايا (DAWAYA)', 'DAWAYA Smart Prescription Basket Optimizer')}
+                  </span>
+                  <h2 style={{ color: '#fff', margin: 0, fontSize: '1.35rem' }}>
+                    {tr(lang, 'إجمالي وفر روشتتك بالبدائل المصرية المتطابقة 100%', 'Total Prescription Savings with 100% Bioequivalent Generics')}
+                  </h2>
+                </div>
+                {basketResults.length > 0 && (
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(
+                      isAr
+                        ? `🛒 روشتة التوفير الذكية من منصة دوايا (DAWAYA):\n` +
+                          basketResults
+                            .map(
+                              (r, i) =>
+                                `${i + 1}. ${r.item.tradeNameAr} (${r.itemPrice.toFixed(2)} ج.م) ⬅️ البديل: ${
+                                  r.cheapest ? `${r.cheapest.tradeNameAr} (${r.genericPrice.toFixed(2)} ج.م — وفر: ${r.saved.toFixed(2)} ج.م)` : 'نفس الصنف متوفر'
+                                }`
+                            )
+                            .join('\n') +
+                          `\n--------------------------\n` +
+                          `💰 سعر الروشتة الأصلي: ${basketTotalOriginal.toFixed(2)} ج.م\n` +
+                          `🟢 سعر البدائل المتطابقة: ${basketTotalGeneric.toFixed(2)} ج.م\n` +
+                          `🎉 إجمالي التوفير: ${basketTotalSaved.toFixed(2)} ج.م (${basketSavedPercent}%)\n` +
+                          `🔗 فحص بدائل الأدوية: https://mmo277.github.io/DAWAYA/#/cost-saver`
+                        : `🛒 Smart Prescription Savings via DAWAYA:\n` +
+                          basketResults
+                            .map(
+                              (r, i) =>
+                                `${i + 1}. ${r.item.tradeNameEn} (${r.itemPrice.toFixed(2)} EGP) -> Generic: ${
+                                  r.cheapest ? `${r.cheapest.tradeNameEn} (${r.genericPrice.toFixed(2)} EGP — Save: ${r.saved.toFixed(2)} EGP)` : 'Standard'
+                                }`
+                            )
+                            .join('\n') +
+                          `\n--------------------------\n` +
+                          `💰 Original Rx Total: ${basketTotalOriginal.toFixed(2)} EGP\n` +
+                          `🟢 Bioequivalent Generics Total: ${basketTotalGeneric.toFixed(2)} EGP\n` +
+                          `🎉 Total Savings: ${basketTotalSaved.toFixed(2)} EGP (${basketSavedPercent}%)\n` +
+                          `🔗 Compare drugs on DAWAYA: https://mmo277.github.io/DAWAYA/#/cost-saver`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn"
+                    style={{ background: '#CFD29D', color: '#0D1F38', fontWeight: 800, whiteSpace: 'nowrap' }}
+                  >
+                    📤 {tr(lang, 'إرسال روشتة التوفير للصيدلي على واتساب', 'Send Savings Rx to WhatsApp')}
+                  </a>
+                )}
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                  gap: '12px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.16)',
+                }}
+              >
+                <div style={{ padding: '12px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.08)' }}>
+                  <div className="small" style={{ opacity: 0.85 }}>{tr(lang, 'سعر الروشتة بالأدوية الموصوفة:', 'Original Prescribed Total:')}</div>
+                  <b style={{ fontSize: '1.4rem' }}>{basketTotalOriginal.toFixed(2)} {isAr ? 'ج.م' : 'EGP'}</b>
+                </div>
+                <div style={{ padding: '12px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.08)' }}>
+                  <div className="small" style={{ opacity: 0.85 }}>{tr(lang, 'سعر الروشتة بالبدائل المتكافئة:', 'With Bioequivalent Generics:')}</div>
+                  <b style={{ fontSize: '1.4rem', color: '#CFD29D' }}>{basketTotalGeneric.toFixed(2)} {isAr ? 'ج.م' : 'EGP'}</b>
+                </div>
+                <div style={{ padding: '12px', borderRadius: '14px', background: 'rgba(19, 136, 102, 0.55)', border: '1px solid #CFD29D' }}>
+                  <div className="small" style={{ color: '#CFD29D' }}>{tr(lang, 'صافي التوفير في الروشتة:', 'Net Prescription Savings:')}</div>
+                  <b style={{ fontSize: '1.5rem', color: '#fff' }}>
+                    وفّر {basketTotalSaved.toFixed(2)} {isAr ? 'ج.م' : 'EGP'} ({basketSavedPercent}%)
+                  </b>
+                </div>
+              </div>
+            </section>
+
+            {/* Add More Drugs to Basket Search Bar */}
+            <div className="card" style={{ position: 'relative' }}>
+              <label htmlFor="basket-add-input" className="small" style={{ fontWeight: 800, display: 'block', marginBottom: '6px' }}>
+                ➕ {tr(lang, 'أضف دواء آخر إلى روشتتك لحساب توفيره (ابحث في 26,572 دواء):', 'Add another medicine to prescription basket:')}
+              </label>
+              <input
+                id="basket-add-input"
+                type="search"
+                className="input"
+                value={basketSearchQ}
+                onChange={(e) => setBasketSearchQ(e.target.value)}
+                placeholder={tr(lang, 'اكتب اسم أي دواء في روشتتك لإضافته وسحب بديله تلقائياً...', 'Type any prescribed drug to add to basket...')}
+              />
+              {basketSearchResults.length > 0 && (
+                <div className="cost-search-dropdown" style={{ zIndex: 1100 }}>
+                  {basketSearchResults.map((cand) => (
+                    <button
+                      key={cand.productId}
+                      type="button"
+                      className="cost-search-option"
+                      onClick={() => handleAddToBasket(cand)}
+                    >
+                      <div>
+                        <b>{isAr ? cand.tradeNameAr : cand.tradeNameEn}</b>
+                        <span className="small muted" style={{ marginInlineStart: '8px' }}>
+                          ({cand.scientificComposition} — {cand.strength})
+                        </span>
+                      </div>
+                      <span className="cost-search-price">
+                        {cand.priceEgp ? `+ أضف (${cand.priceEgp.toFixed(2)} ج.م)` : '+ أضف'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Basket Items Table */}
+            <section className="card">
+              <div className="tablewrap">
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>{tr(lang, 'الدواء الموصوف', 'Prescribed Drug')}</th>
+                      <th>{tr(lang, 'السعر الأصلي', 'Original Price')}</th>
+                      <th>{tr(lang, 'أرخص مثيل متطابق 100% (نفس المادة والتركيز)', 'Cheapest 100% Identical Generic')}</th>
+                      <th>{tr(lang, 'سعر البديل', 'Generic Price')}</th>
+                      <th>{tr(lang, 'قيمة التوفير', 'Savings')}</th>
+                      <th>{tr(lang, 'حذف', 'Remove')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {basketResults.map((r, idx) => (
+                      <tr key={r.item.productId}>
+                        <td>{idx + 1}</td>
+                        <td>
+                          <b>{isAr ? r.item.tradeNameAr : r.item.tradeNameEn}</b>
+                          <div className="small muted" dir="ltr">{r.item.scientificComposition} — {r.item.strength}</div>
+                        </td>
+                        <td>
+                          <b>{r.itemPrice > 0 ? `${r.itemPrice.toFixed(2)} ج.م` : '—'}</b>
+                        </td>
+                        <td>
+                          {r.cheapest ? (
+                            <div>
+                              <b style={{ color: '#138866' }}>{isAr ? r.cheapest.tradeNameAr : r.cheapest.tradeNameEn}</b>
+                              <div className="small muted">{r.cheapest.manufacturer}</div>
+                            </div>
+                          ) : (
+                            <span className="small muted">{tr(lang, 'هذا الصنف هو الخيار الأوفر أو لا مثيل مسجل بسعر أقل', 'Best price or no cheaper generic')}</span>
+                          )}
+                        </td>
+                        <td>
+                          <b style={{ color: '#138866' }}>{r.genericPrice > 0 ? `${r.genericPrice.toFixed(2)} ج.م` : '—'}</b>
+                        </td>
+                        <td>
+                          {r.saved > 0 ? (
+                            <span className="badge" style={{ background: '#dcfce7', color: '#15803d', fontWeight: 800 }}>
+                              ⬇ وفّر {r.saved.toFixed(2)} ج.م
+                            </span>
+                          ) : (
+                            <span className="small muted">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn small ghost"
+                            onClick={() => handleRemoveFromBasket(r.item.productId)}
+                            title={tr(lang, 'حذف من الروشتة', 'Remove')}
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* View Mode 1: Single Drug Generic Finder Controls */}
+        {viewMode === 'single' && (
         <div className="cost-saver-controls">
           <div className="cost-search-col" style={{ position: 'relative' }}>
             <label htmlFor="cost-saver-search-input" className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '6px' }}>
@@ -446,9 +725,25 @@ export default function CostSaver() {
                       {isSelected ? (
                         <span className="small muted">{tr(lang, 'الدواء الأساسي للمقارنة', 'Baseline selected drug')}</span>
                       ) : diffTotal > 0 ? (
-                        <span className="badge" style={{ background: '#dcfce7', color: '#15803d', fontWeight: 700 }}>
-                          ⬇ {tr(lang, `وفّر ${diffTotal.toFixed(2)} ج.م`, `Save ${diffTotal.toFixed(2)} EGP`)}
-                        </span>
+                        <div className="row wrapRow" style={{ gap: '6px' }}>
+                          <span className="badge" style={{ background: '#dcfce7', color: '#15803d', fontWeight: 700 }}>
+                            ⬇ {tr(lang, `وفّر ${diffTotal.toFixed(2)} ج.م`, `Save ${diffTotal.toFixed(2)} EGP`)}
+                          </span>
+                          <a
+                            href={`https://wa.me/?text=${encodeURIComponent(
+                              isAr
+                                ? `💊 بديل متطابق في المادة الفعالة والتركيز على منصة دوايا:\n• الدواء البديل: ${pkg.tradeNameAr} (${pkg.tradeNameEn}) — السعر: ${price.toFixed(2)} ج.م (توفير ${diffTotal.toFixed(2)} ج.م)\n• المادة الفعالة: ${pkg.scientificComposition}`
+                                : `💊 100% Bioequivalent Generic on DAWAYA:\n• Generic: ${pkg.tradeNameEn} (${pkg.tradeNameAr}) — Price: ${price.toFixed(2)} EGP (Save ${diffTotal.toFixed(2)} EGP)\n• Active Ingredient: ${pkg.scientificComposition}`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="badge"
+                            style={{ background: 'rgba(19, 136, 102, 0.14)', color: '#138866', textDecoration: 'none', fontWeight: 700 }}
+                            title={isAr ? 'إرسال هذا البديل عبر واتساب' : 'Share this generic on WhatsApp'}
+                          >
+                            📤 {isAr ? 'واتساب' : 'Share'}
+                          </a>
+                        </div>
                       ) : diffTotal < 0 ? (
                         <span className="small" style={{ color: '#b45309' }}>
                           +{Math.abs(diffTotal).toFixed(2)} {isAr ? 'ج.م أعلى' : 'EGP more'}
@@ -529,6 +824,8 @@ export default function CostSaver() {
             </table>
           </div>
         </section>
+      )}
+
       )}
 
       {/* Educational Card: Difference between Exact Generic vs Therapeutic Alternative */}

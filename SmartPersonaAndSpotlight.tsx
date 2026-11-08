@@ -350,7 +350,7 @@ export function GlobalSpotlightModal({ isOpen, onClose }: SpotlightModalProps) {
           {/* Medications Matches */}
           <div>
             <div className="small muted" style={{ fontWeight: 800, marginBottom: '8px' }}>
-              💊 {tr(lang, 'المستحضرات الدوائية المصرية المطابقة (206 عبوات):', 'Matching Egyptian Medications (206 Packages):')}
+              💊 {tr(lang, 'المستحضرات الدوائية المصرية المطابقة (267 عبوة مرجعية):', 'Matching Egyptian Medications (267 Packages):')}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {filteredMeds.map((pkg) => (

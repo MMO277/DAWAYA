@@ -117,7 +117,7 @@ const ALL_WEBSITE_SOURCES: ScientificSourceItem[] = [
     apaCitation:
       'World Health Organization. (2022). The WHO AWaRe (Access, Watch, Reserve) antibiotic book. World Health Organization. https://www.who.int/publications/i/item/9789240062382',
     summaryAr:
-      'المرجع العالمي لتصنيف الـ 32 مادة فعالة في المنصة إلى فئات الإتاحة الأساسية (Access - 16 مادة)، فئة المراقبة والحذر (Watch - 16 مادة)، وفئة الملاذ الأخير (Reserve)، وبروتوكولات خط العلاج الأول.',
+      'المرجع العالمي لتصنيف الـ 74 مادة فعالة في المنصة إلى فئات الإتاحة الأساسية (Access - 16 مادة)، فئة المراقبة والحذر (Watch - 16 مادة)، وفئة الملاذ الأخير (Reserve)، وبروتوكولات خط العلاج الأول.',
     summaryEn:
       'Global authority classifying our 32 active ingredients into Access, Watch, and Reserve stewardship tiers and empirical therapy guidance.',
     url: 'https://www.who.int/publications/i/item/9789240062382',
@@ -128,14 +128,14 @@ const ALL_WEBSITE_SOURCES: ScientificSourceItem[] = [
     categoryLabelAr: 'منظمة الصحة العالمية وهيئة الدواء المصرية',
     categoryLabelEn: 'WHO AWaRe & Egyptian Drug Authority',
     color: '#0d9488',
-    usedInPagesAr: 'السجل الدوائي (206 عبوات) • موفر التكلفة (/cost-saver) • تحذير حقنة البرد (/cold-shot-warning)',
-    usedInPagesEn: 'Egyptian Registry (206 Packs) • Cost Saver (/cost-saver) • Cold Shot Warning',
+    usedInPagesAr: 'السجل الدوائي (267 عبوة) • موفر التكلفة (/cost-saver) • تحذير حقنة البرد (/cold-shot-warning)',
+    usedInPagesEn: 'Egyptian Registry (26,572+ Drugs) • Cost Saver (/cost-saver) • Cold Shot Warning',
     pageRoute: '/cost-saver',
     title: 'هيئة الدواء المصرية (Egyptian Drug Authority — EDA) والدليل القومي للمستحضرات',
     apaCitation:
       'Egyptian Drug Authority (EDA). (2024). Egyptian national drug database, bioequivalence guidelines, and official public safety warnings on the 3-in-1 cold injection. Cairo, Egypt.',
     summaryAr:
-      'مصدر توثيق الـ 206 مستحضرات تجارية مصرية، التركيزات، الأشكال الصيدلانية، الشركات المصنعة، قوائم المثائل المصرية المتكافئة حيوياً (Bioequivalent Generics)، والتحذيرات الرسمية من خطورة «حقنة البرد الثلاثية 3×1».',
+      'مصدر توثيق الـ 26,572+ مستحضراً تجارية مصرية، التركيزات، الأشكال الصيدلانية، الشركات المصنعة، قوائم المثائل المصرية المتكافئة حيوياً (Bioequivalent Generics)، والتحذيرات الرسمية من خطورة «حقنة البرد الثلاثية 3×1».',
     summaryEn:
       'Official source for the 206 licensed Egyptian commercial preparations, bioequivalent local generics, EGP pricing, and national safety alerts against the 3-in-1 Cold Shot cocktail.',
     url: 'https://edaegypt.gov.eg/',
@@ -462,7 +462,7 @@ export default function Methodology() {
             <div className="small" style={{ color: '#cbd5e1', fontWeight: 700 }}>{tr(lang, 'توثيق بصيغة APA 7th القياسية', 'Standardized APA 7th Citations')}</div>
           </div>
           <div style={{ background: 'rgba(15,23,42,0.65)', padding: '12px 14px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.12)' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fbbf24' }}>32 / 206</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fbbf24' }}>74 / 267 / 26,572</div>
             <div className="small" style={{ color: '#cbd5e1', fontWeight: 700 }}>{tr(lang, 'مادة فعالة وعبوة موثقة بالمصادر', 'Verified Ingredients & EDA Packs')}</div>
           </div>
           <div style={{ background: 'rgba(15,23,42,0.65)', padding: '12px 14px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.12)' }}>
@@ -624,7 +624,7 @@ export default function Methodology() {
                 <td><Link to="/green-prescription" className="btn small ghost">{tr(lang, 'فتح القسم', 'Open')}</Link></td>
               </tr>
               <tr>
-                <td><b>💊 {tr(lang, 'السجل الدوائي المصري (32 مادة / 206 عبوات)', 'Egyptian Drug Registry (32 / 206 Packs)')}</b></td>
+                <td><b>💊 {tr(lang, 'السجل الدوائي المصري (74 مادة / 267 عبوة)', 'Egyptian Drug Registry (74 / 267 / 26,572 Packs)')}</b></td>
                 <td>WHO AWaRe Antibiotic Book (2023) • Egyptian Drug Authority (EDA) • WHOCC ATC Index</td>
                 <td><Link to="/medicines" className="btn small ghost">{tr(lang, 'فتح القسم', 'Open')}</Link></td>
               </tr>

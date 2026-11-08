@@ -771,7 +771,73 @@ const ARABIC_TO_ENGLISH_INGREDIENT_MAP: Record<string, string> = {
   ريفاكسيمين: 'rifaximin',
   باراسيتامول: 'paracetamol',
   اسيتامينوفين: 'paracetamol',
-  بنادول: 'بانادول',
+  بنادول: 'panadol',
+  بانادول: 'panadol',
+  سيتال: 'cetal',
+  ابيمول: 'abimol',
+  كتافلام: 'cataflam',
+  كتفلام: 'cataflam',
+  كتافاست: 'catafast',
+  كتفاست: 'catafast',
+  فولتارين: 'voltaren',
+  فولترين: 'voltaren',
+  بروفين: 'brufen',
+  بريستافلام: 'bristaflam',
+  بريستفلام: 'bristaflam',
+  سيليبريكس: 'celebrex',
+  سيلبريكس: 'celebrex',
+  زيرتك: 'zyrtec',
+  زيرتيك: 'zyrtec',
+  زايزال: 'xyzal',
+  زيزال: 'xyzal',
+  تلفاست: 'telfast',
+  تيليفاست: 'telfast',
+  فنتولين: 'ventolin',
+  فينتولين: 'ventolin',
+  سينجولير: 'singulair',
+  سنجولير: 'singulair',
+  باوركابس: 'power caps',
+  كونترولوك: 'controloc',
+  كنترولوك: 'controloc',
+  زوركال: 'zurcal',
+  نيكسيوم: 'nexium',
+  نكسيوم: 'nexium',
+  انتينال: 'antinal',
+  فلاجيل: 'flagyl',
+  كونكور: 'concor',
+  كونكر: 'concor',
+  اكسفورج: 'exforge',
+  انتريستو: 'entresto',
+  بلافيكس: 'plavix',
+  بلافكس: 'plavix',
+  اليكويس: 'eliquis',
+  ايليكويس: 'eliquis',
+  كريستور: 'crestor',
+  كرستور: 'crestor',
+  ليبيتور: 'lipitor',
+  جلوكوفاج: 'glucophage',
+  سيدوفاج: 'cidophage',
+  جارديانس: 'jardiance',
+  اوزمبك: 'ozempic',
+  اوزيمبك: 'ozempic',
+  مونجارو: 'mounjaro',
+  لانتوس: 'lantus',
+  اوجمنتين: 'augmentin',
+  هايبيوتك: 'hibiotic',
+  زيثروماكس: 'zithromax',
+  زيسروماكس: 'zithromax',
+  سيبروفار: 'ciprofar',
+  تافانيك: 'tavanic',
+  كيبرا: 'keppra',
+  ليريكا: 'lyrica',
+  ليركا: 'lyrica',
+  سيبرالكس: 'cipralex',
+  سيبراليكس: 'cipralex',
+  التروكسين: 'eltroxin',
+  يوثيروكس: 'euthyrox',
+  دوفاستون: 'duphaston',
+  اومنيك: 'omnic',
+  فيبيوريك: 'feburic',
   ديكلوفيناك: 'diclofenac',
   ايبوبروفين: 'ibuprofen',
   اسيكلوفيناك: 'aceclofenac',
@@ -1276,6 +1342,11 @@ export interface DawayaSearchFilters {
 /**
  * High-speed search across all 26,562 medicine records in `globalIndexItems`
  */
+function arabicConsonantSkeleton(s: string): string {
+  // Strips inner weak vowels (ا, و, ي) from Arabic words >= 4 chars so spelling variants like كتفلام/كتافلام match
+  return s.replace(/([\u0621-\u064A])([اوي]+)/g, '$1');
+}
+
 export function searchDawayaIndex(
   items: DawayaCompactIndexItem[],
   filters: DawayaSearchFilters,
@@ -1286,6 +1357,7 @@ export function searchDawayaIndex(
   const expandedTokens = tokens.map((tk) => ({
     raw: tk,
     alt: ARABIC_TO_ENGLISH_INGREDIENT_MAP[tk] || tk,
+    skel: tk.length >= 4 && /[\u0600-\u06FF]/.test(tk) ? arabicConsonantSkeleton(tk) : tk,
   }));
   const cat = filters.category || 'all';
   const form = filters.dosageForm || 'all';
@@ -1309,7 +1381,10 @@ export function searchDawayaIndex(
     if (expandedTokens.length === 0) return true;
 
     const hay = norm(`${item.n} ${item.a} ${item.g} ${item.c} ${item.s} ${item.d} ${item.b} ${item.i}`);
-    return expandedTokens.every((t) => hay.includes(t.raw) || hay.includes(t.alt));
+    const haySkel = arabicConsonantSkeleton(hay);
+    return expandedTokens.every(
+      (t) => hay.includes(t.raw) || hay.includes(t.alt) || (t.skel.length >= 3 && haySkel.includes(t.skel))
+    );
   });
 
   if (sortBy === 'price_asc') {
@@ -1674,5 +1749,49 @@ export function startDawayaLivePriceSync(): void {
     } catch {
       /* ignore */
     }
+  }
+}
+
+
+export interface RecentlyViewedMedItem {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  priceEgp: number | null;
+  activeIngredient: string;
+  viewedAt: string;
+}
+
+const RECENTLY_VIEWED_MEDS_KEY = 'dawaya_recently_viewed_meds_v1';
+
+export function getRecentlyViewedMedicines(): RecentlyViewedMedItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(RECENTLY_VIEWED_MEDS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(0, 6) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function recordRecentlyViewedMedicine(med: RecentlyViewedMedItem): void {
+  if (typeof window === 'undefined' || !med || !med.id) return;
+  try {
+    const prev = getRecentlyViewedMedicines().filter((x) => x.id !== med.id);
+    const next = [med, ...prev].slice(0, 6);
+    localStorage.setItem(RECENTLY_VIEWED_MEDS_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearRecentlyViewedMedicines(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(RECENTLY_VIEWED_MEDS_KEY);
+  } catch {
+    /* ignore */
   }
 }

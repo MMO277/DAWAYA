@@ -1465,7 +1465,7 @@ export function buildScheduleIcsContent(sch: TreatmentSchedule, isAr = true): st
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Antibiotic Awareness//Prescription Radar//EN',
+    'PRODID:-//DAWAYA Health//Prescription Radar//EN',
     'CALSCALE:GREGORIAN',
   ];
 

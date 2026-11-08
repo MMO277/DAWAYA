@@ -317,7 +317,7 @@ export default function Dashboard() {
             padding: '8px 12px',
           }}
         >
-          🧬 {tr(lang, 'المضادات الحيوية التجارية (206+)', 'Antibiotics Catalog (206+)', 'Antibiotiques Commerciaux', 'Antibióticos Comerciales', 'Antibiotika-Katalog (206+)')}
+          🧬 {tr(lang, 'العبوات الدوائية المرجعية (267+)', 'Reference Packages (267+)', 'Antibiotiques Commerciaux', 'Antibióticos Comerciales', 'Antibiotika-Katalog (206+)')}
         </button>
 
         <button

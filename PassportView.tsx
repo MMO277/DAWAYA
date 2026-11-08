@@ -952,7 +952,7 @@ export default function PassportView() {
           )}
           <button
             className="btn"
-            style={{ background: '#101E36', borderColor: '#00BFD0', color: '#fff', width: '100%' }}
+            style={{ background: '#101E36', borderColor: '#138866', color: '#fff', width: '100%' }}
             disabled={pinInput.length < 4}
             onClick={handleSubmit}
           >

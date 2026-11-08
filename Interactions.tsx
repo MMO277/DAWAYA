@@ -202,7 +202,7 @@ export default function Interactions() {
                       ? '#DC2626'
                       : f.severity === 'warning'
                       ? '#D97706'
-                      : '#00BFD0'
+                      : '#138866'
                   }`,
                 }}
               >

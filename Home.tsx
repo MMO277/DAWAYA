@@ -13,7 +13,10 @@ import ResistanceCounter from './ResistanceCounter';
 import { useClinicalProMode } from './clinicalProData';
 import { EGYPTIAN_COMMERCIAL_PRODUCTS } from './egyptianDrugDatabase';
 import {
+  clearRecentlyViewedMedicines,
   DAWAYA_CATEGORY_LABELS,
+  getRecentlyViewedMedicines,
+  RecentlyViewedMedItem,
   searchDawayaIndex,
   useDawayaDrugDatabase,
 } from './dawayaDrugDatabaseService';
@@ -36,6 +39,7 @@ export default function Home() {
   const [showAllClinicalTools, setShowAllClinicalTools] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<PersonaType>('all');
   const [spotlightOpen, setSpotlightOpen] = useState(false);
+  const [recentMeds, setRecentMeds] = useState<RecentlyViewedMedItem[]>(() => getRecentlyViewedMedicines());
   const searchWrapRef = useRef<HTMLDivElement>(null);
 
   const go = (e: FormEvent) => {
@@ -177,11 +181,11 @@ export default function Home() {
     {
       to: '/cost-saver',
       icon: '🏷️',
-      badge: tr(lang, 'توفير 60%', 'Save 60%', 'Économies', 'Ahorro 60%'),
-      title: tr(lang, 'حاسبة البديل الأرخص', 'Generic Cost Saver', 'Économiseur Générique', 'Ahorro en Genéricos'),
+      badge: tr(lang, 'وفّر 60% في روشتتك 🛒', 'Save 60% on Rx 🛒', 'Économies 60%', 'Ahorro 60%'),
+      title: tr(lang, 'حاسبة وفر الروشتة والبديل الأرخص', 'Rx Basket & Generic Cost Saver', 'Économiseur d’Ordonnance', 'Ahorro de Receta'),
       desc: tr(
         lang,
-        'بدائل مصرية مرخصة متطابقة 100% في المادة الفعالة والتركيز لجميع الأدوية',
+        'احسب وفر روشتتك كاملة بالبدائل المصرية المتطابقة 100% في المادة والتركيز وشاركها على واتساب',
         '100% bioequivalent licensed generics with EGP savings across 26,562 drugs'
       ),
       color: '#16a34a',
@@ -968,6 +972,95 @@ export default function Home() {
       </section>
 
       <div className="wrap stack" style={{ marginTop: '22px' }}>
+        {/* Quick Symptom & Condition Finder Strip */}
+        <section className="card" style={{ padding: '14px 16px', borderTop: '3px solid #138866' }}>
+          <div className="row wrapRow" style={{ justifyContent: 'space-between', marginBottom: '10px', gap: '8px' }}>
+            <b style={{ fontSize: '0.96rem', color: 'var(--navy)' }}>
+              🩺 {tr(lang, 'ابحث سريعاً حسب العرض أو التخصص الطبي:', 'Quick Browse by Symptom or Specialty:')}
+            </b>
+            <Link to="/medicines" className="small" style={{ fontWeight: 700, textDecoration: 'none', color: '#138866' }}>
+              {tr(lang, 'تصفح كل الفئات (22 فئة) ←', 'Browse All Categories →')}
+            </Link>
+          </div>
+          <div className="row wrapRow" style={{ gap: '8px' }}>
+            {[
+              { q: 'باراسيتامول', cat: 'analgesics_antipyretics', ar: '🤕 صداع وسخونية', en: '🤕 Fever & Pain' },
+              { q: 'حساسية', cat: 'respiratory_cold_allergy', ar: '🤧 برد ورشح وحساسية', en: '🤧 Cold & Allergy' },
+              { q: 'بانتوبرازول', cat: 'gastrointestinal', ar: '🔥 حموضة وارتجاع ومعدة', en: '🔥 Stomach & GERD' },
+              { q: 'بيسوبرولول', cat: 'cardiovascular', ar: '💓 ضغط الدم والقلب', en: '💓 Blood Pressure & Heart' },
+              { q: 'ميتفورمين', cat: 'endocrine_diabetes', ar: '🩸 تنظيم السكري', en: '🩸 Diabetes Care' },
+              { q: 'ديكلوفيناك', cat: 'analgesics_antipyretics', ar: '🦴 مسكن عظام ومفاصل', en: '🦴 Joint & Muscle Pain' },
+              { q: 'فيتامين', cat: 'vitamins_supplements', ar: '⚡ فيتامينات ومناعة', en: '⚡ Vitamins & Immunity' },
+              { q: 'شراب', cat: 'all', ar: '👶 أشربة ونقط للأطفال', en: '👶 Pediatric Syrups & Drops' },
+            ].map((sym) => (
+              <Link
+                key={sym.ar}
+                to={sym.cat !== 'all' ? `/medicines?cat=${sym.cat}` : `/medicines?q=${encodeURIComponent(sym.q)}`}
+                className="badge"
+                style={{
+                  padding: '7px 13px',
+                  borderRadius: '999px',
+                  background: 'var(--tint)',
+                  border: '1px solid rgba(19, 136, 102, 0.28)',
+                  color: 'var(--navy)',
+                  textDecoration: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                }}
+              >
+                {isAr ? sym.ar : sym.en}
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* Recently Viewed Medicines Strip (Shown automatically when user has viewed 1+ medicines) */}
+        {recentMeds.length > 0 && (
+          <section className="card" style={{ padding: '14px 16px', background: 'rgba(207, 210, 157, 0.12)', border: '1px solid rgba(207, 210, 157, 0.5)' }}>
+            <div className="row wrapRow" style={{ justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
+              <b style={{ fontSize: '0.92rem', color: 'var(--navy)' }}>
+                🕒 {tr(lang, 'أدوية تصفحتها مؤخراً:', 'Recently Viewed Medicines:')}
+              </b>
+              <button
+                type="button"
+                className="btn small ghost"
+                style={{ padding: '2px 8px', fontSize: '0.74rem' }}
+                onClick={() => {
+                  clearRecentlyViewedMedicines();
+                  setRecentMeds([]);
+                }}
+              >
+                {tr(lang, 'مسح السجل', 'Clear')}
+              </button>
+            </div>
+            <div className="row wrapRow" style={{ gap: '8px' }}>
+              {recentMeds.map((rm) => (
+                <Link
+                  key={rm.id}
+                  to={`/medicine/${rm.id}`}
+                  className="badge"
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '10px',
+                    background: 'var(--white)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--navy)',
+                    textDecoration: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                  }}
+                >
+                  💊 {isAr ? rm.nameAr : rm.nameEn}
+                  {rm.priceEgp ? (
+                    <span style={{ color: '#138866', marginInlineStart: '6px' }}>
+                      ({rm.priceEgp.toFixed(0)} {isAr ? 'ج.م' : 'EGP'})
+                    </span>
+                  ) : null}
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
         {/* Clean Bento Grid Section with Streamlined Persona Filter */}
         <section className="pro-tools-section">
           <div className="bento-persona-bar">

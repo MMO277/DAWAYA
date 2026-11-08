@@ -200,7 +200,7 @@ export default function PartnersDirectoryPage() {
 
           <div className="row wrapRow" style={{ gap: '8px' }}>
             <Link to="/medicines" className="btn" style={{ background: '#14b8a6', color: '#042f2e', fontWeight: 800 }}>
-               {isAr ?'ابحث عن دواء (206+)':'Find Medication (206+)'}
+               {isAr ?'ابحث عن دواء (26,572+)':'Find Medication (26,572+)'}
             </Link>
           </div>
         </div>

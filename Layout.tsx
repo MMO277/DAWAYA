@@ -1540,7 +1540,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               {tr(lang, 'الأدوات السريرية السريعة', 'Quick Clinical Tools', 'Outils Cliniques Rapides', 'Herramientas Clínicas Rápidas')}
             </h4>
             <ul className="pro-footer-links">
-              <li><Link to="/medicines">{tr(lang, 'قاعدة بيانات أدوية دوايا الشاملة (26,562+ دواء)', 'DAWAYA Medicine Database (26,562+)', 'Registre des Médicaments (206)', 'Registro de Medicamentos (206)')}</Link></li>
+              <li><Link to="/medicines">{tr(lang, 'قاعدة بيانات أدوية دوايا الشاملة (26,562+ دواء)', 'DAWAYA Medicine Database (26,562+)', 'Base de Médicaments (26 572+)', 'Base de Medicamentos (26.572+)')}</Link></li>
               <li><Link to="/games">{tr(lang, 'مركز الألعاب والمحاكاة الطبية 3D', 'Game Center & 3D Medical Simulator', 'Centre de Jeux & Simulateur 3D', 'Centro de Juegos y Simulador 3D')}</Link></li>
               <li><Link to="/scan">{tr(lang, 'ماسح الباركود الخطي ورموز QR', 'Barcode & QR Scanner', 'Scanner Code-Barres & QR', 'Escáner de Código de Barras y QR')}</Link></li>
               <li><Link to="/allergy-checker">{tr(lang, 'فاحص الحساسية الدوائية المتقاطعة', 'Drug Allergy Safety Checker', 'Vérificateur d’Allergies Croisées', 'Verificador de Alergias Medicamentosas')}</Link></li>

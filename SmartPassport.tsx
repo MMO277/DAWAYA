@@ -137,7 +137,7 @@ export function DawayaPassportCardUI({
             height: 38,
             borderRadius: 10,
             background: 'rgba(0, 191, 208, 0.2)',
-            border: '1.5px solid #00BFD0',
+            border: '1.5px solid #138866',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -183,7 +183,7 @@ export function DawayaPassportCardUI({
             height: 98,
             borderRadius: 12,
             background: 'rgba(255,255,255,0.12)',
-            border: '2px solid #00BFD0',
+            border: '2px solid #138866',
             overflow: 'hidden',
             flexShrink: 0,
             display: 'flex',
@@ -566,7 +566,7 @@ export default function SmartPassport() {
         padding: '10px 6px',
         background: tab === t ? '#101E36' : 'transparent',
         color: tab === t ? '#fff' : 'var(--text, #101E36)',
-        border: '1.5px solid #00BFD0',
+        border: '1.5px solid #138866',
         borderRadius: 12,
         fontWeight: 800,
         fontSize: '0.86rem',
@@ -603,7 +603,7 @@ export default function SmartPassport() {
             className="card"
             style={{
               background: 'rgba(0, 191, 208, 0.1)',
-              border: '1.5px solid #00BFD0',
+              border: '1.5px solid #138866',
               padding: '10px 14px',
               marginBottom: 14,
               display: 'flex',
@@ -623,7 +623,7 @@ export default function SmartPassport() {
             <button
               type="button"
               className="btn small"
-              style={{ background: '#00BFD0', color: '#101E36', borderColor: '#00BFD0', fontWeight: 800 }}
+              style={{ background: '#138866', color: '#101E36', borderColor: '#138866', fontWeight: 800 }}
               onClick={() => openAuthModal('login')}
             >
               👤 {isAr ? 'تسجيل الدخول للمزامنة السحابية' : 'Sign In for Cloud Sync'}
@@ -639,7 +639,7 @@ export default function SmartPassport() {
             marginBottom: 14,
             textAlign: 'center',
             fontWeight: 800,
-            borderColor: '#00BFD0',
+            borderColor: '#138866',
           }}
         >
           {statusToast}
@@ -706,7 +706,7 @@ export default function SmartPassport() {
               className="btn small"
               onClick={handleDownload}
               disabled={downloading}
-              style={{ background: '#00BFD0', borderColor: '#00BFD0', color: '#101E36', fontWeight: 800 }}
+              style={{ background: '#138866', borderColor: '#138866', color: '#101E36', fontWeight: 800 }}
             >
               {downloading
                 ? isAr
@@ -756,7 +756,7 @@ export default function SmartPassport() {
                   width: 200,
                   height: 200,
                   borderRadius: 16,
-                  border: '3px solid #00BFD0',
+                  border: '3px solid #138866',
                   background: '#fff',
                   padding: 6,
                   margin: '0 auto',
@@ -1106,7 +1106,7 @@ export default function SmartPassport() {
               className="btn"
               disabled={pin.length < 4 || sharing}
               onClick={handleShare}
-              style={{ background: '#00BFD0', borderColor: '#00BFD0', color: '#101E36', fontWeight: 900, width: '100%' }}
+              style={{ background: '#138866', borderColor: '#138866', color: '#101E36', fontWeight: 900, width: '100%' }}
             >
               {sharing
                 ? isAr

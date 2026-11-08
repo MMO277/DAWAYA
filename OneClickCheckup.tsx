@@ -225,14 +225,14 @@ export default function OneClickCheckup() {
             color: '#fff',
             borderRadius: '22px',
             padding: '24px 26px',
-            borderBottom: '4px solid #00BFD0',
+            borderBottom: '4px solid #138866',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
             <div>
               <span
                 style={{
-                  background: '#00BFD0',
+                  background: '#138866',
                   color: '#0f172a',
                   padding: '4px 12px',
                   borderRadius: '99px',
@@ -261,7 +261,7 @@ export default function OneClickCheckup() {
               to="/scan"
               className="btn"
               style={{
-                background: '#00BFD0',
+                background: '#138866',
                 color: '#101E36',
                 border: '1px solid #9AE8E8',
                 fontWeight: 900,
@@ -288,7 +288,7 @@ export default function OneClickCheckup() {
                 borderRadius: '12px',
                 background: '#0f172a',
                 color: '#fff',
-                border: '1.5px solid #00BFD0',
+                border: '1.5px solid #138866',
                 fontWeight: 700,
               }}
             />
@@ -299,7 +299,7 @@ export default function OneClickCheckup() {
                     key={it.i}
                     type="button"
                     className="chip"
-                    style={{ background: '#1e293b', color: '#fff', border: '1px solid #00BFD0' }}
+                    style={{ background: '#1e293b', color: '#fff', border: '1px solid #138866' }}
                     onClick={() => {
                       setSelectedDawayaItem(it);
                       setDawayaQuery('');
@@ -465,7 +465,7 @@ export default function OneClickCheckup() {
             <div
               style={{
                 background: 'linear-gradient(135deg, #f8fafc 0%, #f0fdfa 100%)',
-                border: '2px dashed #00BFD0',
+                border: '2px dashed #138866',
                 borderRadius: '18px',
                 padding: '20px',
                 textAlign: 'center',
@@ -480,8 +480,8 @@ export default function OneClickCheckup() {
                   width: '100%',
                   maxWidth: '330px',
                   background: 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 80%)',
-                  border: '2px solid #00BFD0',
-                  borderRight: '18px solid #00BFD0',
+                  border: '2px solid #138866',
+                  borderRight: '18px solid #138866',
                   borderRadius: '14px',
                   padding: '16px 18px',
                   boxShadow: '0 14px 28px rgba(0, 191, 208, 0.16)',
@@ -514,7 +514,7 @@ export default function OneClickCheckup() {
                 </div>
                 <div
                   style={{
-                    background: '#00BFD0',
+                    background: '#138866',
                     color: '#101E36',
                     padding: '10px 12px',
                     borderRadius: '10px',
@@ -560,7 +560,7 @@ export default function OneClickCheckup() {
                       type="button"
                       onClick={() => setIntervalHours(h)}
                       style={{
-                        background: intervalHours === h ? '#00BFD0' : '#e2e8f0',
+                        background: intervalHours === h ? '#138866' : '#e2e8f0',
                         color: intervalHours === h ? '#101E36' : '#334155',
                         border: 'none',
                         borderRadius: '6px',
@@ -582,7 +582,7 @@ export default function OneClickCheckup() {
                     width: '96px',
                     height: '96px',
                     borderRadius: '50%',
-                    border: '6px solid #00BFD0',
+                    border: '6px solid #138866',
                     background: '#fff',
                     display: 'flex',
                     flexDirection: 'column',
@@ -608,7 +608,7 @@ export default function OneClickCheckup() {
                       <span
                         key={t}
                         style={{
-                          background: idx === 0 ? '#00BFD0' : '#101E36',
+                          background: idx === 0 ? '#138866' : '#101E36',
                           color: idx === 0 ? '#101E36' : '#fff',
                           padding: '5px 11px',
                           borderRadius: '99px',

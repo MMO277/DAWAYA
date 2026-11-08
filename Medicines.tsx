@@ -132,7 +132,7 @@ export default function Medicines() {
     [filteredDawayaItems, page]
   );
 
-  // 2. Filter & sort the 206 verified antibiotic commercial packages
+  // 2. Filter & sort the 267 verified antibiotic commercial packages
   const filteredProducts = useMemo(() => {
     const tokens = norm(q).split(/\s+/).filter(Boolean);
     const list = allCommercialProducts.filter((p) => {
@@ -300,8 +300,8 @@ export default function Medicines() {
         </h1>
         <p className="muted">
           {isAr
-            ? 'محرك بحث دوائي موحد يضم كافة الأدوية المسجلة في ملف قاعدة بيانات الأدوية المصرية (26,562 مستحضر) بجميع الفئات العلاجية، مع الحفاظ الكامل على موسوعة المضادات الحيوية الموثقة (206 عبوة و32 مرجعاً سريرياً).'
-            : 'Unified pharmaceutical database integrating all 26,562 Egyptian medicine records across all therapeutic classes alongside the 206 verified antibiotic packages and 32 clinical monographs.'}
+            ? 'محرك بحث دوائي موحد يضم كافة الأدوية المسجلة في ملف قاعدة بيانات الأدوية المصرية (26,562 مستحضر) بجميع الفئات العلاجية، مع الحفاظ الكامل على موسوعة المضادات الحيوية الموثقة (267 عبوة و32 مرجعاً سريرياً).'
+            : 'Unified pharmaceutical database integrating all 26,562 Egyptian medicine records across all therapeutic classes alongside the 267 verified antibiotic packages and 32 clinical monographs.'}
         </p>
 
         <div
@@ -610,7 +610,7 @@ export default function Medicines() {
                   setPage(1);
                 }}
               >
-                <option value="all">{isAr ? 'كل المواد الفعالة (32)' : 'All Ingredients (32)'}</option>
+                <option value="all">{isAr ? 'كل المواد الفعالة (74)' : 'All Ingredients (74)'}</option>
                 {ACTIVE_INGREDIENTS.map((ing) => (
                   <option key={ing.id} value={ing.id}>
                     {isAr ? `${ing.nameAr} (${ing.nameEn})` : `${ing.nameEn} (${ing.nameAr})`}
@@ -1121,7 +1121,7 @@ export default function Medicines() {
                   </tr>
                   <tr>
                     <td><b>{isAr ? 'سجلات المضادات الحيوية الأصلية المحفوظة' : 'Preserved Original Antibiotic Records'}</b></td>
-                    <td><b>206 {isAr ? 'عبوة تجارية + 32 مادة فعالة' : 'packages + 32 monographs'}</b></td>
+                    <td><b>267 {isAr ? 'عبوة تجارية + 32 مادة فعالة' : 'packages + 32 monographs'}</b></td>
                     <td><span className="badge approved">{isAr ? 'محفوظة بالكامل بدون أي حذف' : '100% Preserved'}</span></td>
                   </tr>
                   <tr>

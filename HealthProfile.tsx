@@ -492,7 +492,7 @@ export default function HealthProfile() {
       </section>
 
       {/* Live Central Medication Safety Engine Assessment inside Health Profile */}
-      <section className="card stack" style={{ borderInlineStart: '5px solid #00BFD0' }}>
+      <section className="card stack" style={{ borderInlineStart: '5px solid #138866' }}>
         <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0 }}>
             🛡️ {isAr ? 'تقييم محرك الأمان الدوائي المركزي لملفك الصحي' : 'Central Medication Safety Engine Profile Assessment'}
@@ -547,7 +547,7 @@ export default function HealthProfile() {
             <button type="button" className="btn-secondary" onClick={() => window.print()}>
               📋 {isAr ? 'طباعة الكارت الطبي' : 'Print Medical ID'}
             </button>
-            <button type="button" className="btn small" style={{ background: '#00BFD0', borderColor: '#00BFD0', color: '#101E36', fontWeight: 800 }} onClick={handleShareImage}>
+            <button type="button" className="btn small" style={{ background: '#138866', borderColor: '#138866', color: '#101E36', fontWeight: 800 }} onClick={handleShareImage}>
               ⬇️ {isAr ? 'تنزيل الكارت PNG' : 'Download ID PNG'}
             </button>
             <Link to="/passport" className="btn small ghost">
@@ -1069,7 +1069,7 @@ export default function HealthProfile() {
       )}
 
       {/* ══════════════ الكارت الطبي الذكي وبطاقة الطوارئ (متاح للزوار والمسجلين) ══════════════ */}
-      <section className="card stack" style={{ borderTop: '4px solid #00BFD0', marginTop: 8 }}>
+      <section className="card stack" style={{ borderTop: '4px solid #138866', marginTop: 8 }}>
         <div className="card-head-row no-print" style={{ flexWrap: 'wrap', gap: '8px' }}>
           <h2 className="section-title">
             🪪 {isAr ? 'الكارت الطبي الذكي — دوايا | DAWAYA (QR الطوارئ للمستشفى والطبيب)' : 'DAWAYA Smart Medical ID & Emergency Passport'}
@@ -1140,7 +1140,7 @@ export default function HealthProfile() {
           <button
             type="button"
             className="btn small"
-            style={{ background: '#00BFD0', borderColor: '#00BFD0', color: '#101E36', fontWeight: 800 }}
+            style={{ background: '#138866', borderColor: '#138866', color: '#101E36', fontWeight: 800 }}
             onClick={handleShareImage}
           >
             ⬇️ {isAr ? 'تنزيل الكارت كصورة (HD PNG)' : 'Download ID Card (PNG)'}

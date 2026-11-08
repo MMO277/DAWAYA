@@ -137,7 +137,7 @@ export default function SideEffectsGuide() {
         )}
 
         {inspectedMed && (
-          <div className="subcard stack" style={{ borderInlineStart: '4px solid #00BFD0' }}>
+          <div className="subcard stack" style={{ borderInlineStart: '4px solid #138866' }}>
             <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ margin: 0 }}>{inspectedMed.brandNameAr} ({inspectedMed.brandNameEn})</h3>

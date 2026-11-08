@@ -526,7 +526,7 @@ export default function Scan() {
 
   /**
    * Universal Bilingual Scoring Matcher:
-   * Accurately matches ANY of the 206 Egyptian Commercial Products or 32 Active Ingredients
+   * Accurately matches ANY of the 267 Egyptian Commercial Products or 32 Active Ingredients
    * whether the photographed name is in Arabic OR English (with fuzzy & dot-skeleton support)
    */
   function matchDrugFromText(
@@ -545,7 +545,7 @@ export default function Scan() {
     let bestProd: EgyptianCommercialProduct | null = null;
     let bestScore = 0;
 
-    // 1) Score all 206 Egyptian Commercial Products (Arabic + English names + Active Ingredients)
+    // 1) Score all 267 Egyptian Commercial Products (Arabic + English names + Active Ingredients)
     for (const p of EGYPTIAN_COMMERCIAL_PRODUCTS) {
       const arWords = normalizeText(p.tradeNameAr)
         .split(' ')
@@ -1262,8 +1262,8 @@ export default function Scan() {
         </p>
         <p style={{ margin: 0, fontSize: '0.88rem', color: '#0c4a6e', lineHeight: 1.65 }}>
           {isAr
-            ? 'سواء قمت بتصوير اسم الدواء باللغة العربية أو الإنجليزية (وش العلبة، الشريط، أو اسم الدواء المكتوب) أو مسح الباركود، يقرأ النظام أي مضاد حيوي مسجل في المنصة (206 عبوة تجارية و32 مادة فعالة) ويعرض كافة معلوماته الطبية، جرعاته، تحذيراته، وبدائله المصرية فوراً.'
-            : 'Whether you photograph the medicine name in English or Arabic (box front, blister strip, or printed text) or scan the barcode, the system reads any antibiotic on the platform (206 commercial packages & 32 active ingredients) and displays all clinical info immediately.'}
+            ? 'سواء قمت بتصوير اسم الدواء باللغة العربية أو الإنجليزية (وش العلبة، الشريط، أو اسم الدواء المكتوب) أو مسح الباركود، يقرأ النظام أي مضاد حيوي مسجل في المنصة (267 عبوة تجارية و32 مادة فعالة) ويعرض كافة معلوماته الطبية، جرعاته، تحذيراته، وبدائله المصرية فوراً.'
+            : 'Whether you photograph the medicine name in English or Arabic (box front, blister strip, or printed text) or scan the barcode, the system reads any antibiotic on the platform (267 commercial packages & 32 active ingredients) and displays all clinical info immediately.'}
         </p>
       </div>
 

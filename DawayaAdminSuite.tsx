@@ -61,7 +61,7 @@ const DEFAULT_DATA_SOURCES: DataSourceConfigRecord[] = [
     type: 'national_dataset',
     status: 'active_verified',
     lastVerified: '2026-11-06',
-    recordsCount: 26562,
+    recordsCount: 26572,
   },
   {
     id: 'src-eda-abx',
@@ -71,7 +71,7 @@ const DEFAULT_DATA_SOURCES: DataSourceConfigRecord[] = [
     type: 'official_regulator',
     status: 'active_verified',
     lastVerified: '2026-10-14',
-    recordsCount: 206,
+    recordsCount: 267,
   },
   {
     id: 'src-who-aware',
@@ -81,7 +81,7 @@ const DEFAULT_DATA_SOURCES: DataSourceConfigRecord[] = [
     type: 'clinical_reference',
     status: 'active_verified',
     lastVerified: '2026-10-14',
-    recordsCount: 32,
+    recordsCount: 74,
   },
   {
     id: 'src-medline-fda',
@@ -499,7 +499,7 @@ export function DawayaMedicineAdminManager({
       )}
 
       {editingItem && (
-        <form onSubmit={handleSaveEditedMedicine} className="card form" style={{ border: '2px solid #00BFD0' }}>
+        <form onSubmit={handleSaveEditedMedicine} className="card form" style={{ border: '2px solid #138866' }}>
           <h3>
             ✏️ {isAr ? `تعديل سجل الدواء (${editingItem.i})` : `Edit Medicine Record (${editingItem.i})`}
           </h3>
@@ -903,13 +903,13 @@ export function DawayaSystemAiDataSourcesAndAuditAdmin({
         <div className="dawaya-kpi-grid">
           <div className="dawaya-kpi-card">
             <div className="small muted">{isAr ? 'إجمالي الأدوية المستوردة' : 'Total Imported Medicines'}</div>
-            <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#00BFD0' }}>
+            <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#138866' }}>
               {(importReport?.totalRecordsFound ?? totalCount).toLocaleString()}
             </div>
           </div>
           <div className="dawaya-kpi-card">
             <div className="small muted">{isAr ? 'عبوات المضادات الموثقة' : 'Antibiotic Packages'}</div>
-            <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#24C8B8' }}>206</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#24C8B8' }}>267</div>
           </div>
           <div className="dawaya-kpi-card">
             <div className="small muted">{isAr ? 'المواد والتركيبات الفعالة' : 'Active Ingredients'}</div>

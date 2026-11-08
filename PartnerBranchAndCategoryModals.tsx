@@ -1028,7 +1028,7 @@ export function PartnerMedicationMappingModal({
           >
             <div>
               <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                {isAr ? 'اختر المستحضر من قاعدة البيانات المصرية (206+)' : 'Select Medication Package'}
+                {isAr ? 'اختر المستحضر من قاعدة البيانات المصرية (26,572+)' : 'Select Medication Package'}
               </label>
               <select
                 className="input"

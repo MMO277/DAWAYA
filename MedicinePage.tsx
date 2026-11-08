@@ -20,7 +20,9 @@ import {
   DawayaMedicineRecord,
   fetchFullDawayaMedicineById,
   findDawayaIndexItemSync,
+  getDawayaClassifiedAlternatives,
   getDawayaIngredientEquivalents,
+  recordRecentlyViewedMedicine,
 } from './dawayaDrugDatabaseService';
 
 const PATIENT_ORDER: TextField[] = [
@@ -112,6 +114,33 @@ export default function MedicinePage() {
     if (!idxItem) return [];
     return getDawayaIngredientEquivalents(idxItem, 10);
   }, [id, dawayaRecord]);
+
+  const cheapestBioequivalent = useMemo(() => {
+    const idxItem = findDawayaIndexItemSync(id);
+    if (!idxItem || !idxItem.p || idxItem.p <= 0) return null;
+    const classified = getDawayaClassifiedAlternatives(idxItem, 12);
+    const cheaper = classified.exactEquivalents.filter(
+      (eq) => eq.p !== null && eq.p > 0 && eq.p < idxItem.p! - 0.5
+    );
+    if (cheaper.length === 0) return null;
+    const best = cheaper[0];
+    const savedEgp = idxItem.p! - best.p!;
+    const savedPct = Math.round((savedEgp / idxItem.p!) * 100);
+    return { item: best, currentPrice: idxItem.p!, savedEgp, savedPct };
+  }, [id, dawayaRecord]);
+
+  useEffect(() => {
+    if (!m) return;
+    const idxItem = findDawayaIndexItemSync(id);
+    recordRecentlyViewedMedicine({
+      id: m.id,
+      nameAr: dawayaRecord?.brandNameAr || idxItem?.a || m.genericName.ar || m.id,
+      nameEn: dawayaRecord?.brandNameEn || idxItem?.n || m.genericName.en || m.id,
+      priceEgp: dawayaRecord?.priceEgp ?? idxItem?.p ?? null,
+      activeIngredient: dawayaRecord?.genericName || idxItem?.g || m.activeIngredients.en || '',
+      viewedAt: new Date().toISOString(),
+    });
+  }, [id, m, dawayaRecord]);
 
   const ingMeta = useMemo(
     () => (m ? ACTIVE_INGREDIENTS.find((a) => a.id === m.id) : undefined),
@@ -208,12 +237,12 @@ export default function MedicinePage() {
           style={{
             background: '#101E36',
             color: '#9AE8E8',
-            borderColor: '#00BFD0',
+            borderColor: '#138866',
             fontWeight: 700,
           }}
         >
           {actionToast}{' '}
-          <Link to="/health-profile" style={{ color: '#00BFD0', marginInlineStart: '8px' }}>
+          <Link to="/health-profile" style={{ color: '#138866', marginInlineStart: '8px' }}>
             {isAr ? 'عرض ملفي الصحي ←' : 'Open Health Profile →'}
           </Link>
         </div>
@@ -226,7 +255,7 @@ export default function MedicinePage() {
           <button
             type="button"
             className="btn small"
-            style={{ background: '#00BFD0', borderColor: '#00BFD0', color: '#101E36', fontWeight: 800 }}
+            style={{ background: '#138866', borderColor: '#138866', color: '#101E36', fontWeight: 800 }}
             onClick={handleAddCurrentMedication}
           >
             ➕ {isAr ? 'أضف لأدويتي الحالية' : 'Add to My Medications'}
@@ -243,8 +272,58 @@ export default function MedicinePage() {
           <Link to={`/allergy-checker?q=${encodeURIComponent(m.id)}`} className="btn ghost small">
             🛡️ {isAr ? 'فحص الحساسية والأمان' : 'Allergy & Safety Check'}
           </Link>
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(
+              isAr
+                ? `💊 النشرة الدوائية والبدائل لـ (${name}) على منصة دوايا | DAWAYA:\nhttps://mmo277.github.io/DAWAYA/#/medicine/${m.id}`
+                : `💊 Drug monograph & bioequivalent generics for (${name}) on DAWAYA:\nhttps://mmo277.github.io/DAWAYA/#/medicine/${m.id}`
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn ghost small"
+            style={{ color: '#138866', borderColor: 'rgba(19, 136, 102, 0.4)' }}
+          >
+            📤 {isAr ? 'مشاركة عبر واتساب' : 'Share on WhatsApp'}
+          </a>
         </div>
       </div>
+
+      {/* Smart Bioequivalent Generic Savings Banner */}
+      {cheapestBioequivalent && (
+        <section
+          className="card"
+          style={{
+            background: 'linear-gradient(135deg, rgba(19, 136, 102, 0.12) 0%, rgba(207, 210, 157, 0.18) 100%)',
+            border: '1.5px solid #138866',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px',
+          }}
+        >
+          <div>
+            <b style={{ color: '#0D1F38', fontSize: '0.96rem', display: 'block' }}>
+              💡{' '}
+              {isAr
+                ? `متوفر مثيل مصري مرخص متطابق 100% في المادة الفعالة والتركيز والشكل الصيدلي بتوفير ${cheapestBioequivalent.savedEgp.toFixed(2)} ج.م (${cheapestBioequivalent.savedPct}%)!`
+                : `100% Bioequivalent Licensed Generic Available — Save ${cheapestBioequivalent.savedEgp.toFixed(2)} EGP (${cheapestBioequivalent.savedPct}%)!`}
+            </b>
+            <span className="small muted">
+              {isAr
+                ? `المثيل الأرخص: ${cheapestBioequivalent.item.a} (${cheapestBioequivalent.item.n}) بسعر ${cheapestBioequivalent.item.p?.toFixed(2)} ج.م بدلاً من ${cheapestBioequivalent.currentPrice.toFixed(2)} ج.م — استشر الصيدلي قبل الاستبدال.`
+                : `Cheaper Equivalent: ${cheapestBioequivalent.item.n} at ${cheapestBioequivalent.item.p?.toFixed(2)} EGP instead of ${cheapestBioequivalent.currentPrice.toFixed(2)} EGP — consult your pharmacist.`}
+            </span>
+          </div>
+          <Link
+            to={`/medicine/${cheapestBioequivalent.item.i}`}
+            className="btn small"
+            style={{ background: '#138866', color: '#fff', whiteSpace: 'nowrap' }}
+          >
+            {isAr ? 'عرض البديل الأرخص ←' : 'View Cheaper Generic →'}
+          </Link>
+        </section>
+      )}
 
       {/* Clinical Pro Mode vs Patient Mode Toggle Bar */}
       <section className="pro-mode-toggle-banner">
@@ -303,7 +382,7 @@ export default function MedicinePage() {
       </section>
 
       {/* Medicine Overview Header */}
-      <header className="med-head card" style={{ borderTop: '4px solid #00BFD0' }}>
+      <header className="med-head card" style={{ borderTop: '4px solid #138866' }}>
         <div className="row wrapRow" style={{ alignItems: 'center', gap: '10px' }}>
           <h1 style={{ margin: 0 }}>{name}</h1>
           {ingMeta && (

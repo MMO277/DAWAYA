@@ -210,13 +210,13 @@ export default function CompareDrugs() {
           className={`btn ${mode === 'packages' ? '' : 'ghost'}`}
           onClick={() => setMode('packages')}
         >
-          📦 {isAr ? 'مقارنة العبوات المرجعية الموثقة (206 عبوة)' : 'Compare Verified Reference Packages (206)'}
+          📦 {isAr ? 'مقارنة العبوات المرجعية الموثقة (267 عبوة)' : 'Compare Verified Reference Packages (267)'}
         </button>
         <button
           className={`btn ${mode === 'ingredients' ? '' : 'ghost'}`}
           onClick={() => setMode('ingredients')}
         >
-          🧬 {isAr ? 'مقارنة المواد الفعالة سريرياً (32 مادة)' : 'Compare Active Ingredients Clinically (32)'}
+          🧬 {isAr ? 'مقارنة المواد الفعالة سريرياً (74 مادة)' : 'Compare Active Ingredients Clinically (74)'}
         </button>
       </div>
 
@@ -224,7 +224,7 @@ export default function CompareDrugs() {
       {mode === 'dawaya_all' && (
         <section className="stack">
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))' }}>
-            <div className="card" style={{ borderTop: '4px solid #00BFD0' }}>
+            <div className="card" style={{ borderTop: '4px solid #138866' }}>
               <label style={{ fontWeight: 800, display: 'block', marginBottom: '8px', color: '#008B99' }}>
                 1️⃣ {isAr ? 'ابحث واختر الدواء الأول (من 26,562 دواء):' : 'Search & Select First Medicine (from 26,562):'}
               </label>

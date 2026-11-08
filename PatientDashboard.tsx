@@ -202,7 +202,7 @@ export default function PatientDashboard() {
               <Link
                 to="/passport"
                 className="btn small"
-                style={{ background: '#00BFD0', borderColor: '#00BFD0', color: '#101E36', fontWeight: 800 }}
+                style={{ background: '#138866', borderColor: '#138866', color: '#101E36', fontWeight: 800 }}
               >
                 🪪 {isAr ? 'الكارت الطبي الذكي و QR' : 'Smart Medical ID & QR'}
               </Link>
@@ -249,7 +249,7 @@ export default function PatientDashboard() {
                 color: '#101E36',
                 borderRadius: '12px',
                 padding: '12px 16px',
-                border: '2px solid #00BFD0',
+                border: '2px solid #138866',
                 fontWeight: 600,
               }}
             />
@@ -257,8 +257,8 @@ export default function PatientDashboard() {
               type="submit"
               className="btn"
               style={{
-                background: 'linear-gradient(135deg, #00BFD0 0%, #24C8B8 100%)',
-                borderColor: '#00BFD0',
+                background: 'linear-gradient(135deg, #138866 0%, #24C8B8 100%)',
+                borderColor: '#138866',
                 color: '#101E36',
                 fontWeight: 800,
                 padding: '12px 22px',
@@ -320,9 +320,9 @@ export default function PatientDashboard() {
 
       {/* 3. KPI Summary Strip */}
       <section className="dawaya-kpi-grid">
-        <div className="dawaya-kpi-card" style={{ borderTop: '4px solid #00BFD0' }}>
+        <div className="dawaya-kpi-card" style={{ borderTop: '4px solid #138866' }}>
           <div className="small muted">{isAr ? 'الأدوية الحالية النشطة' : 'Current Active Medications'}</div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#00BFD0' }}>
+          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#138866' }}>
             {(profile.activeMedications?.length || 0) + schedules.length}
           </div>
           <Link to="/health-profile" className="small" style={{ fontWeight: 700 }}>
@@ -626,7 +626,7 @@ export default function PatientDashboard() {
                     padding: '10px 14px',
                     borderInlineStart:
                       d.status === 'due_now'
-                        ? '4px solid #00BFD0'
+                        ? '4px solid #138866'
                         : d.status === 'overdue_unconfirmed'
                         ? '4px solid #D97706'
                         : '4px solid #24C8B8',
@@ -781,8 +781,8 @@ export default function PatientDashboard() {
               to="/assistant"
               className="btn"
               style={{
-                background: 'linear-gradient(135deg, #00BFD0 0%, #24C8B8 100%)',
-                borderColor: '#00BFD0',
+                background: 'linear-gradient(135deg, #138866 0%, #24C8B8 100%)',
+                borderColor: '#138866',
                 color: '#101E36',
                 fontWeight: 800,
               }}

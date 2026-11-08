@@ -274,14 +274,14 @@ export const EMERGENCY: Bi = b(
 );
 
 export const INJECTION: Bi = b(
-  'أنا مساعد تعليمي مخصص للتوعية بالاستخدام الرشيد للمضادات الحيوية ومقاومة الميكروبات. يمكنني الإجابة عن أي استفسار توعوي أو طبي عام حول الأدوية.',
-  'I am an educational assistant dedicated to antibiotic awareness.',
+  'أنا المساعد الطبي والصيدلي الذكي لمنصة دوايا (DAWAYA | دوايا). يمكنني مساعدتك في البحث ضمن 26,572+ دواء مصري، ومعرفة البدائل الأرخص، وفحص التداخلات والحساسية والجرعات.',
+  'I am the DAWAYA smart medical & pharmacy assistant covering 26,572+ Egyptian medicines, generics, and medication safety.',
 );
 
 export const GREETING: Canned = {
   text: b(
-    'أهلاً بك! أنا المساعد الذكي للوعي بالمضادات الحيوية. اسألني عن أي موضوع: أفضل مضاد لعدوى معينة (كالأسنان، المسالك، اللوز)، الاستخدام الآمن، تداخلات الأدوية والأطعمة، أو تفاصيل أي دواء في الموقع.',
-    'Hello! Ask me about antibiotics: first-line choices for infections (dental, UTI, throat), safe use, interactions, or specific drugs.',
+    'أهلاً بك في منصة دوايا (DAWAYA | دوايا)! أنا مساعدك الدوائي الذكي. اسألني عن أي دواء في السوق المصري (من بين 26,572+ دواء)، أو بديله الأرخص، أو جرعات الأطفال، أو تداخلات الروشتة والحساسية.',
+    'Welcome to DAWAYA! Ask me about any of the 26,572+ Egyptian medicines, cheaper bioequivalent generics, pediatric dosing, or drug interactions.',
   ),
   links: [A_RESIST, A_SAFE, A_VIRAL],
 };

@@ -27,7 +27,7 @@ export interface ScheduleMedRow {
   color: string;
 }
 
-const ROW_COLORS = ['#00BFD0', '#15803d', '#4f46e5', '#d97706', '#be123c'];
+const ROW_COLORS = ['#138866', '#15803d', '#4f46e5', '#d97706', '#be123c'];
 
 const MEAL_RULE_LABELS: Record<MealInstructionKey, Bi> = {
   after_meal: {
@@ -262,7 +262,7 @@ export default function DailyScheduleGenerator() {
 
     const grad = ctx.createLinearGradient(0, 0, width, headerHeight);
     grad.addColorStop(0, '#101E36');
-    grad.addColorStop(1, '#00BFD0');
+    grad.addColorStop(1, '#138866');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, headerHeight);
 
@@ -570,7 +570,7 @@ export default function DailyScheduleGenerator() {
             <button
               type="button"
               className="btn small"
-              style={{ background: '#00BFD0' }}
+              style={{ background: '#138866' }}
               onClick={handleDownloadPngImage}
             >
               📥 {tr(lang, 'تحميل الجدول كصورة (PNG)', 'Download Image (PNG)')}
