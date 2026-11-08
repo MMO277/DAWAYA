@@ -347,6 +347,78 @@ export default function Home() {
       color: '#dc2626',
     },
     {
+      to: '/airport-banned-meds',
+      icon: '✈️',
+      badge: tr(lang, 'تجنب الاحتجاز والغرامة', 'Airport & Customs Check', 'Douane & Aéroports', 'Aduana y Aeropuertos'),
+      title: tr(lang, 'كاشف الأدوية الممنوعة في المطارات', 'Airport & Customs Banned Meds Scanner', 'Scanner Médicaments Interdits Voyage', 'Escáner de Fármacos Prohibidos en Viajes'),
+      desc: tr(
+        lang,
+        'فحص أدوية السفر والجمارك (الخليج، أوروبا، جورجيا، أمريكا): متطلبات التقرير الطبي، والكميات المسموحة، وبدائل الترامادول والمهدئات',
+        'Airport & customs restrictions scanner: medical report requirements, banned narcotics, Gulf/EU/US rules & safe OTC alternatives'
+      ),
+      color: '#e11d48',
+    },
+    {
+      to: '/baby-milk',
+      icon: '🍼',
+      badge: tr(lang, 'دليل وبدائل الرضع', 'Baby Milk Formulas', 'Laits Infantiles', 'Fórmulas Infantiles'),
+      title: tr(lang, 'دليل وبدائل حليب الأطفال والألبان العلاجية', 'Baby Milk Formula & Therapeutic Navigator', 'Navigateur Laits Bébé Thérapeutiques', 'Guía de Fórmulas Infantiles'),
+      desc: tr(
+        lang,
+        'خريطة كاملة للألبان في مصر (رقم 1، 2، 3) وبدائل ألبان حساسية بروتين اللبن (HA / Pepti)، الارتجاع (AR)، واللاكتوز (LF) مع حاسبة عدد المكاييل',
+        'Egypt baby formulas guide: stage 1-3, CMPA hypoallergenic, anti-reflux (AR), lactose-free (LF) & scoop-to-water ratio calculator'
+      ),
+      color: '#0284c7',
+    },
+    {
+      to: '/senior-pills',
+      icon: '👵',
+      badge: tr(lang, 'فاحص باللون والصوت', 'Senior Pill ID & Voice', 'Identification Pilules Senior', 'Identificador Visual y Voz'),
+      title: tr(lang, 'مساعد كبار السن بالصوت وفاحص شكل الحبة', 'Senior Pill Visual Identifier & Voice Assistant', 'Assistant Visuel & Vocal Seniors', 'Asistente Visual y de Voz para Adultos Mayores'),
+      desc: tr(
+        lang,
+        'التعرف على الحبة من لونها (أبيض، أحمر، أصفر...) وشكلها، مع نطق الجرعة وتعليمات الاستخدام صوتياً بخط كبير مناسب للأجداد',
+        'Visual pill identification by color and shape with large text and Arabic audio readout of doses and warnings for seniors'
+      ),
+      color: '#d97706',
+    },
+    {
+      to: '/steroid-taper',
+      icon: '📉',
+      badge: tr(lang, 'سحب آمن ومنع صدمة', 'Steroid Tapering Plan', 'Sevrage Corticoïdes', 'Desescalada de Corticoides'),
+      title: tr(lang, 'حاسبة إيقاف الكورتيزون التدريجي', 'Safe Steroid Tapering Schedule Calculator', 'Calculateur de Sevrage Dégressif Corticoïdes', 'Calculadora de Reducción Progresiva de Cortisona'),
+      desc: tr(
+        lang,
+        'حساب جدول سحب وتخفيض جرعات الكورتيزون (بريدنيزولون، ديكساميثازون) خطوة بخطوة لتفادي الفشل الكظري وأعراض الانسحاب الحادة',
+        'Gradual steroid tapering calendar to safely withdraw prednisone/dexamethasone without risking adrenal insufficiency'
+      ),
+      color: '#4f46e5',
+    },
+    {
+      to: '/hypo-rescue',
+      icon: '🚨',
+      badge: tr(lang, 'طوارئ السكر وقاعدة 15', 'Hypoglycemia Rescue', 'Urgence Hypoglycémie', 'Rescate de Hipoglucemia'),
+      title: tr(lang, 'خطة إنقاذ هبوط السكر الحاد وقاعدة 15 الذهبية', 'Hypoglycemia Emergency Rescue & Rule of 15', 'Protocole Sauvetage Hypoglycémie Règle 15', 'Plan de Rescate de Hipoglucemia Regla de 15'),
+      desc: tr(
+        lang,
+        'إرشادات فورية بالثواني لإنقاذ مريض السكري عند الهبوط: جرعات السكريات السريعة، متى يستخدم الجلوكاجون، وأخطاء قاتلة يجب تجنبها',
+        'Step-by-step Rule of 15 rescue protocol for diabetic hypoglycemia: fast-acting sugars, rescue position, glucagon, and what never to do'
+      ),
+      color: '#dc2626',
+    },
+    {
+      to: '/inhaler-counter',
+      icon: '🫁',
+      badge: tr(lang, 'رصيد الجرعات والأزمة', 'Inhaler Dose Tracker', 'Compteur Doses Inhalateur', 'Contador de Dosis de Inhalador'),
+      title: tr(lang, 'عداد رصيد بخاخات الصدر والربو', 'Asthma & COPD Inhaler Dose Counter', 'Compteur de Doses pour Inhalateurs Asthme', 'Contador de Dosis de Inhaladores Asma y EPOC'),
+      desc: tr(
+        lang,
+        'تتبع عدد البخات المتبقية في بخاخات الفنتولين والسيريتيد والبيكلوزون بدقة لمنع نفاد البخاخ فجأة أثناء نوبة الربو الحادة',
+        'Track remaining sprays in rescue & controller inhalers (Ventolin, Seretide, Foster) so asthma patients never run out mid-crisis'
+      ),
+      color: '#059669',
+    },
+    {
       to: '/games',
       icon: '🎮',
       badge: tr(lang, 'محاكاة 3D', '3D Simulators', 'Simulateurs 3D', 'Simuladores 3D'),

@@ -351,6 +351,31 @@ export default function Layout({ children }: { children: ReactNode }) {
           icon: '🚨',
           shortLabel: tr(lang, 'الأعراض الجانبية والطوارئ', 'Side Effects', 'Effets Secondaires', 'Efectos Secundarios'),
         },
+        {
+          to: '/airport-banned-meds',
+          key: '',
+          icon: '✈️',
+          shortLabel: tr(lang, 'أدوية المطارات والجمارك', 'Airport Banned Meds', 'Aéroports & Douane', 'Fármacos Prohibidos Viajes'),
+        },
+        {
+          to: '/baby-milk',
+          key: '',
+          icon: '🍼',
+          shortLabel: tr(lang, 'دليل وبدائل حليب الأطفال', 'Baby Milk Formulas', 'Laits Bébé & Substituts', 'Fórmulas Infantiles'),
+        },
+        {
+          to: '/steroid-taper',
+          key: '',
+          icon: '📉',
+          shortLabel: tr(lang, 'سحب الكورتيزون الآمن', 'Steroid Tapering Plan', 'Sevrage Corticoïdes', 'Reducción Cortisona'),
+        },
+        {
+          to: '/hypo-rescue',
+          key: '',
+          icon: '🚨',
+          shortLabel: tr(lang, 'إنقاذ هبوط السكر (قاعدة 15)', 'Hypo Rescue Plan (Rule 15)', 'Sauvetage Hypoglycémie', 'Rescate Hipoglucemia'),
+        },
+
       ],
     },
     {
@@ -420,6 +445,19 @@ export default function Layout({ children }: { children: ReactNode }) {
           icon: '🧳',
           shortLabel: tr(lang, 'حقيبة أدوية السفر', 'Travel Kit', 'Kit Voyage', 'Kit Viaje'),
         },
+        {
+          to: '/senior-pills',
+          key: '',
+          icon: '👵',
+          shortLabel: tr(lang, 'مساعد كبار السن بالصوت', 'Senior Pill ID & Voice', 'Aide Visuelle Seniors', 'Identificador Píldoras'),
+        },
+        {
+          to: '/inhaler-counter',
+          key: '',
+          icon: '🫁',
+          shortLabel: tr(lang, 'عداد بخاخات الصدر', 'Inhaler Dose Counter', 'Compteur Inhalateurs', 'Contador Inhaladores'),
+        },
+
         {
           to: '/safe-disposal',
           key: 'navSafeDisposal',

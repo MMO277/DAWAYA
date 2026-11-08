@@ -68,6 +68,12 @@ const Scan = lazyWithRetry(() => import('./Scan'));
 const Learn = lazyWithRetry(() => import('./Learn'));
 const Assistant = lazyWithRetry(() => import('./Assistant'));
 const MythFact = lazyWithRetry(() => import('./MythFact'));
+const AirportBannedMedsScanner = lazyWithRetry(() => import('./AirportBannedMedsScanner'));
+const BabyMilkFormulaNavigator = lazyWithRetry(() => import('./BabyMilkFormulaNavigator'));
+const SeniorPillVisualIdentifier = lazyWithRetry(() => import('./SeniorPillVisualIdentifier'));
+const SteroidTaperingCalendar = lazyWithRetry(() => import('./SteroidTaperingCalendar'));
+const HypoRescuePlan = lazyWithRetry(() => import('./HypoRescuePlan'));
+const InhalerDoseCounter = lazyWithRetry(() => import('./InhalerDoseCounter'));
 const Methodology = lazyWithRetry(() => import('./Methodology'));
 const Research = lazyWithRetry(() => import('./Research'));
 const Dashboard = lazyWithRetry(() => import('./Dashboard'));
@@ -251,7 +257,19 @@ export default function App() {
               <Route path="/myth" element={<MythFact />} />
               <Route path="/methodology" element={<Methodology />} />
               <Route path="/research" element={<Research />} />
-              <Route path="/games" element={<GameCenter />} />
+                            <Route path="/airport-banned-meds" element={<AirportBannedMedsScanner />} />
+              <Route path="/banned-meds" element={<AirportBannedMedsScanner />} />
+              <Route path="/baby-milk" element={<BabyMilkFormulaNavigator />} />
+              <Route path="/milk-formula" element={<BabyMilkFormulaNavigator />} />
+              <Route path="/senior-pills" element={<SeniorPillVisualIdentifier />} />
+              <Route path="/pill-identifier" element={<SeniorPillVisualIdentifier />} />
+              <Route path="/steroid-taper" element={<SteroidTaperingCalendar />} />
+              <Route path="/cortisone-taper" element={<SteroidTaperingCalendar />} />
+              <Route path="/hypo-rescue" element={<HypoRescuePlan />} />
+              <Route path="/hypoglycemia-rescue" element={<HypoRescuePlan />} />
+              <Route path="/inhaler-counter" element={<InhalerDoseCounter />} />
+              <Route path="/asthma-counter" element={<InhalerDoseCounter />} />
+<Route path="/games" element={<GameCenter />} />
               <Route
                 path="/open-world"
                 element={
