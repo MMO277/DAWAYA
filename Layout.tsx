@@ -1,4 +1,20 @@
 import { DawayaIconMark } from './DawayaLogo';
+import {
+  CapsuleGlobeLangIcon,
+  DawayaRouteVectorIcon,
+  HeroScannerVectorIcon,
+  CapsuleMoonIcon,
+  CapsuleSignOutIcon,
+  CapsuleUserGuestIcon,
+  NavAiSimVectorIcon,
+  NavBookSourcesVectorIcon,
+  NavCapsuleVectorIcon,
+  NavDashboardVectorIcon,
+  NavHomeVectorIcon,
+  NavLeafCareVectorIcon,
+  NavRadarVectorIcon,
+  NavShieldSafetyVectorIcon,
+} from './DawayaVectorIcons';
 import AppUpdateManager, { triggerUpdateCheckerManually } from "./AppUpdateManager";
 import OnboardingTour, { triggerOnboardingTourManually } from "./OnboardingTour";
 import { GlobalPhoneAlarmOverlay } from './SmartDoseAlarmCard';
@@ -845,11 +861,21 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="app" dir={pageDir}>
-      <header className="top">
-        <div className="wrap bar">
-          <div className="brand-group">
-            <Link to="/" className="brand" style={{ gap: '10px' }}>
-              <div className="brand-logo-circle" style={{ overflow: 'hidden', padding: 0, borderRadius: '50%', background: '#D2D1A3' }}>
+      <header className="top dawaya-v2-header">
+        <div className="wrap bar dawaya-v2-bar">
+          <div className="brand-group dawaya-v2-brand-group">
+            <Link to="/" className="brand dawaya-v2-brand" style={{ gap: '11px' }}>
+              <div
+                className="brand-logo-circle dawaya-v2-logo-circle"
+                style={{
+                  overflow: 'hidden',
+                  padding: 0,
+                  borderRadius: '50%',
+                  background: '#CFD29D',
+                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.28)',
+                  flexShrink: 0,
+                }}
+              >
                 <img
                   src={`${import.meta.env.BASE_URL}favicon-192.png`}
                   alt={t('appName')}
@@ -868,119 +894,81 @@ export default function Layout({ children }: { children: ReactNode }) {
                   }}
                 />
               </div>
-              <span className="brand-title-wrap">
-                <b style={{ whiteSpace: 'nowrap' }}>{t('appName')}</b>
+              <span className="brand-title-wrap dawaya-v2-title-wrap" dir="rtl">
+                <b className="dawaya-v2-title-text">
+                  <span className="dawaya-ar-word">دوايا</span>
+                  <span className="dawaya-title-divider">|</span>
+                  <span className="dawaya-en-word" dir="ltr">DAWAYA</span>
+                </b>
               </span>
             </Link>
           </div>
 
-          <div className="header-actions">
-            {/* User Account / Auth controls */}
+          {/* Unified Glassmorphic Capsule (Design 2) */}
+          <div className="header-actions dawaya-glass-capsule">
+            {/* 1. User Avatar Circle (Logged In) or Sage-Gold Guest User Circle (Logged Out) */}
             {!user ? (
               <div className="header-auth-group">
-                <span
-                  className="chip guest-indicator"
-                  title={tr(
-                    lang,
-                    'أنت تتصفح الموقع حالياً كزائر',
-                    'You are currently browsing as a guest',
-                    'Vous naviguez actuellement en tant qu’invité',
-                    'Actualmente navegas como invitado'
-                  )}
-                >
-                  <span aria-hidden="true">👀</span>
-                  <span>{tr(lang, 'وضع الزائر', 'Guest', 'Invité', 'Invitado')}</span>
-                </span>
                 <button
                   type="button"
-                  className="btn small ghost header-signin-btn"
+                  className="capsule-avatar-btn guest-mode"
                   onClick={handleExitGuestMode}
                   title={tr(
                     lang,
-                    'الخروج من وضع الزائر والعودة لشاشة الدخول',
-                    'Exit Guest Mode and return to sign in screen',
-                    'Quitter le mode invité et se connecter',
-                    'Salir del modo invitado e iniciar sesión'
+                    'تسجيل الدخول أو إنشاء حساب',
+                    'Sign in or create account',
+                    'Se connecter ou créer un compte',
+                    'Iniciar sesión o crear cuenta'
                   )}
+                  aria-label={tr(lang, 'تسجيل الدخول', 'Sign In', 'Connexion', 'Acceder')}
                 >
-                  <span aria-hidden="true">👤</span>
-                  <span>{tr(lang, 'تسجيل الدخول', 'Sign In', 'Connexion', 'Acceder')}</span>
+                  <CapsuleUserGuestIcon size={20} />
                 </button>
               </div>
             ) : (
               <div className="header-auth-group">
                 <Link
                   to="/health-profile"
-                  className="chip header-user-chip"
-                  title={user.email || ''}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}
+                  className="capsule-avatar-btn logged-in"
+                  title={`${user.displayName || ''} (${user.email || ''})`.trim()}
+                  aria-label={tr(lang, 'ملف صحتي وحسابي', 'My Health Profile', 'Mon Profil Santé', 'Mi Perfil de Salud')}
                 >
                   {user.photoURL ? (
                     <img
                       src={user.photoURL}
-                      alt=""
+                      alt={user.displayName || 'User'}
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).style.display = 'none';
                       }}
                       style={{
-                        width: '22px',
-                        height: '22px',
+                        width: '100%',
+                        height: '100%',
                         borderRadius: '50%',
                         objectFit: 'cover',
-                        border: '1.5px solid #2dd4bf',
-                        flexShrink: 0,
+                        display: 'block',
                       }}
                     />
                   ) : (
-                    <span aria-hidden="true">👤</span>
+                    <span className="capsule-avatar-initials">
+                      {(user.displayName || user.email || 'U').slice(0, 1).toUpperCase()}
+                    </span>
                   )}
-                  <span className="header-username">{user.displayName || user.email?.split('@')[0]}</span>
                 </Link>
               </div>
             )}
 
-            {user && (
+            {/* 2. Vector Globe Language Switcher Dropdown */}
+            <div ref={langMenuRef} className="lang lang-switcher-wrap capsule-item-wrap" style={{ position: 'relative', padding: 0 }}>
               <button
                 type="button"
-                className="btn small ghost header-logout-btn"
-                onClick={() => setShowLogoutModal(true)}
-                title={tr(lang, 'تسجيل الخروج', 'Log out', 'Déconnexion', 'Cerrar sesión')}
-                aria-label={tr(lang, 'تسجيل الخروج', 'Log out', 'Déconnexion', 'Cerrar sesión')}
-              >
-                <span aria-hidden="true">🚪</span>
-                <span className="header-logout-text">{tr(lang, 'خروج', 'Logout', 'Sortir', 'Salir')}</span>
-              </button>
-            )}
-
-            {/* Dark mode toggle */}
-            <button
-              type="button"
-              className="dark-toggle"
-              onClick={toggle}
-              aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-              title={
-                dark
-                  ? tr(lang, 'الوضع الفاتح', 'Light mode', 'Mode clair', 'Modo claro')
-                  : tr(lang, 'الوضع الداكن', 'Dark mode', 'Mode sombre', 'Modo oscuro')
-              }
-            >
-              {dark ? '☀️' : '🌙'}
-            </button>
-
-            {/* 4-Language Switcher Dropdown (keeps .lang class on direct child of .header-actions) */}
-            <div ref={langMenuRef} className="lang lang-switcher-wrap" style={{ position: 'relative', padding: 0 }}>
-              <button
-                type="button"
-                className="lang-trigger-btn"
+                className="capsule-icon-btn lang-trigger-btn"
                 onClick={() => setLangMenuOpen((o) => !o)}
                 aria-expanded={langMenuOpen}
                 aria-haspopup="listbox"
                 aria-label={tr(lang, 'تغيير اللغة', 'Change language', 'Changer de langue', 'Cambiar idioma')}
-                title={tr(lang, 'اختر لغة المنصة (4 لغات)', 'Select platform language (4 languages)', 'Choisir la langue (4 langues)', 'Seleccionar idioma (4 idiomas)')}
+                title={tr(lang, 'اختر لغة المنصة', 'Select platform language', 'Choisir la langue', 'Seleccionar idioma')}
               >
-                <span aria-hidden="true">{currentLangMeta.flag}</span>
-                <span>{currentLangMeta.shortLabel}</span>
-                <span aria-hidden="true" style={{ fontSize: '0.68rem', opacity: 0.85 }}>▾</span>
+                <CapsuleGlobeLangIcon code={lang.toUpperCase()} size={26} />
               </button>
 
               {langMenuOpen && (
@@ -1014,74 +1002,143 @@ export default function Layout({ children }: { children: ReactNode }) {
               )}
             </div>
 
-            {/* 3-Lines Hamburger Menu Button ("All Sections" Trigger) */}
+            {/* 3. Vector Crescent / Sun Theme Toggle */}
+            <button
+              type="button"
+              className="capsule-icon-btn dark-toggle"
+              onClick={toggle}
+              aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={
+                dark
+                  ? tr(lang, 'الوضع النهاري', 'Light mode', 'Mode clair', 'Modo claro')
+                  : tr(lang, 'الوضع الليلي', 'Dark mode', 'Mode sombre', 'Modo oscuro')
+              }
+            >
+              <CapsuleMoonIcon isDark={dark} size={21} />
+            </button>
+
+            {/* 4. Vector Sign-Out Arrow (When Logged In) or Full Menu Drawer Trigger */}
+            {user && (
+              <button
+                type="button"
+                className="capsule-icon-btn header-logout-btn"
+                onClick={() => setShowLogoutModal(true)}
+                title={tr(lang, 'تسجيل الخروج', 'Log out', 'Déconnexion', 'Cerrar sesión')}
+                aria-label={tr(lang, 'تسجيل الخروج', 'Log out', 'Déconnexion', 'Cerrar sesión')}
+              >
+                <CapsuleSignOutIcon size={21} />
+              </button>
+            )}
+
             <button
               type="button"
               ref={hamburgerBtnRef}
-              className="hamburger-btn"
+              className="capsule-icon-btn hamburger-btn"
               onClick={openDrawer}
               aria-expanded={drawerOpen && !drawerClosing}
               aria-controls="site-sections-drawer"
-              aria-label={tr(lang, 'فتح القائمة', 'Open menu', 'Ouvrir le menu', 'Abrir menú')}
-              title={tr(lang, 'أقسام الموقع الكاملة', 'All Site Sections', 'Toutes les rubriques', 'Todas las secciones')}
+              aria-label={tr(lang, 'كل الأقسام', 'All sections menu', 'Menu complet', 'Menú completo')}
+              title={tr(lang, 'القائمة الكاملة لأقسام الموقع', 'All Site Sections', 'Toutes les rubriques', 'Todas las secciones')}
             >
-              <span className="hamburger-icon" aria-hidden="true">☰</span>
-              <span className="hamburger-text">{tr(lang, 'كل الأقسام', 'Menu', 'Menu', 'Menú', 'Menü')}</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 7H20M4 12H20M4 17H20" stroke="#CFD29D" strokeWidth="2.1" strokeLinecap="round" />
+              </svg>
             </button>
           </div>
         </div>
 
-        {/* Grouped Quick-Access Clinical Ribbon with Click-to-Expand Sub-Menus */}
-        <div ref={ribbonWrapRef} className="quick-ribbon-wrap">
-          <div className="wrap quick-ribbon">
+        {/* Row 2: Borderless Vector Navigation Tabs with Sage-Gold Bottom Indicator (Design 2) */}
+        <div ref={ribbonWrapRef} className="quick-ribbon-wrap dawaya-v2-ribbon-wrap">
+          <div className="wrap quick-ribbon dawaya-v2-ribbon">
             <NavLink
               to="/"
               end
               onClick={() => setOpenRibbonCatId(null)}
-              className={({ isActive }) => `quick-ribbon-link ${isActive ? 'active' : ''}`}
+              className={({ isActive }) => `quick-ribbon-link dawaya-v2-tab ${isActive ? 'active' : ''}`}
             >
-              <span aria-hidden="true">🏠</span>
-              <span>{tr(lang, 'الرئيسية', 'Home', 'Accueil', 'Inicio', 'Startseite')}</span>
+              <span className="dawaya-v2-tab-icon">
+                <NavHomeVectorIcon size={23} />
+              </span>
+              <span className="dawaya-v2-tab-label">{tr(lang, 'الرئيسية', 'Home', 'Accueil', 'Inicio', 'Startseite')}</span>
+              <span className="dawaya-v2-tab-bar" aria-hidden="true" />
             </NavLink>
 
             <NavLink
               to="/patient-dashboard"
               onClick={() => setOpenRibbonCatId(null)}
-              className={({ isActive }) => `quick-ribbon-link ${isActive ? 'active' : ''}`}
-              style={{ border: '1px solid rgba(0, 191, 208, 0.45)', fontWeight: 800 }}
+              className={({ isActive }) => `quick-ribbon-link dawaya-v2-tab ${isActive ? 'active' : ''}`}
             >
-              <span aria-hidden="true">📊</span>
-              <span>{tr(lang, 'لوحة المريض', 'Dashboard', 'Tableau Patient', 'Panel')}</span>
+              <span className="dawaya-v2-tab-icon">
+                <NavDashboardVectorIcon size={22} />
+              </span>
+              <span className="dawaya-v2-tab-label">{tr(lang, 'لوحة المريض', 'Patient Hub', 'Tableau Patient', 'Panel')}</span>
+              <span className="dawaya-v2-tab-bar" aria-hidden="true" />
+            </NavLink>
+
+            <NavLink
+              to="/medicines"
+              onClick={() => setOpenRibbonCatId(null)}
+              className={({ isActive }) =>
+                `quick-ribbon-link dawaya-v2-tab ${isActive || pathname.startsWith('/medicine/') ? 'active' : ''}`
+              }
+            >
+              <span className="dawaya-v2-tab-icon">
+                <NavCapsuleVectorIcon size={23} />
+              </span>
+              <span className="dawaya-v2-tab-label">{tr(lang, 'الدليل والأدوية', 'Drug Directory', 'Médicaments', 'Medicamentos')}</span>
+              <span className="dawaya-v2-tab-bar" aria-hidden="true" />
+            </NavLink>
+
+            <NavLink
+              to="/prescription-radar"
+              onClick={() => setOpenRibbonCatId(null)}
+              className={({ isActive }) => `quick-ribbon-link dawaya-v2-tab ${isActive ? 'active' : ''}`}
+            >
+              <span className="dawaya-v2-tab-icon">
+                <NavRadarVectorIcon size={23} accentColor="#138866" />
+              </span>
+              <span className="dawaya-v2-tab-label">{tr(lang, 'رادار الروشتة', 'Rx Radar', 'Radar Rx', 'Radar Rx')}</span>
+              <span className="dawaya-v2-tab-bar" aria-hidden="true" />
             </NavLink>
 
             {navCategories.map((cat) => {
               const isOpen = openRibbonCatId === cat.id;
               const hasActiveChild = cat.items.some((item) => isRouteMatchingItem(item.to, pathname));
+              const renderCatVectorIcon = (id: string) => {
+                if (id === 'drug-directory') return <NavCapsuleVectorIcon size={22} />;
+                if (id === 'clinical-safety') return <NavShieldSafetyVectorIcon size={22} />;
+                if (id === 'treatment-care') return <NavLeafCareVectorIcon size={22} />;
+                if (id === 'interactive-sim') return <NavAiSimVectorIcon size={22} />;
+                return <NavBookSourcesVectorIcon size={22} />;
+              };
               return (
                 <button
                   key={cat.id}
                   type="button"
                   aria-expanded={isOpen}
                   onClick={() => setOpenRibbonCatId((prev) => (prev === cat.id ? null : cat.id))}
-                  className={`quick-ribbon-link quick-ribbon-group-btn${hasActiveChild ? ' active' : ''}${isOpen ? ' is-open' : ''}`}
+                  className={`quick-ribbon-link quick-ribbon-group-btn dawaya-v2-tab${hasActiveChild ? ' active' : ''}${isOpen ? ' is-open' : ''}`}
                 >
-                  <span aria-hidden="true">{cat.icon}</span>
-                  <span>{cat.shortTitle}</span>
-                  <span className="ribbon-group-count" aria-hidden="true">{cat.items.length}</span>
-                  <span className={`ribbon-group-caret${isOpen ? ' open' : ''}`} aria-hidden="true">▾</span>
+                  <span className="dawaya-v2-tab-icon">{renderCatVectorIcon(cat.id)}</span>
+                  <span className="dawaya-v2-tab-label">
+                    {cat.shortTitle}
+                    <span className={`ribbon-group-caret${isOpen ? ' open' : ''}`} aria-hidden="true" style={{ marginInlineStart: '4px' }}>▾</span>
+                  </span>
+                  <span className="dawaya-v2-tab-bar" aria-hidden="true" />
                 </button>
               );
             })}
 
-            {/* Direct Top-Level Scientific Sources & References Tab */}
             <NavLink
               to="/methodology"
               onClick={() => setOpenRibbonCatId(null)}
-              className={({ isActive }) => `quick-ribbon-link ${isActive ? 'active' : ''}`}
-              style={{ border: '1px solid rgba(20, 184, 166, 0.45)', fontWeight: 800 }}
+              className={({ isActive }) => `quick-ribbon-link dawaya-v2-tab ${isActive ? 'active' : ''}`}
             >
-              <span aria-hidden="true">📚</span>
-              <span>{tr(lang, 'المصادر والمراجع', 'References & Sources', 'Sources & Références', 'Fuentes y Referencias', 'Quellen & Referenzen')}</span>
+              <span className="dawaya-v2-tab-icon">
+                <NavBookSourcesVectorIcon size={22} />
+              </span>
+              <span className="dawaya-v2-tab-label">{tr(lang, 'المصادر والمراجع', 'References', 'Sources', 'Fuentes')}</span>
+              <span className="dawaya-v2-tab-bar" aria-hidden="true" />
             </NavLink>
           </div>
 
@@ -1091,7 +1148,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               <div className="wrap ribbon-dropdown-inner">
                 <div className="ribbon-dropdown-header">
                   <div className="ribbon-dropdown-title-group">
-                    <span className="ribbon-dropdown-icon" aria-hidden="true">{activeRibbonCategory.icon}</span>
+                    <span className="ribbon-dropdown-icon" aria-hidden="true"><DawayaRouteVectorIcon route={activeRibbonCategory.id} size={20} color="#CFD29D" /></span>
                     <div>
                       <b className="ribbon-dropdown-title">{activeRibbonCategory.title}</b>
                       <span className="ribbon-dropdown-sub">{activeRibbonCategory.subtitle}</span>
@@ -1117,7 +1174,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                         onClick={() => setOpenRibbonCatId(null)}
                         className={`ribbon-sub-item${active ? ' active' : ''}`}
                       >
-                        <span className="ribbon-sub-icon" aria-hidden="true">{subItem.icon}</span>
+                        <span className="ribbon-sub-icon" aria-hidden="true"><DawayaRouteVectorIcon route={subItem.to} size={18} color="#CFD29D" /></span>
                         <span className="ribbon-sub-text">{subItem.key ? t(subItem.key) : subItem.shortLabel}</span>
                         <span className="ribbon-sub-arrow" aria-hidden="true">{pageDir === 'rtl' ? '←' : '→'}</span>
                       </NavLink>
@@ -1246,7 +1303,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                       onClick={() => toggleDrawerGroup(cat.id)}
                       aria-expanded={isOpen}
                     >
-                      <span className="item-icon group-icon" aria-hidden="true">{cat.icon}</span>
+                      <span className="item-icon group-icon" aria-hidden="true"><DawayaRouteVectorIcon route={cat.id} size={20} color="#CFD29D" /></span>
                       <div className="drawer-group-text">
                         <span className="drawer-group-title">{cat.title}</span>
                         <small className="drawer-group-sub">{cat.subtitle}</small>
@@ -1394,6 +1451,65 @@ export default function Layout({ children }: { children: ReactNode }) {
       )}
 
       {/* Professional Academic & Medical Footer on All Pages */}
+      
+      {/* Floating Glass Bottom Navigation Dock for Mobile & Android App */}
+      <nav
+        className="dawaya-floating-bottom-dock no-print"
+        aria-label={tr(lang, 'شريط التنقل السريع السفلي', 'Bottom quick navigation')}
+      >
+        <NavLink
+          to="/"
+          end
+          className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
+        >
+          <NavHomeVectorIcon size={21} />
+          <span>{tr(lang, 'الرئيسية', 'Home', 'Accueil', 'Inicio')}</span>
+        </NavLink>
+
+        <NavLink
+          to="/medicines"
+          className={({ isActive }) =>
+            `dawaya-dock-item${isActive || pathname.startsWith('/medicine/') ? ' active' : ''}`
+          }
+        >
+          <NavCapsuleVectorIcon size={21} />
+          <span>{tr(lang, 'الأدوية', 'Drugs', 'Médicaments', 'Fármacos')}</span>
+        </NavLink>
+
+        <NavLink
+          to="/scan"
+          className={({ isActive }) => `dawaya-dock-center-scan${isActive ? ' active' : ''}`}
+          title={tr(lang, 'مسح الباركود والروشتة', 'Scan Barcode & Rx')}
+        >
+          <span className="dawaya-dock-scan-circle">
+            <HeroScannerVectorIcon size={24} color="#FFFFFF" />
+          </span>
+          <span className="dawaya-dock-scan-label">{tr(lang, 'الماسح', 'Scan', 'Scanner', 'Escanear')}</span>
+        </NavLink>
+
+        <NavLink
+          to="/patient-dashboard"
+          className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
+        >
+          <NavDashboardVectorIcon size={20} />
+          <span>{tr(lang, 'لوحة المريض', 'Hub', 'Patient', 'Panel')}</span>
+        </NavLink>
+
+        <button
+          type="button"
+          onClick={openDrawer}
+          className={`dawaya-dock-item${drawerOpen ? ' active' : ''}`}
+        >
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="3.5" y="3.5" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.9" />
+            <rect x="13.5" y="3.5" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.9" />
+            <rect x="3.5" y="13.5" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.9" />
+            <rect x="13.5" y="13.5" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.9" fill="currentColor" fillOpacity="0.25" />
+          </svg>
+          <span>{tr(lang, 'الأقسام', 'Menu', 'Menu', 'Menú')}</span>
+        </button>
+      </nav>
+
       <footer className="pro-footer">
         <div className="wrap pro-footer-grid">
           <div>

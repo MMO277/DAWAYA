@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { DosageFormVectorBadge } from './DawayaVectorIcons';
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -279,12 +280,12 @@ export default function Medicines() {
             zIndex: 80,
             background: '#101E36',
             color: '#9AE8E8',
-            borderColor: '#00BFD0',
+            borderColor: '#138866',
             fontWeight: 700,
           }}
         >
           {profileToast}{' '}
-          <Link to="/health-profile" style={{ color: '#00BFD0', marginInlineStart: '8px' }}>
+          <Link to="/health-profile" style={{ color: '#138866', marginInlineStart: '8px' }}>
             {isAr ? 'فتح ملفي الصحي ←' : 'View Profile →'}
           </Link>
         </div>
@@ -311,7 +312,7 @@ export default function Medicines() {
             marginTop: '14px',
           }}
         >
-          <div className="card" style={{ padding: '12px', textAlign: 'center', borderTop: '3px solid #00BFD0' }}>
+          <div className="card" style={{ padding: '12px', textAlign: 'center', borderTop: '3px solid #138866' }}>
             <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#008B99' }}>
               {(importReport?.totalRecordsFound || totalCount).toLocaleString()}
             </div>
@@ -719,13 +720,14 @@ export default function Medicines() {
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    borderTop: item.v === 1 ? '3px solid #00BFD0' : '3px solid #94a3b8',
+                    borderTop: item.v === 1 ? '3px solid #138866' : '3px solid #CFD29D',
                   }}
                 >
                   <div>
                     <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.04rem' }}>
-                        {isAr ? item.a || item.n : item.n}
+                      <h3 style={{ margin: 0, fontSize: '1.04rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <DosageFormVectorBadge form={item.f} size={20} />
+                        <span>{isAr ? item.a || item.n : item.n}</span>
                       </h3>
                       {item.p !== null && (
                         <span
@@ -735,9 +737,19 @@ export default function Medicines() {
                             color: '#166534',
                             fontWeight: 800,
                             whiteSpace: 'nowrap',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
                           }}
                         >
-                          {item.p.toFixed(2)} {isAr ? 'ج.م' : 'EGP'}
+                          {item.op && item.op !== item.p && (
+                            <s style={{ opacity: 0.65, fontSize: '0.74rem', color: '#64748b' }}>
+                              {item.op.toFixed(2)}
+                            </s>
+                          )}
+                          <span>
+                            {item.p.toFixed(2)} {isAr ? 'ج.م' : 'EGP'}
+                          </span>
                         </span>
                       )}
                     </div>

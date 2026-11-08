@@ -6381,3 +6381,399 @@ html.bh-gaming .ms-wrapper.ms-immersive .ms-action-zone { position: absolute !im
     max-width: 88px !important;
   }
 }
+
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DAWAYA | دوايا — Design 2 Executive Unified Glass Capsule & Vector Tabs
+   Matches Reference Design 1794117195504.jpg:
+   - Deep Navy (#0D1F38), Warm Sage-Gold (#CFD29D), Emerald (#138866)
+   - Full untruncated "دوايا | DAWAYA" title next to circular sage-gold logo
+   - Unified frosted glass capsule on the opposite side (Avatar + Globe + Moon + Exit/Menu)
+   - Borderless vector navigation tabs with glowing #CFD29D bottom indicator bar
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --navy: #0D1F38;
+  --blue: #138866;
+  --teal: #138866;
+  --teal-dark: #0F6E52;
+  --light-cyan: #CFD29D;
+}
+
+header.top.dawaya-v2-header {
+  background: linear-gradient(180deg, #0D1F38 0%, #0A192E 100%) !important;
+  border-bottom: 1px solid rgba(207, 210, 157, 0.18) !important;
+  box-shadow: 0 10px 30px rgba(6, 15, 29, 0.45) !important;
+}
+
+.dawaya-v2-bar {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding-block: 10px !important;
+  gap: 10px !important;
+  min-height: 62px !important;
+}
+
+.dawaya-v2-brand-group {
+  display: flex !important;
+  align-items: center !important;
+  flex: 0 0 auto !important;
+  min-width: max-content !important;
+}
+
+.dawaya-v2-brand {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  text-decoration: none !important;
+  color: #FFFFFF !important;
+}
+
+.dawaya-v2-logo-circle {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 50% !important;
+  background: #CFD29D !important;
+  border: 1.5px solid rgba(207, 210, 157, 0.85) !important;
+  flex-shrink: 0 !important;
+}
+
+.dawaya-v2-title-wrap {
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.dawaya-v2-title-text {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  font-size: 1.16rem !important;
+  font-weight: 800 !important;
+  color: #FFFFFF !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  letter-spacing: 0.01em !important;
+}
+
+.dawaya-v2-title-text .dawaya-title-divider {
+  color: rgba(207, 210, 157, 0.65) !important;
+  font-weight: 400 !important;
+}
+
+.dawaya-v2-title-text .dawaya-en-word {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+}
+
+/* Unified Frosted Glass Capsule */
+.header-actions.dawaya-glass-capsule {
+  display: inline-flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: auto !important;
+  flex: 0 0 auto !important;
+  gap: 6px !important;
+  padding: 5px 10px 5px 12px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(30, 58, 95, 0.45) 100%) !important;
+  border: 1.2px solid rgba(207, 210, 157, 0.36) !important;
+  box-shadow: 0 6px 22px rgba(19, 136, 102, 0.24), inset 0 1px 1px rgba(255, 255, 255, 0.18) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+}
+
+/* Reset any legacy order rules inside .dawaya-glass-capsule so items stay in natural capsule order */
+:root[dir="rtl"] .dawaya-glass-capsule > *,
+[dir="rtl"] .dawaya-glass-capsule > *,
+:root[dir="ltr"] .dawaya-glass-capsule > *,
+[dir="ltr"] .dawaya-glass-capsule > * {
+  order: unset !important;
+  margin-inline: 0 !important;
+}
+
+.capsule-avatar-btn {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  border: 2px solid #CFD29D !important;
+  background: rgba(13, 31, 56, 0.85) !important;
+  color: #CFD29D !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  box-shadow: 0 0 12px rgba(19, 136, 102, 0.38) !important;
+  transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+  overflow: hidden !important;
+}
+
+.capsule-avatar-btn:hover {
+  transform: scale(1.05) !important;
+  box-shadow: 0 0 16px rgba(207, 210, 157, 0.55) !important;
+}
+
+.capsule-avatar-initials {
+  font-size: 0.92rem !important;
+  font-weight: 800 !important;
+  color: #CFD29D !important;
+}
+
+. dawaya-glass-capsule .capsule-item-wrap,
+.dawaya-glass-capsule .lang.lang-switcher-wrap {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  min-width: auto !important;
+  min-height: auto !important;
+  padding: 0 !important;
+}
+
+.capsule-icon-btn,
+.dawaya-glass-capsule .dark-toggle,
+.dawaya-glass-capsule .header-logout-btn,
+.dawaya-glass-capsule .hamburger-btn,
+.dawaya-glass-capsule .lang-trigger-btn {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #E2E8F0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: background 0.18s ease, transform 0.18s ease !important;
+}
+
+.capsule-icon-btn:hover,
+.dawaya-glass-capsule .dark-toggle:hover,
+.dawaya-glass-capsule .header-logout-btn:hover,
+.dawaya-glass-capsule .hamburger-btn:hover,
+.dawaya-glass-capsule .lang-trigger-btn:hover {
+  background: rgba(207, 210, 157, 0.16) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Row 2: Borderless Vector Navigation Tabs with Sage-Gold Indicator Line */
+.quick-ribbon-wrap.dawaya-v2-ribbon-wrap {
+  background: #0D1F38 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-bottom: 1px solid rgba(207, 210, 157, 0.16) !important;
+  padding-top: 2px !important;
+}
+
+.quick-ribbon.dawaya-v2-ribbon {
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  padding-block: 6px 8px !important;
+  overflow-x: auto !important;
+}
+
+.quick-ribbon-link.dawaya-v2-tab,
+.quick-ribbon-group-btn.dawaya-v2-tab {
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 6px !important;
+  min-width: 86px !important;
+  padding: 6px 10px 4px !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #E2E8F0 !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transition: color 0.2s ease, background 0.2s ease !important;
+}
+
+.quick-ribbon-link.dawaya-v2-tab:hover,
+.quick-ribbon-group-btn.dawaya-v2-tab:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: #CFD29D !important;
+}
+
+.dawaya-v2-tab-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 26px !important;
+  color: #E2E8F0 !important;
+  transition: color 0.2s ease, filter 0.2s ease, transform 0.2s ease !important;
+}
+
+.dawaya-v2-tab-label {
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  color: inherit !important;
+}
+
+.dawaya-v2-tab-bar {
+  display: block !important;
+  width: 100% !important;
+  height: 3.5px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  margin-top: 2px !important;
+  transition: background 0.22s ease, box-shadow 0.22s ease !important;
+}
+
+.quick-ribbon-link.dawaya-v2-tab.active,
+.quick-ribbon-group-btn.dawaya-v2-tab.active,
+.quick-ribbon-group-btn.dawaya-v2-tab.is-open {
+  color: #CFD29D !important;
+  background: transparent !important;
+}
+
+.quick-ribbon-link.dawaya-v2-tab.active .dawaya-v2-tab-icon,
+.quick-ribbon-group-btn.dawaya-v2-tab.active .dawaya-v2-tab-icon,
+.quick-ribbon-group-btn.dawaya-v2-tab.is-open .dawaya-v2-tab-icon {
+  color: #CFD29D !important;
+  filter: drop-shadow(0 0 8px rgba(207, 210, 157, 0.45)) !important;
+  transform: translateY(-1px) !important;
+}
+
+.quick-ribbon-link.dawaya-v2-tab.active .dawaya-v2-tab-bar,
+.quick-ribbon-group-btn.dawaya-v2-tab.active .dawaya-v2-tab-bar,
+.quick-ribbon-group-btn.dawaya-v2-tab.is-open .dawaya-v2-tab-bar {
+  background: #CFD29D !important;
+  box-shadow: 0 0 12px rgba(207, 210, 157, 0.75) !important;
+}
+
+@media (max-width: 680px) {
+  .dawaya-v2-bar {
+    padding-block: 8px !important;
+    gap: 6px !important;
+  }
+  .dawaya-v2-logo-circle {
+    width: 36px !important;
+    height: 36px !important;
+  }
+  .dawaya-v2-title-text {
+    font-size: 0.98rem !important;
+    gap: 5px !important;
+  }
+  .header-actions.dawaya-glass-capsule {
+    padding: 4px 8px !important;
+    gap: 3px !important;
+  }
+  .capsule-avatar-btn {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+  }
+  .capsule-icon-btn,
+  .dawaya-glass-capsule .dark-toggle,
+  .dawaya-glass-capsule .header-logout-btn,
+  .dawaya-glass-capsule .hamburger-btn,
+  .dawaya-glass-capsule .lang-trigger-btn {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    min-height: 30px !important;
+  }
+  .quick-ribbon-link.dawaya-v2-tab,
+  .quick-ribbon-group-btn.dawaya-v2-tab {
+    min-width: 76px !important;
+    padding: 5px 6px 4px !important;
+  }
+  .dawaya-v2-tab-label {
+    font-size: 0.76rem !important;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DAWAYA | دوايا — Floating Glassmorphic Bottom Navigation Dock (Mobile/APK)
+   ══════════════════════════════════════════════════════════════════════════ */
+.dawaya-floating-bottom-dock {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding-bottom: 84px !important;
+  }
+  .dawaya-floating-bottom-dock {
+    position: fixed;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: 12px;
+    right: 12px;
+    height: 64px;
+    z-index: 950;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.15fr 1fr 1fr;
+    align-items: center;
+    padding: 0 8px;
+    border-radius: 22px;
+    background: linear-gradient(180deg, rgba(13, 31, 56, 0.94) 0%, rgba(9, 22, 41, 0.97) 100%);
+    border: 1.2px solid rgba(207, 210, 157, 0.32);
+    box-shadow: 0 14px 34px rgba(6, 15, 29, 0.55), 0 0 18px rgba(19, 136, 102, 0.22);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .dawaya-dock-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: #CBD5E1;
+    background: transparent;
+    border: none;
+    text-decoration: none;
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 6px 2px;
+    cursor: pointer;
+    transition: color 0.2s ease, transform 0.2s ease;
+  }
+  .dawaya-dock-item.active {
+    color: #CFD29D;
+    transform: translateY(-1px);
+  }
+  .dawaya-dock-center-scan {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: #CFD29D;
+    font-size: 0.7rem;
+    font-weight: 800;
+    transform: translateY(-14px);
+  }
+  .dawaya-dock-scan-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #138866 0%, #0F6E52 100%);
+    border: 2px solid #CFD29D;
+    box-shadow: 0 8px 20px rgba(19, 136, 102, 0.55);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 3px;
+  }
+}

@@ -1,4 +1,5 @@
 import { DawayaFullWordmark } from './DawayaLogo';
+import { DawayaRouteVectorIcon, HeroMicVectorIcon, HeroScannerVectorIcon, HeroSearchVectorIcon } from './DawayaVectorIcons';
 import { PersonaType } from './SmartPersonaAndSpotlight';
 import { PublicPartnerPlacementSection } from './PartnersDirectory';
 import { CSSProperties, FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
@@ -147,7 +148,7 @@ export default function Home() {
         'بطاقتك الصحية الذكية مع فصيلة الدم، الحساسية، الأمراض المزمنة، وأدويتك الحالية بـ QR للطوارئ والطباعة',
         'Personal emergency ID card with blood type, allergies, chronic conditions, active meds & printable QR'
       ),
-      color: '#00BFD0',
+      color: '#138866',
     },
     {
       to: '/patient-dashboard',
@@ -159,7 +160,7 @@ export default function Home() {
         'ملفك الصحي، أدويتك الحالية، منبهات الجرعات، وتنبيهات الأمان في شاشة واحدة',
         'Health profile, current meds, dose reminders & safety alerts in one screen'
       ),
-      color: '#00BFD0',
+      color: '#138866',
     },
     {
       to: '/complete-checkup',
@@ -411,7 +412,7 @@ export default function Home() {
     <main style={{ paddingTop: 0 }}>
       <style>{`
         .modern-hero {
-          background: linear-gradient(145deg, #101E36 0%, #162B4D 52%, #00BFD0 100%);
+          background: linear-gradient(145deg, #101E36 0%, #162B4D 52%, #138866 100%);
           color: #ffffff;
           padding: 26px 0 32px;
           border-bottom-left-radius: 28px;
@@ -463,7 +464,7 @@ export default function Home() {
           align-items: center;
           gap: 8px;
           background: #ffffff;
-          border: 2.5px solid #00BFD0;
+          border: 2.5px solid #138866;
           border-radius: 999px;
           padding: 6px 8px 6px 14px;
           box-shadow: 0 14px 34px rgba(16, 30, 54, 0.28);
@@ -478,7 +479,7 @@ export default function Home() {
         }
         .hero-search-icon {
           font-size: 1.15rem;
-          color: #00BFD0;
+          color: #138866;
           flex-shrink: 0;
         }
         .hero-search-input {
@@ -611,9 +612,9 @@ export default function Home() {
           transition: all 0.18s ease;
         }
         .bento-persona-pill.active {
-          background: #00BFD0;
+          background: #138866;
           color: #101E36;
-          border-color: #00BFD0;
+          border-color: #138866;
           box-shadow: 0 4px 12px rgba(0, 191, 208, 0.25);
         }
         .bento-grid {
@@ -637,7 +638,7 @@ export default function Home() {
         .bento-card:hover {
           transform: translateY(-3px);
           box-shadow: 0 12px 28px rgba(0, 191, 208, 0.14);
-          border-color: var(--accent-color, #00BFD0);
+          border-color: var(--accent-color, #138866);
         }
         .bento-card-head {
           display: flex;
@@ -751,7 +752,7 @@ export default function Home() {
           {/* Live Autocomplete Search Bar + Voice Search + Barcode Scanner */}
           <div ref={searchWrapRef} className="hero-live-search-wrap">
             <form onSubmit={go} className="hero-live-search-form" role="search">
-              <span className="hero-search-icon" aria-hidden="true">🔍</span>
+              <span className="hero-search-icon" aria-hidden="true" style={{ display: "inline-flex", alignItems: "center" }}><HeroSearchVectorIcon size={20} color="#138866" /></span>
               <input
                 type="search"
                 className="hero-search-input"
@@ -795,7 +796,7 @@ export default function Home() {
                 title={tr(lang, 'ابحث بصوتك', 'Voice search')}
                 aria-label={tr(lang, 'ابحث بصوتك', 'Voice search')}
               >
-                🎤
+                <HeroMicVectorIcon size={19} color="#0D1F38" />
               </button>
 
               {/* Direct Barcode Scanner Camera Link */}
@@ -805,7 +806,7 @@ export default function Home() {
                 title={tr(lang, 'مسح الباركود أو QR بالكاميرا', 'Scan barcode or QR with camera')}
                 aria-label={tr(lang, 'مسح الباركود بالكاميرا', 'Scan barcode')}
               >
-                📷
+                <HeroScannerVectorIcon size={19} color="#138866" />
               </Link>
             </form>
 
@@ -897,7 +898,7 @@ export default function Home() {
                         setSpotlightOpen(true);
                       }}
                       style={{
-                        background: '#00BFD0',
+                        background: '#138866',
                         color: '#101E36',
                         border: 'none',
                         borderRadius: '999px',
@@ -917,23 +918,29 @@ export default function Home() {
 
             {/* Quick Access Pill Tags under Search Bar */}
             <div className="hero-quick-tags">
-              <Link to="/passport" className="hero-quick-tag" style={{ background: 'rgba(0, 191, 208, 0.28)', borderColor: '#9AE8E8' }}>
-                🪪 {tr(lang, 'الكارت الطبي الذكي (ID)', 'Smart Medical ID')}
+              <Link to="/passport" className="hero-quick-tag" style={{ background: 'rgba(19, 136, 102, 0.32)', borderColor: '#CFD29D', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <DawayaRouteVectorIcon route="/passport" size={16} color="#CFD29D" />
+                <span>{tr(lang, 'الكارت الطبي الذكي (ID)', 'Smart Medical ID')}</span>
               </Link>
-              <Link to="/patient-dashboard" className="hero-quick-tag">
-                📊 {tr(lang, 'لوحة المريض', 'Patient Dashboard')}
+              <Link to="/patient-dashboard" className="hero-quick-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <DawayaRouteVectorIcon route="/patient-dashboard" size={16} color="#CFD29D" />
+                <span>{tr(lang, 'لوحة المريض', 'Patient Dashboard')}</span>
               </Link>
-              <Link to="/complete-checkup" className="hero-quick-tag">
-                ⚡ {tr(lang, 'فحص الروشتة', 'Rx Checkup')}
+              <Link to="/complete-checkup" className="hero-quick-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <DawayaRouteVectorIcon route="/complete-checkup" size={16} color="#CFD29D" />
+                <span>{tr(lang, 'فحص الروشتة', 'Rx Checkup')}</span>
               </Link>
-              <Link to="/pediatric-helper" className="hero-quick-tag">
-                👶 {tr(lang, 'حاسبة الأطفال', 'Pediatric Dose')}
+              <Link to="/pediatric-helper" className="hero-quick-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <DawayaRouteVectorIcon route="/pediatric-helper" size={16} color="#CFD29D" />
+                <span>{tr(lang, 'حاسبة الأطفال', 'Pediatric Dose')}</span>
               </Link>
-              <Link to="/cost-saver" className="hero-quick-tag">
-                🏷️ {tr(lang, 'البديل الأرخص', 'Cost Saver')}
+              <Link to="/cost-saver" className="hero-quick-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <DawayaRouteVectorIcon route="/cost-saver" size={16} color="#CFD29D" />
+                <span>{tr(lang, 'البديل الأرخص', 'Cost Saver')}</span>
               </Link>
-              <Link to="/green-prescription" className="hero-quick-tag">
-                🌿 {tr(lang, 'الروشتة الخضراء', 'Green Rx')}
+              <Link to="/green-prescription" className="hero-quick-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <DawayaRouteVectorIcon route="/green-prescription" size={16} color="#CFD29D" />
+                <span>{tr(lang, 'الروشتة الخضراء', 'Green Rx')}</span>
               </Link>
             </div>
           </div>
@@ -982,7 +989,7 @@ export default function Home() {
                     className={`bento-persona-pill${active ? ' active' : ''}`}
                     onClick={() => handleChoosePersona(tab.id)}
                   >
-                    <span aria-hidden="true">{tab.icon}</span>
+                    <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center" }}><DawayaRouteVectorIcon route={tab.id} size={16} color={active ? "#CFD29D" : "currentColor"} /></span>
                     <span>{isAr ? tab.ar : tab.en}</span>
                   </button>
                 );
@@ -1013,7 +1020,7 @@ export default function Home() {
                 <div>
                   <div className="bento-card-head">
                     <span className="bento-icon-box" style={{ background: `${tool.color}15`, color: tool.color }}>
-                      {tool.icon}
+                      <DawayaRouteVectorIcon route={tool.to} size={24} color={tool.color} />
                     </span>
                     <span
                       className="bento-badge"
@@ -1101,7 +1108,7 @@ export default function Home() {
         <PublicPartnerPlacementSection placement="homepage_featured" />
 
         {/* WHO AWaRe & Rational Medication Stewardship Section (Preserved from Original Site inside Comprehensive DAWAYA Identity) */}
-        <section className="card stack" style={{ borderTop: '4px solid #00BFD0' }}>
+        <section className="card stack" style={{ borderTop: '4px solid #138866' }}>
           <div className="head" style={{ flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <span className="dawaya-pill-badge" style={{ marginBottom: '6px' }}>
