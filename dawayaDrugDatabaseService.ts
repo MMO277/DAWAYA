@@ -15,6 +15,8 @@
  */
 
 import { useEffect, useState } from 'react';
+import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+import { db, configured } from './firebase';
 import {
   ACTIVE_INGREDIENTS,
   AdministrationRoute,
@@ -275,14 +277,33 @@ export function parseActiveIngredientList(raw: string): string[] {
 
 // ── Global In-Memory & IndexedDB State for the 26,562 Medicine Index ──
 const ADMIN_CUSTOM_MEDS_KEY = 'dawaya_admin_custom_meds_v1';
+const LIVE_PRICE_DELTAS_KEY = 'dawaya_live_price_deltas_v1';
+const LIVE_PRICE_FEED_URL_KEY = 'dawaya_live_price_feed_url_v1';
+const LIVE_PRICE_FIRESTORE_DOC = '__dawaya_live_price_overrides__';
 const DAWAYA_DB_UPDATED_EVENT = 'dawaya-full-db-updated';
+
+export interface DawayaPriceDeltaEntry {
+  p: number;
+  op?: number | null;
+  u?: string;
+}
+
+export interface DawayaLivePriceSyncStatus {
+  lastSyncedAt: string | null;
+  activeOverridesCount: number;
+  remoteFeedUrl: string;
+  cloudConnected: boolean;
+}
 
 let globalIndexItems: DawayaCompactIndexItem[] = [];
 let globalIndexLoaded = false;
 let globalIndexLoadingPromise: Promise<DawayaCompactIndexItem[]> | null = null;
 let globalImportReport: DawayaImportReport | null = null;
+let livePriceListenerStarted = false;
+let lastPriceSyncIso: string | null = null;
+let globalPriceDeltas: Record<string, DawayaPriceDeltaEntry> = {};
 
-// Fast O(1) maps over all 26,562 records
+// Fast O(1) maps over all 26,572 records
 const indexByIdMap = new Map<string, DawayaCompactIndexItem>();
 const indexByBarcodeMap = new Map<string, DawayaCompactIndexItem>();
 const indexByNormalizedIngredientMap = new Map<string, DawayaCompactIndexItem[]>();
@@ -299,9 +320,127 @@ function loadAdminCustomOverrides(): Record<string, DawayaCompactIndexItem> {
   }
 }
 
+function loadCachedPriceDeltas(): Record<string, DawayaPriceDeltaEntry> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(LIVE_PRICE_DELTAS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.priceOverrides === 'object') {
+      lastPriceSyncIso = parsed.lastSyncedAt || lastPriceSyncIso;
+      return parsed.priceOverrides;
+    }
+    return parsed || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCachedPriceDeltas(deltas: Record<string, DawayaPriceDeltaEntry>, syncedAtIso?: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (syncedAtIso) lastPriceSyncIso = syncedAtIso;
+    localStorage.setItem(
+      LIVE_PRICE_DELTAS_KEY,
+      JSON.stringify({
+        lastSyncedAt: lastPriceSyncIso || new Date().toISOString(),
+        priceOverrides: deltas,
+      })
+    );
+  } catch {
+    /* ignore quota */
+  }
+}
+
+export function getSavedRemotePriceFeedUrl(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return localStorage.getItem(LIVE_PRICE_FEED_URL_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function setSavedRemotePriceFeedUrl(url: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(LIVE_PRICE_FEED_URL_KEY, url.trim());
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getDawayaLivePriceSyncStatus(): DawayaLivePriceSyncStatus {
+  return {
+    lastSyncedAt: lastPriceSyncIso,
+    activeOverridesCount:
+      Object.keys(globalPriceDeltas).length + Object.keys(loadAdminCustomOverrides()).length,
+    remoteFeedUrl: getSavedRemotePriceFeedUrl(),
+    cloudConnected: Boolean(configured && db),
+  };
+}
+
+function syncPriceToCoreCommercialProducts(itemOrId: string, newPrice: number, barcode?: string, tradeNameEn?: string): void {
+  if (!newPrice || newPrice <= 0) return;
+  const cleanId = itemOrId.toLowerCase();
+  const cleanName = (tradeNameEn || '').toLowerCase().trim();
+  for (const pkg of EGYPTIAN_COMMERCIAL_PRODUCTS) {
+    const matchId = pkg.productId.toLowerCase() === cleanId;
+    const matchBc = Boolean(barcode && pkg.barcode && pkg.barcode === barcode);
+    const matchName = Boolean(cleanName && pkg.tradeNameEn.toLowerCase() === cleanName);
+    if (matchId || matchBc || matchName) {
+      pkg.priceEgp = newPrice;
+      pkg.priceUpdatedDate = new Date().toISOString().slice(0, 10);
+      pkg.unitPriceNote = {
+        ar: `السعر الرسمي المحدث: ${newPrice.toFixed(2)} ج.م`,
+        en: `Updated Official Price: ${newPrice.toFixed(2)} EGP`,
+      };
+    }
+  }
+}
+
+export function applyLivePriceDeltaMap(
+  deltas: Record<string, DawayaPriceDeltaEntry>,
+  syncedAtIso?: string
+): number {
+  if (!deltas || typeof deltas !== 'object') return 0;
+  globalPriceDeltas = { ...globalPriceDeltas, ...deltas };
+  saveCachedPriceDeltas(globalPriceDeltas, syncedAtIso);
+
+  let appliedCount = 0;
+  for (const [rawKey, entry] of Object.entries(deltas)) {
+    if (!entry || typeof entry.p !== 'number' || entry.p <= 0) continue;
+    const key = rawKey.toLowerCase().trim();
+    const target = indexByIdMap.get(key) || indexByBarcodeMap.get(rawKey.trim());
+    if (target) {
+      if (target.p !== entry.p) {
+        if (target.p && target.p > 0) {
+          target.op = target.p;
+        } else if (entry.op) {
+          target.op = entry.op;
+        }
+        target.p = entry.p;
+        appliedCount += 1;
+      }
+      syncPriceToCoreCommercialProducts(target.i, entry.p, target.b, target.n);
+    } else {
+      syncPriceToCoreCommercialProducts(key, entry.p, rawKey.trim());
+    }
+  }
+
+  if (appliedCount > 0 && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
+  }
+  return appliedCount;
+}
+
 export function saveAdminMedicineOverride(item: DawayaCompactIndexItem): void {
   if (typeof window === 'undefined') return;
   try {
+    const existing = indexByIdMap.get(item.i.toLowerCase());
+    if (existing && existing.p && item.p && existing.p !== item.p && !item.op) {
+      item.op = existing.p;
+    }
     const current = loadAdminCustomOverrides();
     current[item.i] = item;
     localStorage.setItem(ADMIN_CUSTOM_MEDS_KEY, JSON.stringify(current));
@@ -313,6 +452,28 @@ export function saveAdminMedicineOverride(item: DawayaCompactIndexItem): void {
     }
     indexByIdMap.set(item.i.toLowerCase(), item);
     if (item.b) indexByBarcodeMap.set(item.b, item);
+    if (item.p && item.p > 0) {
+      globalPriceDeltas[item.i.toLowerCase()] = {
+        p: item.p,
+        op: item.op ?? null,
+        u: new Date().toISOString().slice(0, 10),
+      };
+      saveCachedPriceDeltas(globalPriceDeltas, new Date().toISOString());
+      syncPriceToCoreCommercialProducts(item.i, item.p, item.b, item.n);
+      if (configured && db) {
+        setDoc(
+          doc(db, 'medicines', LIVE_PRICE_FIRESTORE_DOC),
+          {
+            lastSyncedAt: new Date().toISOString(),
+            priceOverrides: {
+              [item.i.toLowerCase()]: globalPriceDeltas[item.i.toLowerCase()],
+            },
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        ).catch(() => {});
+      }
+    }
     window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
   } catch {
     /* ignore quota */
@@ -373,6 +534,11 @@ export async function ensureDawayaDatabaseLoaded(): Promise<DawayaCompactIndexIt
       globalIndexItems = merged;
       globalIndexLoaded = true;
       rebuildFastMaps(globalIndexItems);
+      const cachedDeltas = loadCachedPriceDeltas();
+      if (Object.keys(cachedDeltas).length > 0) {
+        applyLivePriceDeltaMap(cachedDeltas);
+      }
+      startDawayaLivePriceSync();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
       }
@@ -1223,4 +1389,290 @@ export function useDawayaDrugDatabase() {
     antibioticMonographsCount: ACTIVE_INGREDIENTS.length,
     importReport,
   };
+}
+
+
+/**
+ * Parses a CSV or JSON market price list (supporting ID, Barcode, English/Arabic Trade Name)
+ * and updates prices across all 26,572 index records + 267 core packages, saving to local cache
+ * and broadcasting to Firebase Firestore so all visitors see the new prices immediately.
+ */
+export async function syncMarketPricesFromText(
+  rawText: string,
+  sourceLabel = 'Market Price Feed'
+): Promise<{
+  matchedCount: number;
+  priceChangedCount: number;
+  unchangedCount: number;
+  lastSyncedAt: string;
+}> {
+  await ensureDawayaDatabaseLoaded();
+  const text = (rawText || '').trim();
+  if (!text) {
+    return { matchedCount: 0, priceChangedCount: 0, unchangedCount: 0, lastSyncedAt: new Date().toISOString() };
+  }
+
+  // Build fast normalized name lookup map if needed
+  const byNormName = new Map<string, DawayaCompactIndexItem[]>();
+  for (const item of globalIndexItems) {
+    const nkEn = norm(item.n);
+    if (nkEn) {
+      const arr = byNormName.get(nkEn);
+      if (arr) arr.push(item);
+      else byNormName.set(nkEn, [item]);
+    }
+    const nkAr = norm(item.a);
+    if (nkAr) {
+      const arr = byNormName.get(nkAr);
+      if (arr) arr.push(item);
+      else byNormName.set(nkAr, [item]);
+    }
+  }
+
+  const newDeltas: Record<string, DawayaPriceDeltaEntry> = {};
+  let matchedCount = 0;
+  let priceChangedCount = 0;
+  let unchangedCount = 0;
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const processRow = (idVal: string, bcVal: string, nameVal: string, priceVal: number) => {
+    if (!priceVal || Number.isNaN(priceVal) || priceVal <= 0) return;
+    let targets: DawayaCompactIndexItem[] = [];
+    if (idVal) {
+      const t = indexByIdMap.get(idVal.toLowerCase().trim());
+      if (t) targets = [t];
+    }
+    if (targets.length === 0 && bcVal) {
+      const t = indexByBarcodeMap.get(bcVal.trim());
+      if (t) targets = [t];
+    }
+    if (targets.length === 0 && nameVal) {
+      const found = byNormName.get(norm(nameVal));
+      if (found && found.length > 0) targets = found;
+    }
+    if (targets.length === 0) return;
+
+    for (const target of targets) {
+      matchedCount += 1;
+      if (target.p !== null && Math.abs(target.p - priceVal) < 0.01) {
+        unchangedCount += 1;
+        continue;
+      }
+      const prevPrice = target.p && target.p > 0 ? target.p : target.op ?? null;
+      target.op = prevPrice;
+      target.p = priceVal;
+      newDeltas[target.i.toLowerCase()] = {
+        p: priceVal,
+        op: prevPrice,
+        u: todayStr,
+      };
+      syncPriceToCoreCommercialProducts(target.i, priceVal, target.b, target.n);
+      priceChangedCount += 1;
+    }
+  };
+
+  if (text.startsWith('{') || text.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.priceOverrides) {
+        const count = applyLivePriceDeltaMap(parsed.priceOverrides, parsed.lastSyncedAt);
+        return {
+          matchedCount: Object.keys(parsed.priceOverrides).length,
+          priceChangedCount: count,
+          unchangedCount: Math.max(0, Object.keys(parsed.priceOverrides).length - count),
+          lastSyncedAt: parsed.lastSyncedAt || new Date().toISOString(),
+        };
+      }
+      const rows = Array.isArray(parsed) ? parsed : Object.values(parsed);
+      for (const r of rows) {
+        if (!r || typeof r !== 'object') continue;
+        const idVal = String(r.i || r.id || r.productId || r.drug_id || '');
+        const bcVal = String(r.b || r.barcode || r.ean || r.gtin || '');
+        const nameVal = String(r.n || r.name || r.tradeNameEn || r.trade_name || r.a || r.tradeNameAr || '');
+        const rawP = r.p ?? r.price ?? r.priceEgp ?? r.new_price ?? r.newPrice ?? r['السعر'];
+        const priceNum = typeof rawP === 'number' ? rawP : parseFloat(String(rawP || '').replace(/[^0-9.]/g, ''));
+        processRow(idVal, bcVal, nameVal, priceNum);
+      }
+    } catch {
+      /* fallback to CSV parser */
+    }
+  } else {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length >= 2) {
+      const splitCsvLine = (line: string): string[] => {
+        const out: string[] = [];
+        let cur = '';
+        let inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            inQ = !inQ;
+          } else if ((ch === ',' || ch === ';' || ch === '\t') && !inQ) {
+            out.push(cur.trim());
+            cur = '';
+          } else {
+            cur += ch;
+          }
+        }
+        out.push(cur.trim());
+        return out;
+      };
+
+      const headers = splitCsvLine(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF_]/g, ''));
+      const findCol = (candidates: string[]) => headers.findIndex((h) => candidates.some((c) => h === c || h.includes(c)));
+      const idIdx = findCol(['id', 'productid', 'drug_id', 'code', 'كود', 'معرف']);
+      const bcIdx = findCol(['barcode', 'ean', 'gtin', 'باركود', 'الباركود']);
+      const nameIdx = findCol(['tradenameen', 'tradename', 'name', 'brand', 'drugname', 'الاسم', 'اسم']);
+      const priceIdx = findCol(['newprice', 'new_price', 'priceegp', 'price', 'السعرالجديد', 'السعر', 'سعر']);
+
+      for (let idx = 1; idx < lines.length; idx++) {
+        const cols = splitCsvLine(lines[idx]);
+        if (cols.length < 2) continue;
+        const idVal = idIdx >= 0 ? cols[idIdx] || '' : '';
+        const bcVal = bcIdx >= 0 ? cols[bcIdx] || '' : '';
+        const nameVal = nameIdx >= 0 ? cols[nameIdx] || '' : cols[0] || '';
+        const rawP = priceIdx >= 0 ? cols[priceIdx] : cols[cols.length - 1];
+        const priceNum = parseFloat(String(rawP || '').replace(/[^0-9.]/g, ''));
+        processRow(idVal, bcVal, nameVal, priceNum);
+      }
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  if (Object.keys(newDeltas).length > 0) {
+    globalPriceDeltas = { ...globalPriceDeltas, ...newDeltas };
+    saveCachedPriceDeltas(globalPriceDeltas, nowIso);
+    if (configured && db) {
+      try {
+        // Save up to 2,000 most recent price overrides to Firestore real-time document
+        const entries = Object.entries(newDeltas).slice(0, 2000);
+        const firestoreMap = Object.fromEntries(entries);
+        await setDoc(
+          doc(db, 'medicines', LIVE_PRICE_FIRESTORE_DOC),
+          {
+            lastSyncedAt: nowIso,
+            sourceLabel,
+            priceOverrides: firestoreMap,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch {
+        /* ignore if offline */
+      }
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
+    }
+  } else {
+    lastPriceSyncIso = nowIso;
+  }
+
+  return {
+    matchedCount,
+    priceChangedCount,
+    unchangedCount,
+    lastSyncedAt: nowIso,
+  };
+}
+
+/**
+ * Fetches a remote CSV or JSON market price feed URL, applies all price updates,
+ * and optionally saves the URL for automatic background polling & Firestore sync.
+ */
+export async function syncMarketPricesFromUrlLive(
+  feedUrl: string,
+  persistUrl = true
+): Promise<{
+  matchedCount: number;
+  priceChangedCount: number;
+  unchangedCount: number;
+  lastSyncedAt: string;
+}> {
+  const cleanUrl = feedUrl.trim();
+  if (!cleanUrl) {
+    throw new Error('Empty price feed URL');
+  }
+  if (persistUrl) {
+    setSavedRemotePriceFeedUrl(cleanUrl);
+    if (configured && db) {
+      setDoc(
+        doc(db, 'medicines', LIVE_PRICE_FIRESTORE_DOC),
+        { remoteFeedUrl: cleanUrl, updatedAt: serverTimestamp() },
+        { merge: true }
+      ).catch(() => {});
+    }
+  }
+  const sep = cleanUrl.includes('?') ? '&' : '?';
+  const res = await fetch(`${cleanUrl}${sep}_t=${Math.floor(Date.now() / 60000)}`);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} when fetching ${cleanUrl}`);
+  }
+  const text = await res.text();
+  return syncMarketPricesFromText(text, cleanUrl);
+}
+
+/**
+ * Starts the automatic 2-tier Live Market Price Sync:
+ *  1. Fetches `data/dawaya_live_price_deltas.json` (updated daily by GitHub Actions).
+ *  2. Listens in real time (`onSnapshot`) to Firebase Firestore `medicines/__dawaya_live_price_overrides__`.
+ *  3. Polls any configured remote price feed URL every 15 minutes while the app is open.
+ */
+export function startDawayaLivePriceSync(): void {
+  if (livePriceListenerStarted || typeof window === 'undefined') return;
+  livePriceListenerStarted = true;
+
+  const pullStaticDeltasAndRemoteFeed = async () => {
+    try {
+      const baseUrl = import.meta.env?.BASE_URL || './';
+      const res = await fetch(`${baseUrl}data/dawaya_live_price_deltas.json?_t=${Math.floor(Date.now() / 300000)}`);
+      if (res.ok) {
+        const manifest = await res.json();
+        if (manifest && typeof manifest.priceOverrides === 'object') {
+          applyLivePriceDeltaMap(manifest.priceOverrides, manifest.lastSyncedAt);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    const customUrl = getSavedRemotePriceFeedUrl();
+    if (customUrl) {
+      try {
+        await syncMarketPricesFromUrlLive(customUrl, false);
+      } catch {
+        /* ignore network errors on background poll */
+      }
+    }
+  };
+
+  pullStaticDeltasAndRemoteFeed();
+  window.setInterval(pullStaticDeltasAndRemoteFeed, 15 * 60 * 1000);
+
+  if (configured && db) {
+    try {
+      const ref = doc(db, 'medicines', LIVE_PRICE_FIRESTORE_DOC);
+      onSnapshot(
+        ref,
+        (snap) => {
+          if (!snap.exists()) return;
+          const data = snap.data();
+          if (data?.remoteFeedUrl && typeof data.remoteFeedUrl === 'string' && !getSavedRemotePriceFeedUrl()) {
+            setSavedRemotePriceFeedUrl(data.remoteFeedUrl);
+          }
+          if (data?.priceOverrides && typeof data.priceOverrides === 'object') {
+            applyLivePriceDeltaMap(
+              data.priceOverrides as Record<string, DawayaPriceDeltaEntry>,
+              typeof data.lastSyncedAt === 'string' ? data.lastSyncedAt : new Date().toISOString()
+            );
+          }
+        },
+        () => {
+          /* ignore offline permission fallback */
+        }
+      );
+    } catch {
+      /* ignore */
+    }
+  }
 }

@@ -20,8 +20,12 @@ import {
   DawayaCompactIndexItem,
   DawayaTherapeuticCategory,
   decodeWarningMask,
+  getDawayaLivePriceSyncStatus,
+  getSavedRemotePriceFeedUrl,
   saveAdminMedicineOverride,
   searchDawayaIndex,
+  syncMarketPricesFromText,
+  syncMarketPricesFromUrlLive,
   useDawayaDrugDatabase,
 } from './dawayaDrugDatabaseService';
 import { parseExternalEgyptianDrugJsonOrCsv } from './dataAuditEngine';
@@ -146,6 +150,67 @@ export function DawayaMedicineAdminManager({
   const [statusMsg, setStatusMsg] = useState('');
   const [batchSyncing, setBatchSyncing] = useState(false);
   const [batchProgress, setBatchProgress] = useState('');
+  const [priceFeedUrl, setPriceFeedUrl] = useState(() => getSavedRemotePriceFeedUrl());
+  const [priceSyncing, setPriceSyncing] = useState(false);
+  const priceSyncStatus = getDawayaLivePriceSyncStatus();
+
+  const handleLivePriceUrlSync = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!priceFeedUrl.trim()) return;
+    setPriceSyncing(true);
+    try {
+      const res = await syncMarketPricesFromUrlLive(priceFeedUrl.trim(), true);
+      await logAdminAuditAction({
+        action: 'LIVE_MARKET_PRICE_FEED_SYNC',
+        targetId: priceFeedUrl.trim(),
+        actorUid: uid,
+        actorRole: role,
+        details: `Synced live prices from URL: matched ${res.matchedCount}, updated ${res.priceChangedCount} prices.`,
+      });
+      setStatusMsg(
+        isAr
+          ? `✅ تمت مزامنة أسعار السوق مباشرة! تم فحص ${res.matchedCount} دواء وتحديث سعر ${res.priceChangedCount} دواء فوراً لدى جميع المستخدمين.`
+          : `✅ Live market prices synced! Matched ${res.matchedCount} drugs and updated ${res.priceChangedCount} prices across all users.`
+      );
+    } catch (err) {
+      setStatusMsg(
+        isAr
+          ? `⚠️ تعذر سحب الأسعار من الرابط (تأكد أن الرابط مباشر لملف CSV أو JSON ومتاح للوصول العام): ${String(err)}`
+          : `⚠️ Failed to fetch price feed URL: ${String(err)}`
+      );
+    } finally {
+      setPriceSyncing(false);
+    }
+  };
+
+  const handleBulkPriceSheetUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setPriceSyncing(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const text = String(reader.result || '');
+        const res = await syncMarketPricesFromText(text, file.name);
+        await logAdminAuditAction({
+          action: 'BULK_MARKET_PRICE_SHEET_SYNC',
+          targetId: file.name,
+          actorUid: uid,
+          actorRole: role,
+          details: `Synced price sheet ${file.name}: matched ${res.matchedCount}, updated ${res.priceChangedCount} prices.`,
+        });
+        setStatusMsg(
+          isAr
+            ? `✅ تم تطبيق شيت أسعار السوق (${file.name}): تطابق ${res.matchedCount.toLocaleString()} دواء، وتم تحديث سعر ${res.priceChangedCount.toLocaleString()} دواء فوراً مع حفظ السعر السابق!`
+            : `✅ Applied market price sheet (${file.name}): matched ${res.matchedCount.toLocaleString()} drugs, updated ${res.priceChangedCount.toLocaleString()} prices!`
+        );
+      } finally {
+        setPriceSyncing(false);
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const filtered = useMemo(() => {
     const base = searchDawayaIndex(
@@ -512,33 +577,90 @@ export function DawayaMedicineAdminManager({
       )}
 
       {subView === 'bulk_import' && (
-        <div className="card stack">
-          <h3>📥 {isAr ? 'الاستيراد الجماعي للأدوية والترحيل الآمن لقاعدة البيانات' : 'Bulk Medicine Import & Safe Idempotent Migration'}</h3>
-          <p className="small muted">
-            {isAr
-              ? 'ارفع ملف CSV أو JSON لإضافته بشكل غير تدميري (Idempotent) دون مسح أي سجلات مضادات حيوية أو ملفات مرضى، أو شغّل المزامنة الدفعية مع Firestore.'
-              : 'Upload a CSV or JSON file for non-destructive idempotent import, or run controlled batch synchronization to Firestore.'}
-          </p>
-          <div className="row wrapRow" style={{ gap: '12px' }}>
-            <label className="btn" style={{ cursor: 'pointer' }}>
-              📂 {isAr ? 'رفع ملف أدوية جماعي (CSV / JSON)' : 'Upload Bulk CSV / JSON'}
+        <div className="stack">
+          <div className="card stack" style={{ border: '2px solid #10b981' }}>
+            <h3>
+              🔄{' '}
+              {isAr
+                ? 'مزامنة أسعار السوق المباشرة والأوتوماتيكية (Live Market Price Sync)'
+                : 'Live Market Price Auto-Sync (EDA / Pharmacy Feed / Google Sheets CSV)'}
+            </h3>
+            <p className="small muted">
+              {isAr
+                ? 'اربط الموقع برابط جدول أسعار مباشر (مثل رابط Google Sheet منشور بصيغة CSV أو JSON أو رابط مستودع أسعار) أو ارفع شيت الأسعار المحدث ليتم تحديث أسعار الـ 26,572 دواءً فوراً لدى جميع الزوار ومستخدمي التطبيق عبر السحابة مع الاحتفاظ بالسعر القديم.'
+                : 'Connect a live CSV/JSON price feed URL or upload a market price sheet to instantaneously update prices across all 26,572 medicines for all visitors.'}
+            </p>
+            <div className="row wrapRow" style={{ gap: '10px', fontSize: '0.88rem' }}>
+              <span className="badge approved">
+                {isAr
+                  ? `حالة السحابة: ${priceSyncStatus.cloudConnected ? 'متصل لحظياً (Firestore Live)' : 'تحديث تلقائي عبر GitHub Actions'}`
+                  : `Cloud: ${priceSyncStatus.cloudConnected ? 'Firestore Live Connected' : 'GitHub Actions Auto-Sync'}`}
+              </span>
+              <span className="badge">
+                {isAr
+                  ? `تعديلات الأسعار النشطة: ${priceSyncStatus.activeOverridesCount.toLocaleString()}`
+                  : `Active Price Overrides: ${priceSyncStatus.activeOverridesCount.toLocaleString()}`}
+              </span>
+              {priceSyncStatus.lastSyncedAt && (
+                <span className="small muted" dir="ltr">
+                  Last Sync: {priceSyncStatus.lastSyncedAt.slice(0, 19).replace('T', ' ')}
+                </span>
+              )}
+            </div>
+            <form onSubmit={handleLivePriceUrlSync} className="row wrapRow" style={{ gap: '10px' }}>
               <input
-                type="file"
-                accept=".csv,.json"
-                style={{ display: 'none' }}
-                onChange={handleBulkCsvJsonUpload}
+                type="url"
+                dir="ltr"
+                value={priceFeedUrl}
+                onChange={(e) => setPriceFeedUrl(e.target.value)}
+                placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv"
+                style={{ flex: 1, minWidth: '240px' }}
               />
-            </label>
-            <button
-              type="button"
-              className="btn ghost"
-              disabled={batchSyncing}
-              onClick={handleRunControlledFirestoreBatchSync}
-            >
-              ☁️ {isAr ? 'تشغيل المزامنة الدفعية الآمنة مع Firestore' : 'Run Idempotent Firestore Batch Sync'}
-            </button>
+              <button type="submit" className="btn" disabled={priceSyncing}>
+                ⚡ {isAr ? 'ربط ومزامنة الأسعار الآن' : 'Connect & Sync Prices Now'}
+              </button>
+            </form>
+            <div className="row wrapRow" style={{ gap: '12px' }}>
+              <label className="btn ghost" style={{ cursor: 'pointer' }}>
+                📊 {isAr ? 'رفع شيت تحديث أسعار السوق (CSV / JSON)' : 'Upload Market Price Sheet (CSV / JSON)'}
+                <input
+                  type="file"
+                  accept=".csv,.json"
+                  style={{ display: 'none' }}
+                  onChange={handleBulkPriceSheetUpload}
+                />
+              </label>
+            </div>
           </div>
-          {batchProgress && <div className="notice">{batchProgress}</div>}
+
+          <div className="card stack">
+            <h3>📥 {isAr ? 'الاستيراد الجماعي للأدوية والترحيل الآمن لقاعدة البيانات' : 'Bulk Medicine Import & Safe Idempotent Migration'}</h3>
+            <p className="small muted">
+              {isAr
+                ? 'ارفع ملف CSV أو JSON لإضافته بشكل غير تدميري (Idempotent) دون مسح أي سجلات مضادات حيوية أو ملفات مرضى، أو شغّل المزامنة الدفعية مع Firestore.'
+                : 'Upload a CSV or JSON file for non-destructive idempotent import, or run controlled batch synchronization to Firestore.'}
+            </p>
+            <div className="row wrapRow" style={{ gap: '12px' }}>
+              <label className="btn" style={{ cursor: 'pointer' }}>
+                📂 {isAr ? 'رفع ملف أدوية جماعي (CSV / JSON)' : 'Upload Bulk CSV / JSON'}
+                <input
+                  type="file"
+                  accept=".csv,.json"
+                  style={{ display: 'none' }}
+                  onChange={handleBulkCsvJsonUpload}
+                />
+              </label>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={batchSyncing}
+                onClick={handleRunControlledFirestoreBatchSync}
+              >
+                ☁️ {isAr ? 'تشغيل المزامنة الدفعية الآمنة مع Firestore' : 'Run Idempotent Firestore Batch Sync'}
+              </button>
+            </div>
+            {batchProgress && <div className="notice">{batchProgress}</div>}
+          </div>
         </div>
       )}
 
