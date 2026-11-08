@@ -68,6 +68,7 @@ const Scan = lazyWithRetry(() => import('./Scan'));
 const Learn = lazyWithRetry(() => import('./Learn'));
 const Assistant = lazyWithRetry(() => import('./Assistant'));
 const MythFact = lazyWithRetry(() => import('./MythFact'));
+const PregnancySafetyNavigator = lazyWithRetry(() => import('./PregnancySafetyNavigator'));
 const AirportBannedMedsScanner = lazyWithRetry(() => import('./AirportBannedMedsScanner'));
 const BabyMilkFormulaNavigator = lazyWithRetry(() => import('./BabyMilkFormulaNavigator'));
 const SeniorPillVisualIdentifier = lazyWithRetry(() => import('./SeniorPillVisualIdentifier'));
@@ -257,7 +258,10 @@ export default function App() {
               <Route path="/myth" element={<MythFact />} />
               <Route path="/methodology" element={<Methodology />} />
               <Route path="/research" element={<Research />} />
-                            <Route path="/airport-banned-meds" element={<AirportBannedMedsScanner />} />
+                                          <Route path="/pregnancy-guide" element={<PregnancySafetyNavigator />} />
+              <Route path="/pregnancy" element={<PregnancySafetyNavigator />} />
+              <Route path="/pregnant" element={<PregnancySafetyNavigator />} />
+<Route path="/airport-banned-meds" element={<AirportBannedMedsScanner />} />
               <Route path="/banned-meds" element={<AirportBannedMedsScanner />} />
               <Route path="/baby-milk" element={<BabyMilkFormulaNavigator />} />
               <Route path="/milk-formula" element={<BabyMilkFormulaNavigator />} />

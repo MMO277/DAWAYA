@@ -143,6 +143,18 @@ export default function Home() {
   // Concise Bento Grid Clinical Tools (Exact original icon & card structure, upgraded for all 26,562 medicines)
   const clinicalTools = [
     {
+      to: '/pregnancy-guide',
+      icon: '🤰',
+      badge: tr(lang, 'استشاري 40 سنة خبرة', 'Senior Ob-Gyn 40y', 'Gynécologie 40 Ans', 'Ginecología 40 Años'),
+      title: tr(lang, 'دليل وموسوعة سلامة الحامل والرضاعة', 'Pregnancy & Nursing Safety Hub', 'Guide Sécurité Grossesse & Allaitement', 'Guía de Seguridad en Embarazo y Lactancia'),
+      desc: tr(
+        lang,
+        'الممنوع والمسموح بالأدلة الطبية: الأكلات (الكبدة، التونة، الرنجة)، الأدوية والمسكنات، الفيتامينات، الأعشاب (القرفة)، والقطط مع نصائح الأطباء',
+        'Clinical foods, OTC drugs, herbs & lifestyle safety guide during pregnancy & nursing with 40-year senior obstetrician insights'
+      ),
+      color: '#e11d48',
+    },
+    {
       to: '/home-cabinet',
       icon: '🗄️',
       badge: tr(lang, 'فرز الدرج والأشرطة', 'Drawer Audit', 'Pharmacie Maison', 'Botiquín'),

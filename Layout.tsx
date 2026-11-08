@@ -310,6 +310,12 @@ export default function Layout({ children }: { children: ReactNode }) {
       ),
       items: [
         {
+          to: '/pregnancy-guide',
+          key: '',
+          icon: '🤰',
+          shortLabel: tr(lang, 'دليل سلامة الحامل', 'Pregnancy Safety Hub', 'Sécurité Grossesse', 'Seguridad Embarazo'),
+        },
+        {
           to: '/allergy-checker',
           key: 'navAllergyChecker',
           icon: '🛡️',
