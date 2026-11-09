@@ -43,6 +43,7 @@ import {
   buildPermittedPatientContextPrompt,
   EnhancedChatUiMessage,
   generateContextualSiteReply,
+  matchSpecialtyClinicLinks,
   getSmartAssistantActionChips,
   useSyncedAiConversation,
 } from './aiConversationContext';
@@ -303,11 +304,13 @@ export default function ChatWidget() {
       localReply,
     });
 
-    // Only show medicine chips when the user's question explicitly matched a medical condition or drug!
-    const matchedLinks =
-      contextualResult.handledFast && contextualResult.links && contextualResult.links.length > 0
-        ? contextualResult.links
-        : undefined;
+    // Combine direct medicine links + Smart Specialty Clinic & Symptom Triage routing links
+    const clinicRoutingLinks = matchSpecialtyClinicLinks(text);
+    const combinedLinks = [
+      ...(contextualResult.links || []),
+      ...clinicRoutingLinks,
+    ];
+    const matchedLinks = combinedLinks.length > 0 ? combinedLinks : undefined;
 
     // Always route through the Live Internet + Cloud AI Engine first (no canned short-circuiting!)
 
@@ -932,15 +935,41 @@ export default function ChatWidget() {
                       />
                     )}
                     {m.links && m.links.length > 0 && (
-                      <div className="src" style={{ marginTop: '6px' }}>
-                        {m.links.map((l, k) => (
-                          <span key={l.to + k}>
-                            {k > 0 && ' · '}
-                            <Link to={l.to} onClick={() => setIsOpen(false)}>
-                              💊 {pick(l.label, lang)}
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '6px',
+                          marginTop: '10px',
+                          paddingTop: '8px',
+                          borderTop: '1px solid rgba(19, 136, 102, 0.2)',
+                        }}
+                      >
+                        {m.links.map((l, k) => {
+                          const lbl = pick(l.label, lang);
+                          const hasEmoji = /^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(lbl);
+                          return (
+                            <Link
+                              key={l.to + k}
+                              to={l.to}
+                              onClick={() => setIsOpen(false)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                padding: '6px 12px',
+                                borderRadius: '18px',
+                                background: 'linear-gradient(135deg, #0D1F38 0%, #138866 100%)',
+                                color: '#ffffff',
+                                fontWeight: 800,
+                                fontSize: '0.78rem',
+                                textDecoration: 'none',
+                                boxShadow: '0 2px 6px rgba(13, 31, 56, 0.15)',
+                              }}
+                            >
+                              {hasEmoji ? lbl : `💊 ${lbl}`}
                             </Link>
-                          </span>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                     <div className="src">{m.date}</div>

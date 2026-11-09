@@ -143,14 +143,26 @@ export default function Home() {
   // Concise Bento Grid Clinical Tools (Exact original icon & card structure, upgraded for all 26,562 medicines)
   const clinicalTools = [
     {
+      to: '/symptom-triage',
+      icon: '🩺',
+      badge: tr(lang, 'اكشف عند أنهي دكتور؟', 'Which Specialist?', 'Quel Spécialiste ?', '¿Qué Especialista?'),
+      title: tr(lang, 'مشخص الأعراض الذكي وتوجيه المريض للتخصص الصحيح', 'Smart Symptom Triage & Doctor Specialty Finder', 'Triage Intelligent des Symptômes', 'Triaje Inteligente de Síntomas'),
+      desc: tr(
+        lang,
+        'اختر مكان الوجع ليحدد لك النظام التشخيص المبدئي، هل الحالة طوارئ مستشفى أم عيادة، وأي دكتور تكشف عنده مع تحويل مباشر للعيادة المختصة',
+        'Select your body pain zone to get urgency triage (ER vs clinic), exact specialist recommendation, and 1-click clinic routing'
+      ),
+      color: '#138866',
+    },
+    {
       to: '/clinics',
       icon: '🏥',
-      badge: tr(lang, '١٤ عيادة تخصصية شاملة', '14 Specialty Clinics', '8 Cliniques Spécialisées', '8 Clínicas Especializadas'),
+      badge: tr(lang, '٢٠ عيادة تخصصية شاملة', '20 Specialty Clinics', '8 Cliniques Spécialisées', '8 Clínicas Especializadas'),
       title: tr(lang, 'مجمع العيادات التخصصية المتكاملة (العيادات)', 'DAWAYA Specialty Medical Clinics Hub', 'Pôle de Cliniques Médicales Spécialisées', 'Centro de Clínicas Médicas Especializadas'),
       desc: tr(
         lang,
         'بوابة المستشفى التخصصي: عيادة النساء والحمل، عيادة الأطفال وأول سنة، عيادة العظام والنقرس، الجهاز الهضمي والقولون، الجلدية والحروق، طوارئ الأسنان، أنيميا الفول، والباطنة والسكر والضغط',
-        'Complete 14-clinic hospital portal: Ob-Gyn, Pediatrics, Orthopedics & Gout, Gastroenterology & IBS, Dermatology & Burns, Dental ER, G6PD Favism & Chronic Care'
+        'Complete 20-clinic hospital portal: Ob-Gyn, Pediatrics, Orthopedics & Gout, Gastroenterology & IBS, Dermatology & Burns, Dental ER, G6PD Favism & Chronic Care'
       ),
       color: '#0D1F38',
     },

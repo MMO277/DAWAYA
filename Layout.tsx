@@ -299,7 +299,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     {
       id: 'specialty-clinics',
       icon: '🏥',
-      title: tr(lang, 'مجمع العيادات التخصصية (14 عيادة)', 'Specialty Medical Clinics (14 Clinics)', 'Cliniques Spécialisées', 'Clínicas Especializadas'),
+      title: tr(lang, 'مجمع العيادات التخصصية (20 عيادة)', 'Specialty Medical Clinics (20 Clinics)', 'Cliniques Spécialisées', 'Clínicas Especializadas'),
       shortTitle: tr(lang, 'العيادات التخصصية', 'Specialty Clinics', 'Cliniques', 'Clínicas'),
       subtitle: tr(
         lang,
@@ -311,7 +311,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           to: '/clinics',
           key: '',
           icon: '🏥',
-          shortLabel: tr(lang, 'بوابة جميع العيادات (14 عيادة)', 'All Specialty Clinics Hub', 'Toutes les Cliniques', 'Todas las Clínicas'),
+          shortLabel: tr(lang, 'بوابة جميع العيادات (20 عيادة)', 'All Specialty Clinics Hub', 'Toutes les Cliniques', 'Todas las Clínicas'),
         },
         {
           to: '/pregnancy-guide',
@@ -397,6 +397,43 @@ export default function Layout({ children }: { children: ReactNode }) {
           icon: '🚑',
           shortLabel: tr(lang, 'عيادة السموم والإسعافات الأولية', 'Poison Control & First-Aid ER', 'Centre Antipoison', 'Toxicología y Urgencias'),
         },
+        {
+          to: '/symptom-triage',
+          key: '',
+          icon: '🩺',
+          shortLabel: tr(lang, 'مشخص الأعراض الذكي (اكشف فين؟)', 'Smart Symptom Triage', 'Triage Symptômes', 'Triaje de Síntomas'),
+        },
+        {
+          to: '/nutrition-clinic',
+          key: '',
+          icon: '🥗',
+          shortLabel: tr(lang, 'عيادة التغذية وحقن التخسيس', 'Clinical Nutrition & GLP-1', 'Nutrition & GLP-1', 'Nutrición y GLP-1'),
+        },
+        {
+          to: '/women-clinic',
+          key: '',
+          icon: '🌸',
+          shortLabel: tr(lang, 'عيادة صحة المرأة وتكيس المبايض', 'Women’s Health & PCOS', 'Santé des Femmes', 'Salud Femenina'),
+        },
+        {
+          to: '/geriatric-clinic',
+          key: '',
+          icon: '👴',
+          shortLabel: tr(lang, 'عيادة المسنين وقرح الفراش', 'Geriatric & Bedsore Care', 'Gériatrie & Escarres', 'Geriatría y Úlceras'),
+        },
+        {
+          to: '/hair-clinic',
+          key: '',
+          icon: '💇‍♀️',
+          shortLabel: tr(lang, 'عيادة الشعر والصلع والبشرة', 'Hair Loss & Skincare Clinic', 'Cheveux & Peau', 'Cabello y Piel'),
+        },
+        {
+          to: '/chest-clinic',
+          key: '',
+          icon: '🫁',
+          shortLabel: tr(lang, 'عيادة الصدر والربو وجلسات البخار', 'Chest, Asthma & Nebulizer', 'Pneumologie & Asthme', 'Neumología y Asma'),
+        },
+
 
       ],
     },

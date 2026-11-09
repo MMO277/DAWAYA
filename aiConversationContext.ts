@@ -1904,6 +1904,18 @@ export function buildPermittedPatientContextPrompt(params: {
     );
   }
 
+
+  parts.push(
+    '[دليل عيادات منصة دوايا التخصصية (وجّه المريض في نهاية إجابتك لزيارة العيادة المناسبة لحالته من الأزرار التي ستظهر أسفل رسالتك): ' +
+      'مشخص الأعراض الذكي (/symptom-triage)، مجمع العيادات (/clinics)، عيادة الحوامل (/pregnancy-guide)، عيادة الرضع وأول سنة (/baby-first-year)، ' +
+      'عيادة العظام والنقرس (/ortho-clinic)، عيادة الجهاز الهضمي والقولون والجرثومة (/gastro-clinic)، عيادة الجلدية والحروق (/derma-clinic)، ' +
+      'عيادة طوارئ الأسنان (/dental-clinic)، عيادة أنيميا الفول (/g6pd-clinic)، عيادة الباطنة والسكر والضغط (/chronic-clinic)، ' +
+      'عيادة العيون (/eye-clinic)، عيادة الأنف والأذن والدوار (/ent-clinic)، عيادة ترجمة التحاليل (/lab-clinic)، ' +
+      'عيادة الكلى والمسالك والحصوات (/urology-clinic)، عيادة المخ والأعصاب والصداع (/neuro-clinic)، عيادة السموم والطوارئ (/poison-clinic)، ' +
+      'عيادة التغذية وحقن التخسيس (/nutrition-clinic)، عيادة صحة المرأة وتكيس المبايض (/women-clinic)، عيادة المسنين وقرح الفراش (/geriatric-clinic)، ' +
+      'عيادة الشعر والبشرة (/hair-clinic)، عيادة الصدر وجلسات البخار (/chest-clinic)]'
+  );
+
   return parts.join('\n');
 }
 
@@ -1973,4 +1985,134 @@ export function getSmartAssistantActionChips(lang: Lang): Array<{
     { label: '🏥 Add Diabetes to Profile', prompt: 'Add diabetes to my health profile' },
     { label: '🔔 Remind 8 AM & 8 PM', prompt: 'Remind me to take Augmentin 1g at 8 AM and 8 PM' },
   ];
+}
+
+
+/**
+ * Smart Specialty Clinic & Symptom Router:
+ * Analyzes any user query (symptom, complaint, life stage, or medical topic)
+ * and returns instant clickable links to the matching DAWAYA Specialty Clinic(s)
+ * and the Smart Symptom Triage tool.
+ */
+export function matchSpecialtyClinicLinks(userText: string): ReplyLink[] {
+  const q = norm(userText);
+  const links: ReplyLink[] = [];
+  const seen = new Set<string>();
+
+  const addLink = (to: string, ar: string, en: string) => {
+    if (!seen.has(to)) {
+      seen.add(to);
+      links.push({ to, label: { ar, en } });
+    }
+  };
+
+  // 1. Pregnancy & Lactation
+  if (/(حامل|حمل|الحمل|وحم|جنين|المشيمه|المشيمة|ولاده|ولادة|قيصري|طلق|الرضاعه|الرضاعة|مرضع|تسمم حمل|كبده للحامل|سونار)/.test(q)) {
+    addLink('/pregnancy-guide', '🤰 افتح عيادة النساء ومتابعة الحمل والرضاعة', 'Open Pregnancy & Ob-Gyn Clinic');
+  }
+
+  // 2. Pediatrics & First-Year Baby & Milk
+  if (/(رضيع|مولود|بيبي|طفلي|ابني|بنتي|تطعيم|تطعيمات|عسل للرضيع|صفراء|براز اخضر|براز الرضيع|فطام|ادخال الطعام|سخونه طفل|لبن صناعي|حليب اطفال)/.test(q)) {
+    addLink('/baby-first-year', '👶 افتح عيادة الأطفال وأول سنة مع طفلك', 'Open Newborn & 1st Year Clinic');
+    addLink('/pediatric-helper', '💉 حاسبة جرعات أشربة الأطفال بالوزن', 'Pediatric Dose Calculator');
+    addLink('/baby-milk', '🍼 دليل وبدائل حليب الأطفال', 'Baby Milk Formula Guide');
+  }
+
+  // 3. Urology, Flank Pain & Kidney Stones
+  if (/(جنبي|الجنب|مغص كلوي|حصوه|حصوة|كلي|كلية|الكلي|البول|حرقان بول|صديد بول|بروستاتا|زلال|كرياتينين|املاح)/.test(q)) {
+    addLink('/urology-clinic', '🧪 افتح عيادة الكلى والمسالك والحصوات', 'Open Urology & Kidney Clinic');
+  }
+
+  // 4. Orthopedics, Spine, Sciatica & Gout
+  if (/(ضهري|ظهري|الظهر|غضروف|عرق النسا|خشونه|خشونة|ركبه|ركبتي|الركبة|مفاصل|نقرس|يوريك|كعب رجلي|التواء|كدمه|فيتامين د|عضم|عظام)/.test(q)) {
+    addLink('/ortho-clinic', '🦴 افتح عيادة العظام والغضروف والنقرس', 'Open Orthopedics & Gout Clinic');
+  }
+
+  // 5. Gastroenterology, IBS, H. Pylori & Reflux
+  if (/(معده|معدتي|المعدة|جرثومه|جرثومة|قولون|انتفاخ|غازات|حموضه|حموضة|ارتجاع|مريء|اسهال|إسهال|امساك|إمساك|بواسير|شرخ|نزله معويه|مغص بطن|بطني)/.test(q)) {
+    addLink('/gastro-clinic', '🦠 افتح عيادة الجهاز الهضمي والقولون والجرثومة', 'Open Gastro & IBS Clinic');
+  }
+
+  // 6. Dermatology, Burns & Wounds
+  if (/(حرق|ميه مغليه|زيت سخن|لسعه|جلد|هرش|حكه|حكة|طفح|تينيا|فطريات|اكزيما|إكزيما|حزام ناري|تسلخات|حفاضه|جرح|غرز|حب الشباب|نت لوك|رواكوتان|كورتيزون مرهم)/.test(q)) {
+    addLink('/derma-clinic', '🩹 افتح عيادة الجلدية والحروق والجروح', 'Open Dermatology & Burns Clinic');
+  }
+
+  // 7. Dental Emergencies
+  if (/(ضرس|ضرسي|الضرس|سنه|سنتي|اسنان|أسنان|لثه|اللثة|عصب الضرس|خراج اسنان|خلع ضرس|قرح الفم)/.test(q)) {
+    addLink('/dental-clinic', '🦷 افتح عيادة طوارئ الأسنان واللثة', 'Open Dental Emergency Clinic');
+  }
+
+  // 8. G6PD Favism
+  if (/(انيميا الفول|أنيميا الفول|تكسير دم|فول|طعميه|سبترين|حنه|نفتالين|g6pd)/.test(q)) {
+    addLink('/g6pd-clinic', '🫘 افتح عيادة أنيميا الفول (G6PD)', 'Open G6PD Favism Clinic');
+  }
+
+  // 9. Chronic Care (Diabetes, Hypertension, Heart, Anticoagulants, Thyroid)
+  if (/(سكر|السكري|تراكمي|انسولين|إنسولين|هبوط سكر|قدم سكري|ضغط|الضغط|عرقسوس|قلب|ذبحه|صدر|سيوله|ماريفان|اليكويس|غده درقيه|التروكسين)/.test(q)) {
+    addLink('/chronic-clinic', '🫀 افتح عيادة الباطنة والسكر والضغط والقلب', 'Open Diabetes, BP & Heart Clinic');
+  }
+
+  // 10. Ophthalmology & Eye Care
+  if (/(عين|عيني|العين|قرنيه|قطره عين|رمد|عماص|عدسات لاصقه|جفاف العين|رايش|كيس دهني)/.test(q)) {
+    addLink('/eye-clinic', '👁️ افتح عيادة العيون وطوارئ القرنية', 'Open Eye & Cornea Clinic');
+  }
+
+  // 11. ENT, Sinus & Vertigo
+  if (/(انف|أنف|نزيف انف|رعاف|اوتريفين|أوتريفين|جيوب انفيه|ودن|ودني|أذن|شمع الاذن|دوخه|دوار|اتزان|لوز|احتقان زور)/.test(q)) {
+    addLink('/ent-clinic', '👂 افتح عيادة الأنف والأذن والدوار', 'Open ENT & Vertigo Clinic');
+  }
+
+  // 12. Lab Tests Decoder
+  if (/(تحليل|تحاليل|صيام التحليل|هيموجلوبين|فيريتين|مخزون الحديد|مزرعه بول|هرمونات|نتيجه التحليل|معمل)/.test(q)) {
+    addLink('/lab-clinic', '🔬 افتح عيادة ترجمة وقراءة التحاليل الطبية', 'Open Smart Lab Test Decoder');
+  }
+
+  // 13. Neurology, Migraine, Stroke & Sleep
+  if (/(صداع|شقيقه|نصفي|جلطه مخ|تنميل|ثقل لسان|تشنج|صرع|عصب سابع|ارق|أرق|نوم|توتر|هلع|ميلاتونين)/.test(q)) {
+    addLink('/neuro-clinic', '🧠 افتح عيادة المخ والأعصاب والصداع والأرق', 'Open Neurology & Migraine Clinic');
+  }
+
+  // 14. Poison Control & First Aid
+  if (/(سم|تسمم|شرب كلور|بطاس|فلاش|جاز|بلع برشام|بلع بطاريه|عضه كلب|قطه|سعار|قنديل البحر|عقرب|ثعبان|غاز السخان|ضربه شمس|كهرباء)/.test(q)) {
+    addLink('/poison-clinic', '🚑 افتح عيادة طوارئ السموم والإسعافات الأولية', 'Open Poison & First-Aid ER Clinic');
+  }
+
+  // 15. Clinical Nutrition & Weight Loss
+  if (/(تخسيس|دايت|رجيم|سعرات|اوزيمبيك|أوزيمبيك|مونجارو|ساكسندا|اورليستات|صيام متقطع|مقاومه انسولين|كرش|نحافه|تسمين|ديكسازون)/.test(q)) {
+    addLink('/nutrition-clinic', '🥗 افتح عيادة التغذية وحقن التخسيس والصيام المتقطع', 'Open Clinical Nutrition & GLP-1 Clinic');
+  }
+
+  // 16. Women's Health, PCOS & Contraception
+  if (/(منع الحمل|نسيت حبايه|نسيت حبة|لولب|كبسوله الذراع|تكيس مبايض|تكيسات|الدوره الشهريه|مغص الدوره|غزاره الدوره|فحص الثدي)/.test(q)) {
+    addLink('/women-clinic', '🌸 افتح عيادة صحة المرأة وتكيس المبايض ومنع الحمل', 'Open Women’s Health & PCOS Clinic');
+  }
+
+  // 17. Geriatric Care & Bedsores
+  if (/(مسن|جدي|جدتي|كبار السن|قرح فراش|قرحه فراش|مرتبه هوائيه|زهايمر|خرف|هذيان|شرقه الميه|كسر الحوض)/.test(q)) {
+    addLink('/geriatric-clinic', '👴 افتح عيادة رعاية المسنين وقرح الفراش والزهايمر', 'Open Geriatric & Bedsore Clinic');
+  }
+
+  // 18. Hair Loss & Skincare
+  if (/(شعر|سقوط الشعر|تساقط|صلع|مينوكسيديل|ثعلبه|قشره الشعر|بشره|غسول|مرطب|واقي شمس|اكرتين|أكرتين)/.test(q)) {
+    addLink('/hair-clinic', '💇‍♀️ افتح عيادة الشعر والصلع الوراثي والبشرة', 'Open Hair Loss & Skincare Clinic');
+  }
+
+  // 19. Chest, Asthma & Nebulizer
+  if (/(كحه|كحة|بلغم|صدر|حساسيه صدر|ربو|بخاخ|فنتولين|سيريتيد|نيبولايزر|جلسه بخار|فاركولين|بالميكورت|تدخين|سجاير|فيب)/.test(q)) {
+    addLink('/chest-clinic', '🫁 افتح عيادة الصدر والربو وجلسات البخار', 'Open Chest & Nebulizer Clinic');
+  }
+
+  // 20. Travel & Airport Banned Meds
+  if (/(مطار|سفر|جمارك|السعوديه|الخليج|ممنوع في المطار|ليريكا|ترامادول|كونجستال في المطار)/.test(q)) {
+    addLink('/airport-banned-meds', '✈️ افتح كاشف الأدوية الممنوعة في المطارات', 'Open Airport Banned Meds Scanner');
+  }
+
+  // 21. General Symptom / Pain / Triage
+  if (/(وجع|ألم|الم|تعبان|حاسس|اعراض|أعراض|اكشف عند مين|اكشف تخصص ايه|طوارئ)/.test(q) || links.length > 0) {
+    addLink('/symptom-triage', '🩺 افتح مشخص الأعراض الذكي (اكشف عند أنهي دكتور؟)', 'Open Smart Symptom Triage');
+    addLink('/clinics', '🏥 تصفح مجمع العيادات التخصصية (20 عيادة)', 'Browse All 20 Specialty Clinics');
+  }
+
+  return links.slice(0, 4);
 }

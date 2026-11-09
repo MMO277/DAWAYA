@@ -68,6 +68,12 @@ const Scan = lazyWithRetry(() => import('./Scan'));
 const Learn = lazyWithRetry(() => import('./Learn'));
 const Assistant = lazyWithRetry(() => import('./Assistant'));
 const MythFact = lazyWithRetry(() => import('./MythFact'));
+const ClinicalNutritionClinic = lazyWithRetry(() => import('./ClinicalNutritionClinic'));
+const WomensHealthClinic = lazyWithRetry(() => import('./WomensHealthClinic'));
+const GeriatricCareClinic = lazyWithRetry(() => import('./GeriatricCareClinic'));
+const HairSkincareClinic = lazyWithRetry(() => import('./HairSkincareClinic'));
+const ChestRespiratoryClinic = lazyWithRetry(() => import('./ChestRespiratoryClinic'));
+const SmartSymptomTriage = lazyWithRetry(() => import('./SmartSymptomTriage'));
 const OphthalmologyClinic = lazyWithRetry(() => import('./OphthalmologyClinic'));
 const EntClinic = lazyWithRetry(() => import('./EntClinic'));
 const LabTestDecoderClinic = lazyWithRetry(() => import('./LabTestDecoderClinic'));
@@ -272,7 +278,13 @@ export default function App() {
               <Route path="/myth" element={<MythFact />} />
               <Route path="/methodology" element={<Methodology />} />
               <Route path="/research" element={<Research />} />
-                                                                                    <Route path="/eye-clinic" element={<OphthalmologyClinic />} />
+                                                                                                  <Route path="/nutrition-clinic" element={<ClinicalNutritionClinic />} />
+              <Route path="/women-clinic" element={<WomensHealthClinic />} />
+              <Route path="/geriatric-clinic" element={<GeriatricCareClinic />} />
+              <Route path="/hair-clinic" element={<HairSkincareClinic />} />
+              <Route path="/chest-clinic" element={<ChestRespiratoryClinic />} />
+              <Route path="/symptom-triage" element={<SmartSymptomTriage />} />
+<Route path="/eye-clinic" element={<OphthalmologyClinic />} />
               <Route path="/ent-clinic" element={<EntClinic />} />
               <Route path="/lab-clinic" element={<LabTestDecoderClinic />} />
               <Route path="/urology-clinic" element={<UrologyRenalClinic />} />

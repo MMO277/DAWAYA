@@ -42,6 +42,7 @@ import {
   buildPermittedPatientContextPrompt,
   EnhancedChatUiMessage,
   generateContextualSiteReply,
+  matchSpecialtyClinicLinks,
   getSmartAssistantActionChips,
   useSyncedAiConversation,
 } from './aiConversationContext';
@@ -391,11 +392,13 @@ export default function Assistant() {
       localReply,
     });
 
-    // Only show medicine chips when the user's question explicitly matched a medical condition or drug!
-    const matchedLinks =
-      contextualResult.handledFast && contextualResult.links && contextualResult.links.length > 0
-        ? contextualResult.links
-        : undefined;
+    // Combine direct medicine links + Smart Specialty Clinic & Symptom Triage routing links
+    const clinicRoutingLinks = matchSpecialtyClinicLinks(text);
+    const combinedLinks = [
+      ...(contextualResult.links || []),
+      ...clinicRoutingLinks,
+    ];
+    const matchedLinks = combinedLinks.length > 0 ? combinedLinks : undefined;
 
     // Always route through the Live Internet + Cloud AI Engine first (no canned short-circuiting!)
 
@@ -918,7 +921,7 @@ export default function Assistant() {
                             fontSize: '0.84rem',
                           }}
                         >
-                          💊 {pick(l.label, lang)}
+                          {/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(pick(l.label, lang)) ? pick(l.label, lang) : `💊 ${pick(l.label, lang)}`}
                         </Link>
                       ))}
                     </div>
