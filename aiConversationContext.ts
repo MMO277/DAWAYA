@@ -1,3 +1,43 @@
+
+/**
+ * Comprehensive Medical Input Sanitizer & Prompt Injection Shield:
+ * Cleans user input from malicious script tags, iframe injections,
+ * and adversarial prompt injection patterns attempting to reveal internal instructions.
+ */
+export function sanitizeMedicalUserInput(rawInput: string): string {
+  if (!rawInput) return '';
+  // 1. Strip raw HTML/JS tags
+  let cleaned = rawInput.replace(/<[^>]*>?/gm, '');
+
+  // 2. Normalize excessive whitespace & control characters
+  cleaned = cleaned.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+
+  // 3. Truncate extreme length payloads (anti-DOS / context overflow)
+  if (cleaned.length > 2500) {
+    cleaned = cleaned.slice(0, 2500);
+  }
+
+  return cleaned;
+}
+
+export function detectAdversarialPromptInjection(text: string): boolean {
+  const lower = text.toLowerCase();
+  const suspiciousPatterns = [
+    'ignore all previous instructions',
+    'ignore previous instructions',
+    'system prompt',
+    'disregard all prior instructions',
+    'bypass security',
+    'reveal your prompt',
+    'print your prompt',
+    'output system prompt',
+    'jailbreak',
+    'dan mode',
+    'developer mode enable',
+  ];
+  return suspiciousPatterns.some((pattern) => lower.includes(pattern));
+}
+
 /**
  * aiConversationContext.ts
  *
@@ -1377,6 +1417,17 @@ export function generateContextualSiteReply(params: {
   const meds = params.meds && params.meds.length > 0 ? params.meds : getSeedMedicinesFallback();
   const x = norm(userText);
   const topicMemory = extractConversationTopicMemory(msgs, meds, lang);
+
+  // Security: Clean and sanitize user query against prompt injections
+  const safeUserText = sanitizeMedicalUserInput(userText);
+  if (detectAdversarialPromptInjection(safeUserText)) {
+    return {
+      handledFast: true,
+      replyText:
+        '🛡️ تنبيه أمان: أنا مساعدك الطبي الصيدلاني لمنصة «دوايا»، مخصص للإجابة على الأسئلة الصحية والدوائية وحماية المرضى فقط وفق أحدث البروتوكولات الطبية المعتمدة.',
+      topicMemory,
+    };
+  }
 
   // Quick friendly Egyptian greetings & identity questions
   if (

@@ -90,8 +90,18 @@ function offlineAndInAppUpdatePlugin(): Plugin {
 export default defineConfig({
   plugins: [react(), offlineAndInAppUpdatePlugin()],
   base: './',
+  esbuild: {
+    drop: ['debugger'],
+    legalComments: 'none',
+  },
   build: {
     target: 'es2020',
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 900,
+    modulePreload: {
+      polyfill: false,
+    },
+    minify: 'esbuild',
     cssCodeSplit: true,
     chunkSizeWarningLimit: 900,
     modulePreload: {

@@ -1,3 +1,33 @@
+
+// ── Rate Limiting & Anti-Flood Security Guard ──
+const AI_CALL_HISTORY: number[] = [];
+const MAX_CALLS_PER_MINUTE = 20;
+const MIN_GAP_BETWEEN_CALLS_MS = 800;
+let lastCallTimestamp = 0;
+
+export function checkAiRateLimit(): { allowed: boolean; waitSec: number } {
+  const now = Date.now();
+  // Clean calls older than 60 seconds
+  while (AI_CALL_HISTORY.length > 0 && now - AI_CALL_HISTORY[0] > 60000) {
+    AI_CALL_HISTORY.shift();
+  }
+
+  // Minimum gap between rapid-fire clicks
+  if (now - lastCallTimestamp < MIN_GAP_BETWEEN_CALLS_MS) {
+    return { allowed: false, waitSec: 1 };
+  }
+
+  if (AI_CALL_HISTORY.length >= MAX_CALLS_PER_MINUTE) {
+    const oldest = AI_CALL_HISTORY[0];
+    const waitSec = Math.ceil((60000 - (now - oldest)) / 1000);
+    return { allowed: false, waitSec: Math.max(1, waitSec) };
+  }
+
+  lastCallTimestamp = now;
+  AI_CALL_HISTORY.push(now);
+  return { allowed: true, waitSec: 0 };
+}
+
 import type { Lang } from './types';
 import { getCurrentEmergencyInfo } from './emergencyLocation';
 // geminiApi.ts - Multi-Engine Bilingual AI Vision, Deterministic Prescription OCR & Clinical Assistant
@@ -870,6 +900,16 @@ export async function askGemini(
   history: ChatMessage[] = [],
   rawUserQuestion?: string
 ): Promise<string> {
+  // Security: Check Rate Limit & Flood Guard
+  const rateLimit = checkAiRateLimit();
+  if (!rateLimit.allowed) {
+    return (
+      '⏳ حفاظاً على أمان واستقرار المنصة وسرعة الخدمة لكل المرضى، يرجى الانتظار ' +
+      rateLimit.waitSec +
+      ' ثانية قبل إرسال سؤالك التالي.'
+    );
+  }
+
   let key = getApiKey();
   if (!key) {
     key = await loadSharedCloudAiKey();

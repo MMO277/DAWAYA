@@ -111,7 +111,8 @@ service cloud.firestore {
     }
 
     match /settings/{docId} {
-      allow read: if true;
+      // Sensitive settings (like ai_config) must only be readable and writable by Admin
+      allow read: if docId != 'ai_config' || isAdmin();
       allow write: if isAdmin();
     }
 
