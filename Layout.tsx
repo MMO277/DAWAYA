@@ -299,7 +299,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     {
       id: 'specialty-clinics',
       icon: '🏥',
-      title: tr(lang, 'مجمع العيادات التخصصية (8 عيادات)', 'Specialty Medical Clinics (8 Clinics)', 'Cliniques Spécialisées', 'Clínicas Especializadas'),
+      title: tr(lang, 'مجمع العيادات التخصصية (14 عيادة)', 'Specialty Medical Clinics (14 Clinics)', 'Cliniques Spécialisées', 'Clínicas Especializadas'),
       shortTitle: tr(lang, 'العيادات التخصصية', 'Specialty Clinics', 'Cliniques', 'Clínicas'),
       subtitle: tr(
         lang,
@@ -311,7 +311,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           to: '/clinics',
           key: '',
           icon: '🏥',
-          shortLabel: tr(lang, 'بوابة جميع العيادات (8 عيادات)', 'All Specialty Clinics Hub', 'Toutes les Cliniques', 'Todas las Clínicas'),
+          shortLabel: tr(lang, 'بوابة جميع العيادات (14 عيادة)', 'All Specialty Clinics Hub', 'Toutes les Cliniques', 'Todas las Clínicas'),
         },
         {
           to: '/pregnancy-guide',
@@ -361,6 +361,43 @@ export default function Layout({ children }: { children: ReactNode }) {
           icon: '🫀',
           shortLabel: tr(lang, 'عيادة الباطنة والسكر والضغط', 'Diabetes, BP & Anticoagulants', 'Médecine Interne', 'Medicina Interna'),
         },
+        {
+          to: '/eye-clinic',
+          key: '',
+          icon: '👁️',
+          shortLabel: tr(lang, 'عيادة العيون وطوارئ القرنية', 'Ophthalmology & Eye Clinic', 'Clinique Ophtalmologique', 'Clínica Oftalmológica'),
+        },
+        {
+          to: '/ent-clinic',
+          key: '',
+          icon: '👂',
+          shortLabel: tr(lang, 'عيادة الأنف والأذن والدوار', 'ENT, Sinus & Vertigo Clinic', 'Clinique ORL', 'Clínica ORL'),
+        },
+        {
+          to: '/lab-clinic',
+          key: '',
+          icon: '🔬',
+          shortLabel: tr(lang, 'عيادة ترجمة التحاليل الطبية', 'Smart Lab Test Decoder', 'Analyses Médicales', 'Análisis Clínicos'),
+        },
+        {
+          to: '/urology-clinic',
+          key: '',
+          icon: '🧪',
+          shortLabel: tr(lang, 'عيادة الكلى والمسالك والبروستاتا', 'Urology, Stones & Renal Clinic', 'Urologie & Reins', 'Urología y Riñón'),
+        },
+        {
+          to: '/neuro-clinic',
+          key: '',
+          icon: '🧠',
+          shortLabel: tr(lang, 'عيادة المخ والأعصاب والصداع', 'Neurology, Migraine & Stroke', 'Neurologie & Migraine', 'Neurología y Migraña'),
+        },
+        {
+          to: '/poison-clinic',
+          key: '',
+          icon: '🚑',
+          shortLabel: tr(lang, 'عيادة السموم والإسعافات الأولية', 'Poison Control & First-Aid ER', 'Centre Antipoison', 'Toxicología y Urgencias'),
+        },
+
       ],
     },
     {
