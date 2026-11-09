@@ -428,6 +428,12 @@ export default function Layout({ children }: { children: ReactNode }) {
           shortLabel: tr(lang, 'مشخص الأعراض الذكي (اكشف فين؟)', 'Smart Symptom Triage', 'Triage Symptômes', 'Triaje de Síntomas'),
         },
         {
+          to: '/medical-report',
+          key: '',
+          icon: '📄',
+          shortLabel: tr(lang, 'التقرير الطبي الشامل (PDF)', 'Medical Report (PDF)', 'Rapport Médical', 'Informe Médico'),
+        },
+        {
           to: '/meal-planner',
           key: '',
           icon: '🥗',

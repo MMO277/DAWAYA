@@ -78,6 +78,7 @@ const FoodDrugInteractionChecker = lazyWithRetry(() => import('./FoodDrugInterac
 const SmartLabAndRxPhotoScanner = lazyWithRetry(() => import('./SmartLabAndRxPhotoScanner'));
 const VisualBodyDrugSimulator = lazyWithRetry(() => import('./VisualBodyDrugSimulator'));
 const ChronicMealPlanner = lazyWithRetry(() => import('./ChronicMealPlanner'));
+const ComprehensiveMedicalReport = lazyWithRetry(() => import('./ComprehensiveMedicalReport'));
 const SmartSymptomTriage = lazyWithRetry(() => import('./SmartSymptomTriage'));
 const OphthalmologyClinic = lazyWithRetry(() => import('./OphthalmologyClinic'));
 const EntClinic = lazyWithRetry(() => import('./EntClinic'));
@@ -293,6 +294,7 @@ export default function App() {
               <Route path="/lab-photo-scanner" element={<SmartLabAndRxPhotoScanner />} />
               <Route path="/organ-simulator" element={<VisualBodyDrugSimulator />} />
               <Route path="/meal-planner" element={<ChronicMealPlanner />} />
+              <Route path="/medical-report" element={<ComprehensiveMedicalReport />} />
               <Route path="/symptom-triage" element={<SmartSymptomTriage />} />
 <Route path="/eye-clinic" element={<OphthalmologyClinic />} />
               <Route path="/ent-clinic" element={<EntClinic />} />

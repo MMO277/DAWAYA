@@ -1,3 +1,4 @@
+import VoiceDoctorCallModal from './VoiceDoctorCallModal';
 import { pick } from './types';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -228,6 +229,7 @@ export default function Assistant() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [listening, setListening] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
+  const [voiceCallOpen, setVoiceCallOpen] = useState(false);
   const [voiceNote, setVoiceNote] = useState('');
   const stopListenRef = useRef<VoiceRecognitionHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1152,6 +1154,7 @@ export default function Assistant() {
         </form>
       </section>
       <p className="alert">{t('asstScope')}</p>
+      <VoiceDoctorCallModal isOpen={voiceCallOpen} onClose={() => setVoiceCallOpen(false)} />
     </main>
   );
 }

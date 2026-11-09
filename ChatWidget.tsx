@@ -1,3 +1,4 @@
+import VoiceDoctorCallModal from './VoiceDoctorCallModal';
 import { pick, tr } from './types';
 import { useEmergencyLocation, pickCountryName } from './emergencyLocation';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
@@ -110,6 +111,7 @@ export default function ChatWidget() {
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [listening, setListening] = useState(false);
+  const [voiceCallOpen, setVoiceCallOpen] = useState(false);
   const stopListenRef = useRef<VoiceRecognitionHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -822,6 +824,16 @@ export default function ChatWidget() {
               </div>
             </div>
             <div className="popup-actions">
+              <button
+                type="button"
+                className="chip"
+                onClick={() => setVoiceCallOpen(true)}
+                style={{ background: '#10b981', color: '#ffffff', fontWeight: 900, borderColor: '#059669' }}
+                title={isAr ? 'ابدأ مكالمة صوتية مباشرة' : 'Start Live Voice Call'}
+              >
+                📞 {isAr ? 'مكالمة صوتية' : 'Call'}
+              </button>
+
               <Link
                 to="/health-profile"
                 className="expand-btn"
@@ -1185,6 +1197,7 @@ export default function ChatWidget() {
           </form>
         </div>
       )}
+      <VoiceDoctorCallModal isOpen={voiceCallOpen} onClose={() => setVoiceCallOpen(false)} />
     </aside>
   );
 }

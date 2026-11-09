@@ -143,6 +143,30 @@ export default function Home() {
   // Concise Bento Grid Clinical Tools (Exact original icon & card structure, upgraded for all 26,562 medicines)
   const clinicalTools = [
     {
+      to: '/assistant',
+      icon: '📞',
+      badge: tr(lang, 'جديد • مكالمة صوتية هاتفية مباشرة', 'NEW • Live Voice Call'),
+      title: tr(lang, 'مكالمة الطبيب الصيدلاني الصوتية المباشرة (Voice Call)', 'Live Voice Consultation with Dr. DAWAYA'),
+      desc: tr(
+        lang,
+        'اتكلم مع الطبيب بالصوت بالعامية المصرية كأنك في مكالمة تليفون، واسمع رده الطبي الفوري بصوته بدون الحاجة للكتابة والقراءة',
+        'Speak directly in colloquial Arabic with Dr. DAWAYA like a real phone call and hear live clinical advice'
+      ),
+      color: '#059669',
+    },
+    {
+      to: '/medical-report',
+      icon: '📄',
+      badge: tr(lang, 'جديد • جاهز للطباعة والـ PDF', 'NEW • Printable PDF Report'),
+      title: tr(lang, 'التقرير الطبي الشامل المعتمد للمريض (Medical Report)', 'Official Comprehensive Patient Medical Report'),
+      desc: tr(
+        lang,
+        'صدر بضغطة زر تقريراً طبياً معتمداً يشمل فصيلة دمك، الحساسية الممنوعة، الأمراض المزمنة، وقائمة أدويتك وجرعاتها ليقدم للطبيب أو المستشفى',
+        'Export a certified medical summary document featuring blood group, allergies, chronic history, and active drug doses'
+      ),
+      color: '#1d4ed8',
+    },
+    {
       to: '/meal-planner',
       icon: '🥗',
       badge: tr(lang, 'جديد • وجبات السكر والضغط والكلى', 'NEW • Chronic Meal Planner'),
