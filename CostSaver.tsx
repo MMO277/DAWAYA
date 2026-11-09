@@ -1,3 +1,4 @@
+import SmartMedDoseReminderBadge from './SmartMedDoseReminderBadge';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';

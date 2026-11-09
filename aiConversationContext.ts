@@ -2367,6 +2367,12 @@ export function matchInteractiveTriagePrompts(userText: string): InteractiveTria
         queryAr: 'عندي رضيع في أول سنة وعايز أعرف جدول الرضاعة، علاج المغص والغازات، والتعامل مع التطعيمات',
         queryEn: 'I have an infant under 1 year and need guidance on feeding, colic relief, and vaccination care.',
       },
+      {
+        labelAr: '🔔 فكرني بحبة منع الحمل يومياً بإشعار على الموبايل',
+        labelEn: 'Set daily mobile reminder for contraceptive pill',
+        queryAr: 'عايز أفعّل إشعار وتنبيه يومي لحبة منع الحمل عشان ما أنسهاش أبداً، إيه الخطوات؟',
+        queryEn: 'I want to activate a daily reminder notification for my birth control pill.',
+      },
     ];
   }
 

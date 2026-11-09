@@ -1,3 +1,4 @@
+import SmartMedDoseReminderBadge from './SmartMedDoseReminderBadge';
 import FindMedicationPanel from './FindMedicationPanel';
 import Mechanism3DViewer from './Mechanism3DViewer';
 import { useEffect, useMemo, useState } from 'react';
@@ -229,13 +230,33 @@ export default function MedicinePage() {
     [m, dawayaRecord, profile]
   );
 
-  if (m === undefined) return <main className="wrap"><p>{t('loading')}</p></main>;
+  if (m === undefined) return <main className="wrap"><p>{t('loading')}</p>
+        {/* Proactive Universal Dose Reminder for this specific medicine */}
+        {med && (
+          <SmartMedDoseReminderBadge
+            medicineName={pick(med.name, lang)}
+            defaultTime="09:00"
+            instruction={pick(med.usage, lang) || 'يرجى الالتزام بالموعد المحدد للجرعة'}
+          />
+        )}
+
+    </main>;
   if (m === null)
     return (
       <main className="wrap narrow">
         <p>{t('notFound')}</p>
         <Link to="/medicines">{t('navMedicines')}</Link>
-      </main>
+      
+        {/* Proactive Universal Dose Reminder for this specific medicine */}
+        {med && (
+          <SmartMedDoseReminderBadge
+            medicineName={pick(med.name, lang)}
+            defaultTime="09:00"
+            instruction={pick(med.usage, lang) || 'يرجى الالتزام بالموعد المحدد للجرعة'}
+          />
+        )}
+
+    </main>
     );
 
   const approved = m.status === 'approved';
@@ -969,6 +990,16 @@ export default function MedicinePage() {
           }}
         />
       )}
+    
+        {/* Proactive Universal Dose Reminder for this specific medicine */}
+        {med && (
+          <SmartMedDoseReminderBadge
+            medicineName={pick(med.name, lang)}
+            defaultTime="09:00"
+            instruction={pick(med.usage, lang) || 'يرجى الالتزام بالموعد المحدد للجرعة'}
+          />
+        )}
+
     </main>
   );
 }
