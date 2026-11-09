@@ -428,6 +428,12 @@ export default function Layout({ children }: { children: ReactNode }) {
           shortLabel: tr(lang, 'مشخص الأعراض الذكي (اكشف فين؟)', 'Smart Symptom Triage', 'Triage Symptômes', 'Triaje de Síntomas'),
         },
         {
+          to: '/meal-planner',
+          key: '',
+          icon: '🥗',
+          shortLabel: tr(lang, 'مُولّد وجبات السكر والضغط والكلى', 'Chronic Disease Meal Planner', 'Générateur Repas', 'Planificador Comidas'),
+        },
+        {
           to: '/nutrition-clinic',
           key: '',
           icon: '🥗',

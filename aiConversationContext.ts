@@ -1920,7 +1920,7 @@ export function buildPermittedPatientContextPrompt(params: {
       'عيادة طوارئ الأسنان (/dental-clinic)، عيادة أنيميا الفول (/g6pd-clinic)، عيادة الباطنة والسكر والضغط (/chronic-clinic)، ' +
       'عيادة العيون (/eye-clinic)، عيادة الأنف والأذن والدوار (/ent-clinic)، عيادة ترجمة التحاليل (/lab-clinic)، ' +
       'عيادة الكلى والمسالك والحصوات (/urology-clinic)، عيادة المخ والأعصاب والصداع (/neuro-clinic)، عيادة السموم والطوارئ (/poison-clinic)، ' +
-      'عيادة التغذية وحقن التخسيس (/nutrition-clinic)، عيادة صحة المرأة وتكيس المبايض (/women-clinic)، عيادة المسنين وقرح الفراش (/geriatric-clinic)، ' +
+      'مُولّد وجبات الأمراض المزمنة (/meal-planner)، عيادة التغذية وحقن التخسيس (/nutrition-clinic)، عيادة صحة المرأة وتكيس المبايض (/women-clinic)، عيادة المسنين وقرح الفراش (/geriatric-clinic)، ' +
       'عيادة الشعر والبشرة (/hair-clinic)، عيادة الصدر وجلسات البخار (/chest-clinic)]'
   );
 
@@ -2086,9 +2086,10 @@ export function matchSpecialtyClinicLinks(userText: string): ReplyLink[] {
     addLink('/poison-clinic', '🚑 افتح عيادة طوارئ السموم والإسعافات الأولية', 'Open Poison & First-Aid ER Clinic');
   }
 
-  // 15. Clinical Nutrition & Weight Loss
-  if (/(تخسيس|دايت|رجيم|سعرات|اوزيمبيك|أوزيمبيك|مونجارو|ساكسندا|اورليستات|صيام متقطع|مقاومه انسولين|كرش|نحافه|تسمين|ديكسازون)/.test(q)) {
-    addLink('/nutrition-clinic', '🥗 افتح عيادة التغذية وحقن التخسيس والصيام المتقطع', 'Open Clinical Nutrition & GLP-1 Clinic');
+  // 15. Clinical Nutrition & Weight Loss & Meal Planner
+  if (/(تخسيس|دايت|رجيم|سعرات|اوزيمبيك|أوزيمبيك|مونجارو|ساكسندا|اورليستات|صيام متقطع|مقاومه انسولين|كرش|نحافه|تسمين|ديكسازون|وجبات|اكل السكر|اكل الضغط|اكل الكلي|اكل النقرس|اكل الكوليسترول|فطار|غدا|غداء|عشا|عشاء)/.test(q)) {
+    addLink('/meal-planner', '🥗 افتح مُولّد وجبات السكر والضغط والكلى والنقرس', 'Open Chronic Meal Planner');
+    addLink('/nutrition-clinic', '🥑 افتح عيادة التغذية وحقن التخسيس', 'Open Clinical Nutrition Clinic');
   }
 
   // 16. Women's Health, PCOS & Contraception
@@ -2314,6 +2315,36 @@ export function matchInteractiveTriagePrompts(userText: string): InteractiveTria
         labelEn: 'Infant under 1 year: feeding, colic, or vaccinations',
         queryAr: 'عندي رضيع في أول سنة وعايز أعرف جدول الرضاعة، علاج المغص والغازات، والتعامل مع التطعيمات',
         queryEn: 'I have an infant under 1 year and need guidance on feeding, colic relief, and vaccination care.',
+      },
+    ];
+  }
+
+  // 7.5 Diet & Meals for Chronic Diseases
+  if (/(اكل|أكل|طعام|وجبه|وجبة|وجبات|فطار|غدا|غداء|عشا|عشاء|دايت|سكر|ضغط|كلي|كلى|نقرس|كوليسترول)/.test(q)) {
+    return [
+      {
+        labelAr: '🥗 خطة وجبات اليوم لمرضى السكر (فطار وغداء وعشاء)',
+        labelEn: 'Daily Egyptian meal plan for diabetes (carbs-counted)',
+        queryAr: 'إيه أفضل خطة وجبات مصرية يومية لمريض السكر بدون ما ترفع سكر الدم بعد الأكل؟',
+        queryEn: 'What is the best daily Egyptian meal plan for diabetes without post-meal spikes?',
+      },
+      {
+        labelAr: '🫀 وجبات مريض الضغط وخفض الصوديوم (نظام DASH)',
+        labelEn: 'Low-sodium meals for hypertension and heart health',
+        queryAr: 'عايز جدول وجبات مصرية لمرضى الضغط المرتفع قليل الملح والصوديوم، تاكل إيه؟',
+        queryEn: 'What is a low-sodium Egyptian meal plan for hypertension and heart patients?',
+      },
+      {
+        labelAr: '🧪 وجبات مريض الكلى وضبط البروتين والبوتاسيوم',
+        labelEn: 'Renal-friendly meal plan (controlled protein and potassium)',
+        queryAr: 'إيه الأكلات المسموحة والممنوعة لمريض ضعف وظائف الكلى وإزاي أضبط البروتين؟',
+        queryEn: 'What are the safe and restricted foods for chronic kidney disease patients?',
+      },
+      {
+        labelAr: '🦶 وجبات النقرس واليوريك أسيد والممنوعات',
+        labelEn: 'Low-purine meals for gout and high uric acid',
+        queryAr: 'عندي نقرس ويوريك أسيد عالي، إيه خطة الأكل والمشروبات المسموحة والممنوعة؟',
+        queryEn: 'What is a low-purine meal plan for gout and high uric acid?',
       },
     ];
   }

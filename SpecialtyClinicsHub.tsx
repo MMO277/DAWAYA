@@ -23,6 +23,31 @@ export interface SpecialtyClinicCard {
 
 export const SPECIALTY_CLINICS_LIST: SpecialtyClinicCard[] = [
   {
+    id: 'chronic-meal-planner',
+    to: '/meal-planner',
+    icon: '🥗',
+    titleAr: 'مُولّد وجبات الأمراض المزمنة المصري (السكر، الضغط، الكلى، الدهون، النقرس)',
+    titleEn: 'Egyptian Chronic Disease Smart Meal Planner & Carb Tracker',
+    consultantBadgeAr: 'استشاري التغذية العلاجية والأمراض المزمنة',
+    consultantBadgeEn: 'Senior Clinical Dietitian & Chronic Care',
+    color: '#059669',
+    gradient: 'linear-gradient(135deg, #0D1F38 0%, #065f46 100%)',
+    descriptionAr: 'خطة وجبات متوازنة ليوم كامل (فطار، غداء، عشاء، وسناك) بأكلات مصرية شعبية محسوبة النشويات والأملاح والبوتاسيوم مع جدول الممنوعات ومشاركة واتساب.',
+    descriptionEn: 'Daily meal planning with authentic Egyptian foods tailored for diabetes, hypertension, kidney disease, lipid management, and gout.',
+    modulesAr: [
+      '١. وجبات سكر منضبطة النشويات والخبز البلدي بدون قفزات سكر مفاجئة',
+      '٢. وجبات ضغط منخفضة الصوديوم وغنية بالبوتاسيوم الطبيعي والكركديه',
+      '٣. وجبات كلى منضبطة البروتين والفوسفور والبوتاسيوم مع سلق الخضار',
+      '٤. وجبات نقرس خالية من البيورين وأكلات كنس الكوليسترول بالشوفان وزيت الزيتون',
+    ],
+    modulesEn: [
+      '1. Diabetes meal plans with glycemic control and complex fiber',
+      '2. Low-sodium DASH Egyptian meals for hypertension and heart care',
+      '3. Renal meal plans with managed protein, potassium leaching, and low phosphorus',
+      '4. Low-purine gout plans and cholesterol-clearing oat/olive oil meals',
+    ],
+  },
+  {
     id: 'interactive-body-map',
     to: '/body-map',
     icon: '🧍‍♂️',

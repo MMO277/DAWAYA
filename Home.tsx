@@ -143,6 +143,18 @@ export default function Home() {
   // Concise Bento Grid Clinical Tools (Exact original icon & card structure, upgraded for all 26,562 medicines)
   const clinicalTools = [
     {
+      to: '/meal-planner',
+      icon: '🥗',
+      badge: tr(lang, 'جديد • وجبات السكر والضغط والكلى', 'NEW • Chronic Meal Planner'),
+      title: tr(lang, 'مُولّد وجبات الأمراض المزمنة الذكي بأكلات مصرية', 'Egyptian Chronic Disease Smart Meal Planner'),
+      desc: tr(
+        lang,
+        'ولد بضغطة زر خطة وجبات ليوم كامل (فطار، غداء، عشاء، وسناك) لمرضى السكر والضغط والكلى والدهون والنقرس بأكلات متوفرة في بيتك',
+        'Generate an authentic, healthy daily Egyptian meal plan for diabetes, hypertension, kidney disease, cholesterol, and gout'
+      ),
+      color: '#059669',
+    },
+    {
       to: '/body-map',
       icon: '🧍‍♂️',
       badge: tr(lang, 'جديد • اضغط على مكان الوجع!', 'NEW • Tap Where It Hurts!'),

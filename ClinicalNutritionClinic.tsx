@@ -66,6 +66,21 @@ export default function ClinicalNutritionClinic() {
             'TDEE & protein calculator, safe GLP-1 injection protocol (Ozempic/Mounjaro/Saxenda), Orlistat vitamin rules, intermittent fasting, and insulin resistance.'
           )}
         </p>
+
+        {/* Direct Link to Chronic Meal Planner */}
+        <div style={{ marginTop: '16px', padding: '14px 18px', borderRadius: '16px', background: 'rgba(255,255,255,0.15)', border: '1.5px solid #CFD29D', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <strong style={{ color: '#ffffff', fontSize: '1rem', display: 'block' }}>
+              🥗 هل تعاني من السكر أو الضغط أو الكلى أو النقرس؟
+            </strong>
+            <span style={{ color: '#d1fae5', fontSize: '0.86rem' }}>
+              افتح مُولّد وجبات الأمراض المزمنة لتوليد جدول وجبات يومي كامل بأكلات مصرية في بيتك!
+            </span>
+          </div>
+          <Link to="/meal-planner" className="btn small" style={{ background: '#CFD29D', color: '#0D1F38', fontWeight: 900, textDecoration: 'none', borderRadius: '12px' }}>
+            🥗 افتح مُولّد الوجبات الآن ←
+          </Link>
+        </div>
       </section>
 
       {/* 6 Navigation Tabs */}
