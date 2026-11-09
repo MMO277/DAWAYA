@@ -143,6 +143,54 @@ export default function Home() {
   // Concise Bento Grid Clinical Tools (Exact original icon & card structure, upgraded for all 26,562 medicines)
   const clinicalTools = [
     {
+      to: '/body-map',
+      icon: '🧍‍♂️',
+      badge: tr(lang, 'جديد • اضغط على مكان الوجع!', 'NEW • Tap Where It Hurts!'),
+      title: tr(lang, 'خريطة جسم الإنسان التفاعلية لتشخيص الأعراض باللمس', 'Interactive 3D/SVG Human Body Symptom Map'),
+      desc: tr(
+        lang,
+        'اضغط بإيدك مباشرة على مكان الوجع في مجسم جسم الإنسان (أمام وخلف) لينور العضو ويبدأ حوار الطبيب الذكي وفحص علامات الخطورة فوراً',
+        'Tap directly on any painful area on the front or back human body silhouette for guided clinical triage and red-flag checks'
+      ),
+      color: '#0f766e',
+    },
+    {
+      to: '/food-drug-checker',
+      icon: '☕',
+      badge: tr(lang, 'جديد • الشاي والقهوة واللبن مع دوائك', 'NEW • Food & Drink vs. Meds'),
+      title: tr(lang, 'فاحص «الأكل والشرب مع دوائك» والفاصل الزمني بالساعة', 'Egyptian Food, Drink & Timing Interaction Checker'),
+      desc: tr(
+        lang,
+        'اعرف فوراً تأثير الشاي والقهوة واللبن والجبنة والعرقسوس والملوخية على أدويتك، وإيه اللي يبطل مفعول الدواء وتفصل بينهم بكام ساعة بالضبط',
+        'Check how tea, coffee, dairy, licorice, and leafy greens interact with your medications and exact hour separation rules'
+      ),
+      color: '#d97706',
+    },
+    {
+      to: '/lab-photo-scanner',
+      icon: '📸',
+      badge: tr(lang, 'جديد • بالكاميرا والمؤشرات الملونة', 'NEW • AI Lab & Rx Photo Scanner'),
+      title: tr(lang, 'الماسح الذكي لورق التحاليل والروشتات بالمؤشرات الملونة', 'Smart AI Lab Report & Prescription Photo Scanner'),
+      desc: tr(
+        lang,
+        'صوّر ورقة التحليل أو الروشتة بالموبايل أو أدخل أرقامك لترى مؤشرات ملونة (أخضر طبيعي، أصفر، أحمر خطر) وشرح كل تحليل بالعربي البسيط',
+        'Snap a photo of your lab report or prescription or adjust live gauges for instant color-coded clinical interpretation'
+      ),
+      color: '#2563eb',
+    },
+    {
+      to: '/organ-simulator',
+      icon: '🫀',
+      badge: tr(lang, 'جديد • شاهد داخل أعضائك!', 'NEW • Visual Organ Simulator'),
+      title: tr(lang, 'محاكي الأثر البصري للدواء والتفاعلات داخل أعضاء الجسم', 'Interactive Visual Organ & Drug Reaction Simulator'),
+      desc: tr(
+        lang,
+        'شاهد بالرسوم التفاعلية ماذا يحدث داخل الكلى والمعدة والرئتين عند خلط المسكنات مع دواء الضغط (الضربة الثلاثية) أو أخذ حقنة البرد',
+        'See inside the kidneys, stomach, and lungs how medications work and how dangerous drug mixes cause organ injury'
+      ),
+      color: '#4f46e5',
+    },
+    {
       to: '/symptom-triage',
       icon: '🩺',
       badge: tr(lang, 'اكشف عند أنهي دكتور؟', 'Which Specialist?', 'Quel Spécialiste ?', '¿Qué Especialista?'),

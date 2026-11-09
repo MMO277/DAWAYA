@@ -1201,4 +1201,134 @@ export const MEDICAL_SIMULATOR_SCENARIOS: MedicalScenario[] = [
       },
     ],
   },
+  {
+    id: 'scenario-6-triple-whammy-stroke-er',
+    number: 6,
+    title: {
+      ar: 'السيناريو 6: طوارئ الضربة الثلاثية للكلى وإنقاذ الساعة الذهبية',
+      en: 'Scenario 6: Triple-Whammy Kidney Rescue & Golden-Hour ER Triage',
+    },
+    subtitle: {
+      ar: 'مريض ضغط وسكر تناول مسكنات عظام قوية مع دواء الضغط ومدر البول ويعاني من ارتفاع حاد في الكرياتينين',
+      en: 'A hypertensive patient took NSAIDs alongside an ACE inhibitor and diuretic, presenting with acute kidney injury',
+    },
+    categoryBadge: {
+      ar: 'طوارئ الكلى والتداخلات الدوائية الحرجة',
+      en: 'Renal Emergency & Critical Drug Interactions',
+    },
+    primaryNpc: 'patient',
+    involvedNpcs: ['patient', 'pharmacist', 'doctor'],
+    briefing: {
+      ar: 'الحاج محمود (64 عاماً، مريض ضغط وقلب يتناول كابتوبريل ولازيكس) حضر للطوارئ يشتكي من ألم شديد في الركبة والظهر، وتناول حقن وأقراص مسكنة (فولتارين وكتافلام) لمدة 5 أيام متواصلة، والآن يعاني من قلة البول وارتفاع الكرياتينين إلى 2.9 mg/dL!',
+      en: 'Mr. Mahmoud (64, taking an ACE inhibitor and loop diuretic) took NSAIDs for 5 days for knee pain and now presents with oliguria and serum creatinine of 2.9 mg/dL.',
+    },
+    initialNodeId: 's6_patient_assessment',
+    nodes: {
+      s6_patient_assessment: {
+        id: 's6_patient_assessment',
+        speaker: 'patient',
+        targetNpc: 'patient',
+        objectiveHint: {
+          ar: 'استمع لشكوى الحاج محمود في سرير الطوارئ وحدد السبب الدوائي لارتفاع الكرياتينين.',
+          en: 'Assess Mr. Mahmoud at the bedside and identify the medication interaction causing acute kidney injury.',
+        },
+        dialogue: {
+          ar: 'يا دكتور أنا ركبتي كانت وجعاني جداً، خدت حقن فولتارين وأقراص كتافلام مع أدوية الضغط ومدر البول بتاعي، ومن إمبارح البول قليل جداً وتحليل الكرياتينين طلع 2.9! هل آخذ فوار أملاح ولا حقنة مسكن تانية؟',
+          en: 'Doctor, my knee hurt badly so I took diclofenac injections and tablets alongside my blood pressure pill and diuretic. Now my urine output dropped and my creatinine is 2.9! Should I take another painkiller?',
+        },
+        choices: [
+          {
+            id: 's6_c1_stop_nsaid',
+            label: {
+              ar: 'إيقاف جميع المسكنات (NSAIDs) فوراً، وتوضيح خطر «الضربة الثلاثية للكلى»، واستشارة الصيدلي والطبيب لضبط أدوية الضغط والإماهة',
+              en: 'Immediately stop all NSAIDs, explain the Triple-Whammy kidney interaction, and consult the pharmacist and physician to adjust therapy',
+            },
+            nextNodeId: 's6_pharmacist_consult',
+            quality: 'optimal',
+            immediateFeedback: {
+              ar: 'قرار إكلينيكي ممتاز! الجمع بين مسكن (NSAID) ودواء ضغط (ACEi/ARB) ومدر بول يغلق الشريان الكلوي الوارد ويسبب قصوراً كلوياً حاداً.',
+              en: 'Excellent clinical decision! Combining an NSAID with an ACEi/ARB and diuretic constricts the afferent arteriole and triggers acute kidney injury.',
+            },
+            rationale: {
+              ar: 'إيقاف العامل المسبب (المسكن) فوراً هو الخطوة الأولى لإنقاذ النفرونات الكلوية.',
+              en: 'Stopping the offending nephrotoxic NSAID immediately is the first step in reversing hemodynamic acute kidney injury.',
+            },
+          },
+          {
+            id: 's6_c1_more_nsaid',
+            label: {
+              ar: 'إعطاؤه حقنة مسكن إضافية مع فوار أملاح بدون مراجعة وظائف الكلى',
+              en: 'Administer another NSAID injection and effervescent salts without reviewing renal function',
+            },
+            nextNodeId: 's6_pharmacist_consult',
+            quality: 'unsafe',
+            immediateFeedback: {
+              ar: 'خطر جسيم! إعطاء مسكن إضافي مع كرياتينين 2.9 قد يدفع المريض للفشل الكلوي الكامل والغسيل الطارئ.',
+              en: 'Critical danger! Giving additional NSAIDs at a creatinine of 2.9 risks irreversible renal failure.',
+            },
+            rationale: {
+              ar: 'المسكنات غير الستيرويدية ممنوعة تماماً في القصور الكلوي الحاد.',
+              en: 'NSAIDs are strictly contraindicated in acute kidney injury.',
+            },
+          },
+        ],
+      },
+      s6_pharmacist_consult: {
+        id: 's6_pharmacist_consult',
+        speaker: 'pharmacist',
+        targetNpc: 'pharmacist',
+        objectiveHint: {
+          ar: 'توجه للصيدلي الإكلينيكي د. مريم لاختيار بديل آمن لتسكين ألم الركبة ومراجعة جرعات الأدوية.',
+          en: 'Consult Clinical Pharmacist Dr. Mariam to select a kidney-safe analgesic alternative.',
+        },
+        dialogue: {
+          ar: 'أحسنت في رصد «الضربة الثلاثية للكلى»! بما أن معدل فلترة الكلى (eGFR) انخفض تحت 30 مل/دقيقة، ما هو المسكن الأكثر أماناً لألم خشونة الركبة الآن مع تعديل جرعات الأدوية التي تخرج عن طريق الكلى؟',
+          en: 'Great catch identifying the Triple-Whammy interaction! With eGFR below 30 mL/min, what is the safest analgesic approach while we adjust renally cleared medications?',
+        },
+        choices: [
+          {
+            id: 's6_c2_paracetamol_topical',
+            label: {
+              ar: 'استخدام الباراسيتامول بجرعة آمنة محسوبة مع كمادات ودهان موضعي خفيف، ومراجعة الطبيب لإيقاف مدر البول مؤقتاً وضبط الإماهة',
+              en: 'Use safe-dose paracetamol and local physical measures while coordinating with the physician to hold the diuretic and restore hydration',
+            },
+            nextNodeId: 'END',
+            quality: 'optimal',
+            immediateFeedback: {
+              ar: 'توصية صيدلانية مثالية! الباراسيتامول هو الخيار الآمن للكلى عند الالتزام بالجرعة المقررة مع إيقاف الأدوية السامة للكلى.',
+              en: 'Optimal clinical pharmacy recommendation! Paracetamol within therapeutic limits avoids afferent arteriolar constriction.',
+            },
+            rationale: {
+              ar: 'حماية الكلى تتطلب تجنب مضادات الالتهاب غير الستيرويدية وتعديل جرعات الأدوية وفق معدل CrCl / eGFR.',
+              en: 'Renal stewardship requires avoiding nephrotoxins and adjusting drug regimens according to CrCl / eGFR.',
+            },
+          },
+        ],
+      },
+    },
+    safeActionDemonstrated: {
+      ar: 'رصد التفاعل الثلاثي الخطر على الكلى (مسكن NSAID + دواء ضغط + مدر بول)، إيقاف المسكن فوراً، واختيار بديل آمن للكلى بالتنسيق بين الطبيب والصيدلي.',
+      en: 'Identifying the Triple-Whammy nephrotoxic interaction (NSAID + ACEi/ARB + diuretic), halting the NSAID immediately, and coordinating kidney-safe analgesia.',
+    },
+    educationalTakeaway: {
+      ar: 'احذر من «الضربة الثلاثية للكلى»: لا تجمع أبداً بين المسكنات (فولتارين/كتافلام/بروفين) وأدوية الضغط ومدرات البول، وراجع دائماً معدل فلترة الكلى (eGFR) قبل صرف أي دواء.',
+      en: 'Beware of the Triple Whammy: never combine NSAIDs with ACE inhibitors/ARBs and diuretics, and always verify eGFR before prescribing.',
+    },
+    escalationGuidance: {
+      ar: 'عند ملاحظة قلة البول أو ارتفاع الكرياتينين، أوقف المسكنات فوراً وراجع استشاري الكلى والصيدلي الإكلينيكي.',
+      en: 'When oliguria or rising creatinine occurs, halt all nephrotoxic medications and escalate immediately to nephrology and clinical pharmacy.',
+    },
+    badgeTitle: {
+      ar: 'حامي الكلى وسلامة الأعضاء',
+      en: 'Renal & Organ Safety Guardian',
+    },
+    badgeIcon: '🫘',
+    sources: [
+      {
+        title: 'WHO Medication Without Harm — High-Risk Situations & Nephrotoxic Combinations',
+        publisher: 'World Health Organization (WHO)',
+        url: 'https://www.who.int/initiatives/medication-without-harm',
+      },
+    ],
+  },
 ];

@@ -36,6 +36,13 @@ import {
 } from './dawayaDrugDatabaseService';
 import { norm } from './search';
 
+export interface InteractiveTriagePrompt {
+  labelAr: string;
+  labelEn: string;
+  queryAr: string;
+  queryEn: string;
+}
+
 export interface EnhancedChatUiMessage extends ChatUiMessage {
   id: string;
   attachmentPreviewUrl?: string;
@@ -44,6 +51,7 @@ export interface EnhancedChatUiMessage extends ChatUiMessage {
   isSystemActionResult?: boolean;
   actionResultSuccess?: boolean;
   links?: ReplyLink[];
+  followUpPrompts?: InteractiveTriagePrompt[];
 }
 
 export type GeneralHealthTopicKey =
@@ -2108,11 +2116,225 @@ export function matchSpecialtyClinicLinks(userText: string): ReplyLink[] {
     addLink('/airport-banned-meds', '✈️ افتح كاشف الأدوية الممنوعة في المطارات', 'Open Airport Banned Meds Scanner');
   }
 
+  // 20.5 Food & Drink vs Medication Interaction
+  if (/(شاي|قهوه|قهوة|لبن|حليب|جبنه|عرقسوس|جريب فروت|ملوخيه|سبانخ|اكل|أكل|على الريق|قبل الاكل|بعد الاكل)/.test(q)) {
+    addLink('/food-drug-checker', '☕ افتح فاحص الأكل والشرب مع أدويتك', 'Open Food & Drink vs. Meds Checker');
+  }
+
+  // 20.6 Organ & Drug Action Visual Simulator
+  if (/(تفاعل|خلط|مفعول|بيشتغل ازاي|الكلي|الكبد|المعده|حقنه البرد|مجموعه البرد)/.test(q)) {
+    addLink('/organ-simulator', '🫀 افتح محاكي أثر الدواء والتفاعلات داخل أعضاء الجسم', 'Open Visual Organ Drug Simulator');
+  }
+
+  // 20.7 Lab Photo Scanner
+  if (/(صوره تحليل|صورة تحليل|ورقه التحليل|ورقة التحليل|قراءه تحليل|تحليل|تحاليل|روشته|روشتة)/.test(q)) {
+    addLink('/lab-photo-scanner', '📸 افتح قارئ صور التحاليل والروشتات الذكي', 'Open AI Lab & Rx Photo Scanner');
+  }
+
   // 21. General Symptom / Pain / Triage
   if (/(وجع|ألم|الم|تعبان|حاسس|اعراض|أعراض|اكشف عند مين|اكشف تخصص ايه|طوارئ)/.test(q) || links.length > 0) {
+    addLink('/body-map', '🧍‍♂️ اضغط على مكان الوجع في خريطة جسم الإنسان التفاعلية', 'Tap Where It Hurts on Interactive Body Map');
     addLink('/symptom-triage', '🩺 افتح مشخص الأعراض الذكي (اكشف عند أنهي دكتور؟)', 'Open Smart Symptom Triage');
     addLink('/clinics', '🏥 تصفح مجمع العيادات التخصصية (20 عيادة)', 'Browse All 20 Specialty Clinics');
   }
 
   return links.slice(0, 4);
+}
+
+
+/**
+ * Interactive AI Doctor Triage Interviewer:
+ * Generates clickable clinical follow-up buttons inside the chat message bubble
+ * so the patient can answer the AI doctor step-by-step with a single tap!
+ */
+export function matchInteractiveTriagePrompts(userText: string): InteractiveTriagePrompt[] {
+  const q = norm(userText);
+
+  // 1. Abdominal / Stomach / Colon Pain
+  if (/(بطن|بطني|معده|معدتي|مغص|قولون|حموضه|حموضة|ارتجاع|ترجيع|غثيان)/.test(q)) {
+    return [
+      {
+        labelAr: '🔥 حرقان في فم المعدة من فوق بيزيد بعد الأكل أو النوم',
+        labelEn: 'Burning upper stomach pain worse after meals or lying down',
+        queryAr: 'الوجع عبارة عن حرقان ونار في فم المعدة من فوق وبيطلع للزور بعد الأكل ولما أنام، إيه السبب والعلاج؟',
+        queryEn: 'I have burning epigastric pain and acid reflux rising to my throat after eating and lying down. What should I do?',
+      },
+      {
+        labelAr: '🎈 انتفاخ وغازات ومغص بيرتاح بعد دخول الحمام',
+        labelEn: 'Bloating, gas, and cramps relieved after bowel movement',
+        queryAr: 'عندي انتفاخ وغازات وتقلصات في البطن بتزيد مع التوتر والأكل وبتهدأ لما أدخل الحمام، إيه علاج القولون؟',
+        queryEn: 'I have abdominal bloating, gas, and cramps that improve after a bowel movement. How do I manage IBS?',
+      },
+      {
+        labelAr: '🔪 وجع حاد في الجنب اليمين من تحت البطن مع سخونة',
+        labelEn: 'Sharp lower-right abdominal pain with fever',
+        queryAr: 'عندي وجع حاد في الجنب اليمين أسفل البطن بيزيد مع المشي والكحة ومعاه سخونة وغثيان، هل دي زائدة دودية؟',
+        queryEn: 'I have sharp lower-right abdominal pain worse with coughing or walking and mild fever. Could this be appendicitis?',
+      },
+      {
+        labelAr: '🪨 مغص تحت الضلوع اليمين بعد أكلة دسمة بيسمّع في الكتف',
+        labelEn: 'Right upper abdominal pain after fatty meal radiating to shoulder',
+        queryAr: 'عندي مغص شديد أعلى البطن ناحية اليمين تحت الضلوع بعد الأكل الدسم وبيسمع في كتفي اليمين، هل دي المرارة؟',
+        queryEn: 'I have severe right upper abdominal pain after a fatty meal radiating to my right shoulder. Is it gallbladder colic?',
+      },
+    ];
+  }
+
+  // 2. Flank / Kidney / Urinary Pain
+  if (/(جنب|جنبي|مغص كلوي|حصوه|حصوة|كلي|كلية|بول|حرقان بول|املاح|أملاح)/.test(q)) {
+    return [
+      {
+        labelAr: '🪨 الوجع شادد في الجنب وبيسمّع في الضهر والحوض (مغص كلوي)',
+        labelEn: 'Severe flank pain radiating to lower back and groin',
+        queryAr: 'جنبي بيوجعني جداً والوجع ماسك الضهر ونازل للحوض على شكل نوبات مغص كلوي، أتصرف إزاي فوراً؟',
+        queryEn: 'I have severe flank pain radiating to my back and groin in waves. What is the immediate renal colic protocol?',
+      },
+      {
+        labelAr: '🔥 معاه حرقان شديد في البول ودخول حمام متكرر',
+        labelEn: 'Accompanied by burning urination and frequent urges',
+        queryAr: 'الوجع معاه حرقان شديد في البول وتكرار دخول الحمام كل شوية، إيه التحاليل المطلوبة والعلاج؟',
+        queryEn: 'I also have burning urination and frequent urgency. What urine tests and treatments are needed?',
+      },
+      {
+        labelAr: '🚨 معاه سخونة عالية ورعشة أو قلة في كمية البول',
+        labelEn: 'Accompanied by high fever, chills, or reduced urine',
+        queryAr: 'وجع الجنب معاه سخونة ورعشة وتغير في لون أو كمية البول، هل كده محتاج طوارئ مسالك فوراً؟',
+        queryEn: 'Flank pain is accompanied by fever and chills. Should I go to urology emergency immediately?',
+      },
+    ];
+  }
+
+  // 3. Headache / Dizziness / Vertigo
+  if (/(صداع|دماغ|دماغي|راسي|رأسي|شقيقه|نصفي|دوخه|دوخة|دوار)/.test(q)) {
+    return [
+      {
+        labelAr: '⚡ صداع نابض في نص الرأس مع زغللة وحساسية للنور',
+        labelEn: 'Throbbing one-sided headache with light sensitivity',
+        queryAr: 'الصداع نابض في نص راسي ووراء عيني وبيزيد مع النور والصوت ومعاه غثيان (صداع نصفي)، أوقفه إزاي؟',
+        queryEn: 'I have a throbbing one-sided migraine headache with nausea and light sensitivity. How do I stop it?',
+      },
+      {
+        labelAr: '🌀 دوخة والدنيا بتلف بيا لما بتقلب في السرير',
+        labelEn: 'Room spinning vertigo when turning in bed',
+        queryAr: 'بحس إن الأوضة بتلف بيا لمدة ثواني لما بتقلب في السرير أو أرفع راسي، هل دي كريستالات الأذن الداخلية؟',
+        queryEn: 'The room spins for seconds when I turn in bed or tilt my head. Is this BPPV inner ear vertigo?',
+      },
+      {
+        labelAr: '👃 الصداع في الجبهة وبين العينين وبيزيد لما أسجد',
+        labelEn: 'Forehead and facial headache worse when bending forward',
+        queryAr: 'الصداع متركز في الجبهة وحوالين عيني وبيزيد جداً لما أميل لقدام أو أسجد، إيه علاج صداع الجيوب الأنفية؟',
+        queryEn: 'My headache is in the forehead and between the eyes and worsens when bending forward. How to treat sinus headache?',
+      },
+      {
+        labelAr: '🩸 صداع في مؤخرة الرأس والرقبة (شك في الضغط أو الأنيميا)',
+        labelEn: 'Back of head/neck headache or dizziness on standing',
+        queryAr: 'عندي صداع في مؤخرة الرأس ودوخة لما أقف فجأة، هل ده ضغط دم ولا نقص مخزون حديد وأنيميا؟',
+        queryEn: 'I have a headache at the back of my head and dizziness when standing up. Should I check blood pressure and ferritin?',
+      },
+    ];
+  }
+
+  // 4. Back / Spine / Knee / Joint / Gout Pain
+  if (/(ضهر|ضهري|ظهر|ظهري|غضروف|عرق النسا|ركبه|ركبتي|خشونه|مفاصل|نقرس|كعب)/.test(q)) {
+    return [
+      {
+        labelAr: '⚡ وجع أسفل الظهر نازل كهرباء وتنميل في الرجل (عرق النسا)',
+        labelEn: 'Lower back pain shooting down the leg with numbness',
+        queryAr: 'ضهري واجعني والوجع نازل زي الكهرباء والتنميل في الفخذ والساق لحد القدم (عرق النسا)، أعمل إيه وإيه الممنوع؟',
+        queryEn: 'My lower back pain shoots like electricity down my leg with numbness (sciatica). What should I do and avoid?',
+      },
+      {
+        labelAr: '🦵 وجع وطقطقة في الركبة بيزيد مع طلوع ونزول السلم',
+        labelEn: 'Knee pain and clicking worse on stairs',
+        queryAr: 'ركبتي بتوجعني وبتطقطق لما بطلع أو أنزل السلم، إزاي أعالج خشونة الركبة من غير ما أتعب معدتي بالمسكنات؟',
+        queryEn: 'My knee hurts and clicks on stairs. How can I manage knee osteoarthritis without NSAID stomach damage?',
+      },
+      {
+        labelAr: '🦶 ورم واحمرار وألم شديد في صباع الرجل الكبير أو الكعب',
+        labelEn: 'Swollen, red, painful big toe or heel pain on waking',
+        queryAr: 'صباع رجلي الكبير وارم وأحمر وسخن وبيوجع جداً (أو كعب رجلي بيوجعني أول ما أصحى)، هل ده نقرس وأملاح؟',
+        queryEn: 'My big toe is red, swollen, and severely painful (or heel hurts on waking). Is this acute gout?',
+      },
+    ];
+  }
+
+  // 5. Chest / Cough / Asthma / Shortness of Breath
+  if (/(كحه|كحة|بلغم|صدر|صدري|نهجان|ربو|حساسيه صدر|ضيق تنفس|نغزه)/.test(q)) {
+    return [
+      {
+        labelAr: '🫁 كحة ببلغم أو تزييق في الصدر بيزيد بالليل والفجر',
+        labelEn: 'Cough with phlegm or wheezing worse at night',
+        queryAr: 'عندي كحة مستمرة وتزييق في الصدر بيزيد بالليل والفجر، إيه جلسة البخار أو العلاج المناسب؟',
+        queryEn: 'I have persistent cough and chest wheezing worse at night. What nebulizer or asthma care helps?',
+      },
+      {
+        labelAr: '🚨 ثقل أو عصرة في نص الصدر بتسمّع في الكتف الشمال مع مجهود',
+        labelEn: 'Heavy central chest pressure radiating to left arm on exertion',
+        queryAr: 'حاسس بثقل وعصرة في نص الصدر بتزيد مع المشي وبتسمع في الكتف الشمال، إيه إجراءات طوارئ القلب فوراً؟',
+        queryEn: 'I feel heavy pressure in the center of my chest radiating to my left shoulder with exertion. What emergency heart steps apply?',
+      },
+      {
+        labelAr: '💓 نغزة محددة في الصدر بتزيد مع النفس العميق والتوتر',
+        labelEn: 'Sharp localized chest twinge worse with deep breath or stress',
+        queryAr: 'بحس بنغزة في نقطة محددة في الصدر بتزيد لما باخد نفس عميق أو أتوتر، هل دي عضلات/توتر ولا قلب؟',
+        queryEn: 'I feel a sharp localized chest twinge worse on deep breathing or stress. How does it differ from cardiac pain?',
+      },
+    ];
+  }
+
+  // 6. Dental / Toothache / Gums
+  if (/(ضرس|ضرسي|سنه|سنتي|اسنان|أسنان|لثه|اللثة|خراج)/.test(q)) {
+    return [
+      {
+        labelAr: '🌙 وجع ضرس نابض بيصحيني من النوم وبيزيد مع السخن والبارد',
+        labelEn: 'Throbbing toothache waking me up, worse with hot/cold',
+        queryAr: 'ضرسي بيوجعني نبض شديد بالليل ومش عارف أنام وبيزيد مع السخن والبارد، أعمل إيه لحد ما أروح لدكتور الأسنان؟',
+        queryEn: 'I have a severe throbbing toothache at night worse with hot/cold. What safe relief works until I see the dentist?',
+      },
+      {
+        labelAr: '🎈 في ورم في الخد أو اللثة جنب الضرس مع طعم صديد',
+        labelEn: 'Swelling in the cheek or gum with abscess',
+        queryAr: 'في خراج وورم في اللثة والخد جنب الضرس، هل في الحالة دي محتاج مضاد حيوي وإيه الجرعة الآمنة؟',
+        queryEn: 'I have gum and cheek swelling from a dental abscess. When is an antibiotic indicated and what danger signs exist?',
+      },
+    ];
+  }
+
+  // 7. Pediatrics / Child Fever / Baby Care
+  if (/(طفل|طفلي|ابني|بنتي|رضيع|بيبي|سخونه|سخونية|حراره|حرارة)/.test(q)) {
+    return [
+      {
+        labelAr: '🌡️ طفلي سخن: عايز أحسب جرعة خافض الحرارة بالوزن',
+        labelEn: 'Calculate child fever reducer dose by weight',
+        queryAr: 'طفلي سخن وعايز أعرف جرعة الباراسيتامول بالسنتي حسب وزنه وإزاي أعمل كمادات صح؟',
+        queryEn: 'My child has a fever. How do I calculate the exact paracetamol dose in mL by weight and apply compresses safely?',
+      },
+      {
+        labelAr: '🍼 رضيع في أول سنة: سؤال عن الرضاعة، المغص، أو التطعيمات',
+        labelEn: 'Infant under 1 year: feeding, colic, or vaccinations',
+        queryAr: 'عندي رضيع في أول سنة وعايز أعرف جدول الرضاعة، علاج المغص والغازات، والتعامل مع التطعيمات',
+        queryEn: 'I have an infant under 1 year and need guidance on feeding, colic relief, and vaccination care.',
+      },
+    ];
+  }
+
+  // 8. Default general symptom / medicine follow-ups when user asks a broad question
+  if (/(وجع|ألم|الم|تعبان|حاسس|اعراض|أعراض|دكتور|عياده|عيادة)/.test(q)) {
+    return [
+      {
+        labelAr: '🧍‍♂️ افتح خريطة جسم الإنسان واضغط على مكان الوجع',
+        labelEn: 'Open Interactive Body Map to tap where it hurts',
+        queryAr: 'عايز أحدد مكان الوجع بالضبط: عندي وجع في البطن أو الجنب أو الصدر أو الظهر',
+        queryEn: 'Help me localize my symptom step by step.',
+      },
+      {
+        labelAr: '☕ هل الأكل أو الشاي والقهوة بيتعارضوا مع أدويتي؟',
+        labelEn: 'Do tea, coffee, milk, or foods interact with my meds?',
+        queryAr: 'إيه الأكلات والمشروبات (زي الشاي والقهوة واللبن والعرقسوس) اللي بتبطل مفعول الأدوية؟',
+        queryEn: 'Which foods and drinks (tea, coffee, milk, licorice) block or interact with medications?',
+      },
+    ];
+  }
+
+  return [];
 }

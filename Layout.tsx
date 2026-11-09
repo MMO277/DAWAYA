@@ -398,6 +398,30 @@ export default function Layout({ children }: { children: ReactNode }) {
           shortLabel: tr(lang, 'عيادة السموم والإسعافات الأولية', 'Poison Control & First-Aid ER', 'Centre Antipoison', 'Toxicología y Urgencias'),
         },
         {
+          to: '/body-map',
+          key: '',
+          icon: '🧍‍♂️',
+          shortLabel: tr(lang, 'خريطة الجسم التفاعلية (اضغط مكان الوجع)', 'Interactive Body Symptom Map', 'Carte du Corps', 'Mapa Corporal'),
+        },
+        {
+          to: '/food-drug-checker',
+          key: '',
+          icon: '☕',
+          shortLabel: tr(lang, 'فاحص الأكل والشرب مع الأدوية', 'Food & Drink vs. Meds Checker', 'Aliments & Médicaments', 'Alimentos y Medicamentos'),
+        },
+        {
+          to: '/lab-photo-scanner',
+          key: '',
+          icon: '📸',
+          shortLabel: tr(lang, 'قارئ صور التحاليل والروشتات الذكي', 'AI Lab & Rx Photo Scanner', 'Scanner Analyses', 'Escáner de Análisis'),
+        },
+        {
+          to: '/organ-simulator',
+          key: '',
+          icon: '🫀',
+          shortLabel: tr(lang, 'محاكي أثر الدواء داخل أعضاء الجسم', 'Visual Organ Drug Simulator', 'Simulateur d’Organes', 'Simulador de Órganos'),
+        },
+        {
           to: '/symptom-triage',
           key: '',
           icon: '🩺',

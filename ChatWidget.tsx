@@ -44,6 +44,7 @@ import {
   EnhancedChatUiMessage,
   generateContextualSiteReply,
   matchSpecialtyClinicLinks,
+  matchInteractiveTriagePrompts,
   getSmartAssistantActionChips,
   useSyncedAiConversation,
 } from './aiConversationContext';
@@ -304,13 +305,14 @@ export default function ChatWidget() {
       localReply,
     });
 
-    // Combine direct medicine links + Smart Specialty Clinic & Symptom Triage routing links
+    // Combine direct medicine links + Smart Specialty Clinic & Symptom Triage routing links + Interactive Triage Interview Prompts
     const clinicRoutingLinks = matchSpecialtyClinicLinks(text);
     const combinedLinks = [
       ...(contextualResult.links || []),
       ...clinicRoutingLinks,
     ];
     const matchedLinks = combinedLinks.length > 0 ? combinedLinks : undefined;
+    const matchedFollowUpPrompts = matchInteractiveTriagePrompts(text);
 
     // Always route through the Live Internet + Cloud AI Engine first (no canned short-circuiting!)
 
@@ -356,6 +358,7 @@ export default function ChatWidget() {
         date,
         isAi: true,
         ...(matchedLinks && matchedLinks.length > 0 ? { links: matchedLinks } : {}),
+        ...(matchedFollowUpPrompts.length > 0 ? { followUpPrompts: matchedFollowUpPrompts } : {}),
       };
       setMsgs((m) => [...m, botMsg]);
       setLoading(false);
@@ -376,6 +379,7 @@ export default function ChatWidget() {
       date,
       isAi: true,
       ...(matchedLinks && matchedLinks.length > 0 ? { links: matchedLinks } : {}),
+        ...(matchedFollowUpPrompts.length > 0 ? { followUpPrompts: matchedFollowUpPrompts } : {}),
     };
     setMsgs((m) => [...m, botMsg]);
     setLoading(false);
@@ -934,7 +938,53 @@ export default function ChatWidget() {
                         onCloseWidget={() => setIsOpen(false)}
                       />
                     )}
-                    {m.links && m.links.length > 0 && (
+                    {m.followUpPrompts && m.followUpPrompts.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: '12px',
+                        padding: '12px 14px',
+                        borderRadius: '14px',
+                        background: 'linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)',
+                        border: '1.5px solid #138866',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: '0.8rem',
+                          fontWeight: 900,
+                          color: '#0D1F38',
+                          marginBottom: '8px',
+                        }}
+                      >
+                        🩺 {isAr ? 'أسئلة الطبيب الذكي التفاعلية لتحديد السبب بدقة (اضغط على حالتك):' : 'Interactive AI Doctor Triage Questions (Tap your case):'}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {m.followUpPrompts.map((fp, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            disabled={loading}
+                            onClick={() => ask(isAr ? fp.queryAr : fp.queryEn)}
+                            style={{
+                              padding: '7px 12px',
+                              borderRadius: '12px',
+                              border: '1.5px solid #0f766e',
+                              background: '#ffffff',
+                              color: '#0D1F38',
+                              fontWeight: 800,
+                              fontSize: '0.8rem',
+                              cursor: loading ? 'not-allowed' : 'pointer',
+                              textAlign: 'right',
+                              boxShadow: '0 2px 5px rgba(13, 31, 56, 0.06)',
+                            }}
+                          >
+                            {isAr ? fp.labelAr : fp.labelEn}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {m.links && m.links.length > 0 && (
                       <div
                         style={{
                           display: 'flex',

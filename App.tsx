@@ -73,6 +73,10 @@ const WomensHealthClinic = lazyWithRetry(() => import('./WomensHealthClinic'));
 const GeriatricCareClinic = lazyWithRetry(() => import('./GeriatricCareClinic'));
 const HairSkincareClinic = lazyWithRetry(() => import('./HairSkincareClinic'));
 const ChestRespiratoryClinic = lazyWithRetry(() => import('./ChestRespiratoryClinic'));
+const InteractiveBodyMap = lazyWithRetry(() => import('./InteractiveBodyMap'));
+const FoodDrugInteractionChecker = lazyWithRetry(() => import('./FoodDrugInteractionChecker'));
+const SmartLabAndRxPhotoScanner = lazyWithRetry(() => import('./SmartLabAndRxPhotoScanner'));
+const VisualBodyDrugSimulator = lazyWithRetry(() => import('./VisualBodyDrugSimulator'));
 const SmartSymptomTriage = lazyWithRetry(() => import('./SmartSymptomTriage'));
 const OphthalmologyClinic = lazyWithRetry(() => import('./OphthalmologyClinic'));
 const EntClinic = lazyWithRetry(() => import('./EntClinic'));
@@ -283,6 +287,10 @@ export default function App() {
               <Route path="/geriatric-clinic" element={<GeriatricCareClinic />} />
               <Route path="/hair-clinic" element={<HairSkincareClinic />} />
               <Route path="/chest-clinic" element={<ChestRespiratoryClinic />} />
+              <Route path="/body-map" element={<InteractiveBodyMap />} />
+              <Route path="/food-drug-checker" element={<FoodDrugInteractionChecker />} />
+              <Route path="/lab-photo-scanner" element={<SmartLabAndRxPhotoScanner />} />
+              <Route path="/organ-simulator" element={<VisualBodyDrugSimulator />} />
               <Route path="/symptom-triage" element={<SmartSymptomTriage />} />
 <Route path="/eye-clinic" element={<OphthalmologyClinic />} />
               <Route path="/ent-clinic" element={<EntClinic />} />
