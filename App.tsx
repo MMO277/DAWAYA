@@ -68,6 +68,13 @@ const Scan = lazyWithRetry(() => import('./Scan'));
 const Learn = lazyWithRetry(() => import('./Learn'));
 const Assistant = lazyWithRetry(() => import('./Assistant'));
 const MythFact = lazyWithRetry(() => import('./MythFact'));
+const SpecialtyClinicsHub = lazyWithRetry(() => import('./SpecialtyClinicsHub'));
+const OrthopedicsClinic = lazyWithRetry(() => import('./OrthopedicsClinic'));
+const GastroClinic = lazyWithRetry(() => import('./GastroClinic'));
+const DermatologyClinic = lazyWithRetry(() => import('./DermatologyClinic'));
+const DentalEmergencyClinic = lazyWithRetry(() => import('./DentalEmergencyClinic'));
+const G6pdFavismClinic = lazyWithRetry(() => import('./G6pdFavismClinic'));
+const ChronicCareClinic = lazyWithRetry(() => import('./ChronicCareClinic'));
 const NewbornFirstYearGuide = lazyWithRetry(() => import('./NewbornFirstYearGuide'));
 const PregnancySafetyNavigator = lazyWithRetry(() => import('./PregnancySafetyNavigator'));
 const AirportBannedMedsScanner = lazyWithRetry(() => import('./AirportBannedMedsScanner'));
@@ -259,7 +266,15 @@ export default function App() {
               <Route path="/myth" element={<MythFact />} />
               <Route path="/methodology" element={<Methodology />} />
               <Route path="/research" element={<Research />} />
-                                                        <Route path="/baby-first-year" element={<NewbornFirstYearGuide />} />
+                                                                      <Route path="/clinics" element={<SpecialtyClinicsHub />} />
+              <Route path="/specialty-clinics" element={<SpecialtyClinicsHub />} />
+              <Route path="/ortho-clinic" element={<OrthopedicsClinic />} />
+              <Route path="/gastro-clinic" element={<GastroClinic />} />
+              <Route path="/derma-clinic" element={<DermatologyClinic />} />
+              <Route path="/dental-clinic" element={<DentalEmergencyClinic />} />
+              <Route path="/g6pd-clinic" element={<G6pdFavismClinic />} />
+              <Route path="/chronic-clinic" element={<ChronicCareClinic />} />
+<Route path="/baby-first-year" element={<NewbornFirstYearGuide />} />
               <Route path="/newborn-guide" element={<NewbornFirstYearGuide />} />
               <Route path="/infant-care" element={<NewbornFirstYearGuide />} />
 <Route path="/pregnancy-guide" element={<PregnancySafetyNavigator />} />

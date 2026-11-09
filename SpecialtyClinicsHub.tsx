@@ -1,0 +1,520 @@
+import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useLang } from './i18n';
+import { tr } from './types';
+import Disclaimer from './Disclaimer';
+
+export interface SpecialtyClinicCard {
+  id: string;
+  to: string;
+  icon: string;
+  titleAr: string;
+  titleEn: string;
+  consultantBadgeAr: string;
+  consultantBadgeEn: string;
+  color: string;
+  gradient: string;
+  descriptionAr: string;
+  descriptionEn: string;
+  modulesAr: string[];
+  modulesEn: string[];
+  subTools?: Array<{ to: string; labelAr: string; labelEn: string; icon: string }>;
+}
+
+export const SPECIALTY_CLINICS_LIST: SpecialtyClinicCard[] = [
+  {
+    id: 'obgyn-pregnancy',
+    to: '/pregnancy-guide',
+    icon: '🤰',
+    titleAr: 'عيادة النساء والتوليد ومتابعة الحمل والرضاعة',
+    titleEn: 'Obstetrics, Pregnancy & Lactation Clinic',
+    consultantBadgeAr: 'استشاري نساء وتوليد (40 سنة خبرة)',
+    consultantBadgeEn: 'Senior Ob-Gyn Consultant (40y Exp)',
+    color: '#e11d48',
+    gradient: 'linear-gradient(135deg, #be123c 0%, #e11d48 100%)',
+    descriptionAr: 'رعاية شاملة للحامل من اليوم الأول حتى الولادة والرضاعة: الممنوع والمسموح بالأدلة العلمية، حساب أسابيع الحمل وموعد الولادة، وعلامات الخطر الفورية.',
+    descriptionEn: 'Comprehensive maternal care from conception to delivery: safe vs. forbidden foods/meds, trimester labs, fetal kick counter, and labor prep.',
+    modulesAr: [
+      '١. موسوعة الممنوع والمسموح (أكلات، أدوية، أعشاب وعادات)',
+      '٢. خريطة التحاليل والسونار الرباعي والتطعيمات وحقنة الـ RH',
+      '٣. عداد حركات وركلات الجنين التفاعلي (قاعدة الـ 10 حركات)',
+      '٤. حاسبة زيادة الوزن المثالية أثناء الحمل (بروتوكول IOM)',
+      '٥. روشتة متاعب الحمل اليومية (الشد العضلي، الإمساك، التورم)',
+      '٦. قائمة تحضير «شنطة الولادة» الذكية + مؤقت الطلق الحقيقي والكاذب',
+    ],
+    modulesEn: [
+      '1. Safe vs Forbidden Foods, Meds & Habits Encyclopedia',
+      '2. Trimester Labs, 4D Anomaly Scan & Anti-D Roadmap',
+      '3. Interactive Count-to-10 Fetal Kick Counter',
+      '4. IOM Pregnancy Weight Gain Calculator',
+      '5. Common Pregnancy Discomforts Solver',
+      '6. Smart Hospital Bag Checklist & Contraction Timer',
+    ],
+  },
+  {
+    id: 'pediatrics-newborn',
+    to: '/baby-first-year',
+    icon: '👶',
+    titleAr: 'عيادة طب الأطفال وحديثي الولادة وأول سنة',
+    titleEn: 'Pediatrics, Neonatology & First-Year Clinic',
+    consultantBadgeAr: 'استشاري طب الأطفال وحديثي الولادة',
+    consultantBadgeEn: 'Senior Neonatology & Pediatrics',
+    color: '#0284c7',
+    gradient: 'linear-gradient(135deg, #0369a1 0%, #0284c7 100%)',
+    descriptionAr: 'الدليل الكامل للأم مع رضيعها: الممنوعات القاتلة قبل عمر سنة، التطعيمات، إدخال الطعام، ألوان البراز، منحنى النمو، وحاسبات الجرعات والألبان.',
+    descriptionEn: 'Complete infant care hub: under-1 forbidden items, Egypt immunization tracker, weaning guide, stool color decoder, and emergency rescue.',
+    modulesAr: [
+      '١. كاشف الممنوعات القاتلة قبل سنة (العسل، اللبن البقري، المشاية)',
+      '٢. جدول تطعيمات وزارة الصحة المصرية + الروتا والمكورات الرئوية',
+      '٣. خريطة إدخال الطعام الصلب شهر بشهر وقاعدة الـ 3 أيام للحساسية',
+      '٤. كاشف ومترجم ألوان وقوام براز الرضيع (دليل الحفاضة الطبي)',
+      '٥. منحنى زيادة الوزن والتطور الحركي والذهني وعلامات التأخر',
+      '٦. طوارئ الرضيع الحرجة: الصفراء، السخونة، السرة، وإسعاف الشرقة (5×5)',
+    ],
+    modulesEn: [
+      '1. Under-1 Forbidden Foods, Meds & Gear Scanner',
+      '2. Egypt MOH + Extra Vaccines Interactive Tracker',
+      '3. Step-by-Step Solid Food Weaning Guide',
+      '4. Baby Stool Color & Texture Clinical Decoder',
+      '5. First-Year Weight & Motor Milestones',
+      '6. Jaundice, Fever, Umbilical Cord & Choking Rescue',
+    ],
+    subTools: [
+      { to: '/pediatric-helper', labelAr: 'حاسبة جرعات أشربة الأطفال بالوزن والسرنجة', labelEn: 'Weight-Based Syrup Calculator', icon: '💉' },
+      { to: '/baby-milk', labelAr: 'دليل وبدائل حليب الأطفال والألبان العلاجية', labelEn: 'Baby Milk Formula Navigator', icon: '🍼' },
+    ],
+  },
+  {
+    id: 'orthopedics-gout',
+    to: '/ortho-clinic',
+    icon: '🦴',
+    titleAr: 'عيادة العظام والمفاصل والعمود الفقري والنقرس',
+    titleEn: 'Orthopedics, Spine, Sciatica & Gout Clinic',
+    consultantBadgeAr: 'استشاري جراحة العظام والعمود الفقري والروماتيزم',
+    consultantBadgeEn: 'Senior Orthopedics & Spine Consultant',
+    color: '#d97706',
+    gradient: 'linear-gradient(135deg, #b45309 0%, #d97706 100%)',
+    descriptionAr: 'تشخيص وتدبير آلام الظهر والغضروف وعرق النسا، خشونة الركبة، نوبات النقرس والأملاح (اليورات والأوكسالات)، وحماية المعدة والكلى من المسكنات.',
+    descriptionEn: 'Clinical management of lower back pain, sciatica, knee osteoarthritis, gout & urinary crystals, NSAID safety, and acute sprains.',
+    modulesAr: [
+      '١. المفرّق الإكلينيكي: ألم الظهر العضلي مقابل الانزلاق الغضروفي وعرق النسا',
+      '٢. كاشف النقرس والأملاح (يورات مقابل أوكسالات): الأكلات والفوارات الصحيحة',
+      '٣. بروتوكول خشونة الركبة وكبار السن وتمارين تقوية العضلة الرباعية',
+      '٤. دليل أمان مسكنات العظام (NSAIDs) وحماية الكلى والمعدة من القرح',
+      '٥. إسعاف التواء الكاحل والكدمات والتمزق العضلي (بروتوكول PRICE)',
+      '٦. فيتامين د والكالسيوم والماغنسيوم وهشاشة العظام',
+    ],
+    modulesEn: [
+      '1. Mechanical Back Pain vs. Herniated Disc & Sciatica Triage',
+      '2. Gout & Crystals (Urate vs. Oxalate) Diet & Effervescent Guide',
+      '3. Knee Osteoarthritis Protocol & Quadriceps Exercises',
+      '4. Orthopedic NSAIDs Renal & Gastric Protection Rules',
+      '5. Acute Ankle Sprain & Trauma PRICE First-Aid',
+      '6. Vitamin D, Calcium & Osteoporosis Prevention',
+    ],
+  },
+  {
+    id: 'gastro-ibs-hpylori',
+    to: '/gastro-clinic',
+    icon: '🦠',
+    titleAr: 'عيادة الجهاز الهضمي والقولون وجرثومة المعدة',
+    titleEn: 'Gastroenterology, H. Pylori, IBS & Reflux Clinic',
+    consultantBadgeAr: 'استشاري الجهاز الهضمي والكبد والمناظير',
+    consultantBadgeEn: 'Senior Gastroenterology Consultant',
+    color: '#059669',
+    gradient: 'linear-gradient(135deg, #047857 0%, #059669 100%)',
+    descriptionAr: 'البروتوكول النهائي للقضاء على جرثومة المعدة ومنع انتكاستها، خريطة أكلات القولون العصبي والانتفاخ، علاج ارتجاع المريء، وإدارة النزلات المعوية.',
+    descriptionEn: 'Complete GI care: H. Pylori eradication rules, Egyptian FODMAP diet for IBS, GERD reflux management, and acute food poisoning.',
+    modulesAr: [
+      '١. بروتوكول القضاء على «جرثومة المعدة» وشروط تحليل البراز الصحيح',
+      '٢. خريطة أكلات القولون العصبي والانتفاخ (الأكلات المهيجة والبدائل المريحة)',
+      '٣. عيادة ارتجاع المريء والحموضة المزمنة وقواعد مثبطات الحموضة (PPIs)',
+      '٤. طوارئ النزلة المعوية والتسمم الغذائي (متى يمنع دواء إيقاف الإسهال؟)',
+      '٥. علاج الإمساك المزمن والشرخ الشرجي والبواسير بدون ملينات مخرشة',
+      '٦. علامات الإنذار في الجهاز الهضمي التي تستلزم منظاراً عاجلاً',
+    ],
+    modulesEn: [
+      '1. H. Pylori Eradication & Stool Antigen Testing Rules',
+      '2. Egyptian IBS & Bloating Food Trigger Map (FODMAP)',
+      '3. GERD, Acid Reflux & PPI Timing Guide',
+      '4. Acute Gastroenteritis & Food Poisoning Triage',
+      '5. Chronic Constipation, Fissures & Hemorrhoids Protocol',
+      '6. GI Red Flags Requiring Urgent Endoscopy',
+    ],
+  },
+  {
+    id: 'derma-burns-wounds',
+    to: '/derma-clinic',
+    icon: '🩹',
+    titleAr: 'عيادة الجلدية والحروق والعناية بالجروح',
+    titleEn: 'Dermatology, Burns & Wound Care Clinic',
+    consultantBadgeAr: 'استشاري الأمراض الجلدية والتجميل والحروق',
+    consultantBadgeEn: 'Senior Dermatology & Burn Specialist',
+    color: '#7c3aed',
+    gradient: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%)',
+    descriptionAr: 'كاشف مصيدة مراهم الكورتيزون والخلطات الشعبية، طوارئ الحروق والسمط بالماء المغلي، التفرقة بين الفطريات والإكزيما، والغيار الطبي الصحيح على الجروح.',
+    descriptionEn: 'Topical steroid safety, emergency thermal/chemical burn care, fungal vs. eczema rash differentiation, diaper rash, and wound dressing.',
+    modulesAr: [
+      '١. كاشف مصيدة «مراهم الكورتيزون والخلطات الشعبية» ودرجات قوتها',
+      '٢. طوارئ الحروق والسمط بالماء المغلي أو الزيت (تصحيح كوارث المعجون والبن)',
+      '٣. المفرّق البصري: الفطريات (التينيا) مقابل الإكزيما والحمونيل والحزام الناري',
+      '٤. بروتوكول تسلخات الحفاضة العنيدة (الالتهاب البكتيري والفطري الكانديدا)',
+      '٥. الدليل الصحيح للغيار على الجروح والغرز والقدم السكري (محلول الملح والبيتادين)',
+      '٦. روشتة حب الشباب الآمنة والتحذير الصارم من الرواكوتان/نت لوك',
+    ],
+    modulesEn: [
+      '1. Topical Corticosteroid Potency & Misuse Trap Scanner',
+      '2. Acute Burn & Scald First-Aid (Debunking Toothpaste/Coffee Myths)',
+      '3. Fungal Tinea vs. Eczema, Heat Rash & Shingles Differentiation',
+      '4. Stubborn Fungal (Candida) vs. Irritant Diaper Rash Protocol',
+      '5. Surgical Wound, Ulcer & Diabetic Foot Dressing Guide',
+      '6. Safe Acne Protocol & Isotretinoin Safety Rules',
+    ],
+  },
+  {
+    id: 'dental-emergency',
+    to: '/dental-clinic',
+    icon: '🦷',
+    titleAr: 'عيادة طوارئ الأسنان واللثة وجراحة الفم',
+    titleEn: 'Dental Emergency, Endodontics & Oral Surgery Clinic',
+    consultantBadgeAr: 'استشاري طب وجراحة الفم والأسنان',
+    consultantBadgeEn: 'Senior Dental & Oral Surgery Consultant',
+    color: '#0891b2',
+    gradient: 'linear-gradient(135deg, #0e7490 0%, #0891b2 100%)',
+    descriptionAr: 'بروتوكول إنقاذ ألم عصب الضرس الليلي، طوارئ خراج الأسنان وتورم الوجه، إعادة زرع السنة الدائمة المكسورة، وتعليمات الـ 24 ساعة بعد الخلع.',
+    descriptionEn: '3 AM pulpitis pain relief, dental abscess & facial swelling triage, avulsed permanent tooth rescue, and post-extraction dry-socket prevention.',
+    modulesAr: [
+      '١. بروتوكول تسكين «ألم عصب الضرس الليلي» الحاد حتى الصباح',
+      '٢. طوارئ خراج الأسنان وتورم الوجه (لماذا تمنع الكمادات الساخنة قطعاً؟)',
+      '٣. إنقاذ السنة الدائمة الساقطة بالكامل في الحوادث خلال 60 دقيقة (حفظها في الحليب)',
+      '٤. تعليمات الـ 24 ساعة الذهبية بعد خلع الضرس لمنع نزيف والتهاب السنخ الجاف',
+      '٥. علاج قرح الفم المؤلمة، فطريات اللسان، ونزيف اللثة',
+      '٦. أمان بنج الأسنان والأدوية لمرضى القلب والسكر والسيولة والحوامل',
+    ],
+    modulesEn: [
+      '1. 3 AM Acute Pulpitis & Nerve Pain Relief Protocol',
+      '2. Dental Abscess & Facial Cellulitis Emergency Triage',
+      '3. Knocked-Out (Avulsed) Permanent Tooth 60-Min Milk Rescue',
+      '4. Post-Extraction 24h Rules to Prevent Bleeding & Dry Socket',
+      '5. Aphthous Mouth Ulcers, Oral Thrush & Gingivitis Care',
+      '6. Dental Anesthesia Safety in Pregnancy, Cardiac & Anticoagulant Patients',
+    ],
+  },
+  {
+    id: 'g6pd-favism',
+    to: '/g6pd-clinic',
+    icon: '🫘',
+    titleAr: 'عيادة أمراض الدم وأنيميا الفول الشاملة (G6PD)',
+    titleEn: 'Hematology & G6PD Deficiency (Favism) Clinic',
+    consultantBadgeAr: 'استشاري أمراض الدم والمناعة للأطفال والكبار',
+    consultantBadgeEn: 'Senior Hematology Consultant',
+    color: '#dc2626',
+    gradient: 'linear-gradient(135deg, #991b1b 0%, #dc2626 100%)',
+    descriptionAr: 'المرجع الأول في مصر لمرضى أنيميا الفول: كاشف الأدوية الممنوعة والآمنة، البقوليات والمواد الكيميائية المحظورة، وطوارئ نوبة تكسير الدم الحادة.',
+    descriptionEn: 'Egypt’s definitive G6PD deficiency hub: forbidden vs. safe medications scanner, hidden legume/chemical triggers, and acute hemolysis rescue.',
+    modulesAr: [
+      '١. محرك فحص الأدوية الممنوعة قطعاً في أنيميا الفول (السلفا، الأسبرين، الكينولون)',
+      '٢. دليل بدائل خافضات الحرارة والمسكنات والمضادات الآمنة 100% لمريض أنيميا الفول',
+      '٣. موسوعة الأكلات والبقوليات الممنوعة والخفية (الفول، الطعمية، الصويا، البصارة)',
+      '٤. المحظورات الكيميائية غير الغذائية (الحنة، النفتالين، المنثول المركز، فيتامين C العالي)',
+      '٥. رادار «نوبة تكسير الدم الحادة» (لون البول الداكن والشحوب) وخطة الطوارئ',
+      '٦. كارت تحذير أنيميا الفول الرقمي الجاهز للمدرسة والحضانة والصيدلي',
+    ],
+    modulesEn: [
+      '1. Contraindicated Drugs Scanner (Sulfa, Aspirin, Nitrofurantoin, Dapsone)',
+      '2. 100% Safe Antipyretics, Analgesics & Antibiotics in G6PD',
+      '3. Forbidden Legumes & Hidden Soya/Bean Derivatives Guide',
+      '4. Chemical Triggers (Henna, Naphthalene Mothballs, High-Dose Vit C)',
+      '5. Acute Hemolytic Crisis Radar (Cola-Colored Urine & Pallor) & ER Protocol',
+      '6. Shareable Digital G6PD School & Pharmacy Emergency Alert Card',
+    ],
+  },
+  {
+    id: 'chronic-cardio-endo',
+    to: '/chronic-clinic',
+    icon: '🫀',
+    titleAr: 'عيادة الباطنة والغدد (السكر، الضغط، القلب، والسيولة)',
+    titleEn: 'Internal Medicine, Diabetes, Hypertension & Anticoagulation Clinic',
+    consultantBadgeAr: 'استشاري الباطنة والغدد الصماء والقلب',
+    consultantBadgeEn: 'Senior Internal Medicine & Cardiology Consultant',
+    color: '#4f46e5',
+    gradient: 'linear-gradient(135deg, #3730a3 0%, #4f46e5 100%)',
+    descriptionAr: 'إدارة السكري ومقاومة الإنسولين والقدم السكري، قراءات الضغط والأدوية والأكلات الخفية التي ترفعه، وضوابط أدوية السيولة (الماريفان) والغدة الدرقية.',
+    descriptionEn: 'Complete chronic care: Egyptian Glycemic Index & insulin storage, BP crisis triage & hidden pressors, Warfarin/Eliquis rules, and thyroid timing.',
+    modulesAr: [
+      '١. خريطة الأكلات المصرية لمرضى السكر وترتيب تناول الوجبة لمنع قفزة السكر',
+      '٢. دليل حفظ وحقن الإنسولين الصحيح والعناية اليومية بالقدم السكري',
+      '٣. مترجم قراءات ضغط الدم وطوارئ الضغط المرتفع (>180/120) وخطورة قرص تحت اللسان',
+      '٤. كاشف الأدوية والمشروبات الخفية التي ترفع الضغط (العرقسوس، الفوارات، الكونجستال)',
+      '٥. دستور أدوية السيولة (ماريفان، إليكويس، زاريلتو) وتعارض الملوخية والسبانخ (فيتامين K)',
+      '٦. قواعد تناول دواء الغدة الدرقية (التروكسين / إيوثيروكس) لضمان الامتصاص الكامل',
+    ],
+    modulesEn: [
+      '1. Egyptian Glycemic Index & Meal-Sequencing Protocol',
+      '2. Insulin Pen Storage (28-Day Rule), Rotation & Diabetic Foot Care',
+      '3. Blood Pressure Reading Decoder & Hypertensive Crisis Triage',
+      '4. Hidden BP Spikers (Licorice/Erk-Sous, Effervescents, Decongestants)',
+      '5. Anticoagulants (Warfarin vs. DOACs) & Vitamin K Leafy Greens Guide',
+      '6. Levothyroxine (Eltroxin/Euthyrox) Strict Fasting Absorption Rules',
+    ],
+    subTools: [
+      { to: '/hypo-rescue', labelAr: 'خطة إنقاذ هبوط السكر الحاد (قاعدة 15)', labelEn: 'Hypoglycemia Rescue (Rule of 15)', icon: '🚨' },
+      { to: '/steroid-taper', labelAr: 'حاسبة سحب الكورتيزون التدريجي الآمن', labelEn: 'Safe Steroid Tapering Calculator', icon: '📉' },
+      { to: '/inhaler-counter', labelAr: 'عداد رصيد بخاخات الصدر والربو', labelEn: 'Inhaler Dose Counter', icon: '🫁' },
+    ],
+  },
+];
+
+export default function SpecialtyClinicsHub() {
+  const { lang } = useLang();
+  const isAr = lang === 'ar';
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredClinics = useMemo(() => {
+    if (!searchTerm.trim()) return SPECIALTY_CLINICS_LIST;
+    const q = searchTerm.toLowerCase().trim();
+    return SPECIALTY_CLINICS_LIST.filter(
+      (c) =>
+        c.titleAr.toLowerCase().includes(q) ||
+        c.titleEn.toLowerCase().includes(q) ||
+        c.descriptionAr.toLowerCase().includes(q) ||
+        c.modulesAr.some((m) => m.toLowerCase().includes(q))
+    );
+  }, [searchTerm]);
+
+  return (
+    <main className="wrap" style={{ maxWidth: '1180px', margin: '0 auto', padding: '16px' }}>
+      {/* Hero Banner */}
+      <section
+        className="card"
+        style={{
+          background: 'linear-gradient(135deg, #0D1F38 0%, #1e3a5f 50%, #138866 100%)',
+          color: '#ffffff',
+          borderRadius: '22px',
+          padding: '32px 26px',
+          boxShadow: '0 14px 40px rgba(13, 31, 56, 0.28)',
+          marginBottom: '24px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          <span
+            style={{
+              background: 'rgba(207, 210, 157, 0.2)',
+              color: '#CFD29D',
+              border: '1px solid rgba(207, 210, 157, 0.45)',
+              padding: '6px 16px',
+              borderRadius: '30px',
+              fontWeight: 800,
+              fontSize: '0.86rem',
+            }}
+          >
+            🏥 {tr(lang, 'مجمع عيادات دوايا التخصصية المتكاملة (8 عيادات استشارية)', 'DAWAYA Integrated Specialty Clinics Hub (8 Full Clinics)')}
+          </span>
+          <span
+            style={{
+              background: 'rgba(19, 136, 102, 0.45)',
+              color: '#dcfce7',
+              padding: '6px 14px',
+              borderRadius: '30px',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+            }}
+          >
+            🩺 {tr(lang, 'خبرة استشارية 40 عاماً في كل تخصص طبي', '40-Year Senior Consultant Protocols')}
+          </span>
+        </div>
+
+        <h1 style={{ fontSize: '2.1rem', fontWeight: 900, margin: '4px 0 12px', color: '#ffffff', lineHeight: 1.3 }}>
+          {tr(lang, 'بوابة العيادات الطبية التخصصية الشاملة', 'Specialty Medical Clinics & Patient Care Hub')}
+        </h1>
+        <p style={{ fontSize: '1.05rem', opacity: 0.94, maxWidth: '880px', lineHeight: 1.65, margin: '0 0 20px' }}>
+          {tr(
+            lang,
+            'اختر العيادة التخصصية المناسبة لحالتك أو حالة أسرتك؛ كل عيادة مصممة كمنظومة متكاملة تضم 6 أقسام إكلينيكية مفصلة، قوائم الممنوع والمسموح، حاسبات طبية، وبروتوكولات الطوارئ المعتمدة عالمياً.',
+            'Select a specialty clinic below. Each clinic operates as a complete 6-module medical department featuring safe vs. forbidden lists, interactive calculators, and emergency triage protocols.'
+          )}
+        </p>
+
+        {/* Search Input */}
+        <div style={{ maxWidth: '680px', position: 'relative' }}>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder={tr(
+              lang,
+              'ابحث عن عيادة أو حالة طبية (مثال: حمل، رضيع، عظام، نقرس، قولون، جرثومة، حروق، أسنان، أنيميا الفول، سكر، ضغط)...',
+              'Search any clinic or condition (e.g. pregnancy, newborn, gout, sciatica, H. pylori, burns, dental, G6PD, diabetes)...'
+            )}
+            style={{
+              width: '100%',
+              padding: '14px 18px',
+              borderRadius: '14px',
+              border: '2px solid #CFD29D',
+              fontSize: '1rem',
+              fontWeight: 600,
+              background: '#ffffff',
+              color: '#0f172a',
+              outline: 'none',
+            }}
+          />
+        </div>
+      </section>
+
+      {/* Clinics Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+        {filteredClinics.map((clinic) => (
+          <article
+            key={clinic.id}
+            className="card"
+            style={{
+              borderRadius: '20px',
+              padding: '0',
+              overflow: 'hidden',
+              border: `2px solid ${clinic.color}33`,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              background: '#ffffff',
+              boxShadow: '0 8px 26px rgba(13, 31, 56, 0.07)',
+            }}
+          >
+            <div>
+              {/* Card Top Colored Header */}
+              <div
+                style={{
+                  background: clinic.gradient,
+                  color: '#ffffff',
+                  padding: '20px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '2.4rem', lineHeight: 1 }}>{clinic.icon}</span>
+                  <span
+                    style={{
+                      background: 'rgba(255,255,255,0.2)',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      fontSize: '0.76rem',
+                      fontWeight: 700,
+                      color: '#ffffff',
+                    }}
+                  >
+                    🩺 {isAr ? clinic.consultantBadgeAr : clinic.consultantBadgeEn}
+                  </span>
+                </div>
+                <h2 style={{ fontSize: '1.32rem', fontWeight: 900, margin: 0, color: '#ffffff', lineHeight: 1.35 }}>
+                  {isAr ? clinic.titleAr : clinic.titleEn}
+                </h2>
+              </div>
+
+              {/* Card Body */}
+              <div style={{ padding: '20px' }}>
+                <p className="small" style={{ margin: '0 0 14px', color: '#334155', lineHeight: 1.55, fontWeight: 600, fontSize: '0.92rem' }}>
+                  {isAr ? clinic.descriptionAr : clinic.descriptionEn}
+                </p>
+
+                <div
+                  style={{
+                    background: 'var(--tint)',
+                    borderRadius: '14px',
+                    padding: '12px 14px',
+                    border: '1px solid var(--line)',
+                    marginBottom: '14px',
+                  }}
+                >
+                  <b style={{ fontSize: '0.84rem', color: '#0D1F38', display: 'block', marginBottom: '8px' }}>
+                    📋 {tr(lang, 'الأقسام الـ 6 داخل هذه العيادة:', '6 Clinical Modules Inside:')}
+                  </b>
+                  <ul
+                    style={{
+                      margin: 0,
+                      padding: 0,
+                      listStyle: 'none',
+                      display: 'grid',
+                      gap: '5px',
+                    }}
+                  >
+                    {(isAr ? clinic.modulesAr : clinic.modulesEn).map((mod, mIdx) => (
+                      <li
+                        key={mIdx}
+                        style={{
+                          fontSize: '0.81rem',
+                          color: '#1e293b',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '6px',
+                        }}
+                      >
+                        <span style={{ color: clinic.color, fontWeight: 900 }}>•</span>
+                        <span>{mod}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Companion Sub-Tools if any */}
+                {clinic.subTools && clinic.subTools.length > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <span className="small muted" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.78rem' }}>
+                      🔗 {tr(lang, 'أدوات وحاسبات ملحقة بالعيادة:', 'Attached Specialty Calculators:')}
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {clinic.subTools.map((st, sIdx) => (
+                        <Link
+                          key={sIdx}
+                          to={st.to}
+                          style={{
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            padding: '5px 10px',
+                            borderRadius: '8px',
+                            background: '#f1f5f9',
+                            color: '#0D1F38',
+                            textDecoration: 'none',
+                            border: '1px solid #cbd5e1',
+                          }}
+                        >
+                          {st.icon} {isAr ? st.labelAr : st.labelEn}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Action Button */}
+            <div style={{ padding: '0 20px 20px' }}>
+              <Link
+                to={clinic.to}
+                className="btn"
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  background: clinic.gradient,
+                  color: '#ffffff',
+                  fontWeight: 900,
+                  padding: '12px 18px',
+                  borderRadius: '12px',
+                  textDecoration: 'none',
+                  fontSize: '0.96rem',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
+                }}
+              >
+                <span>🚪 {tr(lang, 'دخول العيادة التخصصية الكاملة', 'Enter Complete Specialty Clinic')}</span>
+                <span>{isAr ? '←' : '→'}</span>
+              </Link>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <Disclaimer />
+    </main>
+  );
+}

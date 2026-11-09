@@ -297,6 +297,73 @@ export default function Layout({ children }: { children: ReactNode }) {
       ],
     },
     {
+      id: 'specialty-clinics',
+      icon: '🏥',
+      title: tr(lang, 'مجمع العيادات التخصصية (8 عيادات)', 'Specialty Medical Clinics (8 Clinics)', 'Cliniques Spécialisées', 'Clínicas Especializadas'),
+      shortTitle: tr(lang, 'العيادات التخصصية', 'Specialty Clinics', 'Cliniques', 'Clínicas'),
+      subtitle: tr(
+        lang,
+        'عيادة النساء والحمل، الأطفال، العظام والنقرس، الجهاز الهضمي، الجلدية والحروق، الأسنان، أنيميا الفول، والباطنة',
+        'Ob-Gyn, Pediatrics, Orthopedics, Gastro, Dermatology, Dental ER, G6PD & Internal Medicine'
+      ),
+      items: [
+        {
+          to: '/clinics',
+          key: '',
+          icon: '🏥',
+          shortLabel: tr(lang, 'بوابة جميع العيادات (8 عيادات)', 'All Specialty Clinics Hub', 'Toutes les Cliniques', 'Todas las Clínicas'),
+        },
+        {
+          to: '/pregnancy-guide',
+          key: '',
+          icon: '🤰',
+          shortLabel: tr(lang, 'عيادة النساء والحمل والرضاعة', 'Ob-Gyn & Pregnancy Clinic', 'Clinique Grossesse', 'Clínica Embarazo'),
+        },
+        {
+          to: '/baby-first-year',
+          key: '',
+          icon: '👶',
+          shortLabel: tr(lang, 'عيادة الأطفال وحديثي الولادة', 'Pediatrics & Newborn Clinic', 'Clinique Pédiatrique', 'Clínica Pediátrica'),
+        },
+        {
+          to: '/ortho-clinic',
+          key: '',
+          icon: '🦴',
+          shortLabel: tr(lang, 'عيادة العظام والغضروف والنقرس', 'Orthopedics, Spine & Gout', 'Clinique Orthopédique', 'Clínica Ortopédica'),
+        },
+        {
+          to: '/gastro-clinic',
+          key: '',
+          icon: '🦠',
+          shortLabel: tr(lang, 'عيادة الجهاز الهضمي والقولون', 'Gastro, H. Pylori & IBS', 'Clinique Gastro', 'Clínica Digestiva'),
+        },
+        {
+          to: '/derma-clinic',
+          key: '',
+          icon: '🩹',
+          shortLabel: tr(lang, 'عيادة الجلدية والحروق والجروح', 'Dermatology, Burns & Wounds', 'Clinique Dermatologie', 'Clínica Dermatología'),
+        },
+        {
+          to: '/dental-clinic',
+          key: '',
+          icon: '🦷',
+          shortLabel: tr(lang, 'عيادة طوارئ الأسنان واللثة', 'Dental Emergency Clinic', 'Urgences Dentaires', 'Urgencias Dentales'),
+        },
+        {
+          to: '/g6pd-clinic',
+          key: '',
+          icon: '🫘',
+          shortLabel: tr(lang, 'عيادة أنيميا الفول (G6PD)', 'G6PD Favism Clinic', 'Clinique G6PD', 'Clínica G6PD'),
+        },
+        {
+          to: '/chronic-clinic',
+          key: '',
+          icon: '🫀',
+          shortLabel: tr(lang, 'عيادة الباطنة والسكر والضغط', 'Diabetes, BP & Anticoagulants', 'Médecine Interne', 'Medicina Interna'),
+        },
+      ],
+    },
+    {
       id: 'clinical-safety',
       icon: '🏥',
       title: tr(lang, 'أدوات الأمان والفحص السريري', 'Clinical Safety & Checkers', 'Sécurité Clinique & Contrôles', 'Seguridad Clínica y Chequeo', 'Klinische Sicherheit & Prüfungen'),

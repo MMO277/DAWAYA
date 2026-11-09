@@ -143,6 +143,18 @@ export default function Home() {
   // Concise Bento Grid Clinical Tools (Exact original icon & card structure, upgraded for all 26,562 medicines)
   const clinicalTools = [
     {
+      to: '/clinics',
+      icon: '🏥',
+      badge: tr(lang, '٨ عيادات تخصصية شاملة', '8 Specialty Clinics', '8 Cliniques Spécialisées', '8 Clínicas Especializadas'),
+      title: tr(lang, 'مجمع العيادات التخصصية المتكاملة (العيادات)', 'DAWAYA Specialty Medical Clinics Hub', 'Pôle de Cliniques Médicales Spécialisées', 'Centro de Clínicas Médicas Especializadas'),
+      desc: tr(
+        lang,
+        'بوابة المستشفى التخصصي: عيادة النساء والحمل، عيادة الأطفال وأول سنة، عيادة العظام والنقرس، الجهاز الهضمي والقولون، الجلدية والحروق، طوارئ الأسنان، أنيميا الفول، والباطنة والسكر والضغط',
+        'Complete 8-clinic hospital portal: Ob-Gyn, Pediatrics, Orthopedics & Gout, Gastroenterology & IBS, Dermatology & Burns, Dental ER, G6PD Favism & Chronic Care'
+      ),
+      color: '#0D1F38',
+    },
+    {
       to: '/baby-first-year',
       icon: '👶',
       badge: tr(lang, 'عيادة الرضيع وأول سنة', 'Newborn & 1st Year Hub', 'Clinique Bébé 1 An', 'Clínica del Bebé 1er Año'),
