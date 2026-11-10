@@ -1369,10 +1369,10 @@ export default function Home() {
           <div className="bento-grid">
             {(() => {
               const personaPaths: Record<PersonaType, string[]> = {
-                all: ['/passport', '/patient-dashboard', '/complete-checkup', '/cost-saver', '/pediatric-helper', '/cold-shot-warning'],
-                patient: ['/passport', '/patient-dashboard', '/complete-checkup', '/cost-saver', '/daily-schedule', '/tracker'],
-                mother: ['/pediatric-helper', '/allergy-checker', '/green-prescription', '/complete-checkup', '/daily-schedule', '/safe-disposal'],
-                doctor: ['/prescription-radar', '/compare', '/allergy-checker', '/interactions', '/complete-checkup', '/cost-saver'],
+                all: ['/body-map', '/clinics', '/missed-dose-rescue', '/meal-planner', '/food-drug-checker', '/medical-report', '/vaccine-tracker', '/doctor-visit-prep'],
+                patient: ['/body-map', '/missed-dose-rescue', '/meal-planner', '/food-drug-checker', '/medical-report', '/patient-dashboard'],
+                mother: ['/vaccine-tracker', '/pediatric-helper', '/baby-first-year', '/women-clinic', '/missed-dose-rescue', '/allergy-checker'],
+                doctor: ['/clinics', '/doctor-visit-prep', '/prescription-radar', '/lab-photo-scanner', '/organ-simulator', '/interactions'],
               };
               const targetPaths = personaPaths[selectedPersona] || personaPaths.all;
               const picked = targetPaths

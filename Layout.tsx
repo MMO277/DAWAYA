@@ -1759,19 +1759,13 @@ export default function Layout({ children }: { children: ReactNode }) {
           <span>{tr(lang, 'لوحة المريض', 'Hub', 'Patient', 'Panel')}</span>
         </NavLink>
 
-        <button
-          type="button"
-          onClick={openDrawer}
-          className={`dawaya-dock-item${drawerOpen ? ' active' : ''}`}
+        <NavLink
+          to="/clinics"
+          className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
         >
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <rect x="3.5" y="3.5" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.9" />
-            <rect x="13.5" y="3.5" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.9" />
-            <rect x="3.5" y="13.5" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.9" />
-            <rect x="13.5" y="13.5" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.9" fill="currentColor" fillOpacity="0.25" />
-          </svg>
-          <span>{tr(lang, 'الأقسام', 'Menu', 'Menu', 'Menú')}</span>
-        </button>
+          <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>🏥</span>
+          <span>{tr(lang, 'العيادات', 'Clinics', 'Cliniques', 'Clínicas')}</span>
+        </NavLink>
       </nav>
 
       <footer className="pro-footer">
