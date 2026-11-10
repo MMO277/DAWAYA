@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLang } from './i18n';
-import { tr } from './types';
 import {
   isVoiceRecognitionSupported,
+  requestMicrophonePermission,
   speakText,
   startVoiceRecognition,
   stopSpeech,
@@ -18,7 +18,56 @@ export interface VoiceDoctorCallModalProps {
   onClose: () => void;
 }
 
-export type CallState = 'connecting' | 'listening' | 'thinking' | 'speaking' | 'paused';
+export type CallState = 'connecting' | 'listening' | 'thinking' | 'speaking' | 'paused' | 'error';
+
+// Synthesize pleasant call sound effects via Web Audio API without external files
+function playCallAudioTone(type: 'ring' | 'listen' | 'send') {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    if (type === 'ring') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.45);
+    } else if (type === 'listen') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08); // E5
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.22);
+    } else if (type === 'send') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08); // A5
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.2);
+    }
+  } catch {
+    /* ignore audio errors */
+  }
+}
 
 export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCallModalProps) {
   const { lang } = useLang();
@@ -28,105 +77,202 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
   const [callState, setCallState] = useState<CallState>('connecting');
   const [callDuration, setCallDuration] = useState<number>(0);
   const [transcript, setTranscript] = useState<string>('');
+  const [interimText, setInterimText] = useState<string>('');
   const [lastDoctorReply, setLastDoctorReply] = useState<string>('');
   const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [audioPulse, setAudioPulse] = useState<number>(1);
+  const [micError, setMicError] = useState<string | null>(null);
+  const [manualText, setManualText] = useState<string>('');
+  const [audioWaveLevel, setAudioWaveLevel] = useState<number>(1);
 
   const recogRef = useRef<VoiceRecognitionHandle | null>(null);
   const timerRef = useRef<number | null>(null);
-  const pulseTimerRef = useRef<number | null>(null);
+  const waveTimerRef = useRef<number | null>(null);
+  const silenceTimerRef = useRef<number | null>(null);
+  const currentTranscriptRef = useRef<string>('');
 
-  // Initialize Call
+  // Stop everything safely
+  const cleanupAll = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (waveTimerRef.current) clearInterval(waveTimerRef.current);
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    try {
+      recogRef.current?.stop();
+    } catch {
+      /* ignore */
+    }
+    recogRef.current = null;
+    stopSpeech();
+  };
+
+  // Main lifecycle when modal opens
   useEffect(() => {
     if (!isOpen) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (pulseTimerRef.current) clearInterval(pulseTimerRef.current);
-      recogRef.current?.stop();
-      stopSpeech();
+      cleanupAll();
       return;
     }
 
     setCallDuration(0);
     setTranscript('');
+    setInterimText('');
+    setMicError(null);
+    setManualText('');
     setCallState('connecting');
 
-    // Start duration timer
+    // Ring tone
+    playCallAudioTone('ring');
+
+    // Call duration timer
     timerRef.current = window.setInterval(() => {
       setCallDuration((prev) => prev + 1);
     }, 1000);
 
-    // Audio Visualizer pulse simulation
-    pulseTimerRef.current = window.setInterval(() => {
-      setAudioPulse(0.85 + Math.random() * 0.4);
-    }, 150);
+    // Audio Visualizer waveform pulse
+    waveTimerRef.current = window.setInterval(() => {
+      setAudioWaveLevel(0.7 + Math.random() * 0.6);
+    }, 120);
 
-    // Doctor Greeting after connection
-    const connectTimer = setTimeout(() => {
+    // Request microphone permission proactively
+    requestMicrophonePermission().catch(() => {});
+
+    // Doctor greeting after short connection simulation
+    const greetingTimeout = setTimeout(() => {
       setCallState('speaking');
+      const patientName = profile.name ? `يا أستاذ ${profile.name.split(' ')[0]}` : 'يا فندم';
       const greeting = isAr
-        ? 'أهلاً بحضرتك في عيادة دوايا الطبية الذكية. أنا طبيبك الصيدلاني وسامعك بكل وضوح، اتفضل قول لي بتشتكي من إيه أو إيه استفسارك الصحي؟'
-        : 'Welcome to DAWAYA Voice Clinic. I am your smart medical doctor listening live. How can I help you today?';
+        ? `أهلاً بحضرتك ${patientName} في عيادة دوايا الطبية الذكية. أنا طبيبك الصيدلاني وسامعك بكل وضوح، اتفضل قول لي بتشتكي من إيه أو إيه استفسارك الصحي؟`
+        : `Welcome ${patientName} to DAWAYA Live Clinic. I am your smart clinical doctor listening live. How can I help you today?`;
+
       setLastDoctorReply(greeting);
-      speakText(greeting, lang, () => {
+
+      // Speak greeting with automatic transition to listening
+      speakText(greeting, lang, 1.0, () => {
         startListeningCycle();
       });
-    }, 1200);
+    }, 1100);
 
     return () => {
-      clearTimeout(connectTimer);
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (pulseTimerRef.current) clearInterval(pulseTimerRef.current);
-      recogRef.current?.stop();
-      stopSpeech();
+      clearTimeout(greetingTimeout);
+      cleanupAll();
     };
-  }, [isOpen, isAr, lang]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
+  // Start speech recognition cycle
   const startListeningCycle = () => {
     if (isMuted) return;
+
+    cleanupSpeechEngine();
     setCallState('listening');
-    setTranscript('');
+    setMicError(null);
+    setInterimText('');
+    currentTranscriptRef.current = '';
+
+    playCallAudioTone('listen');
 
     if (!isVoiceRecognitionSupported()) {
-      setLastDoctorReply(
+      setMicError(
         isAr
-          ? 'المتصفح لا يدعم الميكروفون المباشر حالياً. يمكنك استخدام شات المساعد الذكي بالكتابة.'
-          : 'Microphone not supported on this browser. Please use text chat.'
+          ? 'المتصفح لا يدعم المايكروفون الصوتي المباشر. يمكنك استخدام خانة الكتابة السريعة أدناه.'
+          : 'Voice recognition is not supported in this browser. Please type your message below.'
       );
       setCallState('paused');
       return;
     }
 
-    recogRef.current?.stop();
-    recogRef.current = startVoiceRecognition(
-      lang,
-      (text) => {
-        if (text && text.trim()) {
-          setTranscript(text.trim());
-          handlePatientSpeech(text.trim());
-        }
-      },
-      () => {
-        // Error or timeout, retry if still listening
-        if (callState === 'listening') {
-          setTimeout(() => startListeningCycle(), 800);
-        }
-      },
-      () => {
-        // onEnd
-      }
-    );
+    try {
+      recogRef.current = startVoiceRecognition(
+        lang,
+        (text, isFinal) => {
+          if (!text) return;
+
+          if (isFinal) {
+            currentTranscriptRef.current = text;
+            setTranscript(text);
+            setInterimText('');
+            // Auto submit speech after user finishes sentence
+            handlePatientSpeech(text);
+          } else {
+            // Live interim feedback as user speaks
+            currentTranscriptRef.current = text;
+            setInterimText(text);
+
+            // Auto-send debounce: if user stops speaking for 2.2 seconds, submit
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = window.setTimeout(() => {
+              if (currentTranscriptRef.current.trim()) {
+                handlePatientSpeech(currentTranscriptRef.current.trim());
+              }
+            }, 2200);
+          }
+        },
+        (err) => {
+          console.warn('Voice recognition error:', err);
+          if (err === 'not-allowed' || err === 'service-not-allowed') {
+            setMicError(
+              isAr
+                ? 'يرجى السماح بالوصول للمايكروفون من إعدادات المتصفح لتتمكن من التحدث مع الطبيب.'
+                : 'Please allow microphone access in your browser settings to speak.'
+            );
+            setCallState('error');
+          } else if (err === 'no-speech') {
+            // User did not speak yet, stay ready for tap
+            setCallState('paused');
+          } else if (err === 'network') {
+            setMicError(
+              isAr
+                ? 'تعذر الاتصال بخدمة التعرف على الصوت. تحقق من الإنترنت أو استخدم خانة الكتابة أدناه.'
+                : 'Speech recognition network error. Please check connection or type below.'
+            );
+            setCallState('error');
+          }
+        },
+        () => {
+          // onEnd: if finished listening without speech, set to ready state
+          if (currentTranscriptRef.current.trim()) {
+            handlePatientSpeech(currentTranscriptRef.current.trim());
+          }
+        },
+        { interim: true, continuous: false }
+      );
+    } catch (err: any) {
+      console.warn('Recognition start exception:', err);
+      setMicError(isAr ? 'تعذر تشغيل المايكروفون. اضغط على الزر للتجربة مرة أخرى.' : 'Microphone error. Tap to retry.');
+      setCallState('error');
+    }
   };
 
+  const cleanupSpeechEngine = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    try {
+      recogRef.current?.stop();
+    } catch {
+      /* ignore */
+    }
+    recogRef.current = null;
+  };
+
+  // Handle patient speech or written input
   const handlePatientSpeech = async (patientText: string) => {
-    recogRef.current?.stop();
+    const cleanText = patientText.trim();
+    if (!cleanText) return;
+
+    cleanupSpeechEngine();
+    playCallAudioTone('send');
+    setTranscript(cleanText);
+    setInterimText('');
     setCallState('thinking');
+    setMicError(null);
 
     try {
-      // 1. Fast contextual check
+      // 1. Build context with occupation & health profile
       const meds = getSeedMedicinesFallback();
-      const localReply = respond(buildPassages(meds), meds, patientText);
+      const localReply = respond(buildPassages(meds), meds, cleanText);
+
       const contextual = generateContextualSiteReply({
-        userText: patientText,
+        userText: cleanText,
         msgs: [],
         meds,
         profile,
@@ -136,40 +282,78 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
 
       let reply = contextual.handledFast ? contextual.replyText : '';
 
-      // 2. Fallback to Gemini with concise conversational voice instruction
+      // 2. Fallback to Gemini with clinical consultation instruction
       if (!reply) {
+        const occNotice = profile.occupation ? `وظيفة المريض الحالية: "${profile.occupation}".` : '';
+        const medsNotice = profile.currentMeds?.length ? `الأدوية الحالية: ${profile.currentMeds.join('، ')}.` : '';
+        const allergyNotice = profile.allergies?.length ? `الحساسيات المسجلة: ${profile.allergies.join('، ')}.` : '';
+
         const voicePrompt =
-          `أنت طبيب استشاري صيدلاني في مكالمة هاتفية صوتية مباشرة مع مريض مصري. المريض قال لك بصوته: "${patientText}". ` +
-          `أجب عليه باختصار شديد باللغة العامية المصرية الدافئة والمطمئنة (في 2 إلى 3 جمل قصيرة واضحة يسهل سماعها)، وقدم النصيحة السريرية المباشرة وحذره من أي خطر.`;
-        reply = await askGemini(voicePrompt, [], patientText);
+          `أنت دكتور صيدلاني استشاري في مكالمة هاتفية صوتية مباشرة مع مريض مصري.\n` +
+          `${occNotice} ${medsNotice} ${allergyNotice}\n` +
+          `المريض قال لك بصوته في المكالمة: "${cleanText}".\n` +
+          `أجب عليه باللهجة المصرية الدافئة والمطمئنة والمهنية (في 2 إلى 3 جمل قصيرة وسريعة وواضحة جداً يسهل سماعها هاتفياً).\n` +
+          `لو كان سؤاله عن دواء يؤثر على القيادة أو العمل (خاصة لو وظيفته سائق أو عامل)، نبهه بوضوح للأمان مع شغله.`;
+
+        reply = await askGemini(voicePrompt, [], cleanText);
       }
 
       setLastDoctorReply(reply);
       setCallState('speaking');
-      speakText(reply, lang, () => {
-        // Loop back to listen for patient response
+
+      // Speak reply and loop back to listen
+      speakText(reply, lang, 1.0, () => {
         startListeningCycle();
       });
-    } catch {
+    } catch (err) {
+      console.warn('Call handling error:', err);
       const fallbackMsg = isAr
-        ? 'تمام، سامعك. أنصحك بالراحة وشرب ماء كافٍ ومراجعة الطبيب لو الأعراض مستمرة، وقول لي لو في أي عرض تاني مقلقك.'
-        : 'Understood. Please rest, hydrate, and let me know if you experience other symptoms.';
+        ? 'تمام يا فندم، أنا سامعك بوضوح. أنصحك بالراحة وشرب ماء دافئ، وقولي لو بتشتكي من أي عرض تاني أو بتاخد أي دواء حالياً.'
+        : 'I hear you clearly. Please stay hydrated, rest, and let me know if you have any other symptoms.';
       setLastDoctorReply(fallbackMsg);
       setCallState('speaking');
-      speakText(fallbackMsg, lang, () => {
+      speakText(fallbackMsg, lang, 1.0, () => {
         startListeningCycle();
       });
     }
   };
 
+  const handleManualSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!manualText.trim()) return;
+    const text = manualText.trim();
+    setManualText('');
+    handlePatientSpeech(text);
+  };
+
   const toggleMute = () => {
     if (!isMuted) {
-      recogRef.current?.stop();
+      cleanupSpeechEngine();
       stopSpeech();
       setIsMuted(true);
       setCallState('paused');
     } else {
       setIsMuted(false);
+      startListeningCycle();
+    }
+  };
+
+  const handleMicButtonTap = () => {
+    if (callState === 'listening') {
+      // User tapped while listening -> finish and submit current text immediately
+      if (currentTranscriptRef.current.trim()) {
+        handlePatientSpeech(currentTranscriptRef.current.trim());
+      } else {
+        // Stop listening
+        cleanupSpeechEngine();
+        setCallState('paused');
+      }
+    } else if (callState === 'speaking') {
+      // User tapped to interrupt doctor and speak
+      stopSpeech();
+      startListeningCycle();
+    } else {
+      // Tap to start listening
       startListeningCycle();
     }
   };
@@ -182,6 +366,20 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
 
   if (!isOpen) return null;
 
+  const quickQuestions = isAr
+    ? [
+        'عندي صداع وسخونية',
+        'هل الدواء ده آمن مع السواقة والشغل؟',
+        'مغص ووجع شديد في المعدة',
+        'جرعة المضاد الحيوي المناسبة',
+      ]
+    : [
+        'I have headache and fever',
+        'Is this medication safe while driving?',
+        'Stomach pain and nausea',
+        'Proper antibiotic dosage',
+      ];
+
   return (
     <div
       role="dialog"
@@ -190,33 +388,64 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
         position: 'fixed',
         inset: 0,
         zIndex: 99999,
-        background: 'linear-gradient(180deg, #07111e 0%, #0D1F38 45%, #051d18 100%)',
+        background: 'linear-gradient(180deg, #07111e 0%, #0d2238 45%, #051d18 100%)',
         color: '#ffffff',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '30px 20px env(safe-area-inset-bottom, 24px)',
-        backdropFilter: 'blur(16px)',
+        padding: '20px 16px env(safe-area-inset-bottom, 20px)',
+        backdropFilter: 'blur(20px)',
+        overflowY: 'auto',
       }}
     >
-      {/* Top Bar: Clinic Name & Live Call Timer */}
-      <div style={{ textAlign: 'center', marginTop: '10px' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.12)', padding: '6px 16px', borderRadius: '30px', fontSize: '0.84rem', fontWeight: 800 }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: callState === 'paused' ? '#f59e0b' : '#10b981', display: 'inline-block' }} />
-          <span>{callState === 'connecting' ? 'جارٍ الاتصال...' : formatSeconds(callDuration)}</span>
-          <span style={{ opacity: 0.5 }}>•</span>
-          <span>{isAr ? 'مكالمة هاتفية مباشرة مع طبيب دوايا' : 'Live Voice Doctor Call'}</span>
+      {/* Top Bar: Live Call Status & Timer */}
+      <div style={{ textAlign: 'center', marginTop: '6px' }}>
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(255,255,255,0.12)',
+            padding: '8px 18px',
+            borderRadius: '30px',
+            fontSize: '0.86rem',
+            fontWeight: 800,
+            border: '1px solid rgba(255,255,255,0.18)',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+          }}
+        >
+          <span
+            style={{
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              background:
+                callState === 'listening'
+                  ? '#10b981'
+                  : callState === 'speaking'
+                  ? '#38bdf8'
+                  : callState === 'thinking'
+                  ? '#facc15'
+                  : '#f59e0b',
+              display: 'inline-block',
+              boxShadow: callState === 'listening' ? '0 0 10px #10b981' : undefined,
+            }}
+          />
+          <span>{callState === 'connecting' ? (isAr ? 'جارٍ الاتصال بالدكتور...' : 'Connecting...') : formatSeconds(callDuration)}</span>
+          <span style={{ opacity: 0.4 }}>•</span>
+          <span>{isAr ? 'مكالمة هاتفية مع دكتور دوايا الذكي' : 'DAWAYA Live Doctor Call'}</span>
         </div>
       </div>
 
-      {/* Central Calling Avatar & Audio Waves */}
-      <div style={{ textAlign: 'center', margin: 'auto 0' }}>
+      {/* Center Calling Area */}
+      <div style={{ textAlign: 'center', margin: 'auto 0', padding: '10px 0' }}>
+        {/* Animated Avatar */}
         <div
           style={{
             position: 'relative',
-            width: '160px',
-            height: '160px',
-            margin: '0 auto 24px',
+            width: '140px',
+            height: '140px',
+            margin: '0 auto 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -228,21 +457,35 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
               position: 'absolute',
               inset: 0,
               borderRadius: '50%',
-              background: callState === 'listening' ? '#10b981' : callState === 'speaking' ? '#38bdf8' : '#64748b',
+              background:
+                callState === 'listening'
+                  ? '#10b981'
+                  : callState === 'speaking'
+                  ? '#38bdf8'
+                  : callState === 'thinking'
+                  ? '#f59e0b'
+                  : '#64748b',
               opacity: 0.25,
-              transform: `scale(${audioPulse * 1.35})`,
-              transition: 'transform 0.15s ease-out',
+              transform: `scale(${audioWaveLevel * 1.3})`,
+              transition: 'transform 0.12s ease-out',
             }}
           />
           <div
             style={{
               position: 'absolute',
-              inset: '12px',
+              inset: '10px',
               borderRadius: '50%',
-              background: callState === 'listening' ? '#059669' : callState === 'speaking' ? '#0284c7' : '#475569',
+              background:
+                callState === 'listening'
+                  ? '#059669'
+                  : callState === 'speaking'
+                  ? '#0284c7'
+                  : callState === 'thinking'
+                  ? '#d97706'
+                  : '#475569',
               opacity: 0.35,
-              transform: `scale(${audioPulse * 1.15})`,
-              transition: 'transform 0.15s ease-out',
+              transform: `scale(${audioWaveLevel * 1.12})`,
+              transition: 'transform 0.12s ease-out',
             }}
           />
 
@@ -250,29 +493,37 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
           <div
             style={{
               position: 'relative',
-              width: '120px',
-              height: '120px',
+              width: '110px',
+              height: '110px',
               borderRadius: '50%',
               background: 'linear-gradient(135deg, #0D1F38 0%, #138866 100%)',
-              border: '4px solid #CFD29D',
-              boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
+              border: '3.5px solid #CFD29D',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.6)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '3.6rem',
+              fontSize: '3.4rem',
             }}
           >
             👨‍⚕️
           </div>
         </div>
 
-        {/* State Label */}
-        <h2 style={{ fontSize: '1.45rem', fontWeight: 900, margin: '0 0 6px', color: '#ffffff' }}>
-          {isAr ? 'د. دوايا — الاستشاري الطبي الصيدلاني' : 'Dr. DAWAYA — Clinical Consultant'}
+        {/* Doctor Name & Occupation context */}
+        <h2 style={{ fontSize: '1.35rem', fontWeight: 900, margin: '0 0 4px', color: '#ffffff' }}>
+          {isAr ? 'د. دوايا — الاستشاري الصيدلاني الذكي' : 'Dr. DAWAYA — AI Clinical Doctor'}
         </h2>
+
+        {profile.occupation && (
+          <div style={{ fontSize: '0.84rem', color: '#93c5fd', fontWeight: 700, marginBottom: '6px' }}>
+            👔 {isAr ? `بيراعي متطلبات مهنتك: (${profile.occupation})` : `Customized for: (${profile.occupation})`}
+          </div>
+        )}
+
+        {/* State Indicator */}
         <div
           style={{
-            fontSize: '1rem',
+            fontSize: '0.96rem',
             fontWeight: 800,
             color:
               callState === 'listening'
@@ -282,98 +533,324 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
                 : callState === 'speaking'
                 ? '#38bdf8'
                 : '#94a3b8',
-            marginBottom: '16px',
+            marginBottom: '14px',
           }}
         >
           {callState === 'connecting'
-            ? '⏳ جارٍ بدء الاتصال الصوتي...'
+            ? isAr
+              ? '⏳ جارٍ الاتصال وفتح قناة الصوت...'
+              : '⏳ Connecting audio line...'
             : callState === 'listening'
-            ? '🎙️ الطبيب يستمع لك الآن.. تفضل بالتحدث'
+            ? isAr
+              ? '🎙️ الطبيب يستمع لك الآن.. اتكلم براحتك'
+              : '🎙️ Doctor is listening live... Speak freely'
             : callState === 'thinking'
-            ? '⚡ جارٍ تجهيز الرأي الطبي السريري...'
+            ? isAr
+              ? '⚡ الطبيب يدرس حالتك ويجهز الرد...'
+              : '⚡ Analyzing clinical context...'
             : callState === 'speaking'
-            ? '🔊 الطبيب يتحدث معك الآن...'
-            : '⏸️ المكالمة متوقفة مؤقتاً'}
+            ? isAr
+              ? '🔊 الطبيب يتحدث معك الآن...'
+              : '🔊 Doctor is speaking...'
+            : isAr
+              ? '⏸️ المكالمة جاهزة.. اضغط على الزر للتحدث'
+              : '⏸️ Ready.. Tap button to speak'}
         </div>
 
-        {/* Live Subtitles Box (Transcript & Doctor Reply) */}
+        {/* Interactive Main Tap-to-Speak Button */}
+        <div style={{ marginBottom: '14px' }}>
+          <button
+            type="button"
+            onClick={handleMicButtonTap}
+            style={{
+              padding: '12px 24px',
+              borderRadius: '35px',
+              border: '2px solid rgba(255,255,255,0.3)',
+              background:
+                callState === 'listening'
+                  ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
+                  : callState === 'speaking'
+                  ? 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)'
+                  : 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
+              color: '#ffffff',
+              fontWeight: 800,
+              fontSize: '1rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              boxShadow:
+                callState === 'listening'
+                  ? '0 0 20px rgba(16, 185, 129, 0.7)'
+                  : '0 6px 18px rgba(0,0,0,0.35)',
+              transform: callState === 'listening' ? 'scale(1.03)' : 'scale(1)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            {callState === 'listening' ? (
+              <>
+                <span style={{ fontSize: '1.25rem' }}>⏹️</span>
+                <span>{isAr ? 'سامعك.. دوس هنا للإرسال 🚀' : 'Listening.. Tap to send 🚀'}</span>
+              </>
+            ) : callState === 'speaking' ? (
+              <>
+                <span style={{ fontSize: '1.25rem' }}>🎙️</span>
+                <span>{isAr ? 'دوس هنا لو عايز تقاطع وتتكلم' : 'Tap to interrupt and speak'}</span>
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: '1.25rem' }}>🎙️</span>
+                <span>{isAr ? 'اضغط هنا للتحدث مع الدكتور' : 'Tap here to speak'}</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Sound Wave Animation Bars */}
+        {(callState === 'listening' || callState === 'speaking') && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '6px',
+              height: '24px',
+              marginBottom: '12px',
+            }}
+          >
+            {[0.4, 0.8, 1.2, 0.6, 1.1, 0.5, 0.9].map((multiplier, idx) => (
+              <span
+                key={idx}
+                style={{
+                  width: '4px',
+                  borderRadius: '3px',
+                  background: callState === 'listening' ? '#34d399' : '#38bdf8',
+                  height: `${Math.max(6, Math.min(22, 14 * audioWaveLevel * multiplier))}px`,
+                  transition: 'height 0.1s ease',
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Live Subtitles & Doctor Reply Display */}
         <div
           style={{
-            maxWidth: '540px',
+            maxWidth: '520px',
             margin: '0 auto',
-            padding: '16px 20px',
-            borderRadius: '18px',
+            padding: '14px 18px',
+            borderRadius: '16px',
             background: 'rgba(255,255,255,0.08)',
             border: '1px solid rgba(255,255,255,0.15)',
             textAlign: 'center',
-            minHeight: '80px',
+            minHeight: '85px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
+            backdropFilter: 'blur(8px)',
           }}
         >
-          {transcript && (
-            <div style={{ fontSize: '0.92rem', color: '#86efac', fontWeight: 800, marginBottom: '6px' }}>
-              🗣️ أنت: "{transcript}"
+          {/* Patient live interim / final speech */}
+          {(interimText || transcript) && (
+            <div
+              style={{
+                fontSize: '0.92rem',
+                color: '#86efac',
+                fontWeight: 800,
+                marginBottom: '8px',
+                background: 'rgba(16, 185, 129, 0.15)',
+                padding: '6px 12px',
+                borderRadius: '10px',
+              }}
+            >
+              🗣️ {isAr ? 'أنت' : 'You'}: "{interimText || transcript}"
+              {callState === 'listening' && (
+                <span style={{ opacity: 0.6, fontSize: '0.8rem', marginRight: '6px' }}>
+                  {isAr ? ' (جاري الاستماع...)' : ' (listening...)'}
+                </span>
+              )}
             </div>
           )}
-          <div style={{ fontSize: '1.02rem', lineHeight: 1.6, color: '#f8fafc', fontWeight: 700 }}>
-            {lastDoctorReply || 'تحدث الآن وسيجيبك الطبيب فوراً...'}
+
+          {/* Doctor spoken response */}
+          <div style={{ fontSize: '1rem', lineHeight: 1.6, color: '#f8fafc', fontWeight: 700 }}>
+            {lastDoctorReply || (isAr ? 'تحدث الآن وسيجيبك الطبيب فوراً...' : 'Speak now and the doctor will reply instantly...')}
           </div>
         </div>
+
+        {/* Microphone Error / Warning Banner */}
+        {micError && (
+          <div
+            style={{
+              maxWidth: '520px',
+              margin: '10px auto 0',
+              padding: '10px 14px',
+              borderRadius: '12px',
+              background: 'rgba(239, 68, 68, 0.2)',
+              border: '1px solid #ef4444',
+              color: '#fca5a5',
+              fontSize: '0.86rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+            }}
+          >
+            <span>⚠️ {micError}</span>
+            <button
+              type="button"
+              onClick={startListeningCycle}
+              style={{
+                background: '#ef4444',
+                color: '#fff',
+                border: 'none',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontWeight: 800,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+              }}
+            >
+              {isAr ? 'إعادة المحاولة 🔄' : 'Retry 🔄'}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Call Controls: Mute + End Call */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '28px', marginBottom: '16px' }}>
-        {/* Mute Button */}
-        <button
-          type="button"
-          onClick={toggleMute}
+      {/* Bottom Area: Quick Fallback Inputs & Controls */}
+      <div style={{ maxWidth: '540px', width: '100%', margin: '0 auto' }}>
+        {/* Quick Suggestion Chips */}
+        <div
           style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '50%',
-            background: isMuted ? '#f59e0b' : 'rgba(255,255,255,0.18)',
-            border: '2px solid rgba(255,255,255,0.3)',
-            color: '#ffffff',
-            fontSize: '1.6rem',
-            cursor: 'pointer',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+            gap: '6px',
+            overflowX: 'auto',
+            paddingBottom: '8px',
+            marginBottom: '8px',
+            scrollbarWidth: 'none',
           }}
-          title={isMuted ? 'إلغاء كتم الصوت' : 'كتم الميكروفون'}
         >
-          {isMuted ? '🔇' : '🎙️'}
-        </button>
+          {quickQuestions.map((qText, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => handlePatientSpeech(qText)}
+              style={{
+                whiteSpace: 'nowrap',
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                color: '#e2e8f0',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              💬 {qText}
+            </button>
+          ))}
+        </div>
 
-        {/* Red End Call Button */}
-        <button
-          type="button"
-          onClick={() => {
-            recogRef.current?.stop();
-            stopSpeech();
-            onClose();
-          }}
+        {/* Emergency Text Input Bar */}
+        <form
+          onSubmit={handleManualSubmit}
           style={{
-            width: '76px',
-            height: '76px',
-            borderRadius: '50%',
-            background: '#dc2626',
-            border: '3px solid #ffffff',
-            color: '#ffffff',
-            fontSize: '2rem',
-            cursor: 'pointer',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 24px rgba(220, 38, 38, 0.5)',
+            gap: '8px',
+            marginBottom: '16px',
           }}
-          title="إنهاء المكالمة"
         >
-          📞
-        </button>
+          <input
+            type="text"
+            value={manualText}
+            onChange={(e) => setManualText(e.target.value)}
+            placeholder={
+              isAr
+                ? 'أو اكتب استفسارك هنا للدكتور مباشرة...'
+                : 'Or type your question for the doctor...'
+            }
+            style={{
+              flex: 1,
+              padding: '10px 14px',
+              borderRadius: '25px',
+              border: '1px solid rgba(255,255,255,0.25)',
+              background: 'rgba(255,255,255,0.08)',
+              color: '#ffffff',
+              fontSize: '0.9rem',
+              outline: 'none',
+            }}
+          />
+          <button
+            type="submit"
+            disabled={!manualText.trim()}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '25px',
+              border: 'none',
+              background: manualText.trim() ? '#10b981' : 'rgba(255,255,255,0.2)',
+              color: '#ffffff',
+              fontWeight: 800,
+              fontSize: '0.9rem',
+              cursor: manualText.trim() ? 'pointer' : 'default',
+            }}
+          >
+            {isAr ? 'إرسال ✈️' : 'Send ✈️'}
+          </button>
+        </form>
+
+        {/* Bottom Call Controls: Mute + End Call */}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '28px', marginBottom: '8px' }}>
+          {/* Mute Button */}
+          <button
+            type="button"
+            onClick={toggleMute}
+            style={{
+              width: '60px',
+              height: '60px',
+              borderRadius: '50%',
+              background: isMuted ? '#f59e0b' : 'rgba(255,255,255,0.18)',
+              border: '2px solid rgba(255,255,255,0.3)',
+              color: '#ffffff',
+              fontSize: '1.5rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+            }}
+            title={isMuted ? 'إلغاء كتم الصوت' : 'كتم الميكروفون'}
+          >
+            {isMuted ? '🔇' : '🎙️'}
+          </button>
+
+          {/* Red End Call Button */}
+          <button
+            type="button"
+            onClick={() => {
+              cleanupAll();
+              onClose();
+            }}
+            style={{
+              width: '72px',
+              height: '72px',
+              borderRadius: '50%',
+              background: '#dc2626',
+              border: '3px solid #ffffff',
+              color: '#ffffff',
+              fontSize: '1.9rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(220, 38, 38, 0.55)',
+            }}
+            title={isAr ? 'إنهاء المكالمة' : 'End Call'}
+          >
+            📞
+          </button>
+        </div>
       </div>
     </div>
   );

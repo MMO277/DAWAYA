@@ -11,6 +11,7 @@ export interface SpeechState {
 
 export interface VoiceRecognitionHandle {
   stop: () => void;
+  abort?: () => void;
 }
 
 const BCP47_MAP: Record<Lang, string> = {
@@ -30,11 +31,37 @@ export function isVoiceRecognitionSupported(): boolean {
   return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
 }
 
+/**
+ * Requests explicit microphone permission using getUserMedia so mobile browsers
+ * (Chrome/Android WebView/PWA) prompt the user and grant microphone access.
+ */
+export async function requestMicrophonePermission(): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return false;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Stop tracks immediately to avoid keeping mic light active until recognition starts
+    stream.getTracks().forEach((track) => {
+      try {
+        track.stop();
+      } catch {
+        /* ignore */
+      }
+    });
+    return true;
+  } catch (err) {
+    console.warn('Microphone permission request error:', err);
+    return false;
+  }
+}
+
 export function startVoiceRecognition(
   lang: Lang,
-  onResult: (transcript: string) => void,
+  onResult: (transcript: string, isFinal?: boolean) => void,
   onError?: (err: string) => void,
-  onEnd?: () => void
+  onEnd?: () => void,
+  options?: { interim?: boolean; continuous?: boolean }
 ): VoiceRecognitionHandle | null {
   if (!isVoiceRecognitionSupported()) {
     const errMsg =
@@ -49,45 +76,86 @@ export function startVoiceRecognition(
     return null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-  const recognition = new SpeechRec();
-  recognition.lang = BCP47_MAP[lang] || 'en-US';
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  recognition.onresult = (event: any) => {
-    const text = event?.results?.[0]?.[0]?.transcript || '';
-    if (text.trim()) {
-      onResult(text.trim());
-    }
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  recognition.onerror = (event: any) => {
-    onError?.(event?.error || 'voice-error');
-  };
-
-  recognition.onend = () => {
-    onEnd?.();
-  };
-
   try {
-    recognition.start();
-  } catch {
-    onEnd?.();
-  }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRec();
+    recognition.lang = BCP47_MAP[lang] || 'ar-EG';
+    recognition.interimResults = Boolean(options?.interim);
+    recognition.continuous = Boolean(options?.continuous);
+    recognition.maxAlternatives = 1;
 
-  return {
-    stop: () => {
-      try {
-        recognition.stop();
-      } catch {
-        /* ignore */
+    let hasReceivedResult = false;
+    let stoppedManually = false;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
+      let finalTranscript = '';
+      let interimTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const item = event.results[i];
+        if (item.isFinal) {
+          finalTranscript += item[0]?.transcript || '';
+        } else {
+          interimTranscript += item[0]?.transcript || '';
+        }
       }
-    },
-  };
+
+      const cleanFinal = finalTranscript.trim();
+      const cleanInterim = interimTranscript.trim();
+
+      if (cleanFinal) {
+        hasReceivedResult = true;
+        onResult(cleanFinal, true);
+      } else if (cleanInterim && options?.interim) {
+        hasReceivedResult = true;
+        onResult(cleanInterim, false);
+      }
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onerror = (event: any) => {
+      const errType = event?.error || 'voice-error';
+      // If user stopped it or already got results on no-speech, don't treat as critical
+      if (errType === 'no-speech' && hasReceivedResult) {
+        return;
+      }
+      onError?.(errType);
+    };
+
+    recognition.onend = () => {
+      if (!stoppedManually) {
+        onEnd?.();
+      }
+    };
+
+    recognition.start();
+
+    return {
+      stop: () => {
+        stoppedManually = true;
+        try {
+          recognition.stop();
+        } catch {
+          /* ignore */
+        }
+      },
+      abort: () => {
+        stoppedManually = true;
+        try {
+          recognition.abort();
+        } catch {
+          /* ignore */
+        }
+      },
+    };
+  } catch (err: any) {
+    console.warn('Failed to start speech recognition:', err);
+    onError?.(err?.message || 'start-failed');
+    onEnd?.();
+    return null;
+  }
 }
 
 export function getVoices(): Promise<SpeechSynthesisVoice[]> {
@@ -159,20 +227,32 @@ export class SpeechPlayer {
 
   public stop(): void {
     if (!isSpeechSupported()) return;
-    window.speechSynthesis.cancel();
+    try {
+      window.speechSynthesis.cancel();
+    } catch {
+      /* ignore */
+    }
     this.utterance = null;
     this.onStateChange?.({ playing: false, paused: false });
   }
 
   public pause(): void {
     if (!isSpeechSupported()) return;
-    window.speechSynthesis.pause();
+    try {
+      window.speechSynthesis.pause();
+    } catch {
+      /* ignore */
+    }
     this.onStateChange?.({ playing: false, paused: true });
   }
 
   public resume(): void {
     if (!isSpeechSupported()) return;
-    window.speechSynthesis.resume();
+    try {
+      window.speechSynthesis.resume();
+    } catch {
+      /* ignore */
+    }
     this.onStateChange?.({ playing: true, paused: false });
   }
 
@@ -191,7 +271,11 @@ export class SpeechPlayer {
     rate = 1.0,
     onEnd?: () => void
   ): Promise<boolean> {
-    if (!isSpeechSupported() || !text.trim()) return false;
+    if (!isSpeechSupported() || !text.trim()) {
+      onEnd?.();
+      return false;
+    }
+
     this.stop();
 
     if (this.voices.length === 0) {
@@ -201,19 +285,42 @@ export class SpeechPlayer {
     const voice = findVoiceForLang(this.voices, lang);
     const u = new SpeechSynthesisUtterance(text);
     this.utterance = u;
-    u.lang = BCP47_MAP[lang] || 'en-US';
+    u.lang = BCP47_MAP[lang] || 'ar-EG';
     u.rate = rate;
     if (voice) {
       u.voice = voice;
     }
+
+    let isDone = false;
+    let safetyTimer: any = null;
+
+    const finalize = () => {
+      if (isDone) return;
+      isDone = true;
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+        safetyTimer = null;
+      }
+      this.onStateChange?.({ playing: false, paused: false });
+      try {
+        onEnd?.();
+      } catch (err) {
+        console.warn('Speech onEnd handler error:', err);
+      }
+    };
+
+    // Calculate maximum duration to avoid getting stuck if Android Chrome drops onend event
+    const estimatedSafetyMs = Math.min(22000, Math.max(3000, Math.ceil(text.length / 10) * 1000));
+    safetyTimer = setTimeout(() => {
+      finalize();
+    }, estimatedSafetyMs);
 
     u.onstart = () => {
       this.onStateChange?.({ playing: true, paused: false });
     };
 
     u.onend = () => {
-      this.onStateChange?.({ playing: false, paused: false });
-      onEnd?.();
+      finalize();
     };
 
     u.onerror = (e) => {
@@ -221,10 +328,16 @@ export class SpeechPlayer {
         console.warn('SpeechSynthesis error:', e);
         this.onError?.(e);
       }
-      this.onStateChange?.({ playing: false, paused: false });
+      finalize();
     };
 
-    window.speechSynthesis.speak(u);
+    try {
+      window.speechSynthesis.speak(u);
+    } catch (speakErr) {
+      console.warn('SpeechSynthesis.speak failed:', speakErr);
+      finalize();
+    }
+
     return true;
   }
 }

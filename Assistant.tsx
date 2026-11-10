@@ -726,6 +726,15 @@ export default function Assistant() {
             <button
               type="button"
               className="btn small"
+              onClick={() => setVoiceCallOpen(true)}
+              style={{ background: '#10b981', color: '#ffffff', fontWeight: 800, borderColor: '#059669' }}
+              title={isAr ? 'مكالمة صوتية مباشرة مع الدكتور' : 'Live Voice Doctor Call'}
+            >
+              📞 {isAr ? 'مكالمة صوتية مع الطبيب' : 'Call Doctor'}
+            </button>
+            <button
+              type="button"
+              className="btn small"
               onClick={() => fileInputRef.current?.click()}
               disabled={loading}
             >
@@ -779,26 +788,43 @@ export default function Assistant() {
               : 'Try saying: "Add my penicillin allergy", "Update my weight to 75 kg", "Remind me to take Augmentin at 8 AM", or upload a prescription image!'}
           </span>
         </div>
-        <button
-          type="button"
-          className="btn"
-          onClick={toggleVoiceMic}
-          style={{
-            background: listening ? '#dc2626' : '#10b981',
-            color: '#fff',
-            fontWeight: 700,
-            padding: '10px 18px',
-            borderRadius: '999px',
-          }}
-        >
-          {listening
-            ? isAr
-              ? '⏹️ وقف المايك...'
-              : '⏹️ Stop Listening...'
-            : isAr
-              ? '🎤 دوس واتكلم بالمايك'
-              : '🎤 Tap & Speak Now'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setVoiceCallOpen(true)}
+            style={{
+              background: '#10b981',
+              color: '#fff',
+              fontWeight: 800,
+              padding: '10px 18px',
+              borderRadius: '999px',
+              boxShadow: '0 4px 12px rgba(16,185,129,0.4)',
+            }}
+          >
+            📞 {isAr ? 'مكالمة هاتفية مع الطبيب' : 'Call AI Doctor'}
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={toggleVoiceMic}
+            style={{
+              background: listening ? '#dc2626' : 'rgba(255,255,255,0.2)',
+              color: '#fff',
+              fontWeight: 700,
+              padding: '10px 18px',
+              borderRadius: '999px',
+            }}
+          >
+            {listening
+              ? isAr
+                ? '⏹️ وقف المايك...'
+                : '⏹️ Stop Listening...'
+              : isAr
+                ? '🎤 دوس واتكلم بالمايك'
+                : '🎤 Tap & Speak Now'}
+          </button>
+        </div>
       </div>
 
       {voiceNote && (
