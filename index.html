@@ -41,14 +41,63 @@
     <meta name="twitter:title" content="DAWAYA | دوايا — Your Health. Smarter." />
     <meta name="twitter:description" content="Comprehensive digital healthcare & medication safety platform with 26,572+ Egyptian medicines, Prescription Radar, Health Profile & AI Assistant." />
     <meta name="twitter:image" content="https://mmo277.github.io/DAWAYA/og-image.png" />
-    <script type="application/ld+json">
+        <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "DAWAYA | دوايا — Your Health. Smarter.",
-      "alternateName": "صحتك.. بذكاء أكتر",
-      "url": "https://mmo277.github.io/DAWAYA/",
-      "inLanguage": ["ar", "en", "de", "fr", "es"]
+      "@graph": [
+        {
+          "@type": "MedicalOrganization",
+          "@id": "https://mmo277.github.io/DAWAYA/#organization",
+          "name": "DAWAYA | منصة دوايا للرعاية الصحية والأمان الدوائي في مصر",
+          "alternateName": ["دوايا", "DAWAYA", "DAWAYA Health"],
+          "url": "https://mmo277.github.io/DAWAYA/",
+          "logo": "https://mmo277.github.io/DAWAYA/favicon-192.png",
+          "description": "المنصة الطبية الرقمية المتكاملة في مصر: قاعدة بيانات 26,562 دواء، مجمع 20 عيادة تخصصية، مشخص الأعراض باللمس، فاحص التداخلات، ومولد وجبات الأمراض المزمنة.",
+          "areaServed": "EG",
+          "knowsAbout": [
+            "Medication Safety",
+            "Drug Interactions",
+            "Egyptian Pharmaceuticals",
+            "Specialty Medical Clinics",
+            "Symptom Triage",
+            "Chronic Disease Nutrition"
+          ],
+          "medicalSpecialty": [
+            "PharmacySpecialty",
+            "CommunityHealth",
+            "Emergency",
+            "Pediatric",
+            "Obstetric",
+            "Cardiovascular"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://mmo277.github.io/DAWAYA/#website",
+          "url": "https://mmo277.github.io/DAWAYA/",
+          "name": "دوايا | DAWAYA",
+          "publisher": { "@id": "https://mmo277.github.io/DAWAYA/#organization" },
+          "inLanguage": ["ar", "en", "de", "fr", "es"],
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://mmo277.github.io/DAWAYA/#/medicines?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "MedicalWebPage",
+          "@id": "https://mmo277.github.io/DAWAYA/#webpage",
+          "url": "https://mmo277.github.io/DAWAYA/",
+          "name": "دوايا | دليل الأدوية والعيادات التخصصية ومشخص الأعراض في مصر",
+          "isPartOf": { "@id": "https://mmo277.github.io/DAWAYA/#website" },
+          "about": { "@id": "https://mmo277.github.io/DAWAYA/#organization" },
+          "description": "ابحث عن أسعار وبدائل الأدوية في مصر، تواصل مع الطبيب الذكي بالصوت، وشخّص أعراضك عبر خريطة الجسم التفاعلية.",
+          "inLanguage": "ar"
+        }
+      ]
     }
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

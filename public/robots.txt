@@ -1,4 +1,13 @@
 User-agent: *
 Allow: /
+Allow: /sitemap.xml
+Allow: /public/
+
+# Googlebot & Bingbot specific directives
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
 
 Sitemap: https://mmo277.github.io/DAWAYA/sitemap.xml
