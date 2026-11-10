@@ -1,3 +1,4 @@
+import SmartChoiceSelect from './SmartChoiceSelect';
 import { evaluateMedicationSafety } from './medicationSafetyEngine';
 import { useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
 import { pick } from './types';
@@ -604,89 +605,58 @@ export default function HealthProfile() {
               </div>
               <div className="form-group">
                 <label><b>{isAr ? 'النوع:' : 'Gender:'}</b></label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  {[
-                    { id: 'male', icon: '👨', labelAr: 'ذكر', labelEn: 'Male' },
-                    { id: 'female', icon: '👩', labelAr: 'أنثى', labelEn: 'Female' },
-                  ].map((g) => {
-                    const active = genderInput === g.id;
-                    return (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => setGenderInput(g.id)}
-                        className={`dawaya-choice-pill ${active ? 'selected' : ''}`}
-                      >
-                        <span style={{ fontSize: '1.2rem' }}>{g.icon}</span>
-                        <span>{isAr ? g.labelAr : g.labelEn}</span>
-                        {active && <span style={{ color: '#10b981', fontWeight: 900 }}>✓</span>}
-                      </button>
-                    );
-                  })}
-                </div>
+                <SmartChoiceSelect
+                  value={genderInput}
+                  onChange={(val) => setGenderInput(val)}
+                  placeholder={isAr ? '— اختر النوع —' : '— Select Gender —'}
+                  modalTitle={isAr ? '👤 اختر النوع (الجنس)' : 'Select Gender'}
+                  options={[
+                    { value: 'male', icon: '👨', label: isAr ? 'ذكر' : 'Male', description: isAr ? 'حساب الجرعات القياسية للرجال' : 'Standard male clinical dosing' },
+                    { value: 'female', icon: '👩', label: isAr ? 'أنثى' : 'Female', description: isAr ? 'تفعيل فحص أمان الأدوية مع الحمل والرضاعة' : 'Enables pregnancy & lactation safety checks' },
+                  ]}
+                />
               </div>
+
               <div className="form-group">
                 <label><b>{isAr ? 'وظائف الكلى:' : 'Renal Function:'}</b></label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '6px' }}>
-                  {[
-                    { id: 'normal', icon: '✅', labelAr: 'طبيعية', descAr: 'سليمة' },
-                    { id: 'impaired', icon: '⚠️', labelAr: 'قصور كلوي', descAr: 'تعديل جرعة' },
-                    { id: 'unknown', icon: '❓', labelAr: 'غير محدد', descAr: 'بلا فحص' },
-                  ].map((r) => {
-                    const active = (profile.renalStatus || 'unknown') === r.id;
-                    return (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() =>
-                          setProfile((prev) => ({
-                            ...prev,
-                            renalStatus: r.id as any,
-                          }))
-                        }
-                        className={`dawaya-organ-pill ${active ? 'selected' : ''}`}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ fontSize: '1.1rem' }}>{r.icon}</span>
-                          <b>{r.labelAr}</b>
-                        </div>
-                        <span className="sub">{r.descAr}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <SmartChoiceSelect
+                  value={profile.renalStatus || 'unknown'}
+                  onChange={(val) =>
+                    setProfile((prev) => ({
+                      ...prev,
+                      renalStatus: val as 'normal' | 'impaired' | 'unknown',
+                    }))
+                  }
+                  modalTitle={isAr ? '🫘 حالة كفاءة وظائف الكلى' : 'Renal Function Status'}
+                  modalSubtitle={isAr ? 'يستخدمها الذكاء الاصطناعي لتعديل جرعات الأدوية التي تفرز عبر الكلى' : 'Used to adjust renally cleared medications'}
+                  options={[
+                    { value: 'normal', icon: '✅', label: isAr ? 'طبيعية (Normal)' : 'Normal', description: isAr ? 'وظائف الكلى سليمة ولا تحتاج لتخفيض الجرعات' : 'Normal kidney clearance', badge: isAr ? 'جرعة قياسية آمنة' : 'Standard dose' },
+                    { value: 'impaired', icon: '⚠️', label: isAr ? 'قصور كلوي يحتاج تعديل جرعة' : 'Impaired (Dose Adjustment)', description: isAr ? 'تنبيه إلزامي لتقليل جرعات المضادات الحيوية والمسكنات الكلوية' : 'Requires renal dose adjustment', badge: isAr ? '🚨 حماية الكلى مفعلة' : 'Renal guard active' },
+                    { value: 'unknown', icon: '❓', label: isAr ? 'غير محدد' : 'Unknown', description: isAr ? 'لم يتم إجراء تحليل كرياتينين مؤخراً' : 'No recent lab test' },
+                  ]}
+                />
               </div>
+
               <div className="form-group">
                 <label><b>{isAr ? 'وظائف الكبد:' : 'Hepatic Function:'}</b></label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '6px' }}>
-                  {[
-                    { id: 'normal', icon: '✅', labelAr: 'طبيعية', descAr: 'سليمة' },
-                    { id: 'impaired', icon: '⚠️', labelAr: 'قصور كبدي', descAr: 'حذر دوائي' },
-                    { id: 'unknown', icon: '❓', labelAr: 'غير محدد', descAr: 'بلا فحص' },
-                  ].map((h) => {
-                    const active = (profile.hepaticStatus || 'unknown') === h.id;
-                    return (
-                      <button
-                        key={h.id}
-                        type="button"
-                        onClick={() =>
-                          setProfile((prev) => ({
-                            ...prev,
-                            hepaticStatus: h.id as any,
-                          }))
-                        }
-                        className={`dawaya-organ-pill ${active ? 'selected' : ''}`}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ fontSize: '1.1rem' }}>{h.icon}</span>
-                          <b>{h.labelAr}</b>
-                        </div>
-                        <span className="sub">{h.descAr}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <SmartChoiceSelect
+                  value={profile.hepaticStatus || 'unknown'}
+                  onChange={(val) =>
+                    setProfile((prev) => ({
+                      ...prev,
+                      hepaticStatus: val as 'normal' | 'impaired' | 'unknown',
+                    }))
+                  }
+                  modalTitle={isAr ? '🛡️ حالة كفاءة وظائف الكبد' : 'Hepatic Function Status'}
+                  modalSubtitle={isAr ? 'لحمايتك من الأدوية التي تسبب إجهاداً أو سمية لخلايا الكبد' : 'Screens for hepatotoxic medications'}
+                  options={[
+                    { value: 'normal', icon: '✅', label: isAr ? 'طبيعية (Normal)' : 'Normal', description: isAr ? 'إنزيمات ووظائف الكبد طبيعية' : 'Normal liver enzymes', badge: isAr ? 'تمثيل دوائي سليم' : 'Normal metabolism' },
+                    { value: 'impaired', icon: '⚠️', label: isAr ? 'قصور كبدي' : 'Impaired Hepatic Function', description: isAr ? 'تحذير فوري من الجرعات العالية للباراسيتامول والأدوية الكبدية' : 'Alerts on hepatotoxic drugs', badge: isAr ? '🚨 حماية الكبد مفعلة' : 'Liver guard active' },
+                    { value: 'unknown', icon: '❓', label: isAr ? 'غير محدد' : 'Unknown', description: isAr ? 'لم يتم إجراء فحص وظائف كبد مؤخراً' : 'Not tested recently' },
+                  ]}
+                />
               </div>
+
               <div className="form-group form-group-full">
                 <label><b>{isAr ? 'رقم هاتف الطوارئ:' : 'Emergency Contact:'}</b></label>
                 <input value={contactInput} onChange={(e) => setContactInput(e.target.value)} placeholder="01xxxxxxxxx" />
@@ -696,155 +666,102 @@ export default function HealthProfile() {
                 className="form-group form-group-full"
                 style={{
                   background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(6, 95, 70, 0.12) 100%)',
-                  padding: '16px 18px',
-                  borderRadius: '18px',
+                  padding: '14px 16px',
+                  borderRadius: '16px',
                   border: '2px solid #10b981',
-                  marginTop: '10px',
+                  marginTop: '6px',
                 }}
               >
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', color: '#10b981' }}>
-                    <span style={{ fontSize: '1.4rem' }}>🚗⚙️</span>
-                    <strong style={{ fontSize: '1.05rem', color: '#10b981' }}>
-                      {isAr
-                        ? 'المهنة وطبيعة العمل (ذكاء فحص أمان الدواء واليقظة وحماية الصدر):'
-                        : 'Occupation & Daily Work Safety Category:'}
-                    </strong>
-                  </label>
-                  <p className="small" style={{ margin: 0, opacity: 0.85 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#059669' }}>
+                  <span style={{ fontSize: '1.3rem' }}>🚗⚙️</span>
+                  <strong style={{ fontSize: '0.98rem' }}>
                     {isAr
-                      ? 'اختر طبيعة عملك بكروت تفاعلية؛ ليفحص الذكاء الاصطناعي أي دواء تبحث عنه تلقائياً ويحميك من الدوخة وحساسية الصدر المهنية:'
-                      : 'Tap to select your occupation. DAWAYA AI will automatically screen all your medications against occupational hazards:'}
-                  </p>
-                </div>
+                      ? 'المهنة وطبيعة العمل (ذكاء فحص أمان الدواء مع السواقة والتركيز والماكينات):'
+                      : 'Occupation & Daily Work Safety Category:'}
+                  </strong>
+                </label>
 
-                {/* Interactive Choice Cards Grid matching Design 1 */}
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
-                    gap: '10px',
-                    marginBottom: '14px',
-                  }}
-                >
-                  {[
+                <SmartChoiceSelect
+                  value={occupationInput}
+                  onChange={(val) => setOccupationInput(val)}
+                  modalTitle={isAr ? '🚗⚙️ اختر مهنتك لتأمين دوائك' : 'Select Your Occupation'}
+                  modalSubtitle={isAr ? 'يقوم الذكاء الاصطناعي بفحص أي دواء تبحث عنه ضد النعاس والدوخة وحساسية الصدر المهنية' : 'AI automatically screens your medications against workplace hazards'}
+                  options={[
                     {
-                      id: 'driver_transport',
+                      value: 'driver_transport',
                       icon: '🚗',
-                      titleAr: 'سائق طريق ومواصلات',
-                      titleEn: 'Driver & Transport',
-                      descAr: 'سيارة، تاكسي، نقل، حافلات، سفر دائم',
-                      badgeAr: '🚨 فحص حرج للنعاس والدوخة',
+                      label: isAr ? 'سائق طريق ومواصلات' : 'Driver & Transport',
+                      description: isAr ? 'سيارة، تاكسي، نقل ثقيل، سفر دائم — تحذير إلزامي من النعاس والدوخة' : 'Alert for drowsiness and blurred vision',
+                      badge: isAr ? '🚨 فحص حرج للنعاس والدوخة' : 'Critical Drowsiness Check',
                     },
                     {
-                      id: 'machinery_factory',
+                      value: 'machinery_factory',
                       icon: '⚙️',
-                      titleAr: 'عامل مصنع وماكينات',
-                      titleEn: 'Factory & Machinery',
-                      descAr: 'تشغيل آلات حادة، غبار، بودرة، كيماويات',
-                      badgeAr: '🏭 فحص أمان الصدر والرئتين',
+                      label: isAr ? 'عامل مصنع وماكينات' : 'Factory & Machinery Operator',
+                      description: isAr ? 'تشغيل آلات حادة، غبار، بودرة، كيماويات — فحص سرعة الاستجابة وحماية الصدر' : 'Alert for reaction speed and respiratory dust hazards',
+                      badge: isAr ? '🏭 فحص أمان الصدر والماكينات' : 'Lung & Machinery Guard',
                     },
                     {
-                      id: 'office_desk',
+                      value: 'office_desk',
                       icon: '💻',
-                      titleAr: 'عمل مكتبي أو إداري',
-                      titleEn: 'Office & Desk Job',
-                      descAr: 'كمبيوتر، شاشات، أعمال إدارية وهندسية',
-                      badgeAr: '🧠 فحص الإجهاد الذهني',
+                      label: isAr ? 'عمل مكتبي أو إداري' : 'Office & Desk Job',
+                      description: isAr ? 'كمبيوتر، شاشات، أعمال إدارية وهندسية ومحاسبية' : 'Computer and administrative work',
+                      badge: isAr ? '🧠 فحص الإجهاد الذهني' : 'Mental Focus Check',
                     },
                     {
-                      id: 'student',
+                      value: 'student',
                       icon: '🎓',
-                      titleAr: 'طالب / دراسة وامتحانات',
-                      titleEn: 'Student & Academics',
-                      descAr: 'مذاكرة، مدرسة، جامعة، امتحانات مكثفة',
-                      badgeAr: '📚 فحص التركيز والذاكرة',
+                      label: isAr ? 'طالب / دراسة وامتحانات' : 'Student & Academics',
+                      description: isAr ? 'مذاكرة، مدرسة، جامعة — فحص تأثير الدواء على التركيز والذاكرة والاستيعاب' : 'Alert for memory and cognitive focus',
+                      badge: isAr ? '📚 فحص التركيز والذاكرة' : 'Cognitive Alertness',
                     },
                     {
-                      id: 'homemaker',
+                      value: 'homemaker',
                       icon: '🏡',
-                      titleAr: 'ربت منزل / رعاية أسرية',
-                      titleEn: 'Homemaker & Caregiver',
-                      descAr: 'رعاية أطفال، أعمال منزلية، مجهود يومي',
-                      badgeAr: '🛡️ أمان التفاعل الأسري',
+                      label: isAr ? 'ربت منزل / رعاية أسرية' : 'Homemaker & Caregiver',
+                      description: isAr ? 'رعاية أطفال وأعمال منزلية ومجهود يومي مستمر' : 'Child care and daily household tasks',
+                      badge: isAr ? '🛡️ أمان التفاعل الأسري' : 'Family Care Safety',
                     },
                     {
-                      id: 'general',
+                      value: 'general',
                       icon: '🩺',
-                      titleAr: 'فحص عام اعتيادي',
-                      titleEn: 'General Health',
-                      descAr: 'رعاية صحية دورية دون متطلبات مهنية خاصة',
-                      badgeAr: '✅ فحص سريري قياسي',
+                      label: isAr ? 'فحص عام اعتيادي' : 'General Health',
+                      description: isAr ? 'رعاية صحية دورية دون متطلبات مهنية خاصة' : 'Standard clinical safety checks',
+                      badge: isAr ? '✅ فحص سريري قياسي' : 'Standard Check',
                     },
                     {
-                      id: 'other',
+                      value: 'other',
                       icon: '✍️',
-                      titleAr: 'غير ذلك (مهنة خاصة)',
-                      titleEn: 'Other Occupation',
-                      descAr: 'اكتب اسم وظيفتك وطبيعة عملك بنفسك',
-                      badgeAr: '✨ تخصيص مهني كامل',
+                      label: isAr ? 'غير ذلك (مهنة خاصة)' : 'Other Occupation',
+                      description: isAr ? 'اكتب اسم وظيفتك وطبيعة عملك بنفسك لتخصيص الفحص' : 'Type your custom occupation title',
+                      badge: isAr ? '✨ تخصيص مهني كامل' : 'Custom Occupation',
                     },
-                  ].map((card) => {
-                    const isSelected = occupationInput === card.id;
-                    return (
-                      <button
-                        key={card.id}
-                        type="button"
-                        onClick={() => setOccupationInput(card.id)}
-                        className={`dawaya-choice-card ${isSelected ? 'selected' : ''}`}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                          <span style={{ fontSize: '1.8rem' }}>{card.icon}</span>
-                          {isSelected ? (
-                            <span className="dawaya-choice-check">✓</span>
-                          ) : (
-                            <span className="dawaya-choice-uncheck" />
-                          )}
-                        </div>
-                        <div>
-                          <b className="choice-title">
-                            {isAr ? card.titleAr : card.titleEn}
-                          </b>
-                          <span className="choice-desc">
-                            {card.descAr}
-                          </span>
-                        </div>
-                        <span className="choice-badge">
-                          {card.badgeAr}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                  ]}
+                />
 
                 {/* Sub-Panel: When "عامل مصنع وماكينات" is selected */}
                 {occupationInput === 'machinery_factory' && (
                   <div
                     style={{
-                      background: 'rgba(2, 132, 199, 0.16)',
+                      background: 'rgba(2, 132, 199, 0.12)',
                       borderRadius: '14px',
                       border: '1.5px solid #0284c7',
-                      padding: '14px 16px',
-                      marginBottom: '12px',
+                      padding: '12px 14px',
+                      marginTop: '10px',
                     }}
                   >
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38bdf8', fontWeight: 800, fontSize: '0.92rem', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '1.25rem' }}>🏭</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0284c7', fontWeight: 800, fontSize: '0.9rem', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>🏭</span>
                       <span>
                         {isAr
                           ? 'طبيعة بيئة المصنع والمواد التي تتعرض لها (لحماية الصدر والرئتين):'
                           : 'Factory Environment & Airborne Exposure (Lung Safety):'}
                       </span>
                     </label>
-                    <p style={{ fontSize: '0.8rem', color: '#bae6fd', margin: '0 0 10px', lineHeight: 1.4 }}>
-                      {isAr
-                        ? 'اختر المواد التي تتعرض لها داخل المصنع ليقوم الذكاء الاصطناعي بتحذيرك من أي دواء يسبب ضيق تنفس أو ربو مهني:'
-                        : 'Select materials you are exposed to so AI flags bronchospasm or respiratory-risk drugs:'}
-                    </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
                       {[
                         { id: 'dust_powder', icon: '💨', labelAr: 'أتربة وغبار وبودرة (أسمنت، جبس، سيراميك)' },
-                        { id: 'chemicals_fumes', icon: '🧪', labelAr: 'كيماويات وأبخرة ومذيبات عضوية' },
+                        { id: 'chemicals_fumes', icon: '🧪', labelAr: 'كيماويات وأبخرة ومذيبات' },
                         { id: 'textile_cotton', icon: '🧵', labelAr: 'غزل ونسيج وألياف قطن' },
                         { id: 'paints_solvents', icon: '🎨', labelAr: 'دهانات ورش دوكو وصبغات' },
                         { id: 'sharp_machinery', icon: '🔨', labelAr: 'ماكينات حادة وضوضاء ثقيلة' },
@@ -864,16 +781,15 @@ export default function HealthProfile() {
                             style={{
                               padding: '6px 12px',
                               borderRadius: '20px',
-                              border: isChecked ? '1.5px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.25)',
-                              background: isChecked ? '#0284c7' : 'rgba(255, 255, 255, 0.08)',
-                              color: '#ffffff',
-                              fontSize: '0.8rem',
-                              fontWeight: 700,
+                              border: isChecked ? '1.5px solid #0284c7' : '1px solid #94a3b8',
+                              background: isChecked ? '#0284c7' : 'var(--card-bg, #ffffff)',
+                              color: isChecked ? '#ffffff' : 'var(--ink, #0D1F38)',
+                              fontSize: '0.78rem',
+                              fontWeight: 800,
                               cursor: 'pointer',
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '6px',
-                              transition: 'all 0.15s ease',
                             }}
                           >
                             <span>{item.icon}</span>
@@ -889,18 +805,14 @@ export default function HealthProfile() {
                       onChange={(e) => setWorkEnvironmentNotesInput(e.target.value)}
                       placeholder={
                         isAr
-                          ? 'تفاصيل إضافية عن بيئة العمل (مثلاً: مصنع سيراميك وفيه بودرة وأتربة دايماً، أو مصنع كيماويات)...'
+                          ? 'تفاصيل إضافية عن بيئة العمل (مثلاً: مصنع سيراميك وفيه بودرة وأتربة دايماً)...'
                           : 'Additional workplace environment details...'
                       }
                       style={{
                         width: '100%',
                         padding: '8px 12px',
                         borderRadius: '10px',
-                        fontSize: '0.86rem',
-                        border: '1px solid rgba(255, 255, 255, 0.25)',
-                        background: 'rgba(0, 0, 0, 0.25)',
-                        color: '#ffffff',
-                        outline: 'none',
+                        fontSize: '0.85rem',
                       }}
                     />
                   </div>
@@ -910,15 +822,15 @@ export default function HealthProfile() {
                 {occupationInput === 'other' && (
                   <div
                     style={{
-                      background: 'rgba(139, 92, 246, 0.16)',
+                      background: 'rgba(139, 92, 246, 0.12)',
                       borderRadius: '14px',
                       border: '1.5px solid #8b5cf6',
-                      padding: '14px 16px',
-                      marginBottom: '12px',
+                      padding: '12px 14px',
+                      marginTop: '10px',
                     }}
                   >
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#c4b5fd', fontWeight: 800, fontSize: '0.92rem', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '1.25rem' }}>✍️</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#7c3aed', fontWeight: 800, fontSize: '0.9rem', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>✍️</span>
                       <span>
                         {isAr ? 'اكتب اسم وظيفتك وطبيعة عملك بالتفصيل:' : 'Type Your Custom Occupation Title:'}
                       </span>
@@ -932,28 +844,14 @@ export default function HealthProfile() {
                           ? 'مثال: طيار مدني، غطاس بحري، نجار مسلح، شيف مطبخ ساخن، كهربائي ضغط عالي...'
                           : 'e.g. Airline pilot, Deep sea diver, Construction worker, Chef...'
                       }
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        fontSize: '0.92rem',
-                        fontWeight: 700,
-                        border: '1.5px solid #8b5cf6',
-                        background: 'rgba(0, 0, 0, 0.25)',
-                        color: '#ffffff',
-                        outline: 'none',
-                      }}
                     />
                   </div>
                 )}
 
-                <div style={{ fontSize: '0.82rem', color: '#34d399', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>💡</span>
-                  <span>
-                    {isAr
-                      ? 'سيقوم الذكاء الاصطناعي وطبيب المكالمة الصوتية بفحص أدويتك لحظياً ضد متطلبات وظيفتك وحماية صدرك من التفاعلات المهنية!'
-                      : 'DAWAYA AI & Voice Doctor will automatically screen your medications against your occupation and lung safety!'}
-                  </span>
+                <div style={{ fontSize: '0.8rem', color: '#047857', marginTop: '8px', fontWeight: 700 }}>
+                  💡 {isAr
+                    ? 'اضغط على الخانة أعلاه لتفتح لك نافذة اختيار المهنة بالكروت التفاعلية!'
+                    : 'Tap the field above to open the interactive occupation choice cards!'}
                 </div>
               </div>
             </div>
@@ -1348,13 +1246,17 @@ export default function HealthProfile() {
 
               <div className="form-group">
                 <label><b>{isAr ? 'العائلة الدوائية المسببة:' : 'Allergen Family:'}</b></label>
-                <select value={allergenKey} onChange={(e) => setAllergenKey(e.target.value)}>
-                  {ALLERGEN_CATEGORIES.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {pick(c.name, lang)} ({pick(c.examples, lang)})
-                    </option>
-                  ))}
-                </select>
+                <SmartChoiceSelect
+                  value={allergenKey}
+                  onChange={(val) => setAllergenKey(val)}
+                  modalTitle={isAr ? '🛡️ اختر العائلة الدوائية المسببة للحساسية' : 'Select Allergen Family'}
+                  options={ALLERGEN_CATEGORIES.map((c) => ({
+                    value: c.id,
+                    icon: '💊',
+                    label: pick(c.name, lang),
+                    description: pick(c.examples, lang),
+                  }))}
+                />
               </div>
 
               <div className="form-group">
@@ -1410,11 +1312,16 @@ export default function HealthProfile() {
 
                 <div className="form-group">
                   <label><b>{isAr ? 'حالة التوثيق:' : 'Evidence Status:'}</b></label>
-                  <select value={evidence} onChange={(e) => setEvidence(e.target.value as EvidenceStatus)}>
-                    <option value="patient_reported">{isAr ? 'أبلغ عنها المريض' : 'Patient-Reported'}</option>
-                    <option value="clinically_verified">{isAr ? 'مؤكدة سريرياً باختبار جلد' : 'Clinically Verified'}</option>
-                    <option value="suspected">{isAr ? 'مشتبه بها فقط' : 'Suspected'}</option>
-                  </select>
+                  <SmartChoiceSelect
+                    value={evidence}
+                    onChange={(val) => setEvidence(val as EvidenceStatus)}
+                    modalTitle={isAr ? '📋 حالة توثيق الحساسية' : 'Evidence Status'}
+                    options={[
+                      { value: 'patient_reported', icon: '🗣️', label: isAr ? 'أبلغ عنها المريض' : 'Patient-Reported', description: isAr ? 'ظهرت أعراض سابقة عند تناول الدواء' : 'Previous reaction reported' },
+                      { value: 'clinically_verified', icon: '🔬', label: isAr ? 'مؤكدة سريرياً باختبار جلد' : 'Clinically Verified', description: isAr ? 'مثبتة باختبار حساسية أو تقرير طبي' : 'Verified by skin test' },
+                      { value: 'suspected', icon: '❓', label: isAr ? 'مشتبه بها فقط' : 'Suspected', description: isAr ? 'أعراض غير مؤكدة وتحتاج حذر' : 'Uncertain reaction' },
+                    ]}
+                  />
                 </div>
               </div>
 

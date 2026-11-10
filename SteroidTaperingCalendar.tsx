@@ -1,3 +1,4 @@
+import SmartChoiceSelect from './SmartChoiceSelect';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -126,55 +127,32 @@ export default function SteroidTaperingCalendar() {
             <label className="small" style={{ fontWeight: 700, color: '#CFD29D', display: 'block', marginBottom: '4px' }}>
               💉 {isAr ? 'الجرعة الابتدائية الحالية (مجم/يوم):' : 'Starting Dose (mg/day):'}
             </label>
-            <select
-              className="select-input"
-              value={startingDoseMg}
-              onChange={(e) => setStartingDoseMg(Number(e.target.value))}
-              style={{ background: 'rgba(255, 255, 255, 0.1)', color: '#fff', border: '1px solid #CFD29D' }}
-            >
-              {[60, 40, 30, 20, 15, 10].map((d) => (
-                <option key={d} value={d} style={{ color: '#000' }}>
-                  {d} {isAr ? 'مجم يومياً' : 'mg/day'}
-                </option>
-              ))}
-            </select>
+            <SmartChoiceSelect
+              value={String(startingDoseMg)}
+              onChange={(val) => setStartingDoseMg(Number(val))}
+              modalTitle="💉 الجرعة الابتدائية الحالية (مجم/يوم)"
+              options={[60, 40, 30, 20, 15, 10].map((d) => ({
+                value: String(d),
+                icon: '💊',
+                label: `${d} مجم يومياً`,
+                description: `بدء جدول السحب التدريجي من جرعة ${d} مجم`,
+              }))}
+            />
           </div>
 
           <div>
-            <label className="small" style={{ fontWeight: 700, color: '#CFD29D', display: 'block', marginBottom: '6px' }}>
+            <label className="small" style={{ fontWeight: 700, color: '#CFD29D', display: 'block', marginBottom: '4px' }}>
               💊 {isAr ? 'تركيز القرص الذي اشتريته من الصيدلية:' : 'Your Tablet Strength:'}
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              {[
-                { val: 20, labelAr: 'قرص 20 مجم', subAr: 'سولوبريد 20' },
-                { val: 5, labelAr: 'قرص 5 مجم', subAr: 'بريدسول / هوستيكورتين' },
-              ].map((item) => {
-                const active = tabletStrengthMg === item.val;
-                return (
-                  <button
-                    key={item.val}
-                    type="button"
-                    onClick={() => setTabletStrengthMg(item.val)}
-                    style={{
-                      padding: '10px 8px',
-                      borderRadius: '12px',
-                      border: active ? '2.5px solid #CFD29D' : '1px solid rgba(255, 255, 255, 0.2)',
-                      background: active ? 'rgba(207, 210, 157, 0.28)' : 'rgba(255, 255, 255, 0.05)',
-                      color: '#ffffff',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '2px',
-                      boxShadow: active ? '0 0 12px rgba(207, 210, 157, 0.35)' : 'none',
-                    }}
-                  >
-                    <b style={{ fontSize: '0.88rem', color: active ? '#CFD29D' : '#f8fafc' }}>{item.labelAr}</b>
-                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{item.subAr}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <SmartChoiceSelect
+              value={String(tabletStrengthMg)}
+              onChange={(val) => setTabletStrengthMg(Number(val))}
+              modalTitle="💊 تركيز القرص المستخدم"
+              options={[
+                { value: '20', icon: '💊', label: 'قرص 20 مجم (سولوبريد 20)', description: 'أقراص سولوبريد 20 مجم سريعة الذوبان' },
+                { value: '5', icon: '💊', label: 'قرص 5 مجم (بريدسول / هوستيكورتين)', description: 'أقراص تركيز 5 مجم للتدرج الدقيق' },
+              ]}
+            />
           </div>
         </div>
       </section>

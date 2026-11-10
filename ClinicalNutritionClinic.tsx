@@ -1,3 +1,4 @@
+import SmartChoiceSelect from './SmartChoiceSelect';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -136,52 +137,31 @@ export default function ClinicalNutritionClinic() {
               <input type="number" value={ageY} onChange={(e) => setAgeY(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', fontWeight: 800 }} />
             </div>
             <div>
-              <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '6px' }}>النوع:</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                {[
-                  { id: 'male', icon: '👨', label: 'ذكر' },
-                  { id: 'female', icon: '👩', label: 'أنثى' },
-                ].map((item) => {
-                  const active = gender === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setGender(item.id as any)}
-                      style={{
-                        padding: '10px',
-                        borderRadius: '10px',
-                        border: active ? '2px solid #10b981' : '1px solid rgba(255, 255, 255, 0.2)',
-                        background: active ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                        color: '#ffffff',
-                        fontWeight: 800,
-                        fontSize: '0.92rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        boxShadow: active ? '0 0 10px rgba(16, 185, 129, 0.35)' : 'none',
-                      }}
-                    >
-                      <span>{item.icon}</span>
-                      <span>{item.label}</span>
-                      {active && <span style={{ color: '#10b981' }}>✓</span>}
-                    </button>
-                  );
-                })}
-              </div>
+              <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>النوع:</label>
+              <SmartChoiceSelect
+                value={gender}
+                onChange={(val) => setGender(val as any)}
+                modalTitle="👤 اختر النوع لحساب السعرات"
+                options={[
+                  { value: 'male', icon: '👨', label: 'ذكر', description: 'معدل الحرق الأساسي للرجال' },
+                  { value: 'female', icon: '👩', label: 'أنثى', description: 'معدل الحرق الأساسي للسيدات' },
+                ]}
+              />
             </div>
             <div>
-              <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>مستوى النشاط:</label>
-              <select value={activity} onChange={(e) => setActivity(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', fontWeight: 800 }}>
-                <option value="1.2">قليل الحركة (مكتبي)</option>
-                <option value="1.375">نشاط خفيف (مشي 3 أيام/أسبوع)</option>
-                <option value="1.55">نشاط متوسط (رياضة 4-5 أيام)</option>
-              </select>
+              <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>مستوى النشاط اليومي:</label>
+              <SmartChoiceSelect
+                value={activity}
+                onChange={(val) => setActivity(val)}
+                modalTitle="🏃‍♂️ مستوى النشاط البدني اليومي"
+                options={[
+                  { value: '1.2', icon: '💻', label: 'قليل الحركة (عمل مكتبي)', description: 'جلوس معظم اليوم بدون تمارين رياضية' },
+                  { value: '1.375', icon: '🚶‍♂️', label: 'نشاط خفيف (مشي 3 أيام/أسبوع)', description: 'حركة يومية معتدلة أو مشي خفيف' },
+                  { value: '1.55', icon: '🏋️‍♂️', label: 'نشاط متوسط أو عالٍ (رياضة 4-5 أيام)', description: 'مجهود بدني منتظم أو عمل ميداني' },
+                ]}
+              />
             </div>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
             <div style={{ background: 'var(--tint)', padding: '16px', borderRadius: '12px', border: '1px solid var(--line)' }}>
               <span className="small muted">سعرات ثبات الوزن (TDEE):</span>
