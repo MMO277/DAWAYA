@@ -7073,3 +7073,43 @@ h1, h2, h3, h4, h5, h6, p, span, strong, a, button, li, td, th {
     gap: 4px !important;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HIGH-SPECIFICITY DARK THEME OVERRIDE (ENSURES NO LATE :ROOT CLOBBERING)
+   ══════════════════════════════════════════════════════════════════════════ */
+:root[data-theme="dark"],
+html[data-theme="dark"],
+[data-theme="dark"] {
+  --navy: #7dd3fc !important;
+  --blue: #38bdf8 !important;
+  --teal: #10b981 !important;
+  --teal-dark: #34d399 !important;
+  --light-cyan: #bae6fd !important;
+  --tint: #132742 !important;
+  --line: #243b5e !important;
+  --ink: #f8fafc !important;
+  --muted: #94a3b8 !important;
+  --white: #ffffff !important;
+  --text: #f8fafc !important;
+  --border: rgba(255, 255, 255, 0.22) !important;
+  --card-bg: #0d1f38 !important;
+  --bg: #07111e !important;
+  --hero-bg: #07101c !important;
+}
+
+:root:not([data-theme="dark"]) .symptom-quick-chip {
+  color: #0369a1 !important;
+  background: #e0f2fe !important;
+  border-color: #7dd3fc !important;
+}
+
+:root:not([data-theme="dark"]) .symptom-quick-chip:hover {
+  background: #bae6fd !important;
+  color: #075985 !important;
+}
+
+[data-theme="dark"] .symptom-quick-chip:hover {
+  background: rgba(56, 189, 248, 0.28) !important;
+  color: #bae6fd !important;
+  border-color: #38bdf8 !important;
+}

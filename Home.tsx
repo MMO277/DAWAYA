@@ -881,21 +881,35 @@ export default function Home() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          padding: 7px 14px;
+          padding: 8px 16px;
           border-radius: 999px;
-          border: 1.5px solid var(--border, #e2e8f0);
-          background: var(--card-bg, #ffffff);
-          color: var(--text, #101E36);
-          font-size: 0.82rem;
+          border: 1.5px solid rgba(255, 255, 255, 0.22);
+          background: rgba(255, 255, 255, 0.08);
+          color: #f8fafc !important;
+          font-size: 0.84rem;
           font-weight: 800;
           cursor: pointer;
           transition: all 0.18s ease;
         }
+        :root:not([data-theme="dark"]) .bento-persona-pill {
+          border-color: #cbd5e1;
+          background: #ffffff;
+          color: #0D1F38 !important;
+        }
+        .bento-persona-pill:hover {
+          border-color: #10b981;
+          color: #10b981 !important;
+        }
         .bento-persona-pill.active {
-          background: #138866;
-          color: #101E36;
-          border-color: #138866;
-          box-shadow: 0 4px 12px rgba(0, 191, 208, 0.25);
+          background: #10b981 !important;
+          color: #ffffff !important;
+          border-color: #10b981 !important;
+          box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45);
+        }
+        :root:not([data-theme="dark"]) .bento-persona-pill.active {
+          background: #059669 !important;
+          color: #ffffff !important;
+          border-color: #059669 !important;
         }
         .bento-grid {
           display: grid;
@@ -906,19 +920,25 @@ export default function Home() {
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          background: var(--card-bg, #ffffff);
-          border: 1.5px solid var(--border, #e2e8f0);
+          background: #0d1f38;
+          border: 1.5px solid rgba(255, 255, 255, 0.14);
           border-radius: 20px;
           padding: 16px;
           text-decoration: none;
-          color: var(--text, #101E36);
-          box-shadow: 0 6px 20px rgba(16, 30, 54, 0.04);
+          color: #f8fafc !important;
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
           transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        :root:not([data-theme="dark"]) .bento-card {
+          background: #ffffff;
+          border-color: #e2e8f0;
+          color: #0D1F38 !important;
+          box-shadow: 0 6px 20px rgba(16, 30, 54, 0.05);
         }
         .bento-card:hover {
           transform: translateY(-3px);
-          box-shadow: 0 12px 28px rgba(0, 191, 208, 0.14);
-          border-color: var(--accent-color, #138866);
+          box-shadow: 0 12px 28px rgba(16, 185, 129, 0.25);
+          border-color: var(--accent-color, #10b981);
         }
         .bento-card-head {
           display: flex;
@@ -954,16 +974,20 @@ export default function Home() {
           font-size: 1.02rem;
           font-weight: 900;
           line-height: 1.35;
+          color: inherit !important;
         }
         .bento-card p {
           margin: 0;
           font-size: 0.82rem;
-          color: var(--muted, #64748b);
+          color: #cbd5e1 !important;
           line-height: 1.45;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
+        }
+        :root:not([data-theme="dark"]) .bento-card p {
+          color: #64748b !important;
         }
         @media (max-width: 760px) {
           .modern-hero {
@@ -1288,16 +1312,20 @@ export default function Home() {
               <Link
                 key={sym.ar}
                 to={sym.cat !== 'all' ? `/medicines?cat=${sym.cat}` : `/medicines?q=${encodeURIComponent(sym.q)}`}
-                className="badge"
+                className="symptom-quick-chip"
                 style={{
-                  padding: '7px 13px',
-                  borderRadius: '999px',
-                  background: 'var(--tint)',
-                  border: '1px solid rgba(19, 136, 102, 0.28)',
-                  color: 'var(--navy)',
-                  textDecoration: 'none',
-                  fontWeight: 700,
-                  fontSize: '0.82rem',
+                  padding: "8px 14px",
+                  borderRadius: "999px",
+                  background: "rgba(56, 189, 248, 0.16)",
+                  border: "1.2px solid rgba(56, 189, 248, 0.45)",
+                  color: "#7dd3fc",
+                  textDecoration: "none",
+                  fontWeight: 800,
+                  fontSize: "0.84rem",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  transition: "all 0.15s ease",
                 }}
               >
                 {isAr ? sym.ar : sym.en}
