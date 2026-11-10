@@ -637,6 +637,74 @@ export default function HealthProfile() {
                 <label><b>{isAr ? 'رقم هاتف الطوارئ:' : 'Emergency Contact:'}</b></label>
                 <input value={contactInput} onChange={(e) => setContactInput(e.target.value)} placeholder="01xxxxxxxxx" />
               </div>
+
+              <div
+                className="form-group form-group-full"
+                style={{
+                  background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+                  padding: '14px 16px',
+                  borderRadius: '14px',
+                  border: '2px solid #10b981',
+                  marginTop: '6px',
+                }}
+              >
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', color: '#065f46' }}>
+                  <span style={{ fontSize: '1.3rem' }}>🚗⚙️</span>
+                  <strong style={{ fontSize: '1rem' }}>
+                    {isAr
+                      ? 'المهنة وطبيعة العمل (ذكاء فحص أمان الدواء مع السواقة والتركيز والماكينات):'
+                      : 'Occupation & Daily Work Safety Category:'}
+                  </strong>
+                </label>
+                <select
+                  value={occupationInput}
+                  onChange={(e) => setOccupationInput(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    border: '2px solid #059669',
+                    fontWeight: 900,
+                    fontSize: '0.96rem',
+                    color: '#0D1F38',
+                    background: '#ffffff',
+                  }}
+                >
+                  <option value="driver_transport">
+                    {isAr
+                      ? '🚗 سائق (سيارة، تاكسي، نقل ثقيل، سفر دائم) — تحذير إلزامي من النعاس والدوخة'
+                      : 'Driver / Commercial Transport (Alert for drowsiness)'}
+                  </option>
+                  <option value="machinery_factory">
+                    {isAr
+                      ? '⚙️ عامل مصنع أو فني ماكينات حادة أو مرتفعات — فحص حرج لسرعة الاستجابة'
+                      : 'Machinery Operator / Factory Worker (Alert for slow reaction)'}
+                  </option>
+                  <option value="office_desk">
+                    {isAr
+                      ? '💻 عمل مكتبي أو إداري أو كمبيوتر'
+                      : 'Office / Desk Job / Computer Work'}
+                  </option>
+                  <option value="student">
+                    {isAr
+                      ? '🎓 طالب / دراسة وامتحانات — فحص تأثير الدواء على التركيز والذاكرة'
+                      : 'Student (Alert for memory and cognitive focus)'}
+                  </option>
+                  <option value="homemaker">
+                    {isAr
+                      ? '🏡 ربت منزل / رعاية أطفال وأعمال منزلية'
+                      : 'Homemaker / Child Caregiver'}
+                  </option>
+                  <option value="general">
+                    {isAr ? '🩺 فحص عام اعتيادي' : 'General / Other'}
+                  </option>
+                </select>
+                <div style={{ fontSize: '0.8rem', color: '#047857', marginTop: '6px', fontWeight: 700 }}>
+                  💡 {isAr
+                    ? 'سيقوم الذكاء الاصطناعي والموقع بفحص أي دواء تبحث عنه؛ لو بيعمل دوخة أو نوم وأنت سائق أو فني ماكينات، هيحذرك فوراً!'
+                    : 'DAWAYA AI will automatically screen any drug you look up against your occupation!'}
+                </div>
+              </div>
             </div>
             <button type="submit" className="btn" style={{ alignSelf: 'flex-start' }}>
               💾 {isAr ? 'حفظ البيانات ومزامنة الـ QR' : 'Save & Sync QR'}
@@ -650,6 +718,22 @@ export default function HealthProfile() {
             <div><b>{isAr ? 'فصيلة الدم:' : 'Blood Type:'}</b> {profile.bloodType || '—'}</div>
             <div><b>{isAr ? 'النوع:' : 'Gender:'}</b> {profile.gender === 'male' ? (isAr ? 'ذكر' : 'Male') : profile.gender === 'female' ? (isAr ? 'أنثى' : 'Female') : '—'}</div>
             <div className="profile-detail-full"><b>{isAr ? 'هاتف الطوارئ:' : 'Emergency Phone:'}</b> {profile.emergencyContact || '—'}</div>
+            <div className="profile-detail-full" style={{ background: '#f0fdf4', padding: '8px 12px', borderRadius: '10px', border: '1px solid #86efac' }}>
+              <b style={{ color: '#065f46' }}>🚗⚙️ {isAr ? 'المهنة وطبيعة العمل:' : 'Occupation:'}</b>{' '}
+              <strong style={{ color: '#0D1F38' }}>
+                {profile.occupation === 'driver_transport'
+                  ? (isAr ? '🚗 سائق (فحص أمان السواقة والنعاس مفعل)' : 'Driver')
+                  : profile.occupation === 'machinery_factory'
+                  ? (isAr ? '⚙️ عامل ماكينات (فحص التركيز مفعل)' : 'Machinery Operator')
+                  : profile.occupation === 'office_desk'
+                  ? (isAr ? '💻 عمل مكتبي' : 'Office Desk')
+                  : profile.occupation === 'student'
+                  ? (isAr ? '🎓 طالب' : 'Student')
+                  : profile.occupation === 'homemaker'
+                  ? (isAr ? '🏡 ربت منزل' : 'Homemaker')
+                  : (isAr ? 'عام' : 'General')}
+              </strong>
+            </div>
           </div>
         )}
       </section>
