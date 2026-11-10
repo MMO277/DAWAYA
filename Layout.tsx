@@ -428,6 +428,24 @@ export default function Layout({ children }: { children: ReactNode }) {
           shortLabel: tr(lang, 'مشخص الأعراض الذكي (اكشف فين؟)', 'Smart Symptom Triage', 'Triage Symptômes', 'Triaje de Síntomas'),
         },
         {
+          to: '/missed-dose-rescue',
+          key: '',
+          icon: '🚨',
+          shortLabel: tr(lang, 'إنقاذ الجرعة المنسية', 'Missed Dose Rescue', 'Dose Oubliée', 'Dosis Olvidada'),
+        },
+        {
+          to: '/doctor-visit-prep',
+          key: '',
+          icon: '📋',
+          shortLabel: tr(lang, 'مُحضّر كشف الدكتور', 'Doctor Visit Prep', 'Prépa Consultation', 'Prep Consulta'),
+        },
+        {
+          to: '/vaccine-tracker',
+          key: '',
+          icon: '💉',
+          shortLabel: tr(lang, 'رادار تطعيمات الأطفال', 'Vaccine Tracker', 'Vaccins Enfants', 'Vacunas Infantiles'),
+        },
+        {
           to: '/medical-report',
           key: '',
           icon: '📄',

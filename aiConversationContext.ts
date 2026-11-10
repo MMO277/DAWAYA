@@ -2168,6 +2168,21 @@ export function matchSpecialtyClinicLinks(userText: string): ReplyLink[] {
     addLink('/airport-banned-meds', '✈️ افتح كاشف الأدوية الممنوعة في المطارات', 'Open Airport Banned Meds Scanner');
   }
 
+  // 20.8 Missed Dose Protocol
+  if (/(نسيت|نسيت حبايه|نسيت حبة|نسيت جرعه|نسيت جرعة|تأخرت في الدوا|اخدها امتى|اضاعف الجرعه)/.test(q)) {
+    addLink('/missed-dose-rescue', '🚨 افتح دليل إنقاذ الجرعة المنسية فوراً', 'Open Missed Dose Rescue Guide');
+  }
+
+  // 20.9 Doctor Visit Prep
+  if (/(رايح لدكتور|رايح للدكتور|كشف|عياده|عيادة|اسأل الدكتور|اسئله للدكتور)/.test(q)) {
+    addLink('/doctor-visit-prep', '📋 افتح مُحضّر كشف العيادة وزيارة الطبيب', 'Open Doctor Visit Prep');
+  }
+
+  // 20.10 Vaccines
+  if (/(تطعيم|تطعيمات|الصحه|مكتب الصحه|الدرن|شلل اطفال|الخماسي|تطعيم شهرين|تطعيم ٤ شهور|تطعيم ٦ شهور|تطعيم سنه|روتا|مكورات)/.test(q)) {
+    addLink('/vaccine-tracker', '💉 افتح رادار وحاسبة مواعيد التطعيمات باليوم', 'Open Egyptian Vaccine Tracker');
+  }
+
   // 20.5 Food & Drink vs Medication Interaction
   if (/(شاي|قهوه|قهوة|لبن|حليب|جبنه|عرقسوس|جريب فروت|ملوخيه|سبانخ|اكل|أكل|على الريق|قبل الاكل|بعد الاكل)/.test(q)) {
     addLink('/food-drug-checker', '☕ افتح فاحص الأكل والشرب مع أدويتك', 'Open Food & Drink vs. Meds Checker');

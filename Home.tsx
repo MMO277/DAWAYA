@@ -143,6 +143,42 @@ export default function Home() {
   // Concise Bento Grid Clinical Tools (Exact original icon & card structure, upgraded for all 26,562 medicines)
   const clinicalTools = [
     {
+      to: '/missed-dose-rescue',
+      icon: '🚨',
+      badge: tr(lang, 'جديد • نسيت ميعاد جرعة الدواء؟', 'NEW • Missed Dose Rescue'),
+      title: tr(lang, 'دليل وموجه إنقاذ الجرعة المنسية السريري (Missed Dose)', 'Clinical Missed Dose Emergency Protocol'),
+      desc: tr(
+        lang,
+        'اعرف فوراً التصرف الطبي السليم بالساعة عند نسيان حبة منع الحمل، الأنسولين، دواء الضغط، المضاد الحيوي، أو الكورتيزون بدون مضاعفة الجرعة',
+        'Immediate clinical action guide for missed contraceptive, insulin, antibiotic, and BP pills without toxic double-dosing'
+      ),
+      color: '#b91c1c',
+    },
+    {
+      to: '/doctor-visit-prep',
+      icon: '📋',
+      badge: tr(lang, 'جديد • كشف العيادة الذكي', 'NEW • Doctor Visit Prep'),
+      title: tr(lang, 'مُحضّر كشف العيادة وزيارة الطبيب الذكي (Doctor Visit)', 'Smart Doctor Visit & Clinical Brief Prep'),
+      desc: tr(
+        lang,
+        'جهز كشفك في دقيقتين: رتب شكوتك وأدويتك واطبع أهم 5 أسئلة طبية حاسمة لازم تسألها للدكتور قبل ما تخرج من العيادة',
+        'Prepare your consultation brief, current meds, and essential 5 questions to ask your specialist doctor'
+      ),
+      color: '#0284c7',
+    },
+    {
+      to: '/vaccine-tracker',
+      icon: '💉',
+      badge: tr(lang, 'جديد • جدول تطعيمات وزارة الصحة', 'NEW • Egyptian Vaccine Tracker'),
+      title: tr(lang, 'رادار وحاسبة مواعيد تطعيمات الأطفال والكبار (Vaccines)', 'Ministry of Health Mandatory Vaccine Tracker'),
+      desc: tr(
+        lang,
+        'احسبي مواعيد تطعيمات طفلك باليوم والساعة من عمر يوم حتى 18 شهراً مع خطة إسعاف السخونية والتورم والتطعيمات الإضافية',
+        'Exact calendar dates for childhood mandatory and optional vaccines by birthdate with post-vaccine fever care'
+      ),
+      color: '#059669',
+    },
+    {
       to: '/assistant',
       icon: '📞',
       badge: tr(lang, 'جديد • مكالمة صوتية هاتفية مباشرة', 'NEW • Live Voice Call'),

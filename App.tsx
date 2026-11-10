@@ -79,6 +79,10 @@ const SmartLabAndRxPhotoScanner = lazyWithRetry(() => import('./SmartLabAndRxPho
 const VisualBodyDrugSimulator = lazyWithRetry(() => import('./VisualBodyDrugSimulator'));
 const ChronicMealPlanner = lazyWithRetry(() => import('./ChronicMealPlanner'));
 const ComprehensiveMedicalReport = lazyWithRetry(() => import('./ComprehensiveMedicalReport'));
+const MissedDoseRescueSolver = lazyWithRetry(() => import('./MissedDoseRescueSolver'));
+const DoctorVisitPrep = lazyWithRetry(() => import('./DoctorVisitPrep'));
+const EgyptianVaccineTracker = lazyWithRetry(() => import('./EgyptianVaccineTracker'));
+
 const SmartSymptomTriage = lazyWithRetry(() => import('./SmartSymptomTriage'));
 const OphthalmologyClinic = lazyWithRetry(() => import('./OphthalmologyClinic'));
 const EntClinic = lazyWithRetry(() => import('./EntClinic'));
@@ -295,6 +299,13 @@ export default function App() {
               <Route path="/organ-simulator" element={<VisualBodyDrugSimulator />} />
               <Route path="/meal-planner" element={<ChronicMealPlanner />} />
               <Route path="/medical-report" element={<ComprehensiveMedicalReport />} />
+              <Route path="/missed-dose-rescue" element={<MissedDoseRescueSolver />} />
+              <Route path="/missed-dose" element={<MissedDoseRescueSolver />} />
+              <Route path="/doctor-visit-prep" element={<DoctorVisitPrep />} />
+              <Route path="/doctor-prep" element={<DoctorVisitPrep />} />
+              <Route path="/vaccine-tracker" element={<EgyptianVaccineTracker />} />
+              <Route path="/vaccines" element={<EgyptianVaccineTracker />} />
+
               <Route path="/symptom-triage" element={<SmartSymptomTriage />} />
 <Route path="/eye-clinic" element={<OphthalmologyClinic />} />
               <Route path="/ent-clinic" element={<EntClinic />} />
