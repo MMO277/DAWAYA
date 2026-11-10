@@ -1925,21 +1925,60 @@ export function buildPermittedPatientContextPrompt(params: {
   topicMemory?: ConversationTopicMemory;
 }): string {
   const { profile, schedules, prescriptions, topicMemory } = params;
-  const allergies = profile.allergies.map((a) => `${a.drugName} (${a.severity})`).join('، ');
-  const chronics = (profile.chronicConditions || []).map((c) => c.conditionName).join('، ');
-  const activeMeds = profile.medications
+  const allergies = (profile.allergies || []).map((a) => `${a.drugName} (${a.severity || 'حساسية'})`).join('، ');
+  const chronics = Array.isArray(profile.chronicConditions)
+    ? profile.chronicConditions.map((c: any) => typeof c === 'string' ? c : c.conditionName || '').filter(Boolean).join('، ')
+    : '';
+  const activeMeds = (profile.medications || [])
     .filter((m) => m.status === 'active')
-    .map((m) => `${m.drugName} ${m.prescribedDose}`.trim())
+    .map((m) => `${m.drugName} ${m.dose || m.prescribedDose || ''}`.trim())
     .join('، ');
-  const activeSchedules = schedules
-    .map((s) => `${s.medicineName} (${s.prescribedDose} في مواعيد ${s.doseTimes.join(' و ')})`)
+  const activeSchedules = (schedules || [])
+    .map((s) => `${s.medicineName} (${s.prescribedDose || ''} في مواعيد ${s.doseTimes ? s.doseTimes.join(' و ') : ''})`)
     .join('، ');
+
+  const occLabel =
+    profile.occupation === 'driver_transport'
+      ? 'سائق (سيارة / تاكسي / نقل / سفر دائم)'
+      : profile.occupation === 'machinery_factory'
+      ? 'عامل مصنع / فني ماكينات حادة ومرتفعات'
+      : profile.occupation === 'office_desk'
+      ? 'عمل مكتبي وكمبيوتر'
+      : profile.occupation === 'student'
+      ? 'طالب دراسة وامتحانات'
+      : profile.occupation === 'homemaker'
+      ? 'ربت منزل ورعاية أطفال'
+      : profile.occupation || 'عام';
 
   const parts: string[] = [];
 
   parts.push(
-    `[ملف المريض: الاسم: ${profile.displayName || 'غير مسجل'} | السن: ${profile.age || 'غير مسجل'} | الوزن: ${profile.weightKg ? `${profile.weightKg} كجم` : 'غير مسجل'} | الحساسية: ${allergies || 'لا توجد'} | الأمراض المزمنة: ${chronics || 'لا توجد'} | الأدوية الحالية: ${activeMeds || 'لا توجد'} | المنبهات: ${activeSchedules || 'لا توجد'} | الروشتات: ${prescriptions.length}]`
+    `[ملف المريض الكامل المحدث في الحساب الآن]:\n` +
+    `• اسم المريض: ${profile.displayName || profile.name || 'مريض دوايا'}\n` +
+    `• السن: ${profile.age || 'غير مسجل'} | الوزن: ${profile.weightKg ? `${profile.weightKg} كجم` : 'غير مسجل'} | فصيلة الدم: ${profile.bloodType || 'غير محددة'}\n` +
+    `• وظائف الكلى: ${profile.renalStatus === 'impaired' ? 'قصور كلوي (يحتاج تعديل جرعات)' : 'طبيعية'} | وظائف الكبد: ${profile.hepaticStatus === 'impaired' ? 'قصور كبدي' : 'طبيعية'}\n` +
+    `• المهنة وطبيعة العمل: ${occLabel}\n` +
+    `• الحساسية الدوائية الممنوعة: ${allergies || 'لا توجد حساسية مسجلة'}\n` +
+    `• الأمراض المزمنة: ${chronics || 'لا توجد أمراض مزمنة مسجلة'}\n` +
+    `• الأدوية الحالية التي يتناولها المريض بالفعل: ${activeMeds || activeSchedules || 'لا توجد أدوية مسجلة حالياً'}`
   );
+
+  // Cross-Clinic Clinical Interaction Directive
+  if (activeMeds || activeSchedules) {
+    parts.push(
+      `[توجيه أمان إكلينيكي صارم للذكاء الاصطناعي - فحص التعارض العابر للعيادات]:\n` +
+      `المريض يتناول حالياً: (${activeMeds || activeSchedules})! إذا سألك عن أي دواء جديد في أي عيادة أو تخصص آخر (مثلاً مسكن عظام، مضاد حيوي، دواء معدة، أو منوم):\n` +
+      `1. افحص فوراً هل الدواء الجديد يتعارض مع أدويته الحالية المسجلة أعلاه (مثل مسكن مع دواء ضغط وسيولة، أو تكرار نفس المادة الفعالة).\n` +
+      `2. إذا وجد تعارض، حذره بوضوح وبصراحة واذكر له البديل الآمن فوراً!`
+    );
+  }
+
+  // Occupational Safety Directive
+  if (profile.occupation === 'driver_transport' || profile.occupation === 'machinery_factory') {
+    parts.push(
+      `[توجيه أمان مهني صارم للذكاء الاصطناعي]: المريض يعمل كـ (${occLabel})! إذا كان أي دواء يسأل عنه يسبب نعاساً، دوخة، زغللة، أو بطء رد فعل، حذره بشكل قاطع واقترح له بديلاً لا يسبب النعاس أو تناوله قبل النوم فقط.`
+    );
+  }
 
   if (
     topicMemory &&

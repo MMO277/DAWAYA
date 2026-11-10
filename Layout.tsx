@@ -224,6 +224,74 @@ function SmartOfflineStatusBanner({ lang }: { lang: string }) {
   );
 }
 
+
+import { evaluateMedicationSafety } from './medicationSafetyEngine';
+import { useSyncedHealthProfile } from './allergyData';
+import { useSyncedSchedules } from './trackerData';
+
+function SmartCrossClinicSafetyBanner() {
+  const { lang } = useLang();
+  const isAr = lang === 'ar';
+  const { profile } = useSyncedHealthProfile();
+  const { schedules } = useSyncedSchedules();
+
+  const safetyResult = useMemo(() => {
+    const rawMeds = [
+      ...(profile.medications || []).map((m) => ({ id: m.drugId, rawName: m.drugName })),
+      ...(schedules || []).map((s) => ({ id: s.medicineId, rawName: s.medicineName })),
+    ];
+    if (rawMeds.length < 2) return null;
+    return evaluateMedicationSafety(rawMeds, profile);
+  }, [profile, schedules]);
+
+  if (!safetyResult || !safetyResult.hasIssues) return null;
+
+  const topIssue = safetyResult.issues[0];
+  return (
+    <div
+      className="no-print"
+      style={{
+        background: 'linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%)',
+        color: '#ffffff',
+        padding: '10px 16px',
+        margin: '0 auto 12px',
+        maxWidth: '1200px',
+        borderRadius: '14px',
+        boxShadow: '0 6px 18px rgba(185, 28, 28, 0.25)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '8px',
+        zIndex: 8900,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ fontSize: '1.4rem' }}>🚨</span>
+        <div style={{ fontSize: '0.88rem', fontWeight: 800 }}>
+          {isAr
+            ? `تنبيه تعارض دوائي ذكي بين أدويتك الحالية: ${topIssue.titleAr || topIssue.titleEn}`
+            : `Cross-Medication Interaction Alert: ${topIssue.titleEn}`}
+        </div>
+      </div>
+      <Link
+        to="/interactions"
+        style={{
+          background: '#ffffff',
+          color: '#991b1b',
+          fontWeight: 900,
+          padding: '5px 12px',
+          borderRadius: '10px',
+          textDecoration: 'none',
+          fontSize: '0.82rem',
+        }}
+      >
+        {isAr ? 'افحص التعارض فوراً ←' : 'Review Interaction ←'}
+      </Link>
+    </div>
+  );
+}
+
 export default function Layout({ children }: { children: ReactNode }) {
   const { t, lang, setLang } = useLang();
   const { emergency, countryName } = useEmergencyLocation();
@@ -1682,6 +1750,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {/* Page Content */}
       <SmartOfflineStatusBanner lang={lang} />
+      <SmartCrossClinicSafetyBanner />
       <div ref={pageRef} className="page-enter">
         {children}
       </div>
