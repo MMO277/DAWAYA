@@ -33,7 +33,7 @@ export const GAME_CENTER_REGISTRY: GameRegistryItem[] = [
   {
     id: 'organ-drug-simulator',
     route: '/organ-simulator',
-    badgeAr: 'جديد • محاكي أثر الدواء والتفاعلات داخل أعضاء الجسم',
+    badgeAr: 'محاكي أثر الدواء والتفاعلات داخل أعضاء الجسم',
     badgeEn: 'NEW • Interactive Visual Organ & Drug Reaction Simulator',
     modeAr: 'محاكاة فسيولوجية مرئية للكلى والمعدة والرئتين والمناعة',
     modeEn: 'Visual Physiological Organ & Drug Interaction Simulation',
@@ -65,7 +65,7 @@ export const GAME_CENTER_REGISTRY: GameRegistryItem[] = [
   {
     id: 'interactive-body-symptom-map',
     route: '/body-map',
-    badgeAr: 'جديد • خريطة جسم الإنسان التفاعلية للتشخيص باللمس',
+    badgeAr: 'خريطة جسم الإنسان التفاعلية للتشخيص باللمس',
     badgeEn: 'NEW • Interactive Human Body Touch Triage Map',
     modeAr: 'مجسم تشريحي تفاعلي (أمام وخلف) لتحديد مكان الألم والتشخيص',
     modeEn: 'Front & Back Anatomical Touch Map & Clinical Interview',
@@ -97,7 +97,7 @@ export const GAME_CENTER_REGISTRY: GameRegistryItem[] = [
   {
     id: 'otc-community-pharmacy',
     route: '/cost-saver',
-    badgeAr: 'جديد • معمل تدريب الصيدلي الشاب وبدائل الأدوية المصرية',
+    badgeAr: 'معمل تدريب الصيدلي الشاب وبدائل الأدوية المصرية',
     badgeEn: 'NEW • Community Pharmacy OTC & Generic Training Lab',
     modeAr: 'محاكاة تدريب صيدلاني وحاسبة بدائل سريرية متقدمة',
     modeEn: 'Clinical Pharmacy Training & Bioequivalent Generics Lab',
@@ -145,7 +145,7 @@ export const GAME_CENTER_REGISTRY: GameRegistryItem[] = [
   {
     id: 'nurse-academy',
     route: '/nurse-academy',
-    badgeAr: 'جديد • 10 سيناريوهات تدريبية 3D',
+    badgeAr: '10 سيناريوهات تدريبية 3D',
     badgeEn: 'NEW • 10 Clinical Nursing Scenarios 3D',
     modeAr: 'أكاديمية تدريب تمريضي ثلاثية الأبعاد (WebGL 3D)',
     modeEn: '3D Nursing Education & Safety Academy',
@@ -181,7 +181,7 @@ export const GAME_CENTER_REGISTRY: GameRegistryItem[] = [
   {
     id: 'medical-mystery',
     route: '/medical-mystery',
-    badgeAr: 'جديد • 10 قضايا تحقيق + سجل أدلة 3D',
+    badgeAr: '10 قضايا تحقيق + سجل أدلة 3D',
     badgeEn: 'NEW • 10 Investigation Cases + Evidence Journal 3D',
     modeAr: 'لعبة تحقيق وألغاز سريرية ثلاثية الأبعاد (WebGL 3D)',
     modeEn: '3D Story-Rich Clinical Investigation Game',

@@ -145,7 +145,7 @@ export default function Home() {
     {
       to: '/missed-dose-rescue',
       icon: '🚨',
-      badge: tr(lang, 'جديد • نسيت ميعاد جرعة الدواء؟', 'NEW • Missed Dose Rescue'),
+      badge: tr(lang, 'إنقاذ الجرعة', 'Missed Dose'),
       title: tr(lang, 'دليل وموجه إنقاذ الجرعة المنسية السريري (Missed Dose)', 'Clinical Missed Dose Emergency Protocol'),
       desc: tr(
         lang,
@@ -157,7 +157,7 @@ export default function Home() {
     {
       to: '/doctor-visit-prep',
       icon: '📋',
-      badge: tr(lang, 'جديد • كشف العيادة الذكي', 'NEW • Doctor Visit Prep'),
+      badge: tr(lang, 'كشف العيادة', 'Doctor Visit'),
       title: tr(lang, 'مُحضّر كشف العيادة وزيارة الطبيب الذكي (Doctor Visit)', 'Smart Doctor Visit & Clinical Brief Prep'),
       desc: tr(
         lang,
@@ -169,7 +169,7 @@ export default function Home() {
     {
       to: '/vaccine-tracker',
       icon: '💉',
-      badge: tr(lang, 'جديد • جدول تطعيمات وزارة الصحة', 'NEW • Egyptian Vaccine Tracker'),
+      badge: tr(lang, 'التطعيمات', 'Vaccines'),
       title: tr(lang, 'رادار وحاسبة مواعيد تطعيمات الأطفال والكبار (Vaccines)', 'Ministry of Health Mandatory Vaccine Tracker'),
       desc: tr(
         lang,
@@ -181,7 +181,7 @@ export default function Home() {
     {
       to: '/assistant',
       icon: '📞',
-      badge: tr(lang, 'جديد • مكالمة صوتية هاتفية مباشرة', 'NEW • Live Voice Call'),
+      badge: tr(lang, 'مكالمة فورية', 'Voice Call'),
       title: tr(lang, 'مكالمة الطبيب الصيدلاني الصوتية المباشرة (Voice Call)', 'Live Voice Consultation with Dr. DAWAYA'),
       desc: tr(
         lang,
@@ -193,7 +193,7 @@ export default function Home() {
     {
       to: '/medical-report',
       icon: '📄',
-      badge: tr(lang, 'جديد • جاهز للطباعة والـ PDF', 'NEW • Printable PDF Report'),
+      badge: tr(lang, 'تقرير طبي', 'Medical PDF'),
       title: tr(lang, 'التقرير الطبي الشامل المعتمد للمريض (Medical Report)', 'Official Comprehensive Patient Medical Report'),
       desc: tr(
         lang,
@@ -205,7 +205,7 @@ export default function Home() {
     {
       to: '/meal-planner',
       icon: '🥗',
-      badge: tr(lang, 'جديد • وجبات السكر والضغط والكلى', 'NEW • Chronic Meal Planner'),
+      badge: tr(lang, 'جدول الوجبات', 'Meal Plans'),
       title: tr(lang, 'مُولّد وجبات الأمراض المزمنة الذكي بأكلات مصرية', 'Egyptian Chronic Disease Smart Meal Planner'),
       desc: tr(
         lang,
@@ -217,7 +217,7 @@ export default function Home() {
     {
       to: '/body-map',
       icon: '🧍‍♂️',
-      badge: tr(lang, 'جديد • اضغط على مكان الوجع!', 'NEW • Tap Where It Hurts!'),
+      badge: tr(lang, 'خريطة الألم', 'Body Map'),
       title: tr(lang, 'خريطة جسم الإنسان التفاعلية لتشخيص الأعراض باللمس', 'Interactive 3D/SVG Human Body Symptom Map'),
       desc: tr(
         lang,
@@ -229,7 +229,7 @@ export default function Home() {
     {
       to: '/food-drug-checker',
       icon: '☕',
-      badge: tr(lang, 'جديد • الشاي والقهوة واللبن مع دوائك', 'NEW • Food & Drink vs. Meds'),
+      badge: tr(lang, 'أكلك ودوائك', 'Food & Meds'),
       title: tr(lang, 'فاحص «الأكل والشرب مع دوائك» والفاصل الزمني بالساعة', 'Egyptian Food, Drink & Timing Interaction Checker'),
       desc: tr(
         lang,
@@ -241,7 +241,7 @@ export default function Home() {
     {
       to: '/lab-photo-scanner',
       icon: '📸',
-      badge: tr(lang, 'جديد • بالكاميرا والمؤشرات الملونة', 'NEW • AI Lab & Rx Photo Scanner'),
+      badge: tr(lang, 'فحص التحاليل', 'Lab Scanner'),
       title: tr(lang, 'الماسح الذكي لورق التحاليل والروشتات بالمؤشرات الملونة', 'Smart AI Lab Report & Prescription Photo Scanner'),
       desc: tr(
         lang,
@@ -253,7 +253,7 @@ export default function Home() {
     {
       to: '/organ-simulator',
       icon: '🫀',
-      badge: tr(lang, 'جديد • شاهد داخل أعضائك!', 'NEW • Visual Organ Simulator'),
+      badge: tr(lang, 'محاكي الأعضاء', 'Organ Sim'),
       title: tr(lang, 'محاكي الأثر البصري للدواء والتفاعلات داخل أعضاء الجسم', 'Interactive Visual Organ & Drug Reaction Simulator'),
       desc: tr(
         lang,
@@ -265,7 +265,7 @@ export default function Home() {
     {
       to: '/symptom-triage',
       icon: '🩺',
-      badge: tr(lang, 'اكشف عند أنهي دكتور؟', 'Which Specialist?', 'Quel Spécialiste ?', '¿Qué Especialista?'),
+      badge: tr(lang, 'تحديد التخصص', 'Specialty'),
       title: tr(lang, 'مشخص الأعراض الذكي وتوجيه المريض للتخصص الصحيح', 'Smart Symptom Triage & Doctor Specialty Finder', 'Triage Intelligent des Symptômes', 'Triaje Inteligente de Síntomas'),
       desc: tr(
         lang,
@@ -277,7 +277,7 @@ export default function Home() {
     {
       to: '/clinics',
       icon: '🏥',
-      badge: tr(lang, '٢٠ عيادة تخصصية شاملة', '20 Specialty Clinics', '8 Cliniques Spécialisées', '8 Clínicas Especializadas'),
+      badge: tr(lang, 'مجمع العيادات', 'Clinics'),
       title: tr(lang, 'مجمع العيادات التخصصية المتكاملة (العيادات)', 'DAWAYA Specialty Medical Clinics Hub', 'Pôle de Cliniques Médicales Spécialisées', 'Centro de Clínicas Médicas Especializadas'),
       desc: tr(
         lang,
@@ -940,10 +940,14 @@ export default function Home() {
         .bento-badge {
           font-size: 0.72rem;
           font-weight: 800;
-          padding: 3px 9px;
+          padding: 3px 8px;
           border-radius: 999px;
           border: 1px solid transparent;
           white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 140px;
+          flex-shrink: 1;
         }
         .bento-card h3 {
           margin: 0 0 4px;
@@ -981,8 +985,20 @@ export default function Home() {
             border-radius: 12px;
             font-size: 1.2rem;
           }
+          .bento-card-head {
+            min-height: 38px !important;
+            gap: 4px !important;
+            margin-bottom: 8px !important;
+          }
+          .bento-badge {
+            font-size: 0.62rem !important;
+            padding: 2px 5px !important;
+            max-width: 80px !important;
+            letter-spacing: -0.2px;
+          }
           .bento-card h3 {
-            font-size: 0.9rem !important;
+            font-size: 0.88rem !important;
+            word-break: break-word;
           }
           .bento-card p {
             font-size: 0.75rem !important;
