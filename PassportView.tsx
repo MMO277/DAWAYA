@@ -362,8 +362,16 @@ function HealthView({
                   ? (isAr ? '🎓 طالب / دراسة' : 'Student')
                   : profile.occupation === 'homemaker'
                   ? (isAr ? '🏡 ربت منزل / رعاية أسرية' : 'Homemaker')
-                  : (isAr ? 'عام' : 'General')}
+                  : profile.occupation === 'other'
+                  ? (isAr ? `✍️ ${profile.customOccupationTitle || 'مهنة خاصة'}` : `✍️ ${profile.customOccupationTitle || 'Custom'}`)
+                  : (isAr ? 'فحص عام اعتيادي' : 'General')}
               </div>
+              {profile.occupation === 'machinery_factory' && ((profile.factoryEnvironmentHazards && profile.factoryEnvironmentHazards.length > 0) || profile.workEnvironmentNotes) && (
+                <div style={{ fontSize: '0.74rem', marginTop: 4, opacity: 0.9 }}>
+                  🏭 {profile.factoryEnvironmentHazards?.map((h: string) => h === 'dust_powder' ? 'أتربة وبودرة' : h === 'chemicals_fumes' ? 'كيماويات وأبخرة' : h === 'textile_cotton' ? 'ألياف قطن' : h).join('، ')}
+                  {profile.workEnvironmentNotes ? ` (${profile.workEnvironmentNotes})` : ''}
+                </div>
+              )}
             </div>
           </div>
         )}

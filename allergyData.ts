@@ -100,10 +100,14 @@ export type PatientOccupationCategory =
   | 'machinery_factory'
   | 'office_desk'
   | 'student'
-  | 'homemaker';
+  | 'homemaker'
+  | 'other';
 
 export interface UserHealthProfile {
   occupation?: PatientOccupationCategory;
+  customOccupationTitle?: string;
+  factoryEnvironmentHazards?: string[];
+  workEnvironmentNotes?: string;
   displayName: string;
   age: string;
   weightKg?: string;
@@ -129,6 +133,9 @@ const MAX_PATIENT_AUDIT_LOGS = 150;
 export function emptyHealthProfile(): UserHealthProfile {
   return {
     occupation: 'general',
+    customOccupationTitle: '',
+    factoryEnvironmentHazards: [],
+    workEnvironmentNotes: '',
     displayName: '',
     age: '',
     weightKg: '',
@@ -221,9 +228,15 @@ export function normalizeProfile(raw: any): UserHealthProfile {
     'office_desk',
     'student',
     'homemaker',
+    'other',
   ].includes(raw.occupation)
     ? raw.occupation
     : 'general';
+  const customOccupationTitle = typeof raw.customOccupationTitle === 'string' ? raw.customOccupationTitle.trim() : '';
+  const factoryEnvironmentHazards = Array.isArray(raw.factoryEnvironmentHazards)
+    ? raw.factoryEnvironmentHazards.map(String).filter(Boolean)
+    : [];
+  const workEnvironmentNotes = typeof raw.workEnvironmentNotes === 'string' ? raw.workEnvironmentNotes.trim() : '';
   const pregnancyStatus: PregnancyLactationStatus = ['none', 'pregnant', 'breastfeeding', 'unknown'].includes(
     raw.pregnancyStatus
   )
@@ -365,6 +378,9 @@ export function normalizeProfile(raw: any): UserHealthProfile {
 
   return {
     occupation,
+    customOccupationTitle,
+    factoryEnvironmentHazards,
+    workEnvironmentNotes,
     displayName: typeof raw.displayName === 'string' ? raw.displayName : '',
     age: typeof raw.age === 'string' ? raw.age : typeof raw.age === 'number' ? String(raw.age) : '',
     weightKg:
@@ -534,6 +550,9 @@ export function mergeProfiles(primary: UserHealthProfile, secondary: UserHealthP
       primary.occupation && primary.occupation !== 'general'
         ? primary.occupation
         : secondary.occupation || 'general',
+    customOccupationTitle: (primary.customOccupationTitle || '').trim() || (secondary.customOccupationTitle || '').trim(),
+    factoryEnvironmentHazards: Array.from(new Set([...(primary.factoryEnvironmentHazards || []), ...(secondary.factoryEnvironmentHazards || [])])),
+    workEnvironmentNotes: (primary.workEnvironmentNotes || '').trim() || (secondary.workEnvironmentNotes || '').trim(),
     displayName: primary.displayName.trim() || secondary.displayName.trim(),
     age: primary.age.trim() || secondary.age.trim(),
     weightKg: (primary.weightKg || '').trim() || (secondary.weightKg || '').trim(),

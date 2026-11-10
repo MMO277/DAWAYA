@@ -1971,7 +1971,9 @@ export interface OccupationalHazardAlert {
 
 export function evaluateOccupationalDrugSafety(
   drugNames: string[],
-  occupation?: string
+  occupation?: string,
+  factoryHazards?: string[],
+  workNotes?: string
 ): OccupationalHazardAlert[] {
   const alerts: OccupationalHazardAlert[] = [];
   const isDriverOrMachinist =
@@ -1983,6 +1985,12 @@ export function evaluateOccupationalDrugSafety(
     { pattern: /(بيتاسيرك|موتيلات|دايمينهيدرينات|درامامين|ميترونيدازول)/i, level: 'caution' as const, warningAr: 'قد يسبب دوخة مؤقتة أو زغللة في الرؤية' },
   ];
 
+  // Chest / Lung risk patterns for factory workers exposed to dust, powder, or chemicals
+  const RESPIRATORY_CHEST_RISKS = [
+    { pattern: /(بروبرانولول|إنديرال|بيسوبرولول|كونكور|كارفيديلول|أتينولول)/i, warningAr: 'قد يسبب انقباضاً بالشعب الهوائية وزيادة ضيق التنفس مع التعرض لأتربة أو بودرة المصنع.' },
+    { pattern: /(كابتوبريل|كابوتين|إنالابريل|رينيتك|راميبريل|تريتاس)/i, warningAr: 'يسبب سعالاً جافاً ومستمراً قد يتفاقم بشدة مع أتربة وبودرة وغبار بيئة المصنع.' },
+  ];
+
   for (const drug of drugNames) {
     for (const rule of SEDATING_PATTERNS) {
       if (rule.pattern.test(drug)) {
@@ -1990,11 +1998,25 @@ export function evaluateOccupationalDrugSafety(
           alerts.push({
             drugName: drug,
             hazardLevel: 'critical_danger',
-            warningAr: `🚨 تحذير مهني خطير: مهنتك مسجلة (${occupation === 'driver_transport' ? 'سائق طريق' : 'عامل ماكينات'}). هذا الدواء (${drug}) ${rule.warningAr} ويمنع القيادة وتشغيل الآلات بتاتاً أثناء مفعوله!`,
+            warningAr: `🚨 تحذير مهني خطير: مهنتك مسجلة (${occupation === 'driver_transport' ? 'سائق طريق' : 'عامل مصنع وماكينات'}). هذا الدواء (${drug}) ${rule.warningAr} ويمنع القيادة وتشغيل الآلات بتاتاً أثناء مفعوله!`,
             safeWorkAdviceAr: 'يفضل تناول الجرعة قبل النوم مباشرة أو طلب بديل مضاد للحساسية لا يسبب النعاس (مثل لوراتادين أو ديسلوراتادين).',
           });
         }
         break;
+      }
+    }
+
+    if (occupation === 'machinery_factory' && (factoryHazards?.length || workNotes)) {
+      for (const rule of RESPIRATORY_CHEST_RISKS) {
+        if (rule.pattern.test(drug)) {
+          alerts.push({
+            drugName: drug,
+            hazardLevel: 'caution',
+            warningAr: `🏭 تنبيه بيئة المصنع للصدر والرئتين: بما أنك تتعرض لأتربة وبودرة أو كيماويات في عملك، فهذا الدواء (${drug}) ${rule.warningAr}`,
+            safeWorkAdviceAr: 'يُرجى استشارة الطبيب لوصف بديل موسع للشعب أو خافض للضغط لا يحفز السعال التحسسي.',
+          });
+          break;
+        }
       }
     }
   }

@@ -246,6 +246,107 @@ import { evaluateMedicationSafety } from './medicationSafetyEngine';
 import { useSyncedHealthProfile } from './allergyData';
 import { useSyncedSchedules } from './trackerData';
 
+
+function SmartWelcomeOnboardingBanner() {
+  const { lang } = useLang();
+  const isAr = lang === 'ar';
+  const { user } = useAuth();
+  const { profile } = useSyncedHealthProfile();
+  const [dismissed, setDismissed] = useState(false);
+
+  // Only show if user is signed in, has not set an occupation yet (or it is 'general'), and hasn't dismissed
+  if (!user || (profile?.occupation && profile.occupation !== 'general') || dismissed) {
+    return null;
+  }
+
+  const patientFirstName = user.displayName ? user.displayName.split(' ')[0] : (isAr ? 'يا فندم' : 'there');
+
+  return (
+    <div
+      className="wrap"
+      style={{
+        marginTop: '10px',
+        marginBottom: '4px',
+        animation: 'fadeIn 0.25s ease',
+      }}
+    >
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #0f766e 100%)',
+          color: '#ffffff',
+          padding: '12px 18px',
+          borderRadius: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          boxShadow: '0 8px 24px rgba(6, 78, 59, 0.35)',
+          border: '1.5px solid #34d399',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '1.9rem' }}>🌟</span>
+          <div>
+            <strong style={{ fontSize: '0.98rem', display: 'block', color: '#ffffff', marginBottom: '2px' }}>
+              {isAr
+                ? `أهلاً بك يا ${patientFirstName} في دوايا 👋 خطوة واحدة لتأمين صحتك!`
+                : `Welcome ${patientFirstName}! One quick step to secure your health:`}
+            </strong>
+            <span style={{ fontSize: '0.84rem', color: '#d1fae5', lineHeight: 1.4, display: 'block' }}>
+              {isAr
+                ? 'حدد مهنتك (سائق، مصنع، طالب، ربت منزل...) بكروت تفاعلية ليفحص الذكاء الاصطناعي أمان أي دواء تبحث عنه ضد النعاس والدوخة وحساسية الصدر.'
+                : 'Select your occupation so AI can screen your medicines for driving safety, alertness, and workplace lung hazards.'}
+            </span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <Link
+            to="/health-profile"
+            style={{
+              background: '#10b981',
+              color: '#ffffff',
+              border: '1.5px solid #ffffff',
+              fontWeight: 800,
+              fontSize: '0.88rem',
+              borderRadius: '999px',
+              padding: '7px 18px',
+              textDecoration: 'none',
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <span>🚗⚙️</span>
+            <span>{isAr ? 'اختر مهنتك الآن' : 'Set Occupation'}</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setDismissed(true)}
+            style={{
+              background: 'rgba(255, 255, 255, 0.15)',
+              border: 'none',
+              color: '#ffffff',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            title={isAr ? 'إغلاق' : 'Dismiss'}
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SmartCrossClinicSafetyBanner() {
   const { lang } = useLang();
   const isAr = lang === 'ar';
@@ -1766,6 +1867,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       {/* Page Content */}
       <SmartOfflineStatusBanner lang={lang} />
       <SmartCrossClinicSafetyBanner />
+      <SmartWelcomeOnboardingBanner />
       <div ref={pageRef} className="page-enter">
         {children}
       </div>

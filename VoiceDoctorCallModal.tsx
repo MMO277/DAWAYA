@@ -284,7 +284,19 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
 
       // 2. Fallback to Gemini with clinical consultation instruction
       if (!reply) {
-        const occNotice = profile.occupation ? `وظيفة المريض الحالية: "${profile.occupation}".` : '';
+        const occTitle = profile.occupation === 'other' ? (profile.customOccupationTitle || 'مهنة خاصة')
+          : profile.occupation === 'driver_transport' ? 'سائق طريق ومواصلات'
+          : profile.occupation === 'machinery_factory' ? 'عامل مصنع وماكينات'
+          : profile.occupation === 'office_desk' ? 'عمل مكتبي'
+          : profile.occupation === 'student' ? 'طالب'
+          : profile.occupation === 'homemaker' ? 'ربت منزل'
+          : 'عام';
+
+        const factoryNotice = (profile.occupation === 'machinery_factory' && (profile.factoryEnvironmentHazards?.length || profile.workEnvironmentNotes))
+          ? `بيئة عمل المريض في المصنع: يتعرض لـ (${profile.factoryEnvironmentHazards?.map((h: string) => h === 'dust_powder' ? 'أتربة وبودرة وغبار (تأثير على الصدر والربو)' : h === 'chemicals_fumes' ? 'كيماويات وأبخرة' : h === 'textile_cotton' ? 'ألياف قطن' : h).join('، ')}). تفاصيل: "${profile.workEnvironmentNotes || ''}". نبّهه صراحة إذا كان الدواء يسبب سعالاً أو ضيق تنفس أو يتعارض مع حساسية الصدر والربو.`
+          : '';
+
+        const occNotice = `وظيفة المريض: "${occTitle}". ${factoryNotice}`;
         const medsNotice = profile.currentMeds?.length ? `الأدوية الحالية: ${profile.currentMeds.join('، ')}.` : '';
         const allergyNotice = profile.allergies?.length ? `الحساسيات المسجلة: ${profile.allergies.join('، ')}.` : '';
 

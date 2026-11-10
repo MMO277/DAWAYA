@@ -237,7 +237,7 @@ export default function MedicinePage() {
         {med && (() => {
           const occAlerts = evaluateOccupationalDrugSafety(
             [pick(med.name, 'ar') || '', pick(med.ingredient, 'ar') || '', med.id || ''],
-            profile.occupation || 'driver_transport'
+            profile.occupation, profile.factoryEnvironmentHazards, profile.workEnvironmentNotes
           );
           if (occAlerts.length === 0) return null;
           const alert = occAlerts[0];
@@ -288,7 +288,7 @@ export default function MedicinePage() {
         {med && (() => {
           const occAlerts = evaluateOccupationalDrugSafety(
             [pick(med.name, 'ar') || '', pick(med.ingredient, 'ar') || '', med.id || ''],
-            profile.occupation || 'driver_transport'
+            profile.occupation, profile.factoryEnvironmentHazards, profile.workEnvironmentNotes
           );
           if (occAlerts.length === 0) return null;
           const alert = occAlerts[0];
@@ -1067,7 +1067,7 @@ export default function MedicinePage() {
         {med && (() => {
           const occAlerts = evaluateOccupationalDrugSafety(
             [pick(med.name, 'ar') || '', pick(med.ingredient, 'ar') || '', med.id || ''],
-            profile.occupation || 'driver_transport'
+            profile.occupation, profile.factoryEnvironmentHazards, profile.workEnvironmentNotes
           );
           if (occAlerts.length === 0) return null;
           const alert = occAlerts[0];
