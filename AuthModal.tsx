@@ -627,6 +627,9 @@ export default function AuthModal() {
         await login(email, password, rememberMe);
       } else if (modalMode === 'register') {
         await register(email, password, displayName, rememberMe);
+        if (typeof window !== 'undefined') {
+          window.location.hash = '#/health-profile?setup=profile';
+        }
       } else if (modalMode === 'forgot') {
         await resetPassword(email);
         setResetSent(true);

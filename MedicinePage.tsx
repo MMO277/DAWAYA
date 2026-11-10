@@ -1,4 +1,5 @@
 import SmartMedDoseReminderBadge from './SmartMedDoseReminderBadge';
+import { evaluateOccupationalDrugSafety } from './medicationSafetyEngine';
 import FindMedicationPanel from './FindMedicationPanel';
 import Mechanism3DViewer from './Mechanism3DViewer';
 import { useEffect, useMemo, useState } from 'react';
@@ -231,6 +232,41 @@ export default function MedicinePage() {
   );
 
   if (m === undefined) return <main className="wrap"><p>{t('loading')}</p>
+        
+        {/* Dynamic Occupational Driving & Work Safety Check */}
+        {med && (() => {
+          const occAlerts = evaluateOccupationalDrugSafety(
+            [pick(med.name, 'ar') || '', pick(med.ingredient, 'ar') || '', med.id || ''],
+            profile.occupation || 'driver_transport'
+          );
+          if (occAlerts.length === 0) return null;
+          const alert = occAlerts[0];
+          return (
+            <div
+              style={{
+                borderRadius: '16px',
+                padding: '14px 18px',
+                background: '#fef2f2',
+                border: '2px solid #ef4444',
+                color: '#991b1b',
+                margin: '12px 0',
+                boxShadow: '0 4px 14px rgba(220, 38, 38, 0.1)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '1.4rem' }}>🚗⚠️</span>
+                <strong style={{ fontSize: '0.98rem' }}>فحص أمان السواقة وطبيعة العمل مع هذا الدواء:</strong>
+              </div>
+              <p style={{ margin: '4px 0 6px', fontSize: '0.88rem', lineHeight: 1.6, color: '#7f1d1d' }}>
+                {alert.warningAr}
+              </p>
+              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: '8px' }}>
+                💡 <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Proactive Universal Dose Reminder for this specific medicine */}
         {med && (
           <SmartMedDoseReminderBadge
@@ -247,6 +283,41 @@ export default function MedicinePage() {
         <p>{t('notFound')}</p>
         <Link to="/medicines">{t('navMedicines')}</Link>
       
+        
+        {/* Dynamic Occupational Driving & Work Safety Check */}
+        {med && (() => {
+          const occAlerts = evaluateOccupationalDrugSafety(
+            [pick(med.name, 'ar') || '', pick(med.ingredient, 'ar') || '', med.id || ''],
+            profile.occupation || 'driver_transport'
+          );
+          if (occAlerts.length === 0) return null;
+          const alert = occAlerts[0];
+          return (
+            <div
+              style={{
+                borderRadius: '16px',
+                padding: '14px 18px',
+                background: '#fef2f2',
+                border: '2px solid #ef4444',
+                color: '#991b1b',
+                margin: '12px 0',
+                boxShadow: '0 4px 14px rgba(220, 38, 38, 0.1)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '1.4rem' }}>🚗⚠️</span>
+                <strong style={{ fontSize: '0.98rem' }}>فحص أمان السواقة وطبيعة العمل مع هذا الدواء:</strong>
+              </div>
+              <p style={{ margin: '4px 0 6px', fontSize: '0.88rem', lineHeight: 1.6, color: '#7f1d1d' }}>
+                {alert.warningAr}
+              </p>
+              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: '8px' }}>
+                💡 <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Proactive Universal Dose Reminder for this specific medicine */}
         {med && (
           <SmartMedDoseReminderBadge
@@ -991,6 +1062,41 @@ export default function MedicinePage() {
         />
       )}
     
+        
+        {/* Dynamic Occupational Driving & Work Safety Check */}
+        {med && (() => {
+          const occAlerts = evaluateOccupationalDrugSafety(
+            [pick(med.name, 'ar') || '', pick(med.ingredient, 'ar') || '', med.id || ''],
+            profile.occupation || 'driver_transport'
+          );
+          if (occAlerts.length === 0) return null;
+          const alert = occAlerts[0];
+          return (
+            <div
+              style={{
+                borderRadius: '16px',
+                padding: '14px 18px',
+                background: '#fef2f2',
+                border: '2px solid #ef4444',
+                color: '#991b1b',
+                margin: '12px 0',
+                boxShadow: '0 4px 14px rgba(220, 38, 38, 0.1)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '1.4rem' }}>🚗⚠️</span>
+                <strong style={{ fontSize: '0.98rem' }}>فحص أمان السواقة وطبيعة العمل مع هذا الدواء:</strong>
+              </div>
+              <p style={{ margin: '4px 0 6px', fontSize: '0.88rem', lineHeight: 1.6, color: '#7f1d1d' }}>
+                {alert.warningAr}
+              </p>
+              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: '8px' }}>
+                💡 <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Proactive Universal Dose Reminder for this specific medicine */}
         {med && (
           <SmartMedDoseReminderBadge

@@ -1,3 +1,116 @@
+
+// ── Egyptian Carb & Rapid Insulin Calculator (Embedded inside Meal Planner) ──
+function EgyptianCarbCalculatorView() {
+  const [selectedFood, setSelectedFood] = useState('baladi_bread');
+  const [portions, setPortions] = useState<number>(1);
+  const [carbRatio, setCarbRatio] = useState<number>(15); // 1 unit per 15g carbs default
+
+  const EGYPTIAN_CARB_FOODS: Record<string, { nameAr: string; carbsPerUnit: number; unitAr: string; glycemicIndexAr: string }> = {
+    baladi_bread: { nameAr: 'رغيف عيش بلدي بالردة كامل', carbsPerUnit: 60, unitAr: 'رغيف', glycemicIndexAr: 'متوسط (ألياف صحية)' },
+    half_baladi: { nameAr: 'نصف رغيف بلدي بالردة', carbsPerUnit: 30, unitAr: 'نصف رغيف', glycemicIndexAr: 'متوسط' },
+    fino_bread: { nameAr: 'رغيف عيش فينو أبيض', carbsPerUnit: 28, unitAr: 'رغيف', glycemicIndexAr: 'مرتفع جداً (يرفع السكر سريعاً)' },
+    cooked_rice: { nameAr: 'أرز مصري مطبوخ (4 ملاعق كبيرة)', carbsPerUnit: 30, unitAr: 'طبق صغير', glycemicIndexAr: 'مرتفع' },
+    pasta: { nameAr: 'مكرونة مسلوقة (4 ملاعق كبيرة)', carbsPerUnit: 30, unitAr: 'طبق صغير', glycemicIndexAr: 'متوسط' },
+    koshary: { nameAr: 'علبة كشري مصري متوسطة', carbsPerUnit: 85, unitAr: 'علبة متوسطة', glycemicIndexAr: 'مرتفع' },
+    taameya: { nameAr: 'قرص طعمية مقلي متوسط', carbsPerUnit: 6, unitAr: 'قرص', glycemicIndexAr: 'منخفض (بروتين نباتي ودهن)' },
+    foul: { nameAr: 'طبق فول مدمس (4 ملاعق كبيرة)', carbsPerUnit: 18, unitAr: 'طبق', glycemicIndexAr: 'منخفض جداً (صديق السكر)' },
+    potatoes_boiled: { nameAr: 'حبة بطاطس مسلوقة متوسطة', carbsPerUnit: 30, unitAr: 'حبة', glycemicIndexAr: 'متوسط' },
+  };
+
+  const foodInfo = EGYPTIAN_CARB_FOODS[selectedFood] || EGYPTIAN_CARB_FOODS.baladi_bread;
+  const totalCarbs = Math.round(foodInfo.carbsPerUnit * portions);
+  const calculatedInsulinUnits = (totalCarbs / (carbRatio || 15)).toFixed(1);
+
+  return (
+    <div
+      style={{
+        borderRadius: '20px',
+        border: '2px solid #0f766e',
+        background: 'linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)',
+        padding: '22px',
+        marginBottom: '22px',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+        <h3 style={{ margin: 0, color: '#0D1F38', fontSize: '1.25rem', fontWeight: 900 }}>
+          🍞 حاسبة النشويات ومعامل السكر للأكلات المصرية المدمجة
+        </h3>
+        <span style={{ background: '#0f766e', color: '#ffffff', padding: '4px 12px', borderRadius: '16px', fontSize: '0.8rem', fontWeight: 800 }}>
+          لحساب جرعة الأنسولين السريع بدقة
+        </span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+            اختر الأكلة المصرية:
+          </label>
+          <select
+            value={selectedFood}
+            onChange={(e) => setSelectedFood(e.target.value)}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '12px', border: '1.5px solid #cbd5e1', fontWeight: 800, fontSize: '0.92rem' }}
+          >
+            {Object.entries(EGYPTIAN_CARB_FOODS).map(([k, f]) => (
+              <option key={k} value={k}>
+                {f.nameAr} (~{f.carbsPerUnit} جم نشويات)
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+            الكمية المتناولة:
+          </label>
+          <input
+            type="number"
+            min="0.5"
+            step="0.5"
+            value={portions}
+            onChange={(e) => setPortions(Math.max(0.5, parseFloat(e.target.value) || 1))}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '12px', border: '1.5px solid #cbd5e1', fontWeight: 800, fontSize: '0.92rem' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
+            معامل الكارب للطبيب (1 وحدة لكل كم جرام؟):
+          </label>
+          <input
+            type="number"
+            min="5"
+            max="30"
+            value={carbRatio}
+            onChange={(e) => setCarbRatio(Math.max(5, parseFloat(e.target.value) || 15))}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '12px', border: '1.5px solid #cbd5e1', fontWeight: 800, fontSize: '0.92rem' }}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', background: '#ffffff', padding: '16px', borderRadius: '16px', border: '1.5px solid #99f6e4' }}>
+        <div>
+          <span style={{ fontSize: '0.78rem', color: '#64748b' }}>إجمالي النشويات في الوجبة:</span>
+          <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#0f766e' }}>
+            {totalCarbs} <span style={{ fontSize: '0.9rem' }}>جرام كارب</span>
+          </div>
+        </div>
+        <div>
+          <span style={{ fontSize: '0.78rem', color: '#64748b' }}>جرعة الأنسولين السريع المقترحة:</span>
+          <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#b91c1c' }}>
+            ~{calculatedInsulinUnits} <span style={{ fontSize: '0.9rem' }}>وحدة أنسولين سريع</span>
+          </div>
+        </div>
+        <div>
+          <span style={{ fontSize: '0.78rem', color: '#64748b' }}>المؤشر السكري للوجبة:</span>
+          <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0D1F38', marginTop: '4px' }}>
+            {foodInfo.glycemicIndexAr}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -522,7 +635,10 @@ export default function ChronicMealPlanner() {
         })}
       </section>
 
-      {/* Selected Condition Hero & Nutrition Snapshot */}
+      {/* Embedded Egyptian Carb & Insulin Calculator */}
+      <EgyptianCarbCalculatorView />
+
+            {/* Selected Condition Hero & Nutrition Snapshot */}
       <section
         className="card"
         style={{

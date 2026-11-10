@@ -114,6 +114,7 @@ export default defineConfig({
             if (id.includes('three')) return 'vendor-three';
             if (id.includes('firebase')) return 'vendor-firebase';
             if (id.includes('html5-qrcode') || id.includes('qrcode')) return 'vendor-qr';
+            if (id.includes('react-router')) return 'vendor-router';
             if (id.includes('react')) return 'vendor-react';
           }
         },

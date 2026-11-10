@@ -94,7 +94,16 @@ export interface PatientAuditLogEntry {
 export type PregnancyLactationStatus = 'none' | 'pregnant' | 'breastfeeding' | 'unknown';
 export type OrganFunctionStatus = 'normal' | 'impaired' | 'unknown';
 
+export type PatientOccupationCategory =
+  | 'general'
+  | 'driver_transport'
+  | 'machinery_factory'
+  | 'office_desk'
+  | 'student'
+  | 'homemaker';
+
 export interface UserHealthProfile {
+  occupation?: PatientOccupationCategory;
   displayName: string;
   age: string;
   weightKg?: string;

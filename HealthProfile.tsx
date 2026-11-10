@@ -48,6 +48,14 @@ export default function HealthProfile() {
   const isAr = lang === 'ar';
   const { user } = useAuth();
   const { profile, setProfile, syncing } = useSyncedHealthProfile();
+
+  // Auto open edit mode if redirected from registration to complete profile
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window.location.hash.includes('setup=profile') || window.location.search.includes('setup=profile'))) {
+      setEditingPersonal(true);
+    }
+  }, []);
+
   const liveProfileSafety = evaluateMedicationSafety({
     medications: [
       ...(profile.activeMedications || []).map((m) => ({
@@ -304,6 +312,7 @@ export default function HealthProfile() {
   const [bloodInput, setBloodInput] = useState(profile.bloodType);
   const [contactInput, setContactInput] = useState(profile.emergencyContact);
   const [genderInput, setGenderInput] = useState(profile.gender);
+  const [occupationInput, setOccupationInput] = useState<string>(profile.occupation || 'general');
 
   // Modal states
   const [showAllergyModal, setShowAllergyModal] = useState(false);
@@ -332,6 +341,7 @@ export default function HealthProfile() {
       setBloodInput(profile.bloodType);
       setContactInput(profile.emergencyContact);
       setGenderInput(profile.gender);
+      setOccupationInput(profile.occupation || 'general');
     }
   }, [profile.displayName, profile.age, profile.weightKg, profile.bloodType, profile.emergencyContact, profile.gender, editingPersonal]);
 
@@ -345,8 +355,16 @@ export default function HealthProfile() {
       bloodType: bloodInput.trim(),
       emergencyContact: contactInput.trim(),
       gender: genderInput.trim(),
+      occupation: (occupationInput as any) || 'general',
     }));
     setEditingPersonal(false);
+
+    // Clean URL so setup=profile is removed forever after saving once!
+    if (typeof window !== 'undefined') {
+      if (window.location.hash.includes('setup=profile')) {
+        window.location.hash = '#/health-profile';
+      }
+    }
   };
 
   const addAllergy = (e: FormEvent) => {

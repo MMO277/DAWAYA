@@ -1960,3 +1960,44 @@ export function evaluateMedicationSafety(input: SafetyEngineInput): SafetyAssess
  * exact active-ingredient equivalents vs different-strength/route products from one entry point.
  */
 export { getClassifiedAlternatives };
+
+
+export interface OccupationalHazardAlert {
+  drugName: string;
+  hazardLevel: 'critical_danger' | 'caution';
+  warningAr: string;
+  safeWorkAdviceAr: string;
+}
+
+export function evaluateOccupationalDrugSafety(
+  drugNames: string[],
+  occupation?: string
+): OccupationalHazardAlert[] {
+  const alerts: OccupationalHazardAlert[] = [];
+  const isDriverOrMachinist =
+    occupation === 'driver_transport' || occupation === 'machinery_factory';
+
+  // High sedative / vision blurring drug patterns
+  const SEDATING_PATTERNS = [
+    { pattern: /(كلورفينيرامين|كونجستال|كومتركس|كولد كنترول|123|فلورست|انتينال|تريتيكو|ديازيبام|ليريكا|بريجابالين|نيورونتين|جابابنتين|كودايين|ترامادول|كيتوتيفين|تلفاست|زايرتك|سيتريزين)/i, level: 'critical_danger' as const, warningAr: 'يسبب نعاساً شديداً وثقل رأس وبطء رد الفعل لعدة ساعات' },
+    { pattern: /(بيتاسيرك|موتيلات|دايمينهيدرينات|درامامين|ميترونيدازول)/i, level: 'caution' as const, warningAr: 'قد يسبب دوخة مؤقتة أو زغللة في الرؤية' },
+  ];
+
+  for (const drug of drugNames) {
+    for (const rule of SEDATING_PATTERNS) {
+      if (rule.pattern.test(drug)) {
+        if (isDriverOrMachinist) {
+          alerts.push({
+            drugName: drug,
+            hazardLevel: 'critical_danger',
+            warningAr: `🚨 تحذير مهني خطير: مهنتك مسجلة (${occupation === 'driver_transport' ? 'سائق طريق' : 'عامل ماكينات'}). هذا الدواء (${drug}) ${rule.warningAr} ويمنع القيادة وتشغيل الآلات بتاتاً أثناء مفعوله!`,
+            safeWorkAdviceAr: 'يفضل تناول الجرعة قبل النوم مباشرة أو طلب بديل مضاد للحساسية لا يسبب النعاس (مثل لوراتادين أو ديسلوراتادين).',
+          });
+        }
+        break;
+      }
+    }
+  }
+
+  return alerts;
+}

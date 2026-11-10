@@ -193,11 +193,13 @@ function NotFound() {
 
 export default function App() {
   useEffect(() => {
-    // Immediately start warming the 26,562 DAWAYA medicine index in background
-    void ensureDawayaDatabaseLoaded();
+    // ⚡ Ultra-Fast 0-Second Startup: Render Home UI instantly, defer heavy database load until idle!
+    const scheduleIdle = typeof window !== 'undefined' && 'requestIdleCallback' in window
+      ? (window as any).requestIdleCallback
+      : (cb: () => void) => window.setTimeout(cb, 2200);
 
-    // Stage 1 (1.2s after paint): Pre-warm primary clinical tools & Service Worker full-offline cache
-    const timer1 = window.setTimeout(() => {
+    const idleHandle = scheduleIdle(() => {
+      void ensureDawayaDatabaseLoaded();
       startPartnerEcosystemSync();
       try {
         if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -206,40 +208,22 @@ export default function App() {
       } catch {
         /* ignore */
       }
+    });
+
+    const prewarmTimer = window.setTimeout(() => {
       void import('./PatientDashboard');
       void import('./Medicines');
-      void import('./MedicinePage');
-      void import('./Tracker');
-      void import('./OneClickCheckup');
-      void import('./CostSaver');
-      void import('./GreenPrescription');
-      void import('./DailyScheduleGenerator');
-      void import('./PrescriptionRadar');
       void import('./Assistant');
-    }, 1200);
-
-    // Stage 2 (3.2s after paint): Pre-warm remaining clinical & educational pages into memory for 0ms offline navigation
-    const timer2 = window.setTimeout(() => {
-      void import('./Interactions');
-      void import('./AllergyChecker');
-      void import('./PediatricHelper');
-      void import('./HealthProfile');
-      void import('./CompareDrugs');
-      void import('./ColdShotWarning');
-      void import('./SideEffectsGuide');
-      void import('./SafeDisposal');
-      void import('./Scan');
-      void import('./Quiz');
-      void import('./Articles');
-      void import('./Learn');
-      void import('./MythFact');
-      void import('./ListenLearn');
-      void import('./PartnersDirectory');
-    }, 3200);
+      void import('./InteractiveBodyMap');
+      void import('./SpecialtyClinicsHub');
+      void import('./ChronicMealPlanner');
+    }, 4500);
 
     return () => {
-      window.clearTimeout(timer1);
-      window.clearTimeout(timer2);
+      if (typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        (window as any).cancelIdleCallback(idleHandle);
+      }
+      window.clearTimeout(prewarmTimer);
     };
   }, []);
 
