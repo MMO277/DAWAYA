@@ -18,7 +18,7 @@ import {
 import AppUpdateManager, { triggerUpdateCheckerManually } from "./AppUpdateManager";
 import OnboardingTour, { triggerOnboardingTourManually } from "./OnboardingTour";
 import { GlobalPhoneAlarmOverlay } from './SmartDoseAlarmCard';
-import { lazy, Suspense, ReactNode, useRef, useEffect, useState } from 'react';
+import { lazy, Suspense, ReactNode, useRef, useEffect, useState, useMemo } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useLang, SUPPORTED_LANGS } from './i18n';
 import { Lang, localizeFallbackText, tr } from './types';
@@ -236,15 +236,22 @@ function SmartCrossClinicSafetyBanner() {
   const { schedules } = useSyncedSchedules();
 
   const safetyResult = useMemo(() => {
-    const rawMeds = [
-      ...(profile.medications || []).map((m) => ({ id: m.drugId, rawName: m.drugName })),
-      ...(schedules || []).map((s) => ({ id: s.medicineId, rawName: s.medicineName })),
-    ];
-    if (rawMeds.length < 2) return null;
-    return evaluateMedicationSafety(rawMeds, profile);
+    try {
+      const rawMeds = [
+        ...(profile?.medications || []).map((m: any) => ({ id: m.drugId, rawName: m.drugName })),
+        ...(schedules || []).map((s: any) => ({ id: s.medicineId, rawName: s.medicineName })),
+      ];
+      if (rawMeds.length < 2) return null;
+      return evaluateMedicationSafety(rawMeds, profile);
+    } catch (err) {
+      console.warn('Cross-clinic safety check silent fallback:', err);
+      return null;
+    }
   }, [profile, schedules]);
 
-  if (!safetyResult || !safetyResult.hasIssues) return null;
+  if (!safetyResult || !safetyResult.hasIssues || !safetyResult.issues || safetyResult.issues.length === 0) {
+    return null;
+  }
 
   const topIssue = safetyResult.issues[0];
   return (
@@ -270,8 +277,8 @@ function SmartCrossClinicSafetyBanner() {
         <span style={{ fontSize: '1.4rem' }}>🚨</span>
         <div style={{ fontSize: '0.88rem', fontWeight: 800 }}>
           {isAr
-            ? `تنبيه تعارض دوائي ذكي بين أدويتك الحالية: ${topIssue.titleAr || topIssue.titleEn}`
-            : `Cross-Medication Interaction Alert: ${topIssue.titleEn}`}
+            ? `تنبيه تعارض دوائي ذكي بين أدويتك الحالية: ${topIssue.titleAr || topIssue.titleEn || 'يرجى مراجعة الصيدلي'}`
+            : `Cross-Medication Interaction Alert: ${topIssue.titleEn || 'Consult Pharmacist'}`}
         </div>
       </div>
       <Link
