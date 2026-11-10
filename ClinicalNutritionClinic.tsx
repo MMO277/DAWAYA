@@ -136,11 +136,41 @@ export default function ClinicalNutritionClinic() {
               <input type="number" value={ageY} onChange={(e) => setAgeY(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', fontWeight: 800 }} />
             </div>
             <div>
-              <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>النوع:</label>
-              <select value={gender} onChange={(e) => setGender(e.target.value as any)} style={{ width: '100%', padding: '10px', borderRadius: '8px', fontWeight: 800 }}>
-                <option value="female">أنثى</option>
-                <option value="male">ذكر</option>
-              </select>
+              <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '6px' }}>النوع:</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                {[
+                  { id: 'male', icon: '👨', label: 'ذكر' },
+                  { id: 'female', icon: '👩', label: 'أنثى' },
+                ].map((item) => {
+                  const active = gender === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setGender(item.id as any)}
+                      style={{
+                        padding: '10px',
+                        borderRadius: '10px',
+                        border: active ? '2px solid #10b981' : '1px solid rgba(255, 255, 255, 0.2)',
+                        background: active ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                        color: '#ffffff',
+                        fontWeight: 800,
+                        fontSize: '0.92rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        boxShadow: active ? '0 0 10px rgba(16, 185, 129, 0.35)' : 'none',
+                      }}
+                    >
+                      <span>{item.icon}</span>
+                      <span>{item.label}</span>
+                      {active && <span style={{ color: '#10b981' }}>✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div>
               <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>مستوى النشاط:</label>

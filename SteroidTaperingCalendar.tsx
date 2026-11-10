@@ -141,18 +141,40 @@ export default function SteroidTaperingCalendar() {
           </div>
 
           <div>
-            <label className="small" style={{ fontWeight: 700, color: '#CFD29D', display: 'block', marginBottom: '4px' }}>
+            <label className="small" style={{ fontWeight: 700, color: '#CFD29D', display: 'block', marginBottom: '6px' }}>
               💊 {isAr ? 'تركيز القرص الذي اشتريته من الصيدلية:' : 'Your Tablet Strength:'}
             </label>
-            <select
-              className="select-input"
-              value={tabletStrengthMg}
-              onChange={(e) => setTabletStrengthMg(Number(e.target.value))}
-              style={{ background: 'rgba(255, 255, 255, 0.1)', color: '#fff', border: '1px solid #CFD29D' }}
-            >
-              <option value={20} style={{ color: '#000' }}>{isAr ? 'قرص 20 مجم (سولوبريد 20)' : '20mg Tablet (Solupred 20)'}</option>
-              <option value={5} style={{ color: '#000' }}>{isAr ? 'قرص 5 مجم (بريدسول / هوستيكورتين)' : '5mg Tablet'}</option>
-            </select>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              {[
+                { val: 20, labelAr: 'قرص 20 مجم', subAr: 'سولوبريد 20' },
+                { val: 5, labelAr: 'قرص 5 مجم', subAr: 'بريدسول / هوستيكورتين' },
+              ].map((item) => {
+                const active = tabletStrengthMg === item.val;
+                return (
+                  <button
+                    key={item.val}
+                    type="button"
+                    onClick={() => setTabletStrengthMg(item.val)}
+                    style={{
+                      padding: '10px 8px',
+                      borderRadius: '12px',
+                      border: active ? '2.5px solid #CFD29D' : '1px solid rgba(255, 255, 255, 0.2)',
+                      background: active ? 'rgba(207, 210, 157, 0.28)' : 'rgba(255, 255, 255, 0.05)',
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '2px',
+                      boxShadow: active ? '0 0 12px rgba(207, 210, 157, 0.35)' : 'none',
+                    }}
+                  >
+                    <b style={{ fontSize: '0.88rem', color: active ? '#CFD29D' : '#f8fafc' }}>{item.labelAr}</b>
+                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{item.subAr}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>

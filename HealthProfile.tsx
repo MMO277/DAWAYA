@@ -604,43 +604,88 @@ export default function HealthProfile() {
               </div>
               <div className="form-group">
                 <label><b>{isAr ? 'النوع:' : 'Gender:'}</b></label>
-                <select value={genderInput} onChange={(e) => setGenderInput(e.target.value)}>
-                  <option value="">{isAr ? '— اختر —' : '— Select —'}</option>
-                  <option value="male">{isAr ? 'ذكر' : 'Male'}</option>
-                  <option value="female">{isAr ? 'أنثى' : 'Female'}</option>
-                </select>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {[
+                    { id: 'male', icon: '👨', labelAr: 'ذكر', labelEn: 'Male' },
+                    { id: 'female', icon: '👩', labelAr: 'أنثى', labelEn: 'Female' },
+                  ].map((g) => {
+                    const active = genderInput === g.id;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => setGenderInput(g.id)}
+                        className={`dawaya-choice-pill ${active ? 'selected' : ''}`}
+                      >
+                        <span style={{ fontSize: '1.2rem' }}>{g.icon}</span>
+                        <span>{isAr ? g.labelAr : g.labelEn}</span>
+                        {active && <span style={{ color: '#10b981', fontWeight: 900 }}>✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="form-group">
                 <label><b>{isAr ? 'وظائف الكلى:' : 'Renal Function:'}</b></label>
-                <select
-                  value={profile.renalStatus || 'unknown'}
-                  onChange={(e) =>
-                    setProfile((prev) => ({
-                      ...prev,
-                      renalStatus: e.target.value as 'normal' | 'impaired' | 'unknown',
-                    }))
-                  }
-                >
-                  <option value="unknown">{isAr ? 'غير محدد' : 'Unknown'}</option>
-                  <option value="normal">{isAr ? 'طبيعية (Normal)' : 'Normal'}</option>
-                  <option value="impaired">{isAr ? 'قصور كلوي يحتاج تعديل جرعة' : 'Impaired (Renal Adjustment)'}</option>
-                </select>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '6px' }}>
+                  {[
+                    { id: 'normal', icon: '✅', labelAr: 'طبيعية', descAr: 'سليمة' },
+                    { id: 'impaired', icon: '⚠️', labelAr: 'قصور كلوي', descAr: 'تعديل جرعة' },
+                    { id: 'unknown', icon: '❓', labelAr: 'غير محدد', descAr: 'بلا فحص' },
+                  ].map((r) => {
+                    const active = (profile.renalStatus || 'unknown') === r.id;
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() =>
+                          setProfile((prev) => ({
+                            ...prev,
+                            renalStatus: r.id as any,
+                          }))
+                        }
+                        className={`dawaya-organ-pill ${active ? 'selected' : ''}`}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '1.1rem' }}>{r.icon}</span>
+                          <b>{r.labelAr}</b>
+                        </div>
+                        <span className="sub">{r.descAr}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="form-group">
                 <label><b>{isAr ? 'وظائف الكبد:' : 'Hepatic Function:'}</b></label>
-                <select
-                  value={profile.hepaticStatus || 'unknown'}
-                  onChange={(e) =>
-                    setProfile((prev) => ({
-                      ...prev,
-                      hepaticStatus: e.target.value as 'normal' | 'impaired' | 'unknown',
-                    }))
-                  }
-                >
-                  <option value="unknown">{isAr ? 'غير محدد' : 'Unknown'}</option>
-                  <option value="normal">{isAr ? 'طبيعية (Normal)' : 'Normal'}</option>
-                  <option value="impaired">{isAr ? 'قصور كبدي' : 'Impaired'}</option>
-                </select>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '6px' }}>
+                  {[
+                    { id: 'normal', icon: '✅', labelAr: 'طبيعية', descAr: 'سليمة' },
+                    { id: 'impaired', icon: '⚠️', labelAr: 'قصور كبدي', descAr: 'حذر دوائي' },
+                    { id: 'unknown', icon: '❓', labelAr: 'غير محدد', descAr: 'بلا فحص' },
+                  ].map((h) => {
+                    const active = (profile.hepaticStatus || 'unknown') === h.id;
+                    return (
+                      <button
+                        key={h.id}
+                        type="button"
+                        onClick={() =>
+                          setProfile((prev) => ({
+                            ...prev,
+                            hepaticStatus: h.id as any,
+                          }))
+                        }
+                        className={`dawaya-organ-pill ${active ? 'selected' : ''}`}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '1.1rem' }}>{h.icon}</span>
+                          <b>{h.labelAr}</b>
+                        </div>
+                        <span className="sub">{h.descAr}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="form-group form-group-full">
                 <label><b>{isAr ? 'رقم هاتف الطوارئ:' : 'Emergency Contact:'}</b></label>
@@ -746,75 +791,25 @@ export default function HealthProfile() {
                         key={card.id}
                         type="button"
                         onClick={() => setOccupationInput(card.id)}
-                        style={{
-                          textAlign: 'start',
-                          padding: '12px 14px',
-                          borderRadius: '14px',
-                          border: isSelected ? '2.5px solid #10b981' : '1.5px solid rgba(255, 255, 255, 0.22)',
-                          background: isSelected
-                            ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.28) 0%, rgba(6, 95, 70, 0.45) 100%)'
-                            : 'rgba(255, 255, 255, 0.05)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          gap: '6px',
-                          transition: 'all 0.18s ease',
-                          boxShadow: isSelected ? '0 0 16px rgba(16, 185, 129, 0.4)' : 'none',
-                          transform: isSelected ? 'scale(1.02)' : 'scale(1)',
-                        }}
+                        className={`dawaya-choice-card ${isSelected ? 'selected' : ''}`}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                          <span style={{ fontSize: '1.75rem' }}>{card.icon}</span>
+                          <span style={{ fontSize: '1.8rem' }}>{card.icon}</span>
                           {isSelected ? (
-                            <span
-                              style={{
-                                width: '22px',
-                                height: '22px',
-                                borderRadius: '50%',
-                                background: '#10b981',
-                                color: '#ffffff',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '0.85rem',
-                                fontWeight: 900,
-                              }}
-                            >
-                              ✓
-                            </span>
+                            <span className="dawaya-choice-check">✓</span>
                           ) : (
-                            <span
-                              style={{
-                                width: '18px',
-                                height: '18px',
-                                borderRadius: '50%',
-                                border: '1.5px solid rgba(255, 255, 255, 0.35)',
-                                display: 'inline-block',
-                              }}
-                            />
+                            <span className="dawaya-choice-uncheck" />
                           )}
                         </div>
                         <div>
-                          <b style={{ fontSize: '0.94rem', display: 'block', color: isSelected ? '#10b981' : '#f8fafc', marginBottom: '2px' }}>
+                          <b className="choice-title">
                             {isAr ? card.titleAr : card.titleEn}
                           </b>
-                          <span style={{ fontSize: '0.76rem', color: isSelected ? '#e2e8f0' : '#94a3b8', lineHeight: 1.35, display: 'block' }}>
+                          <span className="choice-desc">
                             {card.descAr}
                           </span>
                         </div>
-                        <span
-                          style={{
-                            fontSize: '0.7rem',
-                            fontWeight: 800,
-                            padding: '3px 8px',
-                            borderRadius: '999px',
-                            background: isSelected ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.1)',
-                            color: isSelected ? '#34d399' : '#cbd5e1',
-                            alignSelf: 'flex-start',
-                            marginTop: '4px',
-                          }}
-                        >
+                        <span className="choice-badge">
                           {card.badgeAr}
                         </span>
                       </button>
@@ -1375,12 +1370,42 @@ export default function HealthProfile() {
               <div className="form-row">
                 <div className="form-group">
                   <label><b>{isAr ? 'درجة الخطورة:' : 'Severity:'}</b></label>
-                  <select value={severity} onChange={(e) => setSeverity(e.target.value as AllergySeverity)}>
-                    <option value="life_threatening">{isAr ? 'مهددة للحياة (صدمة تحسسية وإغماء)' : 'Life Threatening'}</option>
-                    <option value="severe">{isAr ? 'شديدة (تورم وضيق تنفس)' : 'Severe'}</option>
-                    <option value="moderate">{isAr ? 'متوسطة (طفح جلدي واسع)' : 'Moderate'}</option>
-                    <option value="mild">{isAr ? 'خفيفة (حكة خفيفة)' : 'Mild'}</option>
-                  </select>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
+                    {[
+                      { id: 'life_threatening', icon: '🚨', labelAr: 'مهددة للحياة', descAr: 'صدمة تحسسية' },
+                      { id: 'severe', icon: '🔴', labelAr: 'شديدة', descAr: 'تورم وضيق تنفس' },
+                      { id: 'moderate', icon: '🟠', labelAr: 'متوسطة', descAr: 'طفح جلدي واسع' },
+                      { id: 'mild', icon: '🟢', labelAr: 'خفيفة', descAr: 'حكة طفيفة' },
+                    ].map((s) => {
+                      const active = severity === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => setSeverity(s.id as AllergySeverity)}
+                          style={{
+                            padding: '8px 10px',
+                            borderRadius: '12px',
+                            border: active ? '2px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.2)',
+                            background: active ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                            color: '#ffffff',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            textAlign: 'start',
+                            boxShadow: active ? '0 0 10px rgba(239, 68, 68, 0.35)' : 'none',
+                          }}
+                        >
+                          <span style={{ fontSize: '1rem' }}>{s.icon}</span>
+                          <div>
+                            <b style={{ fontSize: '0.8rem', display: 'block', color: active ? '#fca5a5' : '#f8fafc' }}>{s.labelAr}</b>
+                            <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{s.descAr}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="form-group">

@@ -7113,3 +7113,306 @@ html[data-theme="dark"],
   color: #bae6fd !important;
   border-color: #38bdf8 !important;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   GLOBAL MODERN SELECT & DROPDOWN ENGINE (REMOVES NATIVE ANDROID OS POPUP LOOK)
+   ══════════════════════════════════════════════════════════════════════════ */
+select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-color: var(--card-bg, #0d1f38) !important;
+  color: var(--ink, #f8fafc) !important;
+  border: 1.5px solid rgba(16, 185, 129, 0.4) !important;
+  border-radius: 12px !important;
+  padding: 10px 14px !important;
+  padding-inline-end: 38px !important;
+  font-weight: 700 !important;
+  font-size: 0.92rem !important;
+  cursor: pointer !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: left 12px center !important;
+  background-size: 16px !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+[dir="ltr"] select,
+:root[dir="ltr"] select {
+  background-position: right 12px center !important;
+  padding-inline-start: 14px !important;
+  padding-inline-end: 38px !important;
+}
+
+select:focus {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.45) !important;
+  outline: none !important;
+}
+
+select option {
+  background: #0d1f38 !important;
+  color: #f8fafc !important;
+  padding: 12px 14px !important;
+  font-size: 0.92rem !important;
+  font-weight: 700 !important;
+}
+
+:root:not([data-theme="dark"]) select {
+  background-color: #ffffff !important;
+  color: #0D1F38 !important;
+  border-color: #cbd5e1 !important;
+}
+
+:root:not([data-theme="dark"]) select option {
+  background: #ffffff !important;
+  color: #0D1F38 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DAWAYA INTERACTIVE CHOICE CARDS & PILLS (LIGHT & DARK MODE HIGH CONTRAST)
+   ══════════════════════════════════════════════════════════════════════════ */
+.dawaya-choice-card {
+  text-align: start !important;
+  padding: 14px 16px !important;
+  border-radius: 16px !important;
+  border: 1.5px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #0D1F38 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  transition: all 0.18s ease !important;
+  box-shadow: 0 4px 12px rgba(16, 30, 54, 0.05) !important;
+  text-decoration: none !important;
+  box-sizing: border-box !important;
+}
+
+.dawaya-choice-card:hover {
+  border-color: #10b981 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.18) !important;
+}
+
+.dawaya-choice-card.selected {
+  border: 2.5px solid #059669 !important;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%) !important;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35) !important;
+  transform: scale(1.02) !important;
+}
+
+.dawaya-choice-card .choice-title {
+  font-size: 0.96rem !important;
+  font-weight: 900 !important;
+  display: block !important;
+  color: #0D1F38 !important;
+  margin-bottom: 3px !important;
+}
+
+.dawaya-choice-card.selected .choice-title {
+  color: #065f46 !important;
+}
+
+.dawaya-choice-card .choice-desc {
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+  line-height: 1.4 !important;
+  display: block !important;
+}
+
+.dawaya-choice-card.selected .choice-desc {
+  color: #064e3b !important;
+}
+
+.dawaya-choice-card .choice-badge {
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  padding: 3px 10px !important;
+  border-radius: 999px !important;
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  align-self: flex-start !important;
+  margin-top: 4px !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.dawaya-choice-card.selected .choice-badge {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+  border-color: #86efac !important;
+}
+
+/* Choice card check circle */
+.dawaya-choice-check {
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 50% !important;
+  background: #10b981 !important;
+  color: #ffffff !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.85rem !important;
+  font-weight: 900 !important;
+}
+
+.dawaya-choice-uncheck {
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 50% !important;
+  border: 1.5px solid #94a3b8 !important;
+  display: inline-block !important;
+}
+
+/* Choice Pills (Gender, Single-line choices) */
+.dawaya-choice-pill {
+  padding: 12px 14px !important;
+  border-radius: 14px !important;
+  border: 1.5px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #0D1F38 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  font-weight: 800 !important;
+  font-size: 0.94rem !important;
+  transition: all 0.18s ease !important;
+  box-shadow: 0 3px 10px rgba(16, 30, 54, 0.04) !important;
+}
+
+.dawaya-choice-pill:hover {
+  border-color: #10b981 !important;
+}
+
+.dawaya-choice-pill.selected {
+  border: 2px solid #059669 !important;
+  background: #ecfdf5 !important;
+  color: #065f46 !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Organ Pills (Kidneys, Liver, 2-line mini cards) */
+.dawaya-organ-pill {
+  padding: 10px 12px !important;
+  border-radius: 14px !important;
+  border: 1.5px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #0D1F38 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 3px !important;
+  transition: all 0.18s ease !important;
+  box-shadow: 0 3px 10px rgba(16, 30, 54, 0.04) !important;
+}
+
+.dawaya-organ-pill b {
+  font-size: 0.88rem !important;
+  color: #0D1F38 !important;
+}
+
+.dawaya-organ-pill span.sub {
+  font-size: 0.72rem !important;
+  color: #64748b !important;
+}
+
+.dawaya-organ-pill.selected {
+  border: 2px solid #0284c7 !important;
+  background: #f0f9ff !important;
+  box-shadow: 0 0 12px rgba(2, 132, 199, 0.3) !important;
+}
+
+.dawaya-organ-pill.selected b {
+  color: #0284c7 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DARK THEME OVERRIDES FOR CHOICE CARDS AND PILLS
+   ══════════════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .dawaya-choice-card {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  background: #0d1f38 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .dawaya-choice-card:hover {
+  border-color: #10b981 !important;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3) !important;
+}
+
+[data-theme="dark"] .dawaya-choice-card.selected {
+  border-color: #10b981 !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.28) 0%, rgba(6, 95, 70, 0.45) 100%) !important;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.5) !important;
+}
+
+[data-theme="dark"] .dawaya-choice-card .choice-title {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .dawaya-choice-card.selected .choice-title {
+  color: #34d399 !important;
+}
+
+[data-theme="dark"] .dawaya-choice-card .choice-desc {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .dawaya-choice-card.selected .choice-desc {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .dawaya-choice-card .choice-badge {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+[data-theme="dark"] .dawaya-choice-card.selected .choice-badge {
+  background: rgba(16, 185, 129, 0.3) !important;
+  color: #34d399 !important;
+  border-color: #10b981 !important;
+}
+
+[data-theme="dark"] .dawaya-choice-pill {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  background: #0d1f38 !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .dawaya-choice-pill.selected {
+  border-color: #10b981 !important;
+  background: rgba(16, 185, 129, 0.28) !important;
+  color: #34d399 !important;
+}
+
+[data-theme="dark"] .dawaya-organ-pill {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  background: #0d1f38 !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .dawaya-organ-pill b {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .dawaya-organ-pill span.sub {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .dawaya-organ-pill.selected {
+  border-color: #38bdf8 !important;
+  background: rgba(2, 132, 199, 0.28) !important;
+}
+
+[data-theme="dark"] .dawaya-organ-pill.selected b {
+  color: #38bdf8 !important;
+}
