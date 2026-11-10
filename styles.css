@@ -218,23 +218,172 @@ legend { font-weight: 600; padding-inline: 6px; }
 }
 
 [data-theme="dark"] {
-  --navy: #9AE8E8;
-  --blue: #00BFD0;
-  --teal: #00BFD0;
-  --teal-dark: #24C8B8;
-  --light-cyan: #9AE8E8;
-  --tint: #162642;
-  --line: #23385A;
-  --ink: #F3F7FC;
-  --muted: #94A3B8;
-  --white: #13223B;
-  --warn-bg: #2e2600;
-  --warn-line: #c49a20;
-  --danger: #f28b82;
-  --ok: #5ec99e;
-  --bg: #0B1526;
-  --card-bg: #101E36;
-  --hero-bg: #091120;
+  --navy: #7dd3fc;
+  --blue: #38bdf8;
+  --teal: #10b981;
+  --teal-dark: #059669;
+  --light-cyan: #bae6fd;
+  --tint: #132742;
+  --line: #243b5e;
+  --ink: #f8fafc;
+  --muted: #94a3b8;
+  --white: #ffffff;
+  --warn-bg: #422006;
+  --warn-line: #d97706;
+  --danger: #f87171;
+  --ok: #34d399;
+  --bg: #07111e;
+  --card-bg: #0d1f38;
+  --hero-bg: #07101c;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DAWAYA — Dark Mode Typography & High Contrast Legibility Engine
+   ══════════════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] body {
+  background: #07111e !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .card {
+  background: #0d1f38 !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .card b,
+[data-theme="dark"] .card strong,
+[data-theme="dark"] .card h1,
+[data-theme="dark"] .card h2,
+[data-theme="dark"] .card h3,
+[data-theme="dark"] .card h4 {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .card a:not(.btn):not(.chip):not(.badge) {
+  color: #38bdf8 !important;
+}
+
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] h5,
+[data-theme="dark"] h6 {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] p,
+[data-theme="dark"] li,
+[data-theme="dark"] td {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] label {
+  color: #cbd5e1 !important;
+}
+
+/* Override hardcoded dark text colors in dark mode across all components */
+[data-theme="dark"] [style*="color: #0D1F38"],
+[data-theme="dark"] [style*="color: #0d1f38"],
+[data-theme="dark"] [style*="color:#0D1F38"],
+[data-theme="dark"] [style*="color:#0d1f38"],
+[data-theme="dark"] [style*="color: rgb(13, 31, 56)"],
+[data-theme="dark"] [style*="color: #0f172a"],
+[data-theme="dark"] [style*="color: #1e293b"],
+[data-theme="dark"] [style*="color: #334155"],
+[data-theme="dark"] [style*="color: #475569"],
+[data-theme="dark"] [style*="color: #1f2937"],
+[data-theme="dark"] [style*="color: #111827"],
+[data-theme="dark"] [style*="color: #000000"],
+[data-theme="dark"] [style*="color: #000"],
+[data-theme="dark"] [style*="color: #111"],
+[data-theme="dark"] [style*="color: #222"],
+[data-theme="dark"] [style*="color: #333"],
+[data-theme="dark"] [style*="color: #065f46"],
+[data-theme="dark"] [style*="color: #047857"],
+[data-theme="dark"] [style*="color: #166534"],
+[data-theme="dark"] [style*="color: #1e3a8a"] {
+  color: #f1f5f9 !important;
+}
+
+/* High contrast bold text in dark mode */
+[data-theme="dark"] strong,
+[data-theme="dark"] b {
+  color: #ffffff !important;
+}
+
+/* Form inputs & dropdowns in dark mode */
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: #132742 !important;
+  color: #f8fafc !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+[data-theme="dark"] select option {
+  background: #0d1f38 !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Buttons in dark mode */
+[data-theme="dark"] .btn {
+  color: #ffffff !important;
+}
+[data-theme="dark"] .btn.ghost {
+  color: #38bdf8 !important;
+  border-color: #38bdf8 !important;
+}
+
+/* Tables in dark mode */
+[data-theme="dark"] th {
+  background: #132742 !important;
+  color: #7dd3fc !important;
+  border-bottom-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+[data-theme="dark"] td {
+  color: #f1f5f9 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Health profile details in dark mode */
+[data-theme="dark"] .profile-details-grid div,
+[data-theme="dark"] .profile-detail-full {
+  color: #f1f5f9 !important;
+}
+
+/* Transform light container backgrounds to dark translucent panels */
+[data-theme="dark"] [style*="background: #f0fdf4"],
+[data-theme="dark"] [style*="background:#f0fdf4"],
+[data-theme="dark"] [style*="background: rgb(240, 253, 244)"] {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+}
+
+[data-theme="dark"] [style*="background: #f8fafc"],
+[data-theme="dark"] [style*="background: #ffffff"],
+[data-theme="dark"] [style*="background:#ffffff"],
+[data-theme="dark"] [style*="background: white"],
+[data-theme="dark"] [style*="background: #f1f5f9"] {
+  background: #132742 !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] [style*="background: #eff6ff"] {
+  background: rgba(56, 189, 248, 0.16) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+}
+
+[data-theme="dark"] [style*="background: #fef2f2"] {
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
 }
 
 body {
@@ -6574,15 +6723,29 @@ header.top.dawaya-v2-header {
   border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
   border-bottom: 1px solid rgba(207, 210, 157, 0.16) !important;
   padding-top: 2px !important;
+  overflow: hidden !important;
 }
 
 .quick-ribbon.dawaya-v2-ribbon {
   display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
   align-items: stretch !important;
   justify-content: flex-start !important;
-  gap: 8px !important;
+  gap: 10px !important;
   padding-block: 6px 8px !important;
+  padding-inline: 12px !important;
   overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: none !important;
+  max-width: 100% !important;
+}
+
+.quick-ribbon.dawaya-v2-ribbon::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .quick-ribbon-link.dawaya-v2-tab,
@@ -6591,9 +6754,13 @@ header.top.dawaya-v2-header {
   flex-direction: column !important;
   align-items: center !important;
   justify-content: space-between !important;
-  gap: 6px !important;
-  min-width: 86px !important;
-  padding: 6px 10px 4px !important;
+  gap: 4px !important;
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
+  width: auto !important;
+  min-width: max-content !important;
+  max-width: none !important;
+  padding: 6px 14px 4px !important;
   border-radius: 12px !important;
   background: transparent !important;
   border: none !important;
@@ -6601,12 +6768,14 @@ header.top.dawaya-v2-header {
   color: #E2E8F0 !important;
   text-decoration: none !important;
   cursor: pointer !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
   transition: color 0.2s ease, background 0.2s ease !important;
 }
 
 .quick-ribbon-link.dawaya-v2-tab:hover,
 .quick-ribbon-group-btn.dawaya-v2-tab:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
   color: #CFD29D !important;
 }
 
@@ -6620,11 +6789,16 @@ header.top.dawaya-v2-header {
 }
 
 .dawaya-v2-tab-label {
-  font-size: 0.82rem !important;
+  font-size: 0.81rem !important;
   font-weight: 700 !important;
-  line-height: 1.2 !important;
+  line-height: 1.25 !important;
   white-space: nowrap !important;
   color: inherit !important;
+  text-align: center !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding-inline: 2px !important;
 }
 
 .dawaya-v2-tab-bar {
@@ -6633,7 +6807,7 @@ header.top.dawaya-v2-header {
   height: 3.5px !important;
   border-radius: 999px !important;
   background: rgba(255, 255, 255, 0.16) !important;
-  margin-top: 2px !important;
+  margin-top: 3px !important;
   transition: background 0.22s ease, box-shadow 0.22s ease !important;
 }
 
@@ -6692,13 +6866,22 @@ header.top.dawaya-v2-header {
     min-width: 30px !important;
     min-height: 30px !important;
   }
+  .quick-ribbon.dawaya-v2-ribbon {
+    gap: 8px !important;
+    padding-inline: 8px !important;
+    padding-block: 5px 6px !important;
+  }
   .quick-ribbon-link.dawaya-v2-tab,
   .quick-ribbon-group-btn.dawaya-v2-tab {
-    min-width: 76px !important;
-    padding: 5px 6px 4px !important;
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+    min-width: max-content !important;
+    padding: 5px 10px 4px !important;
   }
   .dawaya-v2-tab-label {
-    font-size: 0.76rem !important;
+    font-size: 0.74rem !important;
+    white-space: nowrap !important;
   }
 }
 
@@ -6843,5 +7026,50 @@ h1, h2, h3, h4, h5, h6, p, span, strong, a, button, li, td, th {
   .btn {
     white-space: normal !important;
     text-align: center !important;
+  }
+}
+
+/* Sign-in Call to Action Pill Button in Header Glass Capsule */
+.capsule-signin-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.5) 100%) !important;
+  border: 1.5px solid #10b981 !important;
+  border-radius: 999px !important;
+  padding: 4px 12px 4px 8px !important;
+  color: #ffffff !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4) !important;
+  transition: all 0.2s ease !important;
+  white-space: nowrap !important;
+  text-decoration: none !important;
+}
+
+.capsule-signin-btn:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.55) 0%, rgba(5, 150, 105, 0.75) 100%) !important;
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.7) !important;
+  transform: scale(1.03) !important;
+}
+
+.capsule-signin-btn .signin-icon {
+  font-size: 0.95rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.capsule-signin-btn .signin-label {
+  font-weight: 800 !important;
+  letter-spacing: 0.02em !important;
+  color: #ffffff !important;
+}
+
+@media (max-width: 480px) {
+  .capsule-signin-btn {
+    padding: 3px 8px 3px 6px !important;
+    font-size: 0.74rem !important;
+    gap: 4px !important;
   }
 }

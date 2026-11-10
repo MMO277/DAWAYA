@@ -128,6 +128,7 @@ const MAX_PATIENT_AUDIT_LOGS = 150;
 
 export function emptyHealthProfile(): UserHealthProfile {
   return {
+    occupation: 'general',
     displayName: '',
     age: '',
     weightKg: '',
@@ -213,6 +214,16 @@ export function syncNotesWithChronicConditions(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function normalizeProfile(raw: any): UserHealthProfile {
   if (!raw || typeof raw !== 'object') return emptyHealthProfile();
+  const occupation: PatientOccupationCategory = [
+    'general',
+    'driver_transport',
+    'machinery_factory',
+    'office_desk',
+    'student',
+    'homemaker',
+  ].includes(raw.occupation)
+    ? raw.occupation
+    : 'general';
   const pregnancyStatus: PregnancyLactationStatus = ['none', 'pregnant', 'breastfeeding', 'unknown'].includes(
     raw.pregnancyStatus
   )
@@ -353,6 +364,7 @@ export function normalizeProfile(raw: any): UserHealthProfile {
     : [];
 
   return {
+    occupation,
     displayName: typeof raw.displayName === 'string' ? raw.displayName : '',
     age: typeof raw.age === 'string' ? raw.age : typeof raw.age === 'number' ? String(raw.age) : '',
     weightKg:
@@ -426,6 +438,7 @@ export function normalizeProfile(raw: any): UserHealthProfile {
 export function isProfileNonEmpty(p: UserHealthProfile | null | undefined): boolean {
   if (!p) return false;
   return Boolean(
+    (p.occupation && p.occupation !== 'general') ||
     p.displayName.trim() ||
       p.age.trim() ||
       (p.weightKg && p.weightKg.trim()) ||
@@ -517,6 +530,10 @@ export function mergeProfiles(primary: UserHealthProfile, secondary: UserHealthP
   }
 
   return normalizeProfile({
+    occupation:
+      primary.occupation && primary.occupation !== 'general'
+        ? primary.occupation
+        : secondary.occupation || 'general',
     displayName: primary.displayName.trim() || secondary.displayName.trim(),
     age: primary.age.trim() || secondary.age.trim(),
     weightKg: (primary.weightKg || '').trim() || (secondary.weightKg || '').trim(),

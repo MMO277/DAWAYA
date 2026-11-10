@@ -332,6 +332,42 @@ function HealthView({
           </div>
         </div>
 
+        {/* المهنة وطبيعة العمل */}
+        {profile.occupation && profile.occupation !== 'general' && (
+          <div
+            style={{
+              marginTop: 10,
+              background: 'rgba(16, 185, 129, 0.22)',
+              borderRadius: 12,
+              padding: '10px 14px',
+              border: '1px solid rgba(16, 185, 129, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <span style={{ fontSize: '1.3rem' }}>🚗⚙️</span>
+            <div>
+              <div style={{ fontSize: '0.72rem', opacity: 0.9, fontWeight: 700 }}>
+                {isAr ? 'المهنة وطبيعة العمل (فحص أمان الأدوية مفعل)' : 'Occupation & Medication Safety'}
+              </div>
+              <div style={{ fontSize: '0.92rem', fontWeight: 900 }}>
+                {profile.occupation === 'driver_transport'
+                  ? (isAr ? '🚗 سائق طريق / مواصلات (تنبيه النعاس والدوخة مفعل)' : 'Driver / Transport')
+                  : profile.occupation === 'machinery_factory'
+                  ? (isAr ? '⚙️ فني ماكينات حادة أو مصنع' : 'Machinery Operator')
+                  : profile.occupation === 'office_desk'
+                  ? (isAr ? '💻 عمل مكتبي وإداري' : 'Office Desk')
+                  : profile.occupation === 'student'
+                  ? (isAr ? '🎓 طالب / دراسة' : 'Student')
+                  : profile.occupation === 'homemaker'
+                  ? (isAr ? '🏡 ربت منزل / رعاية أسرية' : 'Homemaker')
+                  : (isAr ? 'عام' : 'General')}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* رقم هاتف الطوارئ */}
         <div
           style={{

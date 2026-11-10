@@ -100,24 +100,41 @@ function shouldTranslateString(s: string): boolean {
 function useDarkMode() {
   const [dark, setDark] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem('theme');
-      if (saved) return saved === 'dark';
+      // Primary default is Light (الوضع النهاري)
+      const explicitChoice = localStorage.getItem('theme_user_set');
+      if (explicitChoice) {
+        return localStorage.getItem('theme') === 'dark';
+      }
+      return false;
     } catch {
-      /* ignore */
+      return false;
     }
-    return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     try {
       localStorage.setItem('theme', dark ? 'dark' : 'light');
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) {
+        meta.setAttribute('content', dark ? '#0D1F38' : '#f8fafc');
+      }
     } catch {
       /* ignore */
     }
   }, [dark]);
 
-  return { dark, toggle: () => setDark((d) => !d) };
+  return {
+    dark,
+    toggle: () => {
+      try {
+        localStorage.setItem('theme_user_set', 'true');
+      } catch {
+        /* ignore */
+      }
+      setDark((d) => !d);
+    },
+  };
 }
 
 interface NavItem {
@@ -330,7 +347,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       id: 'drug-directory',
       icon: '💊',
       title: tr(lang, 'الدليل والبحث الدوائي', 'Drug Directory & Scanner', 'Répertoire & Scanner', 'Directorio y Escáner', 'Arzneimittelverzeichnis & Scanner'),
-      shortTitle: tr(lang, 'الدليل والأدوية', 'Drug Directory', 'Médicaments', 'Medicamentos', 'Medikamente'),
+      shortTitle: tr(lang, 'دليل الأدوية', 'Drug Directory', 'Médicaments', 'Medicamentos', 'Medikamente'),
       subtitle: tr(
         lang,
         'موسوعة دوايا الشاملة (26,562+ دواء)، فحص الباركود، والبدائل، والصيدليات',
@@ -375,7 +392,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       id: 'specialty-clinics',
       icon: '🏥',
       title: tr(lang, 'مجمع العيادات التخصصية (20 عيادة)', 'Specialty Medical Clinics (20 Clinics)', 'Cliniques Spécialisées', 'Clínicas Especializadas'),
-      shortTitle: tr(lang, 'العيادات التخصصية', 'Specialty Clinics', 'Cliniques', 'Clínicas'),
+      shortTitle: tr(lang, 'العيادات', 'Clinics', 'Cliniques', 'Clínicas'),
       subtitle: tr(
         lang,
         'عيادة النساء والحمل، الأطفال، العظام والنقرس، الجهاز الهضمي، الجلدية والحروق، الأسنان، أنيميا الفول، والباطنة',
@@ -570,7 +587,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       id: 'clinical-safety',
       icon: '🏥',
       title: tr(lang, 'أدوات الأمان والفحص السريري', 'Clinical Safety & Checkers', 'Sécurité Clinique & Contrôles', 'Seguridad Clínica y Chequeo', 'Klinische Sicherheit & Prüfungen'),
-      shortTitle: tr(lang, 'الفحص والأمان السريري', 'Clinical Safety', 'Sécurité Clinique', 'Seguridad Clínica', 'Klinische Sicherheit'),
+      shortTitle: tr(lang, 'الأمان السريري', 'Safety', 'Sécurité Clinique', 'Seguridad Clínica', 'Klinische Sicherheit'),
       subtitle: tr(
         lang,
         'فاحص الحساسية، التداخلات، رادار الروشتة، وحاسبة الأطفال',
@@ -665,7 +682,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       id: 'treatment-care',
       icon: '🌿',
       title: tr(lang, 'متابعة العلاج والروشتة الخضراء', 'Treatment & Green Care', 'Suivi & Ordonnance Verte', 'Seguimiento y Receta Verde', 'Therapie & Grünes Rezept'),
-      shortTitle: tr(lang, 'متابعة العلاج والبيئة', 'Treatment & Care', 'Suivi & Soins', 'Cuidado y Dosis', 'Therapie & Pflege'),
+      shortTitle: tr(lang, 'متابعة العلاج', 'Treatment', 'Suivi & Soins', 'Cuidado y Dosis', 'Therapie & Pflege'),
       subtitle: tr(
         lang,
         'الروشتة الخضراء، منظم الجرعات، ملف صحتي، والتخلص الآمن',
@@ -753,7 +770,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       id: 'interactive-sim',
       icon: '🎮',
       title: tr(lang, 'الألعاب والمحاكاة والذكاء الاصطناعي', '3D Sim, Games & AI', 'Jeux 3D, Sim & IA', 'Juegos 3D, Sim e IA', '3D-Sim, Spiele & KI'),
-      shortTitle: tr(lang, 'الألعاب والتفاعل الذكي', 'Games & AI', 'Jeux & IA', 'Juegos e IA', 'Spiele & KI'),
+      shortTitle: tr(lang, 'الألعاب والـ AI', 'Games & AI', 'Jeux & IA', 'Juegos e IA', 'Spiele & KI'),
       subtitle: tr(
         lang,
         'محاكي المستشفى 3D، المساعد الذكي، الاختبارات، والصوتيات',
@@ -1250,18 +1267,23 @@ export default function Layout({ children }: { children: ReactNode }) {
               <div className="header-auth-group">
                 <button
                   type="button"
-                  className="capsule-avatar-btn guest-mode"
+                  className="capsule-signin-btn"
                   onClick={handleExitGuestMode}
                   title={tr(
                     lang,
-                    'تسجيل الدخول أو إنشاء حساب',
-                    'Sign in or create account',
+                    'اضغط هنا لتسجيل الدخول وحفظ ملفك الصحي وسجلاتك',
+                    'Sign in to save your health records',
                     'Se connecter ou créer un compte',
                     'Iniciar sesión o crear cuenta'
                   )}
                   aria-label={tr(lang, 'تسجيل الدخول', 'Sign In', 'Connexion', 'Acceder')}
                 >
-                  <CapsuleUserGuestIcon size={20} />
+                  <span className="signin-icon" aria-hidden="true">
+                    <CapsuleUserGuestIcon size={18} />
+                  </span>
+                  <span className="signin-label">
+                    {isAr ? 'تسجيل الدخول' : 'Sign In'}
+                  </span>
                 </button>
               </div>
             ) : (
@@ -1415,20 +1437,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             </NavLink>
 
             <NavLink
-              to="/medicines"
-              onClick={() => setOpenRibbonCatId(null)}
-              className={({ isActive }) =>
-                `quick-ribbon-link dawaya-v2-tab ${isActive || pathname.startsWith('/medicine/') ? 'active' : ''}`
-              }
-            >
-              <span className="dawaya-v2-tab-icon">
-                <NavCapsuleVectorIcon size={23} />
-              </span>
-              <span className="dawaya-v2-tab-label">{tr(lang, 'الدليل والأدوية', 'Drug Directory', 'Médicaments', 'Medicamentos')}</span>
-              <span className="dawaya-v2-tab-bar" aria-hidden="true" />
-            </NavLink>
-
-            <NavLink
               to="/prescription-radar"
               onClick={() => setOpenRibbonCatId(null)}
               className={({ isActive }) => `quick-ribbon-link dawaya-v2-tab ${isActive ? 'active' : ''}`}
@@ -1476,7 +1484,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               <span className="dawaya-v2-tab-icon">
                 <NavBookSourcesVectorIcon size={22} />
               </span>
-              <span className="dawaya-v2-tab-label">{tr(lang, 'المصادر والمراجع', 'References', 'Sources', 'Fuentes')}</span>
+              <span className="dawaya-v2-tab-label">{tr(lang, 'المراجع', 'References', 'Sources', 'Fuentes')}</span>
               <span className="dawaya-v2-tab-bar" aria-hidden="true" />
             </NavLink>
           </div>
@@ -1726,7 +1734,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   >
                     <span className="item-icon" aria-hidden="true">👤</span>
                     <span className="item-title">
-                      {tr(lang, 'تسجيل الدخول (الخروج من وضع الزائر)', 'Sign In (Exit Guest Mode)', 'Connexion (Quitter le mode invité)', 'Iniciar sesión (Salir de invitado)')}
+                      {tr(lang, 'تسجيل الدخول وحفظ البيانات', 'Sign In & Save Records', 'Connexion', 'Iniciar sesión')}
                     </span>
                     <span className="item-arrow" aria-hidden="true">{pageDir === 'rtl' ? '←' : '→'}</span>
                   </button>

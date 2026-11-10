@@ -343,7 +343,7 @@ export default function HealthProfile() {
       setGenderInput(profile.gender);
       setOccupationInput(profile.occupation || 'general');
     }
-  }, [profile.displayName, profile.age, profile.weightKg, profile.bloodType, profile.emergencyContact, profile.gender, editingPersonal]);
+  }, [profile.displayName, profile.age, profile.weightKg, profile.bloodType, profile.emergencyContact, profile.gender, profile.occupation, editingPersonal]);
 
   const savePersonalInfo = (e: FormEvent) => {
     e.preventDefault();
