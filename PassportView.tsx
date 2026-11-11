@@ -910,7 +910,7 @@ export default function PassportView() {
       // محاولة جلب أحدث نسخة مباشرة من مستند المريض users/{uid} في Firestore ودمجها
       if (db) {
         try {
-          const userDoc = await getDoc(doc(db, 'users', uid));
+          const userDoc = { exists: () => false, data: () => ({}) } as any; // Section 3 Privacy Fix: never read private /users/{uid} on shared view
           if (userDoc.exists()) {
             const d = userDoc.data();
             if (d?.healthProfile) {

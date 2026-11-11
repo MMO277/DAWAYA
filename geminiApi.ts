@@ -41,16 +41,13 @@ import {
 import { db, configured as firebaseConfigured } from './firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-const ENV_GEMINI_KEY =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta.env?.VITE_GEMINI_API_KEY || import.meta.env?.VITE_FIREBASE_API_KEY)) ||
-  '';
-
-let cachedCloudAiKey = '';
-let cloudKeyLoaded = false;
+// Section 7 Security Fix: Private AI provider keys are NEVER bundled in VITE_ variables,
+// localStorage, or client-readable Firestore documents. All AI requests go through the
+// authenticated server-side proxy (/api/ai/generate) or deterministic clinical fallback.
+let serverAiProxyReady = false;
+let proxyCheckComplete = false;
 
 export async function loadSharedCloudAiKey(): Promise<string> {
-  // Clean up any legacy plaintext API keys from localStorage
   if (typeof window !== 'undefined') {
     try {
       localStorage.removeItem('gemini_api_key');
@@ -58,43 +55,67 @@ export async function loadSharedCloudAiKey(): Promise<string> {
       /* ignore */
     }
   }
-  if (cloudKeyLoaded && cachedCloudAiKey) return cachedCloudAiKey;
-  if (!firebaseConfigured || !db) return '';
+  if (proxyCheckComplete) return '';
+  proxyCheckComplete = true;
   try {
-    const snap = await getDoc(doc(db, 'settings', 'ai_config'));
-    if (snap.exists()) {
-      const data = snap.data();
-      const k = typeof data?.apiKey === 'string' ? data.apiKey.trim() : '';
-      if (k) {
-        cachedCloudAiKey = k;
-        cloudKeyLoaded = true;
-        return k;
-      }
+    const resp = await fetch('/api/ai/status', { method: 'GET' });
+    if (resp.ok) {
+      const data = await resp.json();
+      serverAiProxyReady = Boolean(data?.configured);
     }
-    cloudKeyLoaded = true;
   } catch {
-    /* ignore */
+    serverAiProxyReady = false;
   }
   return '';
 }
 
-// Kick off background load on module init
 if (typeof window !== 'undefined') {
   loadSharedCloudAiKey().catch(() => {});
 }
 
+export async function callServerAiProxy(params: {
+  prompt: string;
+  inlineImageBase64?: string;
+  mimeType?: string;
+  model?: string;
+}): Promise<string> {
+  if (!serverAiProxyReady) return '';
+  try {
+    const { auth } = await import('./firebase');
+    const token = auth?.currentUser ? await auth.currentUser.getIdToken() : '';
+    if (!token) return '';
+    const resp = await fetch('/api/ai/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        prompt: params.prompt.slice(0, 16000),
+        inlineImageBase64: params.inlineImageBase64,
+        mimeType: params.mimeType,
+        model: params.model || 'gemini-2.0-flash',
+      }),
+    });
+    if (!resp.ok) return '';
+    const data = await resp.json();
+    return typeof data?.text === 'string' ? data.text.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
 export function getApiKey(): string {
-  // Never read or store private AI credentials in localStorage; use in-memory/env config only
-  return (cachedCloudAiKey || ENV_GEMINI_KEY).trim();
+  // Never expose any secret key to client code
+  return '';
 }
 
 export function hasApiKey(): boolean {
-  return true;
+  // Reflects actual verified server proxy readiness without exposing secrets
+  return serverAiProxyReady;
 }
 
-export function setApiKey(key: string): void {
-  const trimmed = key.trim();
-  cachedCloudAiKey = trimmed;
+export function setApiKey(_key: string): void {
   if (typeof window !== 'undefined') {
     try {
       localStorage.removeItem('gemini_api_key');
@@ -102,17 +123,9 @@ export function setApiKey(key: string): void {
       /* ignore */
     }
   }
-  if (firebaseConfigured && db) {
-    setDoc(
-      doc(db, 'settings', 'ai_config'),
-      { apiKey: trimmed, updatedAt: new Date().toISOString() },
-      { merge: true }
-    ).catch(() => {});
-  }
 }
 
 export function clearApiKey(): void {
-  cachedCloudAiKey = '';
   if (typeof window !== 'undefined') {
     try {
       localStorage.removeItem('gemini_api_key');
@@ -123,14 +136,7 @@ export function clearApiKey(): void {
 }
 
 export function isCustomApiKey(): boolean {
-  const k = getApiKey();
-  return Boolean(
-    k &&
-      (k.startsWith('AIza') ||
-        k.startsWith('gsk_') ||
-        k.startsWith('sk-or-') ||
-        k.startsWith('sk-'))
-  );
+  return serverAiProxyReady;
 }
 
 /**
@@ -934,12 +940,12 @@ export async function askGemini(
     : question;
 
   // 1) Official Google Gemini API (when a valid AIza... key is present)
-  if (key && key.startsWith('AIza')) {
+  if (hasApiKey()) {
     for (const geminiModel of ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10000);
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${key}`;
+        const proxyUrl = '/api/ai/generate';
         const recentHistory = history.slice(-6);
         const contents = [
           ...recentHistory.map((m) => ({
@@ -1962,8 +1968,9 @@ Line 2: DRUG_NAME: [detected brand name, generic name, and strength in English a
 Then write a clear clinical summary without markdown tables or ** symbols.`;
 
   const runGemini = async (): Promise<string> => {
-    if (!key || !key.startsWith('AIza')) return '';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    if (!hasApiKey()) return '';
+    return await callServerAiProxy({ prompt, inlineImageBase64: prepared.cleanBase64, mimeType: prepared.mimeType });
+    const proxyUrl = '/api/ai/generate';
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -2378,8 +2385,9 @@ RX_NOTES: [any readable administration instructions or UNREADABLE]
 RX_CONTRADICTIONS: [any contradictory or ambiguous instructions noticed, or NONE]`;
 
   const runGemini = async (): Promise<string> => {
-    if (!key || !key.startsWith('AIza')) return '';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    if (!hasApiKey()) return '';
+    return await callServerAiProxy({ prompt, inlineImageBase64: prepared.cleanBase64, mimeType: prepared.mimeType });
+    const proxyUrl = '/api/ai/generate';
     const response = await fetch(url, {
       method: 'POST',
       headers: {

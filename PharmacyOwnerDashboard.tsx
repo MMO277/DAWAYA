@@ -156,6 +156,14 @@ export default function PharmacyOwnerDashboard() {
     URL.revokeObjectURL(url);
   };
 
+  // KPI Metrics for Pharmacy Reports
+  const lowStockItems = myInventory.filter((i) => i.stockStatus === 'low_stock' || i.stockStatus === 'out_of_stock');
+  const expiringSoonItems = myInventory.filter((i) => {
+    if (!i.expiryDateYYYYMMDD) return false;
+    const diffDays = (new Date(i.expiryDateYYYYMMDD).getTime() - Date.now()) / (1000 * 3600 * 24);
+    return diffDays <= 90;
+  });
+
   const filteredRadarInventory = useMemo(() => {
     if (invRadarFilter === 'low_stock') return lowStockItems;
     if (invRadarFilter === 'expiring_soon') return expiringSoonItems;
@@ -183,27 +191,38 @@ export default function PharmacyOwnerDashboard() {
 
   const handleSaveInventory = async (e: FormEvent) => {
     e.preventDefault();
-    if (!tradeNameAr.trim() || priceEgp <= 0) return;
-    await upsertPharmacyInventoryItem({
-      pharmacyId: activePharmacyId,
-      pharmacyNameAr: activePharmacyName,
-      governorateId: regGovId,
-      cityCenter: regCity,
-      medicationId: selectedMedId,
-      tradeNameAr: tradeNameAr.trim(),
-      tradeNameEn: tradeNameEn.trim() || tradeNameAr.trim(),
-      activeIngredient: activeIng.trim(),
-      strength: strength.trim(),
-      dosageForm,
-      quantityPacks: Number(qtyPacks),
-      lowStockThreshold: Number(lowThreshold),
-      pharmacyPriceEgp: Number(priceEgp),
-      batchNumber: batchNo.trim(),
-      expiryDateYYYYMMDD: expiryDate,
-      requiresPrescription: reqRx,
-      updatedByUid: user?.uid || 'pharmacy_owner',
-    });
-    showToast(isAr ? 'تم تحديث مخزون الدواء وسعره بالصيدلية بنجاح.' : 'Medication stock and price updated.');
+    if (!tradeNameAr.trim() || priceEgp <= 0 || qtyPacks < 0) {
+      showToast(isAr ? 'يرجى إدخال سعر أكبر من صفر وكمية صحيحة غير سالبة.' : 'Please enter a valid positive price and non-negative stock.');
+      return;
+    }
+    try {
+      await upsertPharmacyInventoryItem({
+        pharmacyId: activePharmacyId,
+        pharmacyNameAr: activePharmacyName,
+        governorateId: regGovId,
+        cityCenter: regCity,
+        medicationId: selectedMedId,
+        tradeNameAr: tradeNameAr.trim(),
+        tradeNameEn: tradeNameEn.trim() || tradeNameAr.trim(),
+        activeIngredient: activeIng.trim(),
+        strength: strength.trim(),
+        dosageForm,
+        quantityPacks: Number(qtyPacks),
+        lowStockThreshold: Number(lowThreshold),
+        pharmacyPriceEgp: Number(priceEgp),
+        batchNumber: batchNo.trim(),
+        expiryDateYYYYMMDD: expiryDate,
+        requiresPrescription: reqRx,
+        updatedByUid: user?.uid || 'pharmacy_owner',
+      });
+      showToast(isAr ? 'تم تأكيد حفظ وتحديث مخزون الدواء وسعره سحابياً بنجاح.' : 'Medication stock and price confirmed in cloud.');
+    } catch (err: unknown) {
+      showToast(
+        isAr
+          ? `تعذر الحفظ السحابي للمخزون: ${(err as Error)?.message || 'خطأ في الصلاحيات أو الشبكة'}`
+          : `Cloud inventory save failed: ${(err as Error)?.message || 'Permission or network error'}`
+      );
+    }
   };
 
   const handleSubmitApplication = async (e: FormEvent) => {
@@ -216,68 +235,78 @@ export default function PharmacyOwnerDashboard() {
       showToast(isAr ? 'يرجى استكمال اسم الصيدلية ورقم الترخيص ورقم القيد بالنقابة والهاتف.' : 'Please complete required license fields.');
       return;
     }
-    await submitPharmacyRegistrationApplication({
-      applicantUid: user.uid,
-      applicantEmail: user.email || '',
-      pharmacyNameAr: regNameAr.trim(),
-      pharmacyNameEn: regNameEn.trim() || regNameAr.trim(),
-      licenseNumber: regLicenseNo.trim(),
-      commercialRegNumber: regCommReg.trim(),
-      ownerFullName: regOwnerName.trim(),
-      ownerSyndicateNumber: regSyndicateNo.trim(),
-      ownerNationalIdLast4: regNationalId4.trim(),
-      phone: regPhone.trim(),
-      whatsapp: regWhatsapp.trim() || regPhone.trim(),
-      governorateId: regGovId,
-      cityCenter: regCity.trim(),
-      districtVillage: regDistrict.trim(),
-      detailedAddressAr: regAddress.trim(),
-      latitude: null,
-      longitude: null,
-      workingHoursAr: regHours.trim(),
-      is24Hours: reg24h,
-      deliveryAvailable: regDelivery,
-      deliveryRadiusKm: Number(regRadiusKm) || 5,
-      licenseDocumentUrl: regLicenseUrl.trim() || 'verified-upload-pending-review',
-      requestedModel: regModel,
-    });
-    showToast(
-      isAr
-        ? 'تم إرسال طلب انضمام الصيدلية للمراجعة المركزية. سيظل الطلب قيد المراجعة حتى التحقق من الترخيص.'
-        : 'Pharmacy application submitted for central verification.'
-    );
-    setActiveTab('overview');
+    try {
+      await submitPharmacyRegistrationApplication({
+        applicantUid: user.uid,
+        applicantEmail: user.email || '',
+        pharmacyNameAr: regNameAr.trim(),
+        pharmacyNameEn: regNameEn.trim() || regNameAr.trim(),
+        licenseNumber: regLicenseNo.trim(),
+        commercialRegNumber: regCommReg.trim(),
+        ownerFullName: regOwnerName.trim(),
+        ownerSyndicateNumber: regSyndicateNo.trim(),
+        ownerNationalIdLast4: regNationalId4.trim(),
+        phone: regPhone.trim(),
+        whatsapp: regWhatsapp.trim() || regPhone.trim(),
+        governorateId: regGovId,
+        cityCenter: regCity.trim(),
+        districtVillage: regDistrict.trim(),
+        detailedAddressAr: regAddress.trim(),
+        latitude: null,
+        longitude: null,
+        workingHoursAr: regHours.trim(),
+        is24Hours: reg24h,
+        deliveryAvailable: regDelivery,
+        deliveryRadiusKm: Number(regRadiusKm) || 5,
+        licenseDocumentUrl: regLicenseUrl.trim() || 'verified-upload-pending-review',
+        requestedModel: regModel,
+      });
+      showToast(
+        isAr
+          ? 'تم إرسال طلب انضمام الصيدلية للمراجعة المركزية بنجاح. سيظل الطلب قيد المراجعة حتى التحقق من الترخيص.'
+          : 'Pharmacy application submitted for central verification.'
+      );
+      setActiveTab('overview');
+    } catch (err: unknown) {
+      showToast(
+        isAr
+          ? `تعذر إرسال الطلب سحابياً: ${(err as Error)?.message || 'يرجى التحقق من الاتصال والصلاحيات'}`
+          : `Failed to submit application: ${(err as Error)?.message || 'Network or permission error'}`
+      );
+    }
   };
 
   const handleAddEmployee = async (e: FormEvent) => {
     e.preventDefault();
     if (!empName.trim() || !empEmail.trim()) return;
-    await savePharmacyEmployee({
-      pharmacyId: activePharmacyId,
-      fullName: empName.trim(),
-      email: empEmail.trim(),
-      phone: empPhone.trim(),
-      role: empRole,
-      syndicateNumber: empSyndicate.trim(),
-      canManageInventory: true,
-      canConfirmOrders: empRole !== 'employee',
-      canViewReports: empRole === 'pharmacy_manager',
-      active: true,
-    });
-    setEmpName('');
-    setEmpEmail('');
-    setEmpPhone('');
-    setEmpSyndicate('');
-    showToast(isAr ? 'تمت إضافة الصيدلي/الموظف بصلاحيات معزولة لهذه الصيدلية فقط.' : 'Employee added to pharmacy.');
+    try {
+      await savePharmacyEmployee({
+        pharmacyId: activePharmacyId,
+        fullName: empName.trim(),
+        email: empEmail.trim(),
+        phone: empPhone.trim(),
+        role: empRole,
+        syndicateNumber: empSyndicate.trim(),
+        canManageInventory: true,
+        canConfirmOrders: empRole !== 'employee',
+        canViewReports: empRole === 'pharmacy_manager',
+        active: true,
+      });
+      setEmpName('');
+      setEmpEmail('');
+      setEmpPhone('');
+      setEmpSyndicate('');
+      showToast(isAr ? 'تمت إضافة الصيدلي/الموظف بصلاحيات معزولة لهذه الصيدلية فقط.' : 'Employee added to pharmacy.');
+    } catch (err: unknown) {
+      showToast(
+        isAr
+          ? `تعذر حفظ بيانات الموظف سحابياً: ${(err as Error)?.message || 'خطأ في الصلاحيات'}`
+          : `Failed to save employee: ${(err as Error)?.message || 'Permission denied'}`
+      );
+    }
   };
 
-  // KPI Metrics for Pharmacy Reports
-  const lowStockItems = myInventory.filter((i) => i.stockStatus === 'low_stock' || i.stockStatus === 'out_of_stock');
-  const expiringSoonItems = myInventory.filter((i) => {
-    if (!i.expiryDateYYYYMMDD) return false;
-    const diffDays = (new Date(i.expiryDateYYYYMMDD).getTime() - Date.now()) / (1000 * 3600 * 24);
-    return diffDays <= 90;
-  });
+
 
   return (
     <main className="wrap stack">

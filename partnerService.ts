@@ -972,6 +972,41 @@ export async function createPartnerOrder(
   return fullOrder;
 }
 
+// ============================================================================
+// SECTION 4 FIX: EXPLICIT ORDER STATE MACHINE VALIDATION
+// ============================================================================
+const ALLOWED_ORDER_TRANSITIONS: Record<string, string[]> = {
+  new_order: ['pharmacy_confirmation', 'confirmed_available', 'rejected', 'cancelled'],
+  pending_review: ['pharmacy_confirmation', 'confirmed_available', 'rejected', 'cancelled'],
+  pending_pharmacy_review: ['pharmacy_confirmation', 'confirmed_available', 'rejected', 'cancelled'],
+  pharmacy_confirmation: ['preparing', 'cancelled', 'rejected'],
+  confirmed_available: ['preparing', 'cancelled', 'rejected'],
+  preparing: ['ready_for_delivery', 'ready_for_pickup_or_delivery', 'out_for_delivery', 'cancelled'],
+  ready_for_delivery: ['out_for_delivery', 'delivered', 'completed'],
+  ready_for_pickup_or_delivery: ['out_for_delivery', 'delivered', 'completed'],
+  out_for_delivery: ['delivered', 'completed'],
+  delivered: [],
+  completed: [],
+  cancelled: [],
+  rejected: [],
+};
+
+export function isValidOrderStateTransition(
+  fromStatus: string,
+  toStatus: string,
+  actorRole = 'pharmacist'
+): boolean {
+  if (!fromStatus || !toStatus || fromStatus === toStatus) return false;
+  if (actorRole === 'customer' || actorRole === 'user' || actorRole === 'patient') {
+    return (
+      ['new_order', 'pending_review', 'pending_pharmacy_review'].includes(fromStatus) &&
+      toStatus === 'cancelled'
+    );
+  }
+  const allowedNext = ALLOWED_ORDER_TRANSITIONS[fromStatus] || [];
+  return allowedNext.includes(toStatus);
+}
+
 export async function updatePartnerOrderStatus(
   orderId: string,
   newStatus: PartnerOrderStatus,
@@ -981,10 +1016,14 @@ export async function updatePartnerOrderStatus(
   adminRole: string
 ): Promise<void> {
   const idx = memOrders.findIndex((o) => o.id === orderId);
-  if (idx < 0) return;
+  if (idx < 0) throw new Error('ORDER_NOT_FOUND');
+
+  const current = memOrders[idx];
+  if (!isValidOrderStateTransition(current.status, newStatus, adminRole)) {
+    throw new Error(`INVALID_ORDER_STATE_TRANSITION: Cannot transition from ${current.status} to ${newStatus}`);
+  }
 
   const nowIso = new Date().toISOString();
-  const current = memOrders[idx];
   const updated: PartnerOrderRecord = {
     ...current,
     status: newStatus,
@@ -1071,6 +1110,7 @@ export function usePartnerEcosystem() {
 
 // ============================================================================
 // PHASE 2–7 ENTERPRISE SERVICES: PHARMACY APPLICATIONS, INVENTORY, DYNAMIC GEOGRAPHY & FRANCHISE
+// (Hardened for Sections 2, 4, 5, 6, 8, 9 of Security & Data Integrity Repair Prompt)
 // ============================================================================
 import {
   EGYPTIAN_GOVERNORATES,
@@ -1082,6 +1122,12 @@ import {
   PharmacyRegistrationApplication,
 } from './partnerTypes';
 
+export const COL_PHARMACY_APPLICATIONS = 'pharmacyApplications';
+export const COL_PHARMACY_INVENTORY = 'pharmacyInventory';
+export const COL_PHARMACY_PUBLIC_INVENTORY = 'pharmacyPublicInventory';
+export const COL_PHARMACY_EMPLOYEES = 'pharmacyEmployees';
+export const COL_FRANCHISE_CONTRACTS = 'franchiseContracts';
+
 const CACHE_PHARM_APPS_KEY = 'aa_pharmacy_applications_v1';
 const CACHE_PHARM_INV_KEY = 'aa_pharmacy_inventory_v1';
 const CACHE_PHARM_EMP_KEY = 'aa_pharmacy_employees_v1';
@@ -1089,83 +1135,191 @@ const CACHE_FRANCHISE_KEY = 'aa_franchise_contracts_v1';
 const CACHE_DYNAMIC_GEO_KEY = 'aa_dynamic_geography_v1';
 
 let memPharmacyApps: PharmacyRegistrationApplication[] = safeReadJson(CACHE_PHARM_APPS_KEY, []);
-let memPharmacyInventory: PharmacyInventoryItem[] = safeReadJson(CACHE_PHARM_INV_KEY, [
-  {
-    id: 'inv_demo_aug_1g',
-    pharmacyId: 'partner_dawaya_flagship_mansoura',
-    pharmacyNameAr: 'صيدلية دوايا النموذجية — المنصورة',
-    governorateId: 'dakahlia',
-    cityCenter: 'المنصورة',
-    medicationId: 'EG-ABX-001',
-    tradeNameAr: 'أوجمنتين 1 جرام (14 قرص)',
-    tradeNameEn: 'Augmentin 1g Tablets',
-    activeIngredient: 'Amoxicillin 875mg + Clavulanic Acid 125mg',
-    strength: '1000 mg',
-    dosageForm: 'tablet',
-    quantityPacks: 18,
-    lowStockThreshold: 5,
-    stockStatus: 'available',
-    pharmacyPriceEgp: 190,
-    batchNumber: 'B-2026-09A',
-    expiryDateYYYYMMDD: '2027-08-30',
-    requiresPrescription: true,
-    lastUpdatedAtIso: new Date().toISOString(),
-    updatedByUid: 'system_seed',
-  },
-  {
-    id: 'inv_demo_zith_500',
-    pharmacyId: 'partner_dawaya_flagship_mansoura',
-    pharmacyNameAr: 'صيدلية دوايا النموذجية — المنصورة',
-    governorateId: 'dakahlia',
-    cityCenter: 'المنصورة',
-    medicationId: 'EG-ABX-083',
-    tradeNameAr: 'زيثروماكس 500 مجم (3 أقراص)',
-    tradeNameEn: 'Zithromax 500mg Tablets',
-    activeIngredient: 'Azithromycin 500mg',
-    strength: '500 mg',
-    dosageForm: 'tablet',
-    quantityPacks: 3,
-    lowStockThreshold: 5,
-    stockStatus: 'low_stock',
-    pharmacyPriceEgp: 165,
-    batchNumber: 'Z-2026-04C',
-    expiryDateYYYYMMDD: '2027-03-15',
-    requiresPrescription: true,
-    lastUpdatedAtIso: new Date().toISOString(),
-    updatedByUid: 'system_seed',
-  },
-]);
+let memPharmacyInventory: PharmacyInventoryItem[] = safeReadJson(CACHE_PHARM_INV_KEY, []);
 let memPharmacyEmployees: PharmacyAuthorizedEmployee[] = safeReadJson(CACHE_PHARM_EMP_KEY, []);
-let memFranchiseContracts: FranchiseContractRecord[] = safeReadJson(CACHE_FRANCHISE_KEY, [
-  {
-    id: 'fr_contract_001',
-    pharmacyId: 'partner_dawaya_flagship_mansoura',
-    pharmacyNameAr: 'صيدلية دوايا النموذجية — المنصورة',
-    ownerName: 'د. مصطفى محمود إبراهيم',
-    governorateId: 'dakahlia',
-    cityCenter: 'المنصورة',
-    contractNumber: 'DW-FR-2026-001',
-    legalLicenseVerified: true,
-    syndicateApprovalRef: 'SYN-DK-88412',
-    initialFranchiseFeeEgp: 45000,
-    subscriptionCycle: 'monthly',
-    subscriptionFeeEgp: 2500,
-    royaltyPercentage: 3.5,
-    marketingContributionPct: 1.5,
-    startDateYYYYMMDD: '2026-01-01',
-    endDateYYYYMMDD: '2028-12-31',
-    renewalStatus: 'active',
-    totalReportedSalesEgp: 420000,
-    totalPaidFeesEgp: 62200,
-    outstandingBalanceEgp: 0,
-    overdueStatus: 'current',
-    updatedAtIso: new Date().toISOString(),
-  },
-]);
+let memFranchiseContracts: FranchiseContractRecord[] = safeReadJson(CACHE_FRANCHISE_KEY, []);
 let memDynamicGovs: EgyptianGovernorateInfo[] = safeReadJson(
   CACHE_DYNAMIC_GEO_KEY,
   EGYPTIAN_GOVERNORATES
 );
+
+let enterpriseListenersStarted = false;
+let cloudSyncStatus: 'synced' | 'syncing' | 'offline_cache' | 'error' = configured ? 'syncing' : 'offline_cache';
+let lastPersistenceError: string | null = null;
+
+export function startDawayaNetworkRealtimeSync(): void {
+  startPartnerEcosystemSync();
+  if (enterpriseListenersStarted || typeof window === 'undefined' || !configured || !db) return;
+  enterpriseListenersStarted = true;
+
+  // 1. Real-time Partner Orders listener
+  try {
+    onSnapshot(
+      collection(db, COL_PARTNER_ORDERS),
+      (snap) => {
+        const list: PartnerOrderRecord[] = [];
+        snap.forEach((d) => {
+          const data = d.data() as PartnerOrderRecord;
+          if (data && d.id) list.push({ ...data, id: d.id });
+        });
+        memOrders = list.sort((a, b) => (b.createdAtIso || '').localeCompare(a.createdAtIso || ''));
+        safeWriteJson(CACHE_ORDERS_KEY, memOrders);
+        cloudSyncStatus = 'synced';
+        emitPartnerUpdate();
+      },
+      () => {
+        /* scoped read if non-admin/guest */
+      }
+    );
+  } catch {
+    /* ignore */
+  }
+
+  // 2. Real-time Pharmacy Applications listener
+  try {
+    onSnapshot(
+      collection(db, COL_PHARMACY_APPLICATIONS),
+      (snap) => {
+        const list: PharmacyRegistrationApplication[] = [];
+        snap.forEach((d) => {
+          const data = d.data() as PharmacyRegistrationApplication;
+          if (data && d.id) list.push({ ...data, id: d.id });
+        });
+        memPharmacyApps = list.sort((a, b) => (b.createdAtIso || '').localeCompare(a.createdAtIso || ''));
+        safeWriteJson(CACHE_PHARM_APPS_KEY, memPharmacyApps);
+        cloudSyncStatus = 'synced';
+        emitPartnerUpdate();
+      },
+      () => {}
+    );
+  } catch {
+    /* ignore */
+  }
+
+  // 3. Real-time Private Operational Inventory listener (for authorized pharmacy staff/admins)
+  // with fallback to Public Availability Inventory (for public customers)
+  try {
+    onSnapshot(
+      collection(db, COL_PHARMACY_INVENTORY),
+      (snap) => {
+        const list: PharmacyInventoryItem[] = [];
+        snap.forEach((d) => {
+          const data = d.data() as PharmacyInventoryItem;
+          if (data && d.id) list.push({ ...data, id: d.id });
+        });
+        memPharmacyInventory = list;
+        safeWriteJson(CACHE_PHARM_INV_KEY, memPharmacyInventory);
+        cloudSyncStatus = 'synced';
+        emitPartnerUpdate();
+      },
+      () => {
+        // Fallback to public availability projection if user is public/customer
+        try {
+          onSnapshot(
+            collection(db, COL_PHARMACY_PUBLIC_INVENTORY),
+            (pubSnap) => {
+              const pubList: PharmacyInventoryItem[] = [];
+              pubSnap.forEach((d) => {
+                const data = d.data() as Partial<PharmacyInventoryItem>;
+                if (data && d.id) {
+                  pubList.push({
+                    id: d.id,
+                    pharmacyId: data.pharmacyId || '',
+                    pharmacyNameAr: data.pharmacyNameAr || '',
+                    governorateId: data.governorateId || '',
+                    cityCenter: data.cityCenter || '',
+                    medicationId: data.medicationId || '',
+                    tradeNameAr: data.tradeNameAr || '',
+                    tradeNameEn: data.tradeNameEn || '',
+                    activeIngredient: data.activeIngredient || '',
+                    strength: data.strength || '',
+                    dosageForm: data.dosageForm || 'tablet',
+                    quantityPacks: data.stockStatus === 'out_of_stock' ? 0 : 1,
+                    lowStockThreshold: 5,
+                    stockStatus: data.stockStatus || 'unconfirmed',
+                    pharmacyPriceEgp: Number(data.pharmacyPriceEgp || 0),
+                    batchNumber: '',
+                    expiryDateYYYYMMDD: '',
+                    requiresPrescription: Boolean(data.requiresPrescription),
+                    lastUpdatedAtIso: data.lastUpdatedAtIso || '',
+                    updatedByUid: '',
+                  });
+                }
+              });
+              memPharmacyInventory = pubList;
+              emitPartnerUpdate();
+            },
+            () => {}
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+    );
+  } catch {
+    /* ignore */
+  }
+
+  // 4. Real-time Pharmacy Employees listener
+  try {
+    onSnapshot(
+      collection(db, COL_PHARMACY_EMPLOYEES),
+      (snap) => {
+        const list: PharmacyAuthorizedEmployee[] = [];
+        snap.forEach((d) => {
+          const data = d.data() as PharmacyAuthorizedEmployee;
+          if (data && d.id) list.push({ ...data, id: d.id });
+        });
+        memPharmacyEmployees = list;
+        safeWriteJson(CACHE_PHARM_EMP_KEY, memPharmacyEmployees);
+        emitPartnerUpdate();
+      },
+      () => {}
+    );
+  } catch {
+    /* ignore */
+  }
+
+  // 5. Real-time Franchise Contracts listener
+  try {
+    onSnapshot(
+      collection(db, COL_FRANCHISE_CONTRACTS),
+      (snap) => {
+        const list: FranchiseContractRecord[] = [];
+        snap.forEach((d) => {
+          const data = d.data() as FranchiseContractRecord;
+          if (data && d.id) list.push({ ...data, id: d.id });
+        });
+        memFranchiseContracts = list;
+        safeWriteJson(CACHE_FRANCHISE_KEY, memFranchiseContracts);
+        emitPartnerUpdate();
+      },
+      () => {}
+    );
+  } catch {
+    /* ignore */
+  }
+
+  // 6. Real-time Dynamic Geography Hierarchy listener
+  try {
+    onSnapshot(
+      doc(db, 'systemSettings', 'egypt_geography_hierarchy'),
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data?.governorates) && data.governorates.length > 0) {
+            memDynamicGovs = data.governorates as EgyptianGovernorateInfo[];
+            safeWriteJson(CACHE_DYNAMIC_GEO_KEY, memDynamicGovs);
+            emitPartnerUpdate();
+          }
+        }
+      },
+      () => {}
+    );
+  } catch {
+    /* ignore */
+  }
+}
 
 export function getDynamicGovernorates(): EgyptianGovernorateInfo[] {
   return memDynamicGovs.length > 0 ? memDynamicGovs : EGYPTIAN_GOVERNORATES;
@@ -1175,20 +1329,32 @@ export async function saveDynamicGovernorates(
   govs: EgyptianGovernorateInfo[],
   adminUid: string
 ): Promise<void> {
+  if (!Array.isArray(govs) || govs.length === 0) {
+    throw new Error('INVALID_GOVERNORATES_LIST');
+  }
+  const prev = [...memDynamicGovs];
+  if (configured && db) {
+    try {
+      await setDoc(
+        doc(db, 'systemSettings', 'egypt_geography_hierarchy'),
+        {
+          governorates: govs,
+          updatedAtIso: new Date().toISOString(),
+          updatedBy: adminUid,
+        },
+        { merge: true }
+      );
+      lastPersistenceError = null;
+    } catch (err: unknown) {
+      memDynamicGovs = prev;
+      lastPersistenceError = (err as Error)?.message || 'FIRESTORE_WRITE_FAILED';
+      emitPartnerUpdate();
+      throw err;
+    }
+  }
   memDynamicGovs = govs;
   safeWriteJson(CACHE_DYNAMIC_GEO_KEY, memDynamicGovs);
   emitPartnerUpdate();
-  if (configured && db) {
-    await setDoc(
-      doc(db, 'systemSettings', 'egypt_geography_hierarchy'),
-      {
-        governorates: govs,
-        updatedAtIso: new Date().toISOString(),
-        updatedBy: adminUid,
-      },
-      { merge: true }
-    );
-  }
 }
 
 export async function submitPharmacyRegistrationApplication(
@@ -1197,8 +1363,13 @@ export async function submitPharmacyRegistrationApplication(
     'id' | 'status' | 'verificationHistory' | 'createdAtIso' | 'updatedAtIso'
   >
 ): Promise<PharmacyRegistrationApplication> {
+  if (!appData.applicantUid || !appData.pharmacyNameAr?.trim() || !appData.licenseNumber?.trim()) {
+    throw new Error('MISSING_REQUIRED_APPLICATION_FIELDS');
+  }
+
   const nowIso = new Date().toISOString();
   const id = `pharm_app_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`;
+  // Ensure applicant submission NEVER contains approvedPharmacyId or admin approval fields
   const record: PharmacyRegistrationApplication = {
     ...appData,
     id,
@@ -1216,18 +1387,23 @@ export async function submitPharmacyRegistrationApplication(
     createdAtIso: nowIso,
     updatedAtIso: nowIso,
   };
-
-  memPharmacyApps = [record, ...memPharmacyApps];
-  safeWriteJson(CACHE_PHARM_APPS_KEY, memPharmacyApps);
-  emitPartnerUpdate();
+  delete (record as unknown as Record<string, unknown>).approvedPharmacyId;
+  delete (record as unknown as Record<string, unknown>).reviewedByUid;
 
   if (configured && db) {
     try {
-      await setDoc(doc(db, 'pharmacyApplications', id), record);
-    } catch {
-      /* fallback cached */
+      await setDoc(doc(db, COL_PHARMACY_APPLICATIONS, id), record);
+      lastPersistenceError = null;
+    } catch (err: unknown) {
+      lastPersistenceError = (err as Error)?.message || 'APPLICATION_CLOUD_SAVE_FAILED';
+      emitPartnerUpdate();
+      throw err;
     }
   }
+
+  memPharmacyApps = [record, ...memPharmacyApps.filter((a) => a.id !== id)];
+  safeWriteJson(CACHE_PHARM_APPS_KEY, memPharmacyApps);
+  emitPartnerUpdate();
   return record;
 }
 
@@ -1238,17 +1414,21 @@ export async function reviewPharmacyApplicationDecision(
   adminUid: string,
   adminRole: string
 ): Promise<void> {
+  if (!['admin', 'super_admin', 'owner', 'regional_manager'].includes(adminRole)) {
+    throw new Error('UNAUTHORIZED_APPLICATION_REVIEW_ROLE');
+  }
   const idx = memPharmacyApps.findIndex((a) => a.id === appId);
-  if (idx < 0) return;
+  if (idx < 0) throw new Error('APPLICATION_NOT_FOUND');
 
   const current = memPharmacyApps[idx];
   const nowIso = new Date().toISOString();
   let approvedPharmacyId = current.approvedPharmacyId;
+  let provisionedPartner: PartnerPublicRecord | null = null;
 
-  // When approved, automatically provision an isolated Verified Partner & Branch record
+  // When approved, automatically provision an isolated Verified Partner & Pharmacy record
   if (newStatus === 'approved' && !approvedPharmacyId) {
     approvedPharmacyId = `pharm_${current.id}`;
-    const newPartner: PartnerPublicRecord = {
+    provisionedPartner = {
       id: approvedPharmacyId,
       name: current.pharmacyNameAr,
       nameAr: current.pharmacyNameAr,
@@ -1308,9 +1488,6 @@ export async function reviewPharmacyApplicationDecision(
       createdAtIso: nowIso,
       updatedAtIso: nowIso,
     };
-
-    memPartners = [newPartner, ...memPartners];
-    safeWriteJson(CACHE_PARTNERS_KEY, memPartners);
   }
 
   const updated: PharmacyRegistrationApplication = {
@@ -1332,22 +1509,71 @@ export async function reviewPharmacyApplicationDecision(
     ],
   };
 
+  if (configured && db) {
+    try {
+      await setDoc(doc(db, COL_PHARMACY_APPLICATIONS, appId), updated);
+      if (provisionedPartner && approvedPharmacyId) {
+        await Promise.all([
+          setDoc(doc(db, COL_PARTNERS, approvedPharmacyId), {
+            ...provisionedPartner,
+            ownerUid: current.applicantUid,
+          }),
+          setDoc(doc(db, 'pharmacies', approvedPharmacyId), {
+            id: approvedPharmacyId,
+            ownerUid: current.applicantUid,
+            nameAr: current.pharmacyNameAr,
+            nameEn: current.pharmacyNameEn || current.pharmacyNameAr,
+            licenseNumber: current.licenseNumber,
+            syndicateRegistrationNumber: current.syndicateRegistrationNumber,
+            governorateId: current.governorateId,
+            cityCenter: current.cityCenter,
+            districtVillage: current.districtVillage,
+            status: 'approved',
+            approvedByUid: adminUid,
+            approvedAtIso: nowIso,
+          }),
+        ]);
+      }
+      lastPersistenceError = null;
+    } catch (err: unknown) {
+      lastPersistenceError = (err as Error)?.message || 'APPLICATION_REVIEW_SAVE_FAILED';
+      emitPartnerUpdate();
+      throw err;
+    }
+  }
+
+  if (provisionedPartner) {
+    memPartners = [provisionedPartner, ...memPartners.filter((p) => p.id !== provisionedPartner!.id)];
+    safeWriteJson(CACHE_PARTNERS_KEY, memPartners);
+  }
   memPharmacyApps[idx] = updated;
   safeWriteJson(CACHE_PHARM_APPS_KEY, memPharmacyApps);
   emitPartnerUpdate();
 
-  if (configured && db) {
-    try {
-      await setDoc(doc(db, 'pharmacyApplications', appId), updated);
-    } catch {
-      /* ignore */
-    }
-  }
+  await recordAdminAuditLog({
+    action: 'partner_verification_changed',
+    partnerId: approvedPharmacyId || appId,
+    partnerName: current.pharmacyNameAr,
+    adminUid,
+    adminRole,
+    summaryAr: `تحديث حالة طلب توثيق صيدلية (${current.pharmacyNameAr}) إلى ${newStatus}`,
+    summaryEn: `Updated pharmacy application (${current.pharmacyNameAr}) to ${newStatus}`,
+  });
 }
 
 export async function upsertPharmacyInventoryItem(
   item: Omit<PharmacyInventoryItem, 'id' | 'lastUpdatedAtIso' | 'stockStatus'> & { id?: string }
 ): Promise<PharmacyInventoryItem> {
+  if (!item.pharmacyId || !item.medicationId) {
+    throw new Error('MISSING_PHARMACY_OR_MEDICATION_ID');
+  }
+  if (!Number.isFinite(item.quantityPacks) || item.quantityPacks < 0) {
+    throw new Error('INVALID_STOCK_QUANTITY: Stock quantity cannot be negative.');
+  }
+  if (!Number.isFinite(item.pharmacyPriceEgp) || item.pharmacyPriceEgp <= 0) {
+    throw new Error('INVALID_PHARMACY_PRICE: Price must be greater than 0 EGP.');
+  }
+
   const nowIso = new Date().toISOString();
   const id = item.id || `inv_${item.pharmacyId}_${item.medicationId}`;
   const stockStatus: PharmacyInventoryItem['stockStatus'] =
@@ -1364,6 +1590,36 @@ export async function upsertPharmacyInventoryItem(
     lastUpdatedAtIso: nowIso,
   };
 
+  // Section 9 Fix: Separate public availability projection from private operational batch/cost record
+  const publicAvailabilityProjection = {
+    id,
+    pharmacyId: record.pharmacyId,
+    medicationId: record.medicationId,
+    tradeNameAr: record.tradeNameAr,
+    tradeNameEn: record.tradeNameEn,
+    activeIngredient: record.activeIngredient,
+    strength: record.strength,
+    dosageForm: record.dosageForm,
+    pharmacyPriceEgp: record.pharmacyPriceEgp,
+    stockStatus: record.stockStatus,
+    requiresPrescription: Boolean(record.requiresPrescription),
+    lastUpdatedAtIso: nowIso,
+  };
+
+  if (configured && db) {
+    try {
+      await Promise.all([
+        setDoc(doc(db, COL_PHARMACY_INVENTORY, id), record),
+        setDoc(doc(db, COL_PHARMACY_PUBLIC_INVENTORY, id), publicAvailabilityProjection),
+      ]);
+      lastPersistenceError = null;
+    } catch (err: unknown) {
+      lastPersistenceError = (err as Error)?.message || 'INVENTORY_CLOUD_SAVE_FAILED';
+      emitPartnerUpdate();
+      throw err;
+    }
+  }
+
   const existingIdx = memPharmacyInventory.findIndex((x) => x.id === id);
   if (existingIdx >= 0) {
     memPharmacyInventory[existingIdx] = record;
@@ -1372,39 +1628,52 @@ export async function upsertPharmacyInventoryItem(
   }
   safeWriteJson(CACHE_PHARM_INV_KEY, memPharmacyInventory);
   emitPartnerUpdate();
-
-  if (configured && db) {
-    try {
-      await setDoc(doc(db, 'pharmacyInventory', id), record);
-    } catch {
-      /* ignore */
-    }
-  }
   return record;
 }
 
 export async function deletePharmacyInventoryItem(invId: string): Promise<void> {
+  if (configured && db) {
+    try {
+      await Promise.all([
+        deleteDoc(doc(db, COL_PHARMACY_INVENTORY, invId)),
+        deleteDoc(doc(db, COL_PHARMACY_PUBLIC_INVENTORY, invId)),
+      ]);
+      lastPersistenceError = null;
+    } catch (err: unknown) {
+      lastPersistenceError = (err as Error)?.message || 'INVENTORY_DELETE_FAILED';
+      emitPartnerUpdate();
+      throw err;
+    }
+  }
   memPharmacyInventory = memPharmacyInventory.filter((x) => x.id !== invId);
   safeWriteJson(CACHE_PHARM_INV_KEY, memPharmacyInventory);
   emitPartnerUpdate();
-  if (configured && db) {
-    try {
-      await deleteDoc(doc(db, 'pharmacyInventory', invId));
-    } catch {
-      /* ignore */
-    }
-  }
 }
 
 export async function savePharmacyEmployee(
   emp: Omit<PharmacyAuthorizedEmployee, 'id' | 'addedAtIso'> & { id?: string }
-): Promise<void> {
+): Promise<PharmacyAuthorizedEmployee> {
+  if (!emp.pharmacyId || !emp.fullName?.trim() || !emp.role) {
+    throw new Error('INVALID_EMPLOYEE_RECORD');
+  }
   const id = emp.id || `emp_${Date.now().toString(36)}`;
   const record: PharmacyAuthorizedEmployee = {
     ...emp,
     id,
     addedAtIso: new Date().toISOString(),
   };
+
+  if (configured && db) {
+    try {
+      await setDoc(doc(db, COL_PHARMACY_EMPLOYEES, id), record);
+      lastPersistenceError = null;
+    } catch (err: unknown) {
+      lastPersistenceError = (err as Error)?.message || 'EMPLOYEE_CLOUD_SAVE_FAILED';
+      emitPartnerUpdate();
+      throw err;
+    }
+  }
+
   const idx = memPharmacyEmployees.findIndex((e) => e.id === id);
   if (idx >= 0) {
     memPharmacyEmployees[idx] = record;
@@ -1413,24 +1682,33 @@ export async function savePharmacyEmployee(
   }
   safeWriteJson(CACHE_PHARM_EMP_KEY, memPharmacyEmployees);
   emitPartnerUpdate();
-  if (configured && db) {
-    try {
-      await setDoc(doc(db, 'pharmacyEmployees', id), record);
-    } catch {
-      /* ignore */
-    }
-  }
+  return record;
 }
 
 export async function saveFranchiseContract(
   contract: Omit<FranchiseContractRecord, 'id' | 'updatedAtIso'> & { id?: string }
-): Promise<void> {
+): Promise<FranchiseContractRecord> {
+  if (!contract.pharmacyId || !contract.contractNumber?.trim()) {
+    throw new Error('INVALID_FRANCHISE_CONTRACT');
+  }
   const id = contract.id || `fr_${Date.now().toString(36)}`;
   const record: FranchiseContractRecord = {
     ...contract,
     id,
     updatedAtIso: new Date().toISOString(),
   };
+
+  if (configured && db) {
+    try {
+      await setDoc(doc(db, COL_FRANCHISE_CONTRACTS, id), record);
+      lastPersistenceError = null;
+    } catch (err: unknown) {
+      lastPersistenceError = (err as Error)?.message || 'FRANCHISE_CONTRACT_SAVE_FAILED';
+      emitPartnerUpdate();
+      throw err;
+    }
+  }
+
   const idx = memFranchiseContracts.findIndex((c) => c.id === id);
   if (idx >= 0) {
     memFranchiseContracts[idx] = record;
@@ -1439,20 +1717,14 @@ export async function saveFranchiseContract(
   }
   safeWriteJson(CACHE_FRANCHISE_KEY, memFranchiseContracts);
   emitPartnerUpdate();
-  if (configured && db) {
-    try {
-      await setDoc(doc(db, 'franchiseContracts', id), record);
-    } catch {
-      /* ignore */
-    }
-  }
+  return record;
 }
 
 export function useDawayaPharmacyNetwork() {
   const [, setTick] = useState(storeVersion);
 
   useEffect(() => {
-    startPartnerEcosystemSync();
+    startDawayaNetworkRealtimeSync();
     const onUpdate = () => setTick((v) => v + 1);
     window.addEventListener(PARTNER_SYNC_EVENT, onUpdate);
     return () => window.removeEventListener(PARTNER_SYNC_EVENT, onUpdate);
@@ -1465,5 +1737,7 @@ export function useDawayaPharmacyNetwork() {
     franchiseContracts: memFranchiseContracts,
     dynamicGovernorates: getDynamicGovernorates(),
     orders: memOrders,
+    cloudSyncStatus,
+    lastPersistenceError,
   };
 }

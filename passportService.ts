@@ -279,6 +279,7 @@ export async function getPassportPhotoUrl(uid: string): Promise<string> {
 
 export interface PassportShare {
   pin: string;
+  revoked?: boolean;
   expiresAt: number;
   createdAt: number;
   photoUrl?: string;
@@ -525,7 +526,7 @@ export async function revokePassport(uid: string): Promise<void> {
       const prevLocal = JSON.parse(rawLocal);
       localStorage.setItem(
         LOCAL_SHARE_KEY_PREFIX + effectiveId,
-        JSON.stringify({ ...prevLocal, expiresAt: 0, updatedAt: Date.now() })
+        JSON.stringify({ ...prevLocal, expiresAt: 0, revoked: true, updatedAt: Date.now() })
       );
     }
   } catch {
@@ -537,6 +538,7 @@ export async function revokePassport(uid: string): Promise<void> {
       doc(db, 'passportShares', uid),
       {
         expiresAt: 0,
+        revoked: true,
         updatedAt: Date.now(),
       },
       { merge: true }
@@ -547,8 +549,8 @@ export async function revokePassport(uid: string): Promise<void> {
 }
 
 export function isPassportValid(share: PassportShare | null, enteredPin: string): boolean {
-  if (!share || !share.pin) return false;
-  if (share.expiresAt <= 0 || Date.now() > share.expiresAt) return false;
+  if (!share || !share.pin || share.revoked) return false;
+  if (share.expiresAt <= 0 || Date.now() >= share.expiresAt) return false;
   return share.pin === enteredPin.trim();
 }
 

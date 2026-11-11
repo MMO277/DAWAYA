@@ -608,7 +608,7 @@ export async function analyzeUploadedMedicalDocument(params: {
   const apiKey = getApiKey();
   if (apiKey && (apiKey.startsWith('AIza') || apiKey.startsWith('AQ.') || apiKey.length > 20) && params.mimeType.startsWith('image/')) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const url = '/api/ai/generate';
       const resp = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

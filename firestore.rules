@@ -8,10 +8,19 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid && uid.size() > 0;
     }
 
+    // Section 3 Fix: Share is valid ONLY when not revoked AND expiresAt is strictly in the future (> request.time)
+    function isPassportShareDocValid(shareData) {
+      return shareData.revoked != true
+          && (
+            (shareData.expiresAt is int && shareData.expiresAt > request.time.toMillis())
+            || (shareData.expiresAt is number && shareData.expiresAt > request.time.toMillis())
+            || (shareData.expiresAt is timestamp && shareData.expiresAt > request.time)
+          );
+    }
+
     function isPassportActivelyShared(uid) {
       return exists(/databases/$(database)/documents/passportShares/$(uid))
-          && get(/databases/$(database)/documents/passportShares/$(uid)).data.expiresAt is number
-          && get(/databases/$(database)/documents/passportShares/$(uid)).data.expiresAt > 0;
+          && isPassportShareDocValid(get(/databases/$(database)/documents/passportShares/$(uid)).data);
     }
 
     function validUserDocWrite() {
@@ -30,15 +39,13 @@ service cloud.firestore {
           && (!('certificates' in d) || d.certificates is list)
           && (!('aiConversation' in d) || d.aiConversation is list)
           && (!('savedAddresses' in d) || d.savedAddresses is list)
-          && (!('notificationPrefs' in d) || d.notificationPrefs is map);
+          && (!('notificationPrefs' in d) || d.notificationPrefs is map)
+          && !('role' in d)
+          && !('isAdmin' in d);
     }
 
     function roleDocPath() {
       return /databases/$(database)/documents/roles/$(request.auth.uid);
-    }
-
-    function userRoleData() {
-      return exists(roleDocPath()) ? get(roleDocPath()).data : {};
     }
 
     function userHasRoleIn(allowedRoles) {
@@ -114,9 +121,67 @@ service cloud.firestore {
           );
     }
 
+    // Section 2 Fix: Strict field allowlist for pharmacy applicants updating draft/pending applications
+    function validApplicantApplicationUpdate() {
+      return isSignedIn()
+          && resource.data.applicantUid == request.auth.uid
+          && request.resource.data.applicantUid == resource.data.applicantUid
+          && resource.data.status in ['draft', 'pending_review']
+          && request.resource.data.status in ['draft', 'pending_review']
+          && request.resource.data.pharmacyNameAr is string
+          && request.resource.data.pharmacyNameAr.size() >= 2
+          && request.resource.data.licenseNumber is string
+          && request.resource.data.licenseNumber.size() >= 3
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'pharmacyNameAr',
+            'pharmacyNameEn',
+            'licenseNumber',
+            'commercialRegistryNumber',
+            'taxCardNumber',
+            'ownerFullName',
+            'pharmacistManagerName',
+            'syndicateRegistrationNumber',
+            'nationalIdLast4',
+            'phone',
+            'whatsapp',
+            'applicantEmail',
+            'governorateId',
+            'cityCenter',
+            'districtVillage',
+            'detailedAddressAr',
+            'latitude',
+            'longitude',
+            'workingHoursAr',
+            'is24Hours',
+            'deliveryAvailable',
+            'deliveryRadiusKm',
+            'licenseDocumentUrl',
+            'syndicateCardUrl',
+            'logoUrl',
+            'requestedModel',
+            'status',
+            'updatedAtIso'
+          ]);
+    }
+
+    // Section 4 Fix: Explicit Order State Machine Validation
+    function isValidOrderTransition(oldStatus, newStatus) {
+      return (oldStatus in ['new_order', 'pending_review', 'pending_pharmacy_review']
+              && newStatus in ['pharmacy_confirmation', 'confirmed_available', 'rejected', 'cancelled'])
+          || (oldStatus in ['pharmacy_confirmation', 'confirmed_available']
+              && newStatus in ['preparing', 'cancelled', 'rejected'])
+          || (oldStatus == 'preparing'
+              && newStatus in ['ready_for_delivery', 'ready_for_pickup_or_delivery', 'out_for_delivery', 'cancelled'])
+          || (oldStatus in ['ready_for_delivery', 'ready_for_pickup_or_delivery']
+              && newStatus in ['out_for_delivery', 'delivered', 'completed'])
+          || (oldStatus == 'out_for_delivery'
+              && newStatus in ['delivered', 'completed']);
+    }
+
     // ── 1. Users & Customer Profiles (Protected Personal & Medical Data) ──
     match /users/{uid} {
-      allow read: if isOwner(uid) || isAdmin() || isPassportActivelyShared(uid);
+      // Section 3 Fix: Never expose full private user document via public passport share
+      allow read: if isOwner(uid) || isAdmin();
       allow create, update: if isOwner(uid) && validUserDocWrite();
       allow delete: if isAdmin();
 
@@ -153,7 +218,11 @@ service cloud.firestore {
     }
 
     match /customerProfiles/{uid} {
-      allow read, write: if isOwner(uid) || isAdmin();
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if isOwner(uid)
+        && !('role' in request.resource.data)
+        && !('isAdmin' in request.resource.data);
+      allow delete: if isAdmin();
     }
 
     // ── 2. Medication Database & Clinical Catalog ──
@@ -222,21 +291,30 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.applicantUid == request.auth.uid
         && request.resource.data.pharmacyNameAr is string
+        && request.resource.data.pharmacyNameAr.size() >= 2
         && request.resource.data.licenseNumber is string
-        && request.resource.data.status in ['draft', 'pending_review'];
+        && request.resource.data.licenseNumber.size() >= 3
+        && request.resource.data.status in ['draft', 'pending_review']
+        && !('approvedPharmacyId' in request.resource.data)
+        && !('reviewedByUid' in request.resource.data);
       allow read: if isSignedIn() && (resource.data.applicantUid == request.auth.uid || isReviewer());
-      allow update: if (isSignedIn() && resource.data.applicantUid == request.auth.uid && resource.data.status in ['draft', 'pending_review'])
-        || isReviewer();
+      // Section 2 Fix: Applicants can only edit permitted draft fields; only admin/regional_manager can approve/reject
+      allow update: if validApplicantApplicationUpdate()
+        || ((isAdmin() || isRegionalManager())
+            && request.resource.data.applicantUid == resource.data.applicantUid);
       allow delete: if isAdmin();
     }
 
     match /pharmacies/{pharmacyId} {
-      // Only approved pharmacies are publicly visible; unverified/pending only visible to owner or admin
       allow read: if resource.data.status == 'approved'
         || isPharmacyMember(pharmacyId)
         || isReviewer();
-      allow create: if isAdmin();
-      allow update: if isPharmacyManagerOrOwner(pharmacyId) || isAdmin();
+      allow create: if isAdmin() || isRegionalManager();
+      allow update: if (isPharmacyManagerOrOwner(pharmacyId)
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.ownerUid == resource.data.ownerUid)
+        || isAdmin()
+        || isRegionalManager();
       allow delete: if isAdmin();
     }
 
@@ -246,22 +324,58 @@ service cloud.firestore {
         || isPharmacyManagerOrOwner(resource.data.pharmacyId)
         || isAdmin()
       );
-      allow create, update: if isSignedIn() && (
-        isPharmacyManagerOrOwner(request.resource.data.pharmacyId)
-        || isAdmin()
-      );
+      allow create, update: if isSignedIn()
+        && request.resource.data.pharmacyId is string
+        && request.resource.data.role in ['pharmacy_manager', 'pharmacist', 'employee']
+        && (isPharmacyManagerOrOwner(request.resource.data.pharmacyId) || isAdmin());
       allow delete: if isSignedIn() && (
         isPharmacyManagerOrOwner(resource.data.pharmacyId)
         || isAdmin()
       );
     }
 
+    // Section 9 Fix: Private operational inventory (batches, thresholds, internal metadata) restricted to pharmacy staff & admins
     match /pharmacyInventory/{invId} {
+      allow read: if isSignedIn() && (
+        isPharmacyMember(resource.data.pharmacyId)
+        || isReviewer()
+        || isAdmin()
+      );
+      allow create, update: if isSignedIn()
+        && request.resource.data.pharmacyId is string
+        && isPharmacyMember(request.resource.data.pharmacyId)
+        && request.resource.data.quantityPacks is number
+        && request.resource.data.quantityPacks >= 0
+        && request.resource.data.pharmacyPriceEgp is number
+        && request.resource.data.pharmacyPriceEgp > 0
+        && request.resource.data.stockStatus in ['available', 'low_stock', 'out_of_stock', 'unconfirmed'];
+      allow delete: if isSignedIn()
+        && isPharmacyManagerOrOwner(resource.data.pharmacyId);
+    }
+
+    // Section 9 Fix: Public availability projection exposing ONLY intentional public catalog/availability fields
+    match /pharmacyPublicInventory/{invId} {
       allow read: if true;
       allow create, update: if isSignedIn()
         && request.resource.data.pharmacyId is string
         && isPharmacyMember(request.resource.data.pharmacyId)
-        && request.resource.data.stockStatus in ['available', 'low_stock', 'out_of_stock', 'unconfirmed'];
+        && request.resource.data.pharmacyPriceEgp is number
+        && request.resource.data.pharmacyPriceEgp > 0
+        && request.resource.data.stockStatus in ['available', 'low_stock', 'out_of_stock', 'unconfirmed']
+        && request.resource.data.keys().hasOnly([
+          'id',
+          'pharmacyId',
+          'medicationId',
+          'tradeNameAr',
+          'tradeNameEn',
+          'activeIngredient',
+          'strength',
+          'dosageForm',
+          'pharmacyPriceEgp',
+          'stockStatus',
+          'requiresPrescription',
+          'lastUpdatedAtIso'
+        ]);
       allow delete: if isSignedIn()
         && isPharmacyManagerOrOwner(resource.data.pharmacyId);
     }
@@ -277,7 +391,11 @@ service cloud.firestore {
       allow read: if isAdmin()
         || (isSignedIn() && resource.data.pharmacyId is string && isPharmacyManagerOrOwner(resource.data.pharmacyId));
       allow create: if isAdmin()
-        || (isSignedIn() && request.resource.data.pharmacyId is string && isPharmacyManagerOrOwner(request.resource.data.pharmacyId));
+        || (isSignedIn()
+            && request.resource.data.pharmacyId is string
+            && isPharmacyManagerOrOwner(request.resource.data.pharmacyId)
+            && request.resource.data.amountEgp is number
+            && request.resource.data.amountEgp > 0);
       allow update, delete: if isAdmin();
     }
 
@@ -343,7 +461,7 @@ service cloud.firestore {
       allow write: if isEditor();
     }
 
-    // FIXED VULNERABILITY: Partner Orders & Customer Orders require authentication and strict ownership/pharmacy isolation
+    // Section 4 Fix: Partner Orders & Customer Orders enforce state machine + immutable ownership/item fields
     match /partnerOrders/{orderId} {
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
@@ -352,17 +470,35 @@ service cloud.firestore {
         && request.resource.data.patientPhone is string
         && request.resource.data.patientPhone.size() >= 8
         && request.resource.data.partnerId is string
-        && request.resource.data.status in ['new_order', 'pending_review'];
+        && request.resource.data.quantity is number
+        && request.resource.data.quantity > 0
+        && request.resource.data.status in ['new_order', 'pending_review', 'pending_pharmacy_review'];
       allow read: if isSignedIn() && (
         resource.data.userId == request.auth.uid
         || isPharmacyMember(resource.data.partnerId)
         || isViewer()
       );
-      allow update: if isSignedIn() && (
-        isPharmacyMember(resource.data.partnerId)
-        || isEditor()
-        || (resource.data.userId == request.auth.uid && request.resource.data.status == 'cancelled')
-      );
+      allow update: if isSignedIn()
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.partnerId == resource.data.partnerId
+        && request.resource.data.medicationId == resource.data.medicationId
+        && request.resource.data.quantity == resource.data.quantity
+        && request.resource.data.createdAtIso == resource.data.createdAtIso
+        && (
+          // Customer may only cancel their own order while in initial pending/new state
+          (
+            resource.data.userId == request.auth.uid
+            && resource.data.status in ['new_order', 'pending_review', 'pending_pharmacy_review']
+            && request.resource.data.status == 'cancelled'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAtIso', 'statusHistory'])
+          )
+          // Pharmacy member or admin may advance order along valid state machine transitions
+          || (
+            (isPharmacyMember(resource.data.partnerId) || isEditor())
+            && isValidOrderTransition(resource.data.status, request.resource.data.status)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAtIso', 'statusHistory', 'pharmacyNotes', 'assignedPharmacistUid'])
+          )
+        );
       allow delete: if isAdmin();
     }
 
@@ -376,17 +512,40 @@ service cloud.firestore {
         || isPharmacyMember(resource.data.pharmacyId)
         || isViewer()
       );
-      allow update: if isSignedIn() && (
-        isPharmacyMember(resource.data.pharmacyId)
-        || isEditor()
-        || (resource.data.customerUid == request.auth.uid && request.resource.data.status == 'cancelled')
-      );
+      allow update: if isSignedIn()
+        && request.resource.data.customerUid == resource.data.customerUid
+        && request.resource.data.pharmacyId == resource.data.pharmacyId
+        && request.resource.data.createdAtIso == resource.data.createdAtIso
+        && (
+          (
+            resource.data.customerUid == request.auth.uid
+            && resource.data.status == 'new_order'
+            && request.resource.data.status == 'cancelled'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAtIso', 'statusHistory'])
+          )
+          || (
+            (isPharmacyMember(resource.data.pharmacyId) || isEditor())
+            && isValidOrderTransition(resource.data.status, request.resource.data.status)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAtIso', 'statusHistory', 'pharmacyNotes', 'assignedPharmacistUid'])
+          )
+        );
       allow delete: if isAdmin();
     }
 
+    // Section 8 Fix: Audit logs are append-only and restricted to authorized admin/pharmacy roles with actor UID verification
     match /adminAuditLogs/{logId} {
       allow read: if isReviewer() || isAdmin();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn()
+        && (
+          isEditor()
+          || isReviewer()
+          || isRegionalManager()
+          || isAdmin()
+          || (request.resource.data.partnerId is string && isPharmacyMember(request.resource.data.partnerId))
+        )
+        && request.resource.data.adminUid == request.auth.uid
+        && request.resource.data.timestampIso is string
+        && request.resource.data.action is string;
       allow update, delete: if false;
     }
 
@@ -428,16 +587,18 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // ── 8. Smart Patient Passport ──
+    // ── 8. Smart Patient Passport (Section 3 Fix: strict expiration + revocation check) ──
     match /passportShares/{uid} {
       allow read, write: if isOwner(uid);
-      allow get: if resource.data.expiresAt is number && resource.data.expiresAt > 0;
+      allow get: if isOwner(uid) || isAdmin() || isPassportShareDocValid(resource.data);
+      allow list: if isOwner(uid) || isAdmin();
     }
 
     match /passportShares/{uid}/accessLogs/{logId} {
-      allow create: if request.resource.data.accessedAt is number
+      allow create: if isPassportActivelyShared(uid)
+        && request.resource.data.accessedAt is number
         && request.resource.data.note is string;
-      allow read: if isOwner(uid);
+      allow read: if isOwner(uid) || isAdmin();
       allow update, delete: if false;
     }
   }
