@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from './auth';
@@ -149,9 +150,9 @@ export default function Editor() {
         <label htmlFor="rb">{t('reviewedBy')}</label>
         <input id="rb" value={m.reviewedBy} onChange={(e) => upd({ reviewedBy: e.target.value })} />
         <label htmlFor="st">{t('status')}</label>
-        <select id="st" value={m.status} onChange={(e) => upd({ status: e.target.value as Status })}>
+        <SmartNativeSelect id="st" value={m.status} onChange={(e) => upd({ status: e.target.value as Status })}>
           {statuses.map((s) => <option key={s} value={s}>{t(`st_${s}`)}</option>)}
-        </select>
+        </SmartNativeSelect>
         <label htmlFor="nt">{t('internalNotes')}</label>
         <textarea id="nt" rows={3} value={m.notes} onChange={(e) => upd({ notes: e.target.value })} />
       </div>

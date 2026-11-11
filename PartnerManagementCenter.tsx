@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -623,7 +624,7 @@ export default function PartnerManagementCenter({
                 <label className="small muted" style={{ display: 'block', marginBottom: '2px' }}>
                   {isAr ? 'حالة الشراكة:' : 'Partnership Status:'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={statusFilter}
                   onChange={(e) => {
@@ -637,14 +638,14 @@ export default function PartnerManagementCenter({
                       {isAr ? PARTNERSHIP_STATUS_LABELS[s].ar : PARTNERSHIP_STATUS_LABELS[s].en}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div>
                 <label className="small muted" style={{ display: 'block', marginBottom: '2px' }}>
                   {isAr ? 'حالة النشر للجمهور:' : 'Publication Status:'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={pubFilter}
                   onChange={(e) => {
@@ -658,14 +659,14 @@ export default function PartnerManagementCenter({
                       {isAr ? PUBLICATION_STATUS_LABELS[ps].ar : PUBLICATION_STATUS_LABELS[ps].en}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div>
                 <label className="small muted" style={{ display: 'block', marginBottom: '2px' }}>
                   {isAr ? 'الفئة:' : 'Category:'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={catFilter}
                   onChange={(e) => {
@@ -679,14 +680,14 @@ export default function PartnerManagementCenter({
                       {c.icon} {isAr ? c.nameAr : c.nameEn}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div>
                 <label className="small muted" style={{ display: 'block', marginBottom: '2px' }}>
                   {isAr ? 'المحافظة:' : 'Governorate:'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={govFilter}
                   onChange={(e) => {
@@ -700,14 +701,14 @@ export default function PartnerManagementCenter({
                       {isAr ? g.nameAr : g.nameEn}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div>
                 <label className="small muted" style={{ display: 'block', marginBottom: '2px' }}>
                   {isAr ? 'ترتيب حسب:' : 'Sort By:'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as SortKey)}
@@ -716,7 +717,7 @@ export default function PartnerManagementCenter({
                   <option value="priority">{isAr ? 'أولوية العرض الرقمية' : 'Display Priority'}</option>
                   <option value="name">{isAr ? 'الاسم أبجدياً' : 'Name (A-Z)'}</option>
                   <option value="branches">{isAr ? 'عدد الفروع' : 'Branch Count'}</option>
-                </select>
+                </SmartNativeSelect>
               </div>
             </div>
           </div>
@@ -1123,7 +1124,7 @@ export default function PartnerManagementCenter({
                         )}
                       </td>
                       <td>
-                        <select
+                        <SmartNativeSelect
                           className="input"
                           style={{ padding: '4px 8px', fontSize: '0.8rem' }}
                           value={ord.status}
@@ -1150,7 +1151,7 @@ export default function PartnerManagementCenter({
                           </option>
                           <option value="delivered">{isAr ? 'تم التسليم (Delivered)' : 'Delivered'}</option>
                           <option value="cancelled">{isAr ? 'ملغى (Cancelled)' : 'Cancelled'}</option>
-                        </select>
+                        </SmartNativeSelect>
                       </td>
                     </tr>
                   ))}
@@ -1466,11 +1467,11 @@ export default function PartnerManagementCenter({
           </div>
 
           <div className="form-row" style={{ paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
-            <select value={selectedGeoGovId} onChange={(e) => setSelectedGeoGovId(e.target.value)}>
+            <SmartNativeSelect value={selectedGeoGovId} onChange={(e) => setSelectedGeoGovId(e.target.value)}>
               {dynamicGovernorates.map((g) => (
                 <option key={g.id} value={g.id}>{g.nameAr} ({g.nameEn})</option>
               ))}
-            </select>
+            </SmartNativeSelect>
             <input
               placeholder={isAr ? 'إضافة مركز / مدينة / قرية للمحافظة المختارة...' : 'Add Center / City / Village...'}
               value={newCityNameAr}

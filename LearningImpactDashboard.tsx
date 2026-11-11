@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, configured } from './firebase';
@@ -227,7 +228,7 @@ export function LearningImpactDashboard() {
       >
         <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>
           {isAr ? 'الفترة الزمنية:' : 'Time Period:'}
-          <select
+          <SmartNativeSelect
             value={timeFilter}
             onChange={(e) => setTimeFilter(e.target.value as any)}
             style={{ marginLeft: isAr ? 0 : '0.5rem', marginRight: isAr ? '0.5rem' : 0, padding: '0.35rem' }}
@@ -235,12 +236,12 @@ export function LearningImpactDashboard() {
             <option value="7d">{isAr ? 'آخر 7 أيام' : 'Last 7 Days'}</option>
             <option value="30d">{isAr ? 'آخر 30 يوماً' : 'Last 30 Days'}</option>
             <option value="all">{isAr ? 'جميع الفترات' : 'All Time'}</option>
-          </select>
+          </SmartNativeSelect>
         </label>
 
         <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>
           {isAr ? 'الوحدة التوعوية:' : 'Educational Topic:'}
-          <select
+          <SmartNativeSelect
             value={topicFilter}
             onChange={(e) => setTopicFilter(e.target.value)}
             style={{ marginLeft: isAr ? 0 : '0.5rem', marginRight: isAr ? '0.5rem' : 0, padding: '0.35rem' }}
@@ -251,7 +252,7 @@ export function LearningImpactDashboard() {
                 {isAr ? s.title.ar : s.title.en}
               </option>
             ))}
-          </select>
+          </SmartNativeSelect>
         </label>
       </div>
 

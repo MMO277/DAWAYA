@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -318,14 +319,14 @@ export default function Research() {
               </div>
               <div className="form">
                 <label htmlFor="res-phase">{t('resPhase')} *</label>
-                <select
+                <SmartNativeSelect
                   id="res-phase"
                   value={phase}
                   onChange={(e) => setPhase(e.target.value as 'pre' | 'post')}
                 >
                   <option value="pre">{t('pre')}</option>
                   <option value="post">{t('post')}</option>
-                </select>
+                </SmartNativeSelect>
               </div>
             </div>
           </div>

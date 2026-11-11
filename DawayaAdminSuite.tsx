@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   addDoc,
@@ -413,7 +414,7 @@ export function DawayaMedicineAdminManager({
               }
               style={{ flex: 1, minWidth: '220px' }}
             />
-            <select
+            <SmartNativeSelect
               value={catFilter}
               onChange={(e) => setCatFilter(e.target.value as DawayaTherapeuticCategory | 'all')}
               style={{ width: 'auto' }}
@@ -424,8 +425,8 @@ export function DawayaMedicineAdminManager({
                   {isAr ? DAWAYA_CATEGORY_LABELS[k].ar : DAWAYA_CATEGORY_LABELS[k].en}
                 </option>
               ))}
-            </select>
-            <select
+            </SmartNativeSelect>
+            <SmartNativeSelect
               value={verFilter}
               onChange={(e) =>
                 setVerFilter(e.target.value as 'all' | 'verified' | 'requires_verification')
@@ -437,7 +438,7 @@ export function DawayaMedicineAdminManager({
               <option value="requires_verification">
                 {isAr ? '⚠️ يتطلب مراجعة يدوية' : '⚠️ Requires Review'}
               </option>
-            </select>
+            </SmartNativeSelect>
           </div>
 
           <div className="small muted">
@@ -550,7 +551,7 @@ export function DawayaMedicineAdminManager({
             </div>
             <div>
               <label>{isAr ? 'حالة التحقق والتوثيق' : 'Verification Status'}</label>
-              <select
+              <SmartNativeSelect
                 value={editingItem.v}
                 onChange={(e) =>
                   setEditingItem({ ...editingItem, v: Number(e.target.value) })
@@ -558,7 +559,7 @@ export function DawayaMedicineAdminManager({
               >
                 <option value={1}>{isAr ? 'موثق ومعتمد (Verified)' : 'Verified'}</option>
                 <option value={0}>{isAr ? 'يتطلب مراجعة (Requires Review)' : 'Requires Review'}</option>
-              </select>
+              </SmartNativeSelect>
             </div>
           </div>
           <div className="row" style={{ gap: '8px', marginTop: '10px' }}>

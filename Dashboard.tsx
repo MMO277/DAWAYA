@@ -1,4 +1,5 @@
 import PartnerManagementCenter from './PartnerManagementCenter';
+import PharmacyOwnerDashboard from './PharmacyOwnerDashboard';
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -14,6 +15,8 @@ import { LearningImpactDashboard } from './LearningImpactDashboard';
 import QuizResultsTab from './QuizResultsTab';
 import CommercialCatalogTab from './CommercialCatalogEditor';
 import SurveyQuizManagerTab from './SurveyQuizEditor';
+import { SmartNativeSelect } from './SmartChoiceSelect';
+import { UnslopIcon } from './UnslopIcons';
 import {
   DawayaMedicineAdminManager,
   DawayaContentAndArticlesAdmin,
@@ -66,7 +69,8 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
   const [items, setItems] = useState<Medicine[] | null>(null);
   const [filter, setFilter] = useState<Status | 'all'>('all');
   const [err, setErr] = useState('');
-  const reviewer = role === 'reviewer' || (role === 'owner' || role === 'admin') || role === 'editor';
+  const isSuperOrAdmin = role === 'super_admin' || role === 'owner' || role === 'admin';
+  const reviewer = role === 'reviewer' || isSuperOrAdmin || role === 'editor';
   const [showUn, setShowUn] = useState(true);
   useEffect(() => {
     getDoc(doc(db, 'settings', 'public'))
@@ -130,7 +134,7 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
 
   return (
     <div className="stack">
-      {(role === 'owner' || role === 'admin') && (
+      {isSuperOrAdmin && (
         <div className="card form">
           <label className="check">
             <input type="checkbox" checked={showUn} onChange={(e) => saveShowUn(e.target.checked)} />
@@ -142,10 +146,12 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
       <div className="row wrapRow">
         <Link to="/admin/new" className="btn">{t('newMed')}</Link>
         <button className="btn ghost" onClick={starter}>{t('starter')}</button>
-        <select value={filter} onChange={(e) => setFilter(e.target.value as Status | 'all')} aria-label={t('status')}>
-          <option value="all">{t('all')}</option>
-          {STATUSES.map((s) => <option key={s} value={s}>{t(`st_${s}`)}</option>)}
-        </select>
+        <div style={{ minWidth: '220px' }}>
+          <SmartNativeSelect value={filter} onChange={(e) => setFilter(e.target.value as Status | 'all')} aria-label={t('status')}>
+            <option value="all">{t('all')}</option>
+            {STATUSES.map((s) => <option key={s} value={s}>{t(`st_${s}`)}</option>)}
+          </SmartNativeSelect>
+        </div>
       </div>
       {err && <p className="alert">{err}</p>}
       {items === null && !err && <p>{t('loading')}</p>}
@@ -157,12 +163,14 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
           </div>
           <div className="row wrapRow">
             <Link className="btn small" to={`/admin/medicine/${m.id}`}>{t('edit')}</Link>
-            <Link className="btn small ghost" to={`/medicine/${m.id}`}>👁️</Link>
+            <Link className="btn small ghost" to={`/medicine/${m.id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <UnslopIcon name="eye" size={15} />
+            </Link>
             {m.status === 'draft' && <button className="btn small ghost" onClick={() => act(m, 'pending_review')}>{t('submitReview')}</button>}
             {reviewer && m.status === 'pending_review' && <button className="btn small" onClick={() => act(m, 'approved')}>{t('approve')}</button>}
             {reviewer && m.status !== 'archived' && <button className="btn small ghost" onClick={() => act(m, 'archived')}>{t('archive')}</button>}
             {reviewer && m.status === 'archived' && <button className="btn small ghost" onClick={() => act(m, 'draft')}>{t('restore')}</button>}
-            {(role === 'owner' || role === 'admin') && <button className="btn small danger" onClick={() => remove(m)}>{t('del')}</button>}
+            {isSuperOrAdmin && <button className="btn small danger" onClick={() => remove(m)}>{t('del')}</button>}
           </div>
         </div>
       ))}
@@ -173,6 +181,7 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
 type AdminTab =
   | 'dawaya_db'
   | 'partners'
+  | 'pharmacy_portal'
   | 'users'
   | 'content_articles'
   | 'system_ai_audit'
@@ -187,6 +196,7 @@ export default function Dashboard() {
   const { t, lang } = useLang();
   const { user, role, roleStatus, loading, logout } = useAuth();
   const [tab, setTab] = useState<AdminTab>('dawaya_db');
+  const isSuperOrAdmin = role === 'super_admin' || role === 'owner' || role === 'admin';
 
   if (loading) return <main className="wrap"><p>{t('loading')}</p></main>;
   if (!user) return <Login />;
@@ -213,8 +223,8 @@ export default function Dashboard() {
           <div className="small muted">
             {tr(
               lang,
-              'منصة دوايا | DAWAYA — مركز الإدارة الموحد لقاعدة الأدوية (26,562+) والشركاء والمحتوى والصلاحيات',
-              'DAWAYA Admin Control Center — Unified Medicine DB (26,562+), Partners, Content, AI & RBAC',
+              'منصة دوايا | DAWAYA — مركز الإدارة الموحد لقاعدة الأدوية (26,562+) والشركاء والفرنشايز والصلاحيات',
+              'DAWAYA Admin Control Center — Unified Medicine DB (26,562+), Partners, Franchise & RBAC',
               'Centre d’administration DAWAYA',
               'Centro de administración DAWAYA',
               'DAWAYA Admin-Kontrollzentrum'
@@ -222,7 +232,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="row" style={{ gap: '8px' }}>
-          <span className="badge approved">{role}</span>
+          <span className="badge approved">{role.toUpperCase()}</span>
           <button className="btn small ghost" onClick={logout}>{t('signOut')}</button>
         </div>
       </div>
@@ -247,9 +257,13 @@ export default function Dashboard() {
             background: tab === 'dawaya_db' ? 'var(--tint)' : 'var(--card-bg)',
             padding: '8px 14px',
             fontWeight: 800,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
           }}
         >
-          💊 {tr(lang, 'قاعدة أدوية دوايا الشاملة (26,562+)', 'DAWAYA Full Medicine DB (26,562+)', 'Base de Médicaments (26 562+)', 'Base de Medicamentos (26.562+)', 'DAWAYA Arzneimittel-DB (26.562+)')}
+          <UnslopIcon name="pill" size={16} color="#059669" />
+          <span>{tr(lang, 'قاعدة أدوية دوايا الشاملة (26,562+)', 'DAWAYA Full Medicine DB (26,562+)', 'Base de Médicaments (26 562+)', 'Base de Medicamentos (26.562+)', 'DAWAYA Arzneimittel-DB (26.562+)')}</span>
         </button>
 
         <button
@@ -261,12 +275,34 @@ export default function Dashboard() {
             background: tab === 'partners' ? 'var(--tint)' : 'var(--card-bg)',
             padding: '8px 14px',
             fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
           }}
         >
-          🤝 {tr(lang, 'إدارة الشركاء والصيدليات (Partners)', 'Partners & Pharmacies', 'Gestion des Partenaires', 'Socios y Farmacias', 'Partner & Apotheken')}
+          <UnslopIcon name="hospital" size={16} color="#059669" />
+          <span>{tr(lang, 'إدارة الشركاء والفرنشايز والتوثيق', 'Partners, Franchise & Verification', 'Gestion des Partenaires', 'Socios y Farmacias', 'Partner & Apotheken')}</span>
         </button>
 
-        {(role === 'owner' || role === 'admin') && (
+        <button
+          className={tab === 'pharmacy_portal' ? 'on' : ''}
+          onClick={() => setTab('pharmacy_portal')}
+          style={{
+            borderRadius: '10px',
+            border: tab === 'pharmacy_portal' ? '2px solid var(--teal)' : '1px solid var(--line)',
+            background: tab === 'pharmacy_portal' ? 'var(--tint)' : 'var(--card-bg)',
+            padding: '8px 14px',
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <UnslopIcon name="package" size={16} color="#059669" />
+          <span>{tr(lang, 'بوابة الصيدلية والمخزون والطلبات', 'Pharmacy Owner & Inventory Portal')}</span>
+        </button>
+
+        {isSuperOrAdmin && (
           <button
             className={tab === 'users' ? 'on' : ''}
             onClick={() => setTab('users')}
@@ -275,9 +311,13 @@ export default function Dashboard() {
               border: tab === 'users' ? '2px solid var(--teal)' : '1px solid var(--line)',
               background: tab === 'users' ? 'var(--tint)' : 'var(--card-bg)',
               padding: '8px 12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
           >
-            👥 {tr(lang, 'المستخدمون والصلاحيات (RBAC)', 'Users & Roles (RBAC)', 'Utilisateurs & Rôles', 'Usuarios y Roles', 'Benutzer & Rollen')}
+            <UnslopIcon name="users" size={16} color="#059669" />
+            <span>{tr(lang, 'المستخدمون والصلاحيات (RBAC)', 'Users & Roles (RBAC)', 'Utilisateurs & Rôles', 'Usuarios y Roles', 'Benutzer & Rollen')}</span>
           </button>
         )}
 
@@ -289,9 +329,13 @@ export default function Dashboard() {
             border: tab === 'content_articles' ? '2px solid var(--teal)' : '1px solid var(--line)',
             background: tab === 'content_articles' ? 'var(--tint)' : 'var(--card-bg)',
             padding: '8px 12px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
           }}
         >
-          📰 {tr(lang, 'إدارة المحتوى والمقالات الطبية', 'Content & Medical Articles', 'Contenu & Articles', 'Contenido y Artículos', 'Inhalte & Artikel')}
+          <UnslopIcon name="book" size={16} color="#059669" />
+          <span>{tr(lang, 'إدارة المحتوى والمقالات الطبية', 'Content & Medical Articles', 'Contenu & Articles', 'Contenido y Artículos', 'Inhalte & Artikel')}</span>
         </button>
 
         <button
@@ -302,9 +346,13 @@ export default function Dashboard() {
             border: tab === 'system_ai_audit' ? '2px solid var(--teal)' : '1px solid var(--line)',
             background: tab === 'system_ai_audit' ? 'var(--tint)' : 'var(--card-bg)',
             padding: '8px 12px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
           }}
         >
-          🤖 {tr(lang, 'الإحصائيات والذكاء الاصطناعي وسجل المراجعة', 'Analytics, AI Config, Data Sources & Audit Logs', 'IA, Sources & Audit', 'IA, Fuentes y Auditoría', 'KI, Datenquellen & Audit')}
+          <UnslopIcon name="cpu" size={16} color="#059669" />
+          <span>{tr(lang, 'الإحصائيات والذكاء الاصطناعي وسجل المراجعة', 'Analytics, AI Config, Data Sources & Audit Logs', 'IA, Sources & Audit', 'IA, Fuentes y Auditoría', 'KI, Datenquellen & Audit')}</span>
         </button>
 
         <button
@@ -315,9 +363,13 @@ export default function Dashboard() {
             border: tab === 'catalog' ? '2px solid var(--teal)' : '1px solid var(--line)',
             background: tab === 'catalog' ? 'var(--tint)' : 'var(--card-bg)',
             padding: '8px 12px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
           }}
         >
-          🧬 {tr(lang, 'العبوات الدوائية المرجعية (267+)', 'Reference Packages (267+)', 'Antibiotiques Commerciaux', 'Antibióticos Comerciales', 'Antibiotika-Katalog (206+)')}
+          <UnslopIcon name="flask" size={16} color="#059669" />
+          <span>{tr(lang, 'العبوات الدوائية المرجعية (267+)', 'Reference Packages (267+)', 'Antibiotiques Commerciaux', 'Antibióticos Comerciales', 'Antibiotika-Katalog (206+)')}</span>
         </button>
 
         <button
@@ -328,9 +380,13 @@ export default function Dashboard() {
             border: tab === 'meds' ? '2px solid var(--teal)' : '1px solid var(--line)',
             background: tab === 'meds' ? 'var(--tint)' : 'var(--card-bg)',
             padding: '8px 12px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
           }}
         >
-          📚 {tr(lang, 'المونوجرافات السريرية (32)', 'Clinical Monographs (32)', 'Monographies Cliniques (32)', 'Monografías Clínicas (32)', 'Klinische Monographien (32)')}
+          <UnslopIcon name="fileText" size={16} color="#059669" />
+          <span>{tr(lang, 'المونوجرافات السريرية (32)', 'Clinical Monographs (32)', 'Monographies Cliniques (32)', 'Monografías Clínicas (32)', 'Klinische Monographien (32)')}</span>
         </button>
 
         <button
@@ -341,12 +397,16 @@ export default function Dashboard() {
             border: tab === 'survey_bank' ? '2px solid var(--teal)' : '1px solid var(--line)',
             background: tab === 'survey_bank' ? 'var(--tint)' : 'var(--card-bg)',
             padding: '8px 12px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
           }}
         >
-          📋 {tr(lang, 'تعديل أسئلة الاستبيان والكويز', 'Edit Survey & Quiz Questions', 'Modifier Questions Quiz/Enquête', 'Editar Preguntas de Encuesta/Quiz', 'Umfrage- & Quizfragen bearbeiten')}
+          <UnslopIcon name="clipboard" size={16} color="#059669" />
+          <span>{tr(lang, 'تعديل أسئلة الاستبيان والكويز', 'Edit Survey & Quiz Questions', 'Modifier Questions Quiz/Enquête', 'Editar Preguntas de Encuesta/Quiz', 'Umfrage- & Quizfragen bearbeiten')}</span>
         </button>
 
-        {(role === 'owner' || role === 'admin') && (
+        {isSuperOrAdmin && (
           <button
             className={tab === 'research' ? 'on' : ''}
             onClick={() => setTab('research')}
@@ -355,13 +415,17 @@ export default function Dashboard() {
               border: tab === 'research' ? '2px solid var(--teal)' : '1px solid var(--line)',
               background: tab === 'research' ? 'var(--tint)' : 'var(--card-bg)',
               padding: '8px 12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
           >
-            📊 {t('tabResearch')}
+            <UnslopIcon name="chart" size={16} color="#059669" />
+            <span>{t('tabResearch')}</span>
           </button>
         )}
 
-        {(role === 'owner' || role === 'admin') && (
+        {isSuperOrAdmin && (
           <button
             className={tab === 'impact' ? 'on' : ''}
             onClick={() => setTab('impact')}
@@ -370,13 +434,17 @@ export default function Dashboard() {
               border: tab === 'impact' ? '2px solid var(--teal)' : '1px solid var(--line)',
               background: tab === 'impact' ? 'var(--tint)' : 'var(--card-bg)',
               padding: '8px 12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
           >
-            📈 {tr(lang, 'قياس الأثر والتعلم', 'Learning Impact', 'Impact d’Apprentissage', 'Impacto de Aprendizaje', 'Lernwirkung')}
+            <UnslopIcon name="activity" size={16} color="#059669" />
+            <span>{tr(lang, 'قياس الأثر والتعلم', 'Learning Impact', 'Impact d’Apprentissage', 'Impacto de Aprendizaje', 'Lernwirkung')}</span>
           </button>
         )}
 
-        {(role === 'owner' || role === 'admin') && (
+        {isSuperOrAdmin && (
           <button
             className={tab === 'quiz' ? 'on' : ''}
             onClick={() => setTab('quiz')}
@@ -385,24 +453,29 @@ export default function Dashboard() {
               border: tab === 'quiz' ? '2px solid var(--teal)' : '1px solid var(--line)',
               background: tab === 'quiz' ? 'var(--tint)' : 'var(--card-bg)',
               padding: '8px 12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
           >
-            📝 {tr(lang, 'نتائج الكويز', 'Quiz Results', 'Résultats du Quiz', 'Resultados del Quiz', 'Quiz-Ergebnisse')}
+            <UnslopIcon name="award" size={16} color="#059669" />
+            <span>{tr(lang, 'نتائج الكويز', 'Quiz Results', 'Résultats du Quiz', 'Resultados del Quiz', 'Quiz-Ergebnisse')}</span>
           </button>
         )}
       </div>
 
       {tab === 'dawaya_db' && <DawayaMedicineAdminManager uid={user.uid} role={role} />}
       {tab === 'partners' && <PartnerManagementCenter adminUid={user.uid} adminRole={role} />}
-      {tab === 'users' && (role === 'owner' || role === 'admin') && <UsersTab myUid={user.uid} />}
+      {tab === 'pharmacy_portal' && <PharmacyOwnerDashboard />}
+      {tab === 'users' && isSuperOrAdmin && <UsersTab myUid={user.uid} />}
       {tab === 'content_articles' && <DawayaContentAndArticlesAdmin uid={user.uid} role={role} />}
       {tab === 'system_ai_audit' && <DawayaSystemAiDataSourcesAndAuditAdmin uid={user.uid} role={role} />}
       {tab === 'catalog' && <CommercialCatalogTab uid={user.uid} />}
       {tab === 'meds' && <MedsTab role={role} uid={user.uid} />}
       {tab === 'survey_bank' && <SurveyQuizManagerTab uid={user.uid} />}
-      {tab === 'research' && (role === 'owner' || role === 'admin') && <ResearchTab />}
-      {tab === 'impact' && (role === 'owner' || role === 'admin') && <LearningImpactDashboard />}
-      {tab === 'quiz' && (role === 'owner' || role === 'admin') && <QuizResultsTab />}
+      {tab === 'research' && isSuperOrAdmin && <ResearchTab />}
+      {tab === 'impact' && isSuperOrAdmin && <LearningImpactDashboard />}
+      {tab === 'quiz' && isSuperOrAdmin && <QuizResultsTab />}
     </main>
   );
 }

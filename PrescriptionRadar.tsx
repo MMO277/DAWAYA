@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
 import { pick } from './types';
 import { createPortal } from 'react-dom';
@@ -1421,7 +1422,7 @@ export default function PrescriptionRadar() {
             <label htmlFor="radar-abx" style={{ fontWeight: 700, display: 'block', marginBottom: '6px' }}>
               💊 {isAr ? 'المضاد الحيوي في الروشتة:' : 'Prescribed Antibiotic:'}
             </label>
-            <select
+            <SmartNativeSelect
               id="radar-abx"
               value={selectedAbx}
               onChange={(e) => setSelectedAbx(e.target.value)}
@@ -1432,7 +1433,7 @@ export default function PrescriptionRadar() {
                   {isAr ? `${ing.nameAr} (${ing.nameEn})` : `${ing.nameEn} (${ing.nameAr})`}
                 </option>
               ))}
-            </select>
+            </SmartNativeSelect>
           </div>
 
           <div>
@@ -1452,7 +1453,7 @@ export default function PrescriptionRadar() {
             <label htmlFor="radar-freq" style={{ fontWeight: 700, display: 'block', marginBottom: '6px' }}>
               🔢 {isAr ? 'عدد الجرعات في اليوم (يحسب باقي المواعيد تلقائياً):' : 'Doses Per Day (Auto-Calculates Schedule):'}
             </label>
-            <select
+            <SmartNativeSelect
               id="radar-freq"
               value={frequency}
               onChange={(e) => setFrequency(e.target.value as RadarFrequency)}
@@ -1470,7 +1471,7 @@ export default function PrescriptionRadar() {
               <option value="q6h">
                 {isAr ? '4 جرعات يومياً (كل 6 ساعات)' : '4 Doses Daily (Every 6 hours)'}
               </option>
-            </select>
+            </SmartNativeSelect>
           </div>
         </div>
 
@@ -2685,7 +2686,7 @@ export default function PrescriptionRadar() {
                     <label>
                       <b>{isAr ? 'طريقة الاستعمال:' : 'Administration Route:'} *</b>
                     </label>
-                    <select value={route} onChange={(e) => setRoute(e.target.value)}>
+                    <SmartNativeSelect value={route} onChange={(e) => setRoute(e.target.value)}>
                       <option value="">
                         {isAr ? '— اختر طريقة الاستعمال من الروشتة —' : '— Select Route from Prescription —'}
                       </option>
@@ -2693,7 +2694,7 @@ export default function PrescriptionRadar() {
                       <option value="suspension">{isAr ? 'شراب معلق' : 'Oral Suspension'}</option>
                       <option value="injection">{isAr ? 'حقن (وريد/عضل)' : 'Injection'}</option>
                       <option value="topical">{isAr ? 'موضعي (كريم/مرهم)' : 'Topical'}</option>
-                    </select>
+                    </SmartNativeSelect>
                   </div>
                 </div>
 
@@ -2715,7 +2716,7 @@ export default function PrescriptionRadar() {
                     <label>
                       <b>🔢 {isAr ? 'التكرار اليومي بالروشتة (يحسب الأوقات تلقائياً):' : 'Prescribed Daily Frequency:'} *</b>
                     </label>
-                    <select value={scheduleFreq} onChange={(e) => handleScheduleFreqChange(e.target.value)}>
+                    <SmartNativeSelect value={scheduleFreq} onChange={(e) => handleScheduleFreqChange(e.target.value)}>
                       <option value="">
                         {isAr ? '— اختر عدد الجرعات يومياً من الروشتة —' : '— Select Doses Per Day —'}
                       </option>
@@ -2723,7 +2724,7 @@ export default function PrescriptionRadar() {
                       <option value="twice_daily">{isAr ? 'جرعتان يومياً (كل 12 ساعة)' : '2 doses daily (every 12h)'}</option>
                       <option value="thrice_daily">{isAr ? '3 جرعات يومياً (كل 8 ساعات)' : '3 doses daily (every 8h)'}</option>
                       <option value="four_times_daily">{isAr ? '4 جرعات يومياً (كل 6 ساعات)' : '4 doses daily (every 6h)'}</option>
-                    </select>
+                    </SmartNativeSelect>
                   </div>
                 </div>
 
@@ -2922,7 +2923,7 @@ export default function PrescriptionRadar() {
                   <label>
                     <b>{isAr ? 'حالة الجرعة:' : 'Dose Status:'}</b>
                   </label>
-                  <select
+                  <SmartNativeSelect
                     value={docModalStatus}
                     onChange={(e) => {
                       const st = e.target.value as 'taken' | 'missed';
@@ -2936,14 +2937,14 @@ export default function PrescriptionRadar() {
                     <option value="missed">
                       {isAr ? '❌ لم تُؤخذ (فائتة / مؤجلة طبياً)' : '❌ Not Taken (Missed / Clinician Hold)'}
                     </option>
-                  </select>
+                  </SmartNativeSelect>
                 </div>
 
                 <div className="form-group">
                   <label>
                     <b>{isAr ? 'تصنيف التوثيق:' : 'Documentation Category:'}</b>
                   </label>
-                  <select
+                  <SmartNativeSelect
                     value={docModalOutcome}
                     onChange={(e) => setDocModalOutcome(e.target.value as DoseDocumentedOutcome)}
                   >
@@ -2973,7 +2974,7 @@ export default function PrescriptionRadar() {
                         </option>
                       </>
                     )}
-                  </select>
+                  </SmartNativeSelect>
                 </div>
 
                 <div className="form-group">

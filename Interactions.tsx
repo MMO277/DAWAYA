@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -264,7 +265,7 @@ export default function Interactions() {
             <label>
               <b>1. {isAr ? 'الدواء الأساسي:' : 'Primary Medication:'}</b>
             </label>
-            <select
+            <SmartNativeSelect
               className="select-input"
               value={selectedMed}
               onChange={(e) => setSelectedMed(e.target.value)}
@@ -275,14 +276,14 @@ export default function Interactions() {
                   {pick(m.genericName, lang)} ({m.id})
                 </option>
               ))}
-            </select>
+            </SmartNativeSelect>
           </div>
 
           <div className="field-group">
             <label>
               <b>2. {isAr ? 'الطعام أو الدواء المتفاعل:' : 'Interacting Food or Medication:'}</b>
             </label>
-            <select
+            <SmartNativeSelect
               className="select-input"
               value={selectedTarget}
               onChange={(e) => setSelectedTarget(e.target.value)}
@@ -309,7 +310,7 @@ export default function Interactions() {
                   </option>
                 ))}
               </optgroup>
-            </select>
+            </SmartNativeSelect>
           </div>
         </div>
       </section>

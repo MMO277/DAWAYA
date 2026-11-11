@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
@@ -242,7 +243,7 @@ export function PartnerMedicationOrderModal({
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                    {isAr ?'اختر الفرع الأقرب إليك:':'Select Branch:'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={selectedBranchId}
                   onChange={(e) => setSelectedBranchId(e.target.value)}
@@ -252,7 +253,7 @@ export function PartnerMedicationOrderModal({
                       {isAr ? b.nameAr : b.nameEn} ({b.city})
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
             )}
 
@@ -295,7 +296,7 @@ export function PartnerMedicationOrderModal({
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                    {isAr ?'الكمية وفق الروشتة':'Pack Quantity'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={quantityPacks}
                   onChange={(e) => setQuantityPacks(Number(e.target.value) || 1)}
@@ -303,7 +304,7 @@ export function PartnerMedicationOrderModal({
                   <option value={1}>1 {isAr ? 'عبوة' : 'Pack'}</option>
                   <option value={2}>2 {isAr ? 'عبوات' : 'Packs'}</option>
                   <option value={3}>3 {isAr ? 'عبوات' : 'Packs'}</option>
-                </select>
+                </SmartNativeSelect>
               </div>
             </div>
 
@@ -318,7 +319,7 @@ export function PartnerMedicationOrderModal({
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                    {isAr ?'المحافظة':'Governorate'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={govId}
                   onChange={(e) => setGovId(e.target.value)}
@@ -328,7 +329,7 @@ export function PartnerMedicationOrderModal({
                       {isAr ? g.nameAr : g.nameEn}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div>
@@ -541,7 +542,7 @@ export default function FindMedicationPanel({
           <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
             1⃣ {isAr ?'اختر العبوة التجارية والتركيز:':'1. Select Medication Package:'}
           </label>
-          <select
+          <SmartNativeSelect
             className="input"
             value={selectedProduct.productId}
             onChange={(e) => setSelectedProdId(e.target.value)}
@@ -552,7 +553,7 @@ export default function FindMedicationPanel({
                 {pick(pkg.dosageFormLabel, lang)})
               </option>
             ))}
-          </select>
+          </SmartNativeSelect>
         </div>
 
         <div className="small" style={{ lineHeight: 1.7 }}>
@@ -588,7 +589,7 @@ export default function FindMedicationPanel({
           <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
             5⃣ {isAr ?'حدد محافظتك لعرض الصيدليات المتاحة:':'5. Filter by Your Governorate:'}
           </label>
-          <select
+          <SmartNativeSelect
             className="input"
             value={selectedGovId}
             onChange={(e) => {
@@ -602,7 +603,7 @@ export default function FindMedicationPanel({
                 {isAr ? g.nameAr : g.nameEn}
               </option>
             ))}
-          </select>
+          </SmartNativeSelect>
         </div>
       </div>
 

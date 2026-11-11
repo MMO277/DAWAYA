@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { FormEvent, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
@@ -234,7 +235,7 @@ export function QuickProductEditorModal({
             <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
               🧪 {tr(lang, 'المادة الفعالة التابع لها الدواء:', 'Active Ingredient:')}
             </label>
-            <select
+            <SmartNativeSelect
               className="input"
               value={draft.activeIngredientId}
               onChange={(e) => handleIngChange(e.target.value)}
@@ -244,7 +245,7 @@ export function QuickProductEditorModal({
                   {isAr ? `${ing.nameAr} (${ing.nameEn})` : `${ing.nameEn} (${ing.nameAr})`}
                 </option>
               ))}
-            </select>
+            </SmartNativeSelect>
           </div>
 
           <div>
@@ -378,7 +379,7 @@ export function QuickProductEditorModal({
             <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
               💊 {tr(lang, 'الشكل الصيدلاني:', 'Dosage Form:')}
             </label>
-            <select
+            <SmartNativeSelect
               className="input"
               value={draft.dosageForm}
               onChange={(e) => setDraft({ ...draft, dosageForm: e.target.value as DosageFormType })}
@@ -388,14 +389,14 @@ export function QuickProductEditorModal({
                   {pick(DOSAGE_FORM_LABELS[df], lang)}
                 </option>
               ))}
-            </select>
+            </SmartNativeSelect>
           </div>
 
           <div>
             <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
               💉 {tr(lang, 'طريق الإعطاء:', 'Administration Route:')}
             </label>
-            <select
+            <SmartNativeSelect
               className="input"
               value={draft.route}
               onChange={(e) => setDraft({ ...draft, route: e.target.value as AdministrationRoute })}
@@ -405,7 +406,7 @@ export function QuickProductEditorModal({
                   {pick(ROUTE_LABELS[rt], lang)}
                 </option>
               ))}
-            </select>
+            </SmartNativeSelect>
           </div>
         </div>
 
@@ -654,21 +655,21 @@ export default function CommercialCatalogTab({ uid }: { uid: string }) {
             <label className="small muted" style={{ fontWeight: 700 }}>
               🧪 {tr(lang, 'تصفية حسب المادة الفعالة:', 'Filter by Active Ingredient:')}
             </label>
-            <select className="input" value={ingFilter} onChange={(e) => setIngFilter(e.target.value)}>
+            <SmartNativeSelect className="input" value={ingFilter} onChange={(e) => setIngFilter(e.target.value)}>
               <option value="all">{tr(lang, 'جميع المواد الفعالة (32)', 'All Active Ingredients (32)')}</option>
               {ingredients.map((ing) => (
                 <option key={ing.id} value={ing.id}>
                   {isAr ? ing.nameAr : ing.nameEn}
                 </option>
               ))}
-            </select>
+            </SmartNativeSelect>
           </div>
 
           <div>
             <label className="small muted" style={{ fontWeight: 700 }}>
               🏷️ {tr(lang, 'تصفية حسب حالة الباركود والتعديل:', 'Filter by Status:')}
             </label>
-            <select
+            <SmartNativeSelect
               className="input"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
@@ -677,7 +678,7 @@ export default function CommercialCatalogTab({ uid }: { uid: string }) {
               <option value="missing_barcode">{tr(lang, `بدون باركود - لإضافته سريعاً (${missingBarcodeCount})`, `Missing Barcode (${missingBarcodeCount})`)}</option>
               <option value="verified_barcode">{tr(lang, 'موثق الباركود فقط', 'Verified Barcode Only')}</option>
               <option value="modified">{tr(lang, `المعدلة أو المضافة حديثاً (${modifiedCount + customAddedCount})`, `Modified / Custom Only (${modifiedCount + customAddedCount})`)}</option>
-            </select>
+            </SmartNativeSelect>
           </div>
         </div>
 

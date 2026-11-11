@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -168,7 +169,7 @@ export default function AllergyChecker() {
             <label>
               <b>1. {isAr ? 'اختر من المواد الفعالة المرجعية السريعة:' : '1. Select Reference Active Ingredient:'}</b>
             </label>
-            <select
+            <SmartNativeSelect
               className="select-input"
               value={selectedDrugId}
               onChange={(e) => {
@@ -182,7 +183,7 @@ export default function AllergyChecker() {
                   {isAr ? info.nameAr : info.nameEn}
                 </option>
               ))}
-            </select>
+            </SmartNativeSelect>
           </div>
 
           <div className="field-group">

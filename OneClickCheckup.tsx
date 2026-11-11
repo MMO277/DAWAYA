@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import React, { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -329,7 +330,7 @@ export default function OneClickCheckup() {
               <label className="small" style={{ color: '#99f6e4', fontWeight: 800, display: 'block', marginBottom: '4px' }}>
                 1. {tr(lang, 'أو اختر من المواد الفعالة المرجعية:', 'Or Select Reference Active Ingredient:')}
               </label>
-              <select
+              <SmartNativeSelect
                 value={selectedIngredientId}
                 onChange={(e) => {
                   setSelectedDawayaItem(null);
@@ -351,14 +352,14 @@ export default function OneClickCheckup() {
                     {isAr ? ing.nameAr : ing.nameEn}
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
             </div>
 
             <div>
               <label className="small" style={{ color: '#99f6e4', fontWeight: 800, display: 'block', marginBottom: '4px' }}>
                 2. {tr(lang, 'اختر العبوة التجارية المصرية:', 'Select Commercial Package:')}
               </label>
-              <select
+              <SmartNativeSelect
                 value={activePkg?.productId || ''}
                 onChange={(e) => {
                   setSelectedDawayaItem(null);
@@ -379,7 +380,7 @@ export default function OneClickCheckup() {
                     {isAr ? pkg.tradeNameAr : pkg.tradeNameEn} — {pkg.strength} ({pkg.priceEgp ? `${pkg.priceEgp} EGP` : ''})
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
             </div>
 
             <div>

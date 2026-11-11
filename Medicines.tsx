@@ -1,4 +1,4 @@
-import SmartChoiceSelect from './SmartChoiceSelect';
+import SmartChoiceSelect, { SmartNativeSelect } from './SmartChoiceSelect';
 import { createPortal } from 'react-dom';
 import { DosageFormVectorBadge, Realistic3DMedicineThumb } from './DawayaVectorIcons';
 import {
@@ -618,7 +618,7 @@ export default function Medicines() {
               <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
                 {isAr ? 'المادة الفعالة (مضادات حيوية):' : 'Antibiotic Active Ingredient:'}
               </label>
-              <select
+              <SmartNativeSelect
                 value={selectedIngFilter}
                 onChange={(e) => {
                   setSelectedIngFilter(e.target.value);
@@ -631,14 +631,14 @@ export default function Medicines() {
                     {isAr ? `${ing.nameAr} (${ing.nameEn})` : `${ing.nameEn} (${ing.nameAr})`}
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
             </div>
 
             <div>
               <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
                 {isAr ? 'الشكل الصيدلاني:' : 'Dosage Form:'}
               </label>
-              <select
+              <SmartNativeSelect
                 value={selectedFormFilter}
                 onChange={(e) => {
                   setSelectedFormFilter(e.target.value);
@@ -651,14 +651,14 @@ export default function Medicines() {
                     {pick(DOSAGE_FORM_LABELS[k], lang)}
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
             </div>
 
             <div>
               <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
                 {isAr ? 'ترتيب النتائج:' : 'Sort By:'}
               </label>
-              <select
+              <SmartNativeSelect
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
               >
@@ -666,7 +666,7 @@ export default function Medicines() {
                 <option value="name">{isAr ? 'الاسم التجاري (أبجدياً)' : 'Trade Name (A-Z)'}</option>
                 <option value="price_asc">{isAr ? 'السعر: من الأقل إلى الأعلى' : 'Price: Low to High'}</option>
                 <option value="price_desc">{isAr ? 'السعر: من الأعلى إلى الأقل' : 'Price: High to Low'}</option>
-              </select>
+              </SmartNativeSelect>
             </div>
           </div>
         )}

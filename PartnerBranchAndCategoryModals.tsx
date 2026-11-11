@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { FormEvent, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLang } from './i18n';
@@ -266,7 +267,7 @@ export function PartnerBranchManagerModal({
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                   {isAr ? 'المحافظة *' : 'Governorate *'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={editingBranch.governorateId}
                   onChange={(e) =>
@@ -278,7 +279,7 @@ export function PartnerBranchManagerModal({
                       {isAr ? g.nameAr : g.nameEn}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div>
@@ -392,7 +393,7 @@ export function PartnerBranchManagerModal({
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                   {isAr ? 'حالة الفرع' : 'Branch Status'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={editingBranch.branchStatus}
                   onChange={(e) =>
@@ -406,7 +407,7 @@ export function PartnerBranchManagerModal({
                   <option value="inactive">{isAr ? 'غير نشط (Inactive)' : 'Inactive'}</option>
                   <option value="temporarily_closed">{isAr ? 'مغلق مؤقتاً' : 'Temporarily Closed'}</option>
                   <option value="draft">{isAr ? 'مسودة (Draft)' : 'Draft'}</option>
-                </select>
+                </SmartNativeSelect>
               </div>
               <div>
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
@@ -1030,7 +1031,7 @@ export function PartnerMedicationMappingModal({
               <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                 {isAr ? 'اختر المستحضر من قاعدة البيانات المصرية (26,572+)' : 'Select Medication Package'}
               </label>
-              <select
+              <SmartNativeSelect
                 className="input"
                 value={selectedProdId}
                 onChange={(e) => setSelectedProdId(e.target.value)}
@@ -1044,14 +1045,14 @@ export function PartnerMedicationMappingModal({
                     </option>
                   );
                 })}
-              </select>
+              </SmartNativeSelect>
             </div>
 
             <div>
               <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                 {isAr ? 'حالة التوفر الموثقة' : 'Verified Stock Status'}
               </label>
-              <select
+              <SmartNativeSelect
                 className="input"
                 value={stockStatus}
                 onChange={(e) => setStockStatus(e.target.value as StockVerificationState)}
@@ -1070,7 +1071,7 @@ export function PartnerMedicationMappingModal({
                 <option value="out_of_stock_verified">
                   {isAr ? 'غير متوفر حالياً (مؤكد)' : 'Out of Stock (Verified)'}
                 </option>
-              </select>
+              </SmartNativeSelect>
             </div>
 
             <div>

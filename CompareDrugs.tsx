@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -471,7 +472,7 @@ export default function CompareDrugs() {
               <label style={{ fontWeight: 700, display: 'block', marginBottom: '8px', color: '#0284c7' }}>
                 1️⃣ {isAr ? 'المستحضر التجاري الأول:' : 'First Commercial Package:'}
               </label>
-              <select value={pkgIdA} onChange={(e) => setPkgIdA(e.target.value)}>
+              <SmartNativeSelect value={pkgIdA} onChange={(e) => setPkgIdA(e.target.value)}>
                 {EGYPTIAN_COMMERCIAL_PRODUCTS.map((p) => (
                   <option key={p.productId} value={p.productId}>
                     {isAr
@@ -479,14 +480,14 @@ export default function CompareDrugs() {
                       : `${p.tradeNameEn} (${p.tradeNameAr}) — ${p.priceEgp} EGP`}
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
             </div>
 
             <div className="card" style={{ borderTop: '4px solid #0d9488' }}>
               <label style={{ fontWeight: 700, display: 'block', marginBottom: '8px', color: '#0d9488' }}>
                 2️⃣ {isAr ? 'المستحضر التجاري الثاني:' : 'Second Commercial Package:'}
               </label>
-              <select value={pkgIdB} onChange={(e) => setPkgIdB(e.target.value)}>
+              <SmartNativeSelect value={pkgIdB} onChange={(e) => setPkgIdB(e.target.value)}>
                 {EGYPTIAN_COMMERCIAL_PRODUCTS.map((p) => (
                   <option key={p.productId} value={p.productId}>
                     {isAr
@@ -494,7 +495,7 @@ export default function CompareDrugs() {
                       : `${p.tradeNameEn} (${p.tradeNameAr}) — ${p.priceEgp} EGP`}
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
             </div>
           </div>
 
@@ -670,26 +671,26 @@ export default function CompareDrugs() {
               <label style={{ fontWeight: 700, display: 'block', marginBottom: '8px', color: '#0284c7' }}>
                 1️⃣ {isAr ? 'المادة الفعالة الأولى:' : 'First Active Ingredient:'}
               </label>
-              <select value={medIdA} onChange={(e) => setMedIdA(e.target.value)}>
+              <SmartNativeSelect value={medIdA} onChange={(e) => setMedIdA(e.target.value)}>
                 {ALL_LOCAL_MEDICINES.map((m) => (
                   <option key={m.id} value={m.id}>
                     {pick(m.genericName, lang)} ({m.id})
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
             </div>
 
             <div className="card" style={{ borderTop: '4px solid #0d9488' }}>
               <label style={{ fontWeight: 700, display: 'block', marginBottom: '8px', color: '#0d9488' }}>
                 2️⃣ {isAr ? 'المادة الفعالة الثانية:' : 'Second Active Ingredient:'}
               </label>
-              <select value={medIdB} onChange={(e) => setMedIdB(e.target.value)}>
+              <SmartNativeSelect value={medIdB} onChange={(e) => setMedIdB(e.target.value)}>
                 {ALL_LOCAL_MEDICINES.map((m) => (
                   <option key={m.id} value={m.id}>
                     {pick(m.genericName, lang)} ({m.id})
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
             </div>
           </div>
 

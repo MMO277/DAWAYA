@@ -91,6 +91,7 @@ export default function PharmacyOwnerDashboard() {
 
   // Inventory Form State
   const [invSearchQ, setInvSearchQ] = useState('');
+  const [invRadarFilter, setInvRadarFilter] = useState<'all' | 'low_stock' | 'expiring_soon'>('all');
   const [selectedMedId, setSelectedMedId] = useState('EG-ABX-001');
   const [tradeNameAr, setTradeNameAr] = useState('أوجمنتين 1 جرام');
   const [tradeNameEn, setTradeNameEn] = useState('Augmentin 1g');
@@ -131,6 +132,35 @@ export default function PharmacyOwnerDashboard() {
   const [empPhone, setEmpPhone] = useState('');
   const [empRole, setEmpRole] = useState<'pharmacy_manager' | 'pharmacist' | 'employee'>('pharmacist');
   const [empSyndicate, setEmpSyndicate] = useState('');
+
+  const handleExportInventoryCsv = () => {
+    const headers = ['TradeName_AR', 'TradeName_EN', 'ActiveIngredient', 'Strength', 'Price_EGP', 'Quantity_Packs', 'StockStatus', 'BatchNumber', 'ExpiryDate'];
+    const rows = myInventory.map((it) => [
+      `"${(it.tradeNameAr || '').replace(/"/g, '""')}"`,
+      `"${(it.tradeNameEn || '').replace(/"/g, '""')}"`,
+      `"${(it.activeIngredient || '').replace(/"/g, '""')}"`,
+      `"${(it.strength || '').replace(/"/g, '""')}"`,
+      it.pharmacyPriceEgp,
+      it.quantityPacks,
+      it.stockStatus,
+      `"${(it.batchNumber || '').replace(/"/g, '""')}"`,
+      it.expiryDateYYYYMMDD,
+    ]);
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dawaya-pharmacy-inventory-${activePharmacyId}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const filteredRadarInventory = useMemo(() => {
+    if (invRadarFilter === 'low_stock') return lowStockItems;
+    if (invRadarFilter === 'expiring_soon') return expiringSoonItems;
+    return myInventory;
+  }, [myInventory, lowStockItems, expiringSoonItems, invRadarFilter]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -542,7 +572,42 @@ export default function PharmacyOwnerDashboard() {
           </section>
 
           <section className="card stack">
-            <h3 style={{ margin: 0 }}>{isAr ? 'قائمة أدوية ومخزون الصيدلية الحالي' : 'Current Pharmacy Inventory'}</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+              <div>
+                <h3 style={{ margin: 0 }}>{isAr ? 'رادار المخزون والنواقص وتواريخ الصلاحية الذكي' : 'Smart Inventory, Shortage & Batch Expiry Radar'}</h3>
+                <p className="small muted" style={{ margin: '2px 0 0' }}>
+                  {isAr ? 'فلترة فورية للنواقص والتشغيلات التي تقترب من انتهاء الصلاحية مع تصدير كشف CSV للصيدلي' : 'Instant filter for shortages and expiring batches with one-click CSV export'}
+                </p>
+              </div>
+              <button type="button" className="btn small ghost" onClick={handleExportInventoryCsv}>
+                {isAr ? 'تصدير كشف المخزون والنواقص (CSV)' : 'Export Inventory & Shortages (CSV)'}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              <button
+                type="button"
+                className={invRadarFilter === 'all' ? 'btn small' : 'btn small ghost'}
+                onClick={() => setInvRadarFilter('all')}
+              >
+                {isAr ? `كل الأصناف (${myInventory.length})` : `All Items (${myInventory.length})`}
+              </button>
+              <button
+                type="button"
+                className={invRadarFilter === 'low_stock' ? 'btn small' : 'btn small ghost'}
+                onClick={() => setInvRadarFilter('low_stock')}
+              >
+                {isAr ? `تنبيهات النواقص (${lowStockItems.length})` : `Low / Out of Stock (${lowStockItems.length})`}
+              </button>
+              <button
+                type="button"
+                className={invRadarFilter === 'expiring_soon' ? 'btn small' : 'btn small ghost'}
+                onClick={() => setInvRadarFilter('expiring_soon')}
+              >
+                {isAr ? `قرب انتهاء الصلاحية <90 يوم (${expiringSoonItems.length})` : `Expiring <90 Days (${expiringSoonItems.length})`}
+              </button>
+            </div>
+
             <div className="tablewrap">
               <table>
                 <thead>
@@ -557,7 +622,7 @@ export default function PharmacyOwnerDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {myInventory.map((item) => {
+                  {filteredRadarInventory.map((item) => {
                     const st = PHARMACY_STOCK_STATUS_LABELS[item.stockStatus];
                     return (
                       <tr key={item.id}>

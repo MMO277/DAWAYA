@@ -1,4 +1,4 @@
-import SmartChoiceSelect from './SmartChoiceSelect';
+import SmartChoiceSelect, { SmartNativeSelect } from './SmartChoiceSelect';
 import {
   evaluateDrugHydrationRequirement,
   evaluatePillSplittingAndMealProtocol,
@@ -2007,7 +2007,7 @@ export default function Tracker() {
                   <label>
                     <b>{isAr ? 'حالة الجرعة:' : 'Dose Status:'}</b>
                   </label>
-                  <select
+                  <SmartNativeSelect
                     value={docModalStatus}
                     onChange={(e) => {
                       const st = e.target.value as 'taken' | 'missed';
@@ -2021,14 +2021,14 @@ export default function Tracker() {
                     <option value="missed">
                       {isAr ? '❌ لم تُؤخذ (فائتة / مؤجلة طبياً)' : '❌ Not Taken (Missed / Clinician Hold)'}
                     </option>
-                  </select>
+                  </SmartNativeSelect>
                 </div>
 
                 <div className="form-group">
                   <label>
                     <b>{isAr ? 'تصنيف التوثيق:' : 'Documentation Category:'}</b>
                   </label>
-                  <select
+                  <SmartNativeSelect
                     value={docModalOutcome}
                     onChange={(e) => setDocModalOutcome(e.target.value as DoseDocumentedOutcome)}
                   >
@@ -2058,7 +2058,7 @@ export default function Tracker() {
                         </option>
                       </>
                     )}
-                  </select>
+                  </SmartNativeSelect>
                 </div>
 
                 <div className="form-group">

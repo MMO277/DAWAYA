@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import VoiceDoctorCallModal from './VoiceDoctorCallModal';
 import { pick, tr } from './types';
 import { useEmergencyLocation, pickCountryName } from './emergencyLocation';
@@ -720,7 +721,7 @@ export default function ChatWidget() {
                   )}
                 </b>
               </span>
-              <select
+              <SmartNativeSelect
                 value={selectedOverride}
                 onChange={(e) => setCountryOverride(e.target.value)}
                 aria-label={tr(
@@ -757,7 +758,7 @@ export default function ChatWidget() {
                     {c.flag} {pickCountryName(c, lang)} ({c.number})
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
             </div>
 
             <a

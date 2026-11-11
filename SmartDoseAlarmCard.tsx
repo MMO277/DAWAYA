@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLang } from './i18n';
@@ -877,7 +878,7 @@ export default function SmartDoseAlarmCard({
             </div>
 
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <select
+              <SmartNativeSelect
                 value={prefs.ringtoneId}
                 onChange={(e) => handleRingtoneChange(e.target.value as AlarmRingtoneId)}
                 style={{
@@ -897,7 +898,7 @@ export default function SmartDoseAlarmCard({
                     {isAr ? opt.labelAr : opt.labelEn}
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
 
               <button
                 type="button"

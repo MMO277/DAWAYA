@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { pick, tr } from './types';
 import { useEmergencyLocation, formatEmergencyText, pickCountryName } from './emergencyLocation';
 import { useMemo, useState } from 'react';
@@ -81,7 +82,7 @@ export default function SideEffectsGuide() {
               )}
             </b>
           </a>
-          <select
+          <SmartNativeSelect
             value={selectedOverride}
             onChange={(e) => setCountryOverride(e.target.value)}
             aria-label={tr(lang, 'تغيير الدولة لرقم الطوارئ', 'Change emergency country', 'Changer le pays d’urgence', 'Cambiar país de emergencia')}
@@ -104,7 +105,7 @@ export default function SideEffectsGuide() {
                 {c.flag} {pickCountryName(c, lang)} — {c.number}
               </option>
             ))}
-          </select>
+          </SmartNativeSelect>
         </div>
       </section>
 

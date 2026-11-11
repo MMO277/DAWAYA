@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import SmartDoseAlarmCard from './SmartDoseAlarmCard';
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -397,7 +398,7 @@ export default function DailyScheduleGenerator() {
             <label htmlFor="sched-wake-hour" className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '5px' }}>
               🌅 {tr(lang, 'موعد الاستيقاظ وأول جرعة صباحية:', 'Wake-up & First Morning Dose Time:')}
             </label>
-            <select
+            <SmartNativeSelect
               id="sched-wake-hour"
               className="input"
               value={wakeHour}
@@ -408,7 +409,7 @@ export default function DailyScheduleGenerator() {
                   {formatHour12(h, isAr)}
                 </option>
               ))}
-            </select>
+            </SmartNativeSelect>
           </div>
         </div>
 
@@ -501,7 +502,7 @@ export default function DailyScheduleGenerator() {
 
               <div className="schedule-row-field interval-col">
                 <label className="small muted">{tr(lang, 'التكرار اليومي', 'Frequency')}</label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={row.intervalHours}
                   onChange={(e) => updateRow(row.id, { intervalHours: Number(e.target.value) as IntervalHours })}
@@ -510,12 +511,12 @@ export default function DailyScheduleGenerator() {
                   <option value={12}>{tr(lang, 'كل 12 ساعة (مرتين يومياً)', 'Every 12h (Twice daily)')}</option>
                   <option value={8}>{tr(lang, 'كل 8 ساعات (3 مرات يومياً)', 'Every 8h (3x daily)')}</option>
                   <option value={6}>{tr(lang, 'كل 6 ساعات (4 مرات يومياً)', 'Every 6h (4x daily)')}</option>
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div className="schedule-row-field meal-col">
                 <label className="small muted">{tr(lang, 'تعليمات الأكل والامتصاص', 'Meal & Absorption Rule')}</label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={row.mealRule}
                   onChange={(e) => updateRow(row.id, { mealRule: e.target.value as MealInstructionKey })}
@@ -525,12 +526,12 @@ export default function DailyScheduleGenerator() {
                       {pick(MEAL_RULE_LABELS[k], lang)}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div className="schedule-row-field days-col">
                 <label className="small muted">{tr(lang, 'مدة الكورس / المتابعة', 'Duration')}</label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={row.durationDays}
                   onChange={(e) => updateRow(row.id, { durationDays: Number(e.target.value) })}
@@ -540,7 +541,7 @@ export default function DailyScheduleGenerator() {
                       {d} {tr(lang, 'أيام', 'days')}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               {rows.length > 1 && (

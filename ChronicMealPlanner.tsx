@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 
 // ── Egyptian Carb & Rapid Insulin Calculator (Embedded inside Meal Planner) ──
 function EgyptianCarbCalculatorView() {
@@ -45,7 +46,7 @@ function EgyptianCarbCalculatorView() {
           <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
             اختر الأكلة المصرية:
           </label>
-          <select
+          <SmartNativeSelect
             value={selectedFood}
             onChange={(e) => setSelectedFood(e.target.value)}
             style={{ width: '100%', padding: '10px 12px', borderRadius: '12px', border: '1.5px solid #cbd5e1', fontWeight: 800, fontSize: '0.92rem' }}
@@ -55,7 +56,7 @@ function EgyptianCarbCalculatorView() {
                 {f.nameAr} (~{f.carbsPerUnit} جم نشويات)
               </option>
             ))}
-          </select>
+          </SmartNativeSelect>
         </div>
 
         <div>

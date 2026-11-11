@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { pick } from './types';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -176,7 +177,7 @@ export default function PediatricHelper() {
       <section className="card stack">
         <h2>💊 {isAr ? '1. اختر دواء الشراب لحساب الجرعة بالسنتي (مل):' : '1. Select Pediatric Syrup / Suspension:'}</h2>
         <div className="field-group">
-          <select
+          <SmartNativeSelect
             className="select-input"
             value={selectedId}
             onChange={(e) => setSelectedId(e.target.value)}
@@ -187,7 +188,7 @@ export default function PediatricHelper() {
                 {pick(med.tradeName, lang)} — ({pick(med.genericName, lang)})
               </option>
             ))}
-          </select>
+          </SmartNativeSelect>
         </div>
 
         {/* Live 26,562 DAWAYA Pediatric Syrup Lookup */}

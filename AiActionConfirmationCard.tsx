@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 /**
  * AiActionConfirmationCard.tsx
  *
@@ -288,7 +289,7 @@ export default function AiActionConfirmationCard({
 
               {editing && field.editable && proposal.status === 'pending_confirmation' ? (
                 field.inputType === 'select' && field.options ? (
-                  <select
+                  <SmartNativeSelect
                     value={currentVal}
                     onChange={(e) =>
                       setFieldValues((prev) => ({ ...prev, [field.key]: e.target.value }))
@@ -307,7 +308,7 @@ export default function AiActionConfirmationCard({
                         {isAr ? opt.labelAr : opt.labelEn}
                       </option>
                     ))}
-                  </select>
+                  </SmartNativeSelect>
                 ) : (
                   <input
                     type={field.inputType === 'number' ? 'number' : 'text'}

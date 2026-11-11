@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -294,7 +295,7 @@ export default function PartnersDirectoryPage() {
               <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
                  {isAr ?'فئة الشريك الصحي:':'Partner Category:'}
               </label>
-              <select
+              <SmartNativeSelect
                 className="input"
                 value={selectedCatId}
                 onChange={(e) => setSelectedCatId(e.target.value)}
@@ -305,14 +306,14 @@ export default function PartnersDirectoryPage() {
                     {c.icon} {isAr ? c.nameAr : c.nameEn}
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
             </div>
 
             <div>
               <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
                  {isAr ?'المحافظة:':'Governorate:'}
               </label>
-              <select
+              <SmartNativeSelect
                 className="input"
                 value={selectedGovId}
                 onChange={(e) => {
@@ -326,7 +327,7 @@ export default function PartnersDirectoryPage() {
                     {isAr ? g.nameAr : g.nameEn}
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
             </div>
 
             {selectedGovMeta && (
@@ -334,7 +335,7 @@ export default function PartnersDirectoryPage() {
                 <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
                    {isAr ?'المدينة / المنطقة:':'City / Area:'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={selectedCity}
                   onChange={(e) => setSelectedCity(e.target.value)}
@@ -345,7 +346,7 @@ export default function PartnersDirectoryPage() {
                       {isAr ? mc.ar : mc.en}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
             )}
           </div>
@@ -620,10 +621,19 @@ export default function PartnersDirectoryPage() {
         </div>
       )}
 
-      {/* TAB 3: PATIENT ORDER TRACKING & HISTORY */}
+      {/* TAB 3: PATIENT 8-STAGE LIVE ORDER TRACKING & HISTORY */}
       {activeTab === 'orders' && (
         <section className="card stack">
-          <h2> {isAr ?'متابعة حالة طلبات الصرف والروشتات':'Order Status & Prescription Review Tracking'}</h2>
+          <div>
+            <h2 style={{ margin: '0 0 4px' }}>
+              {isAr ? 'متابعة حالة طلبات الأدوية والروشتات اللحظية (8 مراحل)' : 'Live 8-Stage Medication & Prescription Order Tracker'}
+            </h2>
+            <p className="small muted" style={{ margin: 0 }}>
+              {isAr
+                ? 'حماية للمريض: لا يتم اعتبار الطلب مؤكداً إلا بعد مراجعة الصيدلي للوصفة وتأكيد الرصيد الفعلي بالصيدلية.'
+                : 'Patient Protection: Orders are only confirmed after pharmacist verification and real-time stock confirmation.'}
+            </p>
+          </div>
           {orders.length === 0 ? (
             <p className="muted">
               {isAr
@@ -631,34 +641,86 @@ export default function PartnersDirectoryPage() {
                 : 'No orders found in your current session. Open any medication page and use "Find This Medication" to submit a prescription order.'}
             </p>
           ) : (
-            <div className="stack" style={{ gap: '12px' }}>
-              {orders.map((ord) => (
-                <div key={ord.id} className="subcard stack" style={{ borderInlineStart: '4px solid #0d9488' }}>
-                  <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <b dir="ltr">{ord.orderNumber}</b> —{' '}
-                      <strong>{isAr ? ord.medicationNameAr : ord.medicationNameEn}</strong> ({ord.strength})
+            <div className="stack" style={{ gap: '14px' }}>
+              {orders.map((ord) => {
+                const stages = [
+                  { key: 'new_order', ar: 'طلب جديد', en: 'New Order' },
+                  { key: 'pharmacy_confirmation', ar: 'تأكيد الصيدلية', en: 'Pharmacy Confirmed' },
+                  { key: 'preparing', ar: 'جاري التجهيز', en: 'Preparing' },
+                  { key: 'ready_for_delivery', ar: 'جاهز للتوصيل', en: 'Ready' },
+                  { key: 'out_for_delivery', ar: 'خرج للتوصيل', en: 'Out for Delivery' },
+                  { key: 'delivered', ar: 'تم التسليم', en: 'Delivered' },
+                ];
+                const normStatus =
+                  ord.status === 'pending_pharmacy_review' ? 'new_order' :
+                  ord.status === 'confirmed_available' ? 'pharmacy_confirmation' :
+                  ord.status === 'ready_for_pickup_or_delivery' ? 'ready_for_delivery' :
+                  ord.status === 'completed' ? 'delivered' : ord.status;
+                const activeIdx = stages.findIndex((s) => s.key === normStatus);
+
+                return (
+                  <div key={ord.id} className="subcard stack" style={{ borderInlineStart: '4px solid #0d9488', gap: '12px' }}>
+                    <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <b dir="ltr">{ord.orderNumber}</b> —{' '}
+                        <strong>{isAr ? ord.medicationNameAr : ord.medicationNameEn}</strong> ({ord.strength})
+                      </div>
+                      <span className="badge approved" style={{ fontWeight: 800 }}>
+                        {activeIdx >= 0 ? (isAr ? stages[activeIdx].ar : stages[activeIdx].en) : ord.status}
+                      </span>
                     </div>
-                    <span className="badge approved">{ord.status}</span>
+
+                    <div className="small muted">
+                      {isAr ? ord.partnerNameAr : ord.partnerNameEn}{' '}
+                      {ord.branchNameAr ? `(${isAr ? ord.branchNameAr : ord.branchNameEn})` : ''} ·{' '}
+                      {ord.createdAtIso.slice(0, 10)}
+                    </div>
+
+                    {/* Visual 6-Step Progress Bar */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                        gap: '6px',
+                      }}
+                    >
+                      {stages.map((st, idx) => {
+                        const isDone = activeIdx >= idx;
+                        const isCurrent = activeIdx === idx;
+                        return (
+                          <div
+                            key={st.key}
+                            style={{
+                              padding: '8px 10px',
+                              borderRadius: '10px',
+                              border: isCurrent ? '2px solid #059669' : '1px solid var(--line)',
+                              background: isDone ? 'rgba(16, 185, 129, 0.12)' : 'var(--card-bg)',
+                              fontSize: '0.76rem',
+                              fontWeight: isDone ? 800 : 600,
+                              color: isDone ? '#047857' : '#64748b',
+                              textAlign: 'center',
+                            }}
+                          >
+                            {idx + 1}. {isAr ? st.ar : st.en}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="small">
+                      <b>{isAr ? 'سجل التتبع والتأكيد:' : 'Verification & Status History:'}</b>
+                      <ul style={{ margin: '4px 0 0', paddingInlineStart: '18px' }}>
+                        {ord.statusHistory.map((h, i) => (
+                          <li key={i}>
+                            <code dir="ltr">{h.timestampIso.slice(0, 16).replace('T', ' ')}</code> —{' '}
+                            <b>{h.status}</b>: {isAr ? h.noteAr : h.noteEn}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                  <div className="small muted">
-                     {isAr ? ord.partnerNameAr : ord.partnerNameEn} 
-                    {ord.branchNameAr ?`(${isAr ? ord.branchNameAr : ord.branchNameEn})`:''} · 
-                    {ord.createdAtIso.slice(0, 10)}
-                  </div>
-                  <div className="small">
-                    <b>{isAr ? 'سجل التتبع:' : 'Status History:'}</b>
-                    <ul style={{ margin: '4px 0 0', paddingInlineStart: '18px' }}>
-                      {ord.statusHistory.map((h, i) => (
-                        <li key={i}>
-                          <code dir="ltr">{h.timestampIso.slice(0, 16).replace('T', ' ')}</code> —{' '}
-                          <b>{h.status}</b>: {isAr ? h.noteAr : h.noteEn}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>

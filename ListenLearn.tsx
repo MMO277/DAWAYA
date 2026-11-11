@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLang } from './i18n';
 import { pick } from './types';
@@ -211,7 +212,7 @@ export default function ListenLearn() {
             {/* Reading Speed Selector */}
             <div className="row" style={{ alignItems: 'center', gap: '4px', marginInlineStart: '6px' }}>
               <span className="small muted">{lang === 'ar' ? 'السرعة:' : 'Speed:'}</span>
-              <select
+              <SmartNativeSelect
                 className="input"
                 style={{ width: 'auto', padding: '4px 8px', fontSize: '0.85rem' }}
                 value={rate}
@@ -220,7 +221,7 @@ export default function ListenLearn() {
                 <option value="0.8">0.8x ({lang === 'ar' ? 'هادئ' : 'Slow'})</option>
                 <option value="1.0">1.0x ({lang === 'ar' ? 'طبيعي' : 'Normal'})</option>
                 <option value="1.2">1.2x ({lang === 'ar' ? 'سريع' : 'Fast'})</option>
-              </select>
+              </SmartNativeSelect>
             </div>
           </div>
         </div>

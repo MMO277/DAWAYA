@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useEffect, useState } from 'react';
 import { collection, deleteDoc, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
@@ -241,7 +242,7 @@ export default function ResearchTab() {
         <div className="head">
           <h3 style={{ margin: 0 }}>{t('resStats')} ({filtered.length})</h3>
           <div className="row wrapRow">
-            <select
+            <SmartNativeSelect
               value={phase}
               onChange={(e) => setPhase(e.target.value as 'all' | 'pre' | 'post')}
               style={{ width: 'auto' }}
@@ -249,7 +250,7 @@ export default function ResearchTab() {
               <option value="all">{t('resAll')}</option>
               <option value="pre">{t('pre')}</option>
               <option value="post">{t('post')}</option>
-            </select>
+            </SmartNativeSelect>
             <button type="button" onClick={exportCSV} disabled={!rows || rows.length === 0} className="btn small ghost">
               📥 {t('resExport')}
             </button>

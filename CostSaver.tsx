@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import SmartMedDoseReminderBadge from './SmartMedDoseReminderBadge';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -333,7 +334,7 @@ export default function CostSaver() {
                 <label htmlFor="cost-pack-select" className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '6px' }}>
                   📦 {tr(lang, 'عدد العبوات المطلوبة للكورس:', 'Number of packs needed:')}
                 </label>
-                <select
+                <SmartNativeSelect
                   id="cost-pack-select"
                   className="input"
                   value={packCount}
@@ -343,7 +344,7 @@ export default function CostSaver() {
                   <option value={2}>{tr(lang, 'عبوتان (2 Packs)', '2 Packs')}</option>
                   <option value={3}>{tr(lang, '3 عبوات (3 Packs)', '3 Packs')}</option>
                   <option value={4}>{tr(lang, '4 عبوات (4 Packs)', '4 Packs')}</option>
-                </select>
+                </SmartNativeSelect>
               </div>
             </div>
 

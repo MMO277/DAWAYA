@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 /**
  * SmartPassport.tsx
  * DAWAYA | دوايا — الكارت الطبي الذكي الشامل (Smart Medical ID & Emergency Passport)
@@ -1087,7 +1088,7 @@ export default function SmartPassport() {
               <label className="small" style={{ display: 'block', marginBottom: 4, fontWeight: 700 }}>
                 ⏱️ {isAr ? 'مدة صلاحية الرابط الطبي' : 'Access Duration'}
               </label>
-              <select
+              <SmartNativeSelect
                 className="input"
                 value={hours}
                 onChange={(e) => setHours(Number(e.target.value))}
@@ -1098,7 +1099,7 @@ export default function SmartPassport() {
                 <option value={12}>{isAr ? '12 ساعة' : '12 Hours'}</option>
                 <option value={24}>{isAr ? '24 ساعة (يوم كامل)' : '24 Hours'}</option>
                 <option value={48}>{isAr ? '48 ساعة (يومان)' : '48 Hours'}</option>
-              </select>
+              </SmartNativeSelect>
             </div>
 
             <button

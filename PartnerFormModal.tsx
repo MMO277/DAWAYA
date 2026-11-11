@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { ChangeEvent, FormEvent, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLang } from './i18n';
@@ -370,7 +371,7 @@ export function PartnerFormModal({
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                   {isAr ? 'فئة الشريك (Partner Category) *' : 'Partner Category *'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={draft.categoryId}
                   onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}
@@ -380,7 +381,7 @@ export function PartnerFormModal({
                       {cat.icon} {isAr ? cat.nameAr : cat.nameEn} {!cat.active ? '(غير نشط)' : ''}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div>
@@ -856,7 +857,7 @@ export function PartnerFormModal({
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                   {isAr ? 'حالة الشراكة (Partnership Status)' : 'Partnership Status'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={draft.partnershipStatus}
                   disabled={!permissions.canPublishOrHide}
@@ -869,14 +870,14 @@ export function PartnerFormModal({
                       {isAr ? PARTNERSHIP_STATUS_LABELS[st].ar : PARTNERSHIP_STATUS_LABELS[st].en}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div>
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                   {isAr ? 'حالة التوثيق والتراخيص (Verification Status)' : 'Verification Status'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={draft.verificationStatus}
                   disabled={!permissions.canVerifyPartner}
@@ -889,7 +890,7 @@ export function PartnerFormModal({
                       {isAr ? VERIFICATION_STATUS_LABELS[vst].ar : VERIFICATION_STATUS_LABELS[vst].en}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div>
@@ -1044,7 +1045,7 @@ export function PartnerFormModal({
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                    {isAr ?'حالة النشر (Publication Status)':'Publication Status'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={draft.publicationStatus}
                   disabled={!permissions.canPublishOrHide}
@@ -1062,14 +1063,14 @@ export function PartnerFormModal({
                       {isAr ? PUBLICATION_STATUS_LABELS[pst].ar : PUBLICATION_STATUS_LABELS[pst].en}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div>
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                    {isAr ?'حالة الظهور (Visibility Status)':'Visibility Status'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={draft.visibilityStatus}
                   disabled={!permissions.canPublishOrHide}
@@ -1081,7 +1082,7 @@ export function PartnerFormModal({
                   <option value="visible">{isAr ? 'مرئي للجمهور (Visible)' : 'Visible'}</option>
                   <option value="temporarily_suspended">{isAr ? 'موقوف مؤقتاً (Temporarily Suspended)' : 'Temporarily Suspended'}</option>
                   <option value="scheduled_campaign">{isAr ? 'مرتبط بجدول زمني (Scheduled)' : 'Scheduled Campaign'}</option>
-                </select>
+                </SmartNativeSelect>
               </div>
             </div>
 
@@ -1221,7 +1222,7 @@ export function PartnerFormModal({
                   ? 'الشريك الذي يخدم القاهرة لن يظهر كمتاح في طنطا إلا إذا كانت تغطيته الجغرافية أو فروعه تدعم تلك المنطقة.'
                   : 'A partner serving Cairo will not appear as available in Tanta unless its coverage supports that area.'}
               </p>
-              <select
+              <SmartNativeSelect
                 className="input"
                 value={draft.visibility.geographicScope}
                 onChange={(e) =>
@@ -1238,7 +1239,7 @@ export function PartnerFormModal({
                 <option value="specific_governorates">{isAr ? 'تخصيص محافظات محددة فقط للظهور' : 'Specific Selected Governorates Only'}</option>
                 <option value="specific_cities">{isAr ? 'تخصيص مدن محددة فقط' : 'Specific Cities Only'}</option>
                 <option value="selected_branches_only">{isAr ? 'حسب نطاق الفروع المنشورة فقط' : 'Published Branches Coverage Only'}</option>
-              </select>
+              </SmartNativeSelect>
 
               {draft.visibility.geographicScope === 'specific_governorates' && (
                 <div
@@ -1472,7 +1473,7 @@ export function PartnerFormModal({
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                    {isAr ?'تصميم بطاقة الشريك (Card Theme)':'Partner Card Theme'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={draft.display.cardDesign}
                   onChange={(e) =>
@@ -1486,7 +1487,7 @@ export function PartnerFormModal({
                   <option value="featured_teal">{isAr ? 'مميز فيروزي (Featured Teal)' : 'Featured Teal'}</option>
                   <option value="highlight_navy">{isAr ? 'كحلي بارز (Highlight Navy)' : 'Highlight Navy'}</option>
                   <option value="compact_directory">{isAr ? 'مدمج للدليل السريع (Compact)' : 'Compact Directory'}</option>
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div>
@@ -1635,7 +1636,7 @@ export function PartnerFormModal({
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                   {isAr ? 'طريقة الربط والتكامل (Integration Method)' : 'Integration Method'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={draft.integrationMethod}
                   onChange={(e) =>
@@ -1650,14 +1651,14 @@ export function PartnerFormModal({
                       {isAr ? INTEGRATION_METHOD_LABELS[m].ar : INTEGRATION_METHOD_LABELS[m].en}
                     </option>
                   ))}
-                </select>
+                </SmartNativeSelect>
               </div>
 
               <div>
                 <label className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                   {isAr ? 'حالة الربط البرمجي (API Integration Status)' : 'API Integration Status'}
                 </label>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={draft.apiIntegrationStatus}
                   onChange={(e) =>
@@ -1673,7 +1674,7 @@ export function PartnerFormModal({
                   <option value="configured_pending">{isAr ? 'مُعد وبانتظار التفعيل (Pending)' : 'Configured / Pending'}</option>
                   <option value="active_healthy">{isAr ? 'ربط برمجي نشط (Active API)' : 'Active & Healthy'}</option>
                   <option value="disabled">{isAr ? 'معطل (Disabled)' : 'Disabled'}</option>
-                </select>
+                </SmartNativeSelect>
               </div>
             </div>
 
@@ -1729,7 +1730,7 @@ export function PartnerFormModal({
 
             <div className="subcard stack">
               <b> {isAr ?'قوالب المحولات البرمجية الجاهزة (Modular Provider Blueprints):':'Modular Provider Adapter Blueprints:'}</b>
-              <select
+              <SmartNativeSelect
                 className="input"
                 value={draft.privateAdmin.providerAdapterId}
                 onChange={(e) =>
@@ -1744,7 +1745,7 @@ export function PartnerFormModal({
                     {isAr ? bp.organizationNameAr : bp.organizationNameEn}
                   </option>
                 ))}
-              </select>
+              </SmartNativeSelect>
             </div>
           </div>
         )}

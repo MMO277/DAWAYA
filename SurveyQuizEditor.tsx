@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { FormEvent, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLang } from './i18n';
@@ -125,11 +126,11 @@ export function QuestionEditorModal({
 
         <div>
           <label>{tr(lang, 'مستوى الصعوبة', 'Difficulty Level')}</label>
-          <select value={level} onChange={(e) => setLevel(e.target.value as 'easy' | 'medium' | 'hard')}>
+          <SmartNativeSelect value={level} onChange={(e) => setLevel(e.target.value as 'easy' | 'medium' | 'hard')}>
             <option value="easy">{tr(lang, '🌱 مبتدئ (Easy)', '🌱 Beginner (Easy)')}</option>
             <option value="medium">{tr(lang, '⚗️ متوسط (Medium)', '⚗️ Intermediate (Medium)')}</option>
             <option value="hard">{tr(lang, '🔬 متقدم (Hard)', '🔬 Advanced (Hard)')}</option>
-          </select>
+          </SmartNativeSelect>
         </div>
 
         <div>

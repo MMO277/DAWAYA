@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -145,7 +146,7 @@ export default function InhalerDoseCounter() {
             <label className="small" style={{ color: '#CFD29D', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
               💨 {isAr ? 'اختر نوع البخاخة:' : 'Select Inhaler Device:'}
             </label>
-            <select
+            <SmartNativeSelect
               className="select-input"
               value={selectedId}
               onChange={(e) => setSelectedId(e.target.value)}
@@ -156,7 +157,7 @@ export default function InhalerDoseCounter() {
                   {isAr ? inh.tradeNameAr : inh.tradeNameEn} ({inh.totalPuffs} بخة)
                 </option>
               ))}
-            </select>
+            </SmartNativeSelect>
           </div>
 
           <div className="field-group">

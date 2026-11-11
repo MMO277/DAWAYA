@@ -1,4 +1,4 @@
-import SmartChoiceSelect from './SmartChoiceSelect';
+import SmartChoiceSelect, { SmartNativeSelect } from './SmartChoiceSelect';
 import { evaluateMedicationSafety } from './medicationSafetyEngine';
 import { useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
 import { pick } from './types';
@@ -1360,21 +1360,21 @@ export default function HealthProfile() {
                 </div>
                 <div className="form-group">
                   <label><b>{isAr ? 'عدد المرات يومياً:' : 'Frequency:'}</b></label>
-                  <select value={medFreq} onChange={(e) => setMedFreq(e.target.value)}>
+                  <SmartNativeSelect value={medFreq} onChange={(e) => setMedFreq(e.target.value)}>
                     <option value="once_daily">{formatFrequencyLabel('once_daily', isAr)}</option>
                     <option value="twice_daily">{formatFrequencyLabel('twice_daily', isAr)}</option>
                     <option value="thrice_daily">{formatFrequencyLabel('thrice_daily', isAr)}</option>
                     <option value="four_times_daily">{formatFrequencyLabel('four_times_daily', isAr)}</option>
-                  </select>
+                  </SmartNativeSelect>
                 </div>
               </div>
               <div className="form-group">
                 <label><b>{isAr ? 'الحالة:' : 'Status:'}</b></label>
-                <select value={medStatus} onChange={(e) => setMedStatus(e.target.value as 'active' | 'completed' | 'discontinued')}>
+                <SmartNativeSelect value={medStatus} onChange={(e) => setMedStatus(e.target.value as 'active' | 'completed' | 'discontinued')}>
                   <option value="active">{isAr ? 'حالي' : 'Active'}</option>
                   <option value="completed">{isAr ? 'مكتمل' : 'Completed'}</option>
                   <option value="discontinued">{isAr ? 'متوقف' : 'Discontinued'}</option>
-                </select>
+                </SmartNativeSelect>
               </div>
               <div className="modal-actions">
                 <button type="submit" className="btn">{isAr ? 'حفظ الدواء' : 'Save'}</button>
@@ -1568,7 +1568,7 @@ export default function HealthProfile() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <select
+                <SmartNativeSelect
                   className="input"
                   value={passportHours}
                   onChange={(e) => setPassportHours(Number(e.target.value))}
@@ -1579,7 +1579,7 @@ export default function HealthProfile() {
                   <option value={12}>{isAr ? 'مدة المشاركة: 12 ساعة' : 'Duration: 12 Hours'}</option>
                   <option value={24}>{isAr ? 'مدة المشاركة: 24 ساعة' : 'Duration: 24 Hours'}</option>
                   <option value={48}>{isAr ? 'مدة المشاركة: 48 ساعة' : 'Duration: 48 Hours'}</option>
-                </select>
+                </SmartNativeSelect>
               </div>
             )}
 
