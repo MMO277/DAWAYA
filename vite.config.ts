@@ -102,11 +102,6 @@ export default defineConfig({
       polyfill: false,
     },
     minify: 'esbuild',
-    cssCodeSplit: true,
-    chunkSizeWarningLimit: 900,
-    modulePreload: {
-      polyfill: false,
-    },
     rollupOptions: {
       output: {
         manualChunks(id) {
