@@ -1,5 +1,10 @@
 import SmartMedDoseReminderBadge from './SmartMedDoseReminderBadge';
-import { evaluateOccupationalDrugSafety, evaluateDrugHydrationRequirement } from './medicationSafetyEngine';
+import {
+  evaluateOccupationalDrugSafety,
+  evaluateDrugHydrationRequirement,
+  evaluatePillSplittingAndMealProtocol,
+  evaluateSuddenStopReboundRisk,
+} from './medicationSafetyEngine';
 import FindMedicationPanel from './FindMedicationPanel';
 import Mechanism3DViewer from './Mechanism3DViewer';
 import { useEffect, useMemo, useState } from 'react';
@@ -549,6 +554,285 @@ export default function MedicinePage() {
               {isAr ? 'ضبط منبه الجرعة + شرب الماء' : 'Set Dose + Water Alarm'}
             </Link>
           </section>
+        );
+      })()}
+
+      {/* Smart Pill Splitting & Meal Timing Protocol + Sudden Stop Rebound Guard (Enterprise SVG UI) */}
+      {(() => {
+        const drugTokens = [
+          name || '',
+          dawayaRecord?.brandNameAr || '',
+          dawayaRecord?.brandNameEn || '',
+          dawayaRecord?.activeIngredient || '',
+          m.id || '',
+        ];
+        const splitMeal = evaluatePillSplittingAndMealProtocol(
+          drugTokens,
+          dawayaRecord?.dosageForm
+        );
+        const reboundAlert = evaluateSuddenStopReboundRisk(
+          drugTokens,
+          dawayaRecord?.categoryKey
+        );
+
+        const isSplitForbidden =
+          splitMeal.splittingStatus === 'forbidden_sr_ec' ||
+          splitMeal.splittingStatus === 'capsule_no_open';
+
+        return (
+          <div className="stack" style={{ gap: '12px' }}>
+            {/* Dual Protocol Grid: Pill Splitting & Meal Timing */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '12px',
+              }}
+            >
+              {/* Card 1: Pill Splitting & Administration Integrity */}
+              <div
+                className="card"
+                style={{
+                  padding: '16px 18px',
+                  borderRadius: '18px',
+                  border: isSplitForbidden
+                    ? '1.5px solid #ef4444'
+                    : '1.5px solid #10b981',
+                  background: isSplitForbidden
+                    ? 'rgba(239, 68, 68, 0.04)'
+                    : 'rgba(16, 185, 129, 0.04)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '12px',
+                      background: isSplitForbidden
+                        ? 'rgba(239, 68, 68, 0.12)'
+                        : 'rgba(16, 185, 129, 0.12)',
+                      color: isSplitForbidden ? '#dc2626' : '#059669',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {isSplitForbidden ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="9" />
+                        <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
+                      </svg>
+                    ) : (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="8.5" />
+                        <line x1="6" y1="12" x2="18" y2="12" strokeDasharray="2.5 2.5" />
+                      </svg>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                      <span
+                        style={{
+                          fontSize: '0.74rem',
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.03em',
+                          color: isSplitForbidden ? '#dc2626' : '#059669',
+                        }}
+                      >
+                        {isAr ? 'دليل تقسيم القرص وطريقة البلع' : 'Pill Splitting & Integrity'}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          padding: '2px 10px',
+                          borderRadius: '999px',
+                          background: isSplitForbidden ? '#fee2e2' : '#dcfce7',
+                          color: isSplitForbidden ? '#991b1b' : '#166534',
+                        }}
+                      >
+                        {splitMeal.splittingBadgeAr}
+                      </span>
+                    </div>
+                    <strong style={{ fontSize: '0.96rem', display: 'block', marginBottom: '4px' }}>
+                      {isAr ? splitMeal.splittingTitleAr : splitMeal.splittingTitleEn}
+                    </strong>
+                    <p className="small" style={{ margin: 0, lineHeight: 1.55, opacity: 0.88 }}>
+                      {isAr ? splitMeal.splittingReasonAr : splitMeal.splittingReasonEn}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Optimal Meal Timing Protocol */}
+              <div
+                className="card"
+                style={{
+                  padding: '16px 18px',
+                  borderRadius: '18px',
+                  border: '1.5px solid #0284c7',
+                  background: 'rgba(2, 132, 199, 0.04)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '12px',
+                      background: 'rgba(2, 132, 199, 0.12)',
+                      color: '#0284c7',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="9" />
+                      <polyline points="12 7 12 12 15.5 14" />
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                      <span
+                        style={{
+                          fontSize: '0.74rem',
+                          fontWeight: 800,
+                          color: '#0284c7',
+                        }}
+                      >
+                        {isAr ? 'التوقيت المثالي مع الطعام' : 'Optimal Meal Timing'}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          padding: '2px 10px',
+                          borderRadius: '999px',
+                          background: '#e0f2fe',
+                          color: '#0369a1',
+                        }}
+                      >
+                        {splitMeal.mealBadgeAr}
+                      </span>
+                    </div>
+                    <strong style={{ fontSize: '0.96rem', display: 'block', marginBottom: '4px' }}>
+                      {isAr ? splitMeal.mealTitleAr : splitMeal.mealTitleEn}
+                    </strong>
+                    <p className="small" style={{ margin: 0, lineHeight: 1.55, opacity: 0.88 }}>
+                      {isAr ? splitMeal.mealReasonAr : splitMeal.mealReasonEn}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: Sudden Stop & Rebound Risk Warning Guard */}
+            {reboundAlert && (
+              <div
+                className="card"
+                style={{
+                  padding: '16px 18px',
+                  borderRadius: '18px',
+                  border:
+                    reboundAlert.riskLevel === 'critical_rebound'
+                      ? '1.5px solid #dc2626'
+                      : '1.5px solid #d97706',
+                  background:
+                    reboundAlert.riskLevel === 'critical_rebound'
+                      ? 'rgba(220, 38, 38, 0.05)'
+                      : 'rgba(217, 119, 6, 0.05)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '12px',
+                      background:
+                        reboundAlert.riskLevel === 'critical_rebound'
+                          ? 'rgba(220, 38, 38, 0.14)'
+                          : 'rgba(217, 119, 6, 0.14)',
+                      color:
+                        reboundAlert.riskLevel === 'critical_rebound'
+                          ? '#dc2626'
+                          : '#b45309',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                      <strong
+                        style={{
+                          fontSize: '0.98rem',
+                          color:
+                            reboundAlert.riskLevel === 'critical_rebound'
+                              ? '#b91c1c'
+                              : '#b45309',
+                        }}
+                      >
+                        {isAr ? reboundAlert.categoryTitleAr : reboundAlert.categoryTitleEn}
+                      </strong>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          padding: '3px 10px',
+                          borderRadius: '999px',
+                          background:
+                            reboundAlert.riskLevel === 'critical_rebound'
+                              ? '#fee2e2'
+                              : '#fef3c7',
+                          color:
+                            reboundAlert.riskLevel === 'critical_rebound'
+                              ? '#991b1b'
+                              : '#92400e',
+                        }}
+                      >
+                        {reboundAlert.badgeAr}
+                      </span>
+                    </div>
+                    <p className="small" style={{ margin: '0 0 8px', lineHeight: 1.6, fontWeight: 600 }}>
+                      {isAr ? reboundAlert.reboundDangerAr : reboundAlert.reboundDangerEn}
+                    </p>
+                    <div
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '10px',
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                      }}
+                    >
+                      <b>{isAr ? 'القاعدة الآمنة للإيقاف:' : 'Safe Discontinuation Rule:'}</b>{' '}
+                      {isAr ? reboundAlert.safeDiscontinuationAr : reboundAlert.safeDiscontinuationEn}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         );
       })()}
 

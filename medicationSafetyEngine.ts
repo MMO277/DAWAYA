@@ -2102,3 +2102,285 @@ export function evaluateDrugHydrationRequirement(
 
   return null;
 }
+
+export interface PillSplittingAndMealProtocol {
+  splittingStatus: 'forbidden_sr_ec' | 'capsule_no_open' | 'non_oral' | 'splittable_scored';
+  splittingTitleAr: string;
+  splittingTitleEn: string;
+  splittingReasonAr: string;
+  splittingReasonEn: string;
+  splittingBadgeAr: string;
+  mealTiming: 'empty_stomach' | 'after_food' | 'with_meal' | 'morning_fasting' | 'flexible';
+  mealTitleAr: string;
+  mealTitleEn: string;
+  mealReasonAr: string;
+  mealReasonEn: string;
+  mealBadgeAr: string;
+}
+
+export interface SuddenStopReboundAlert {
+  riskLevel: 'critical_rebound' | 'course_completion';
+  categoryTitleAr: string;
+  categoryTitleEn: string;
+  reboundDangerAr: string;
+  reboundDangerEn: string;
+  safeDiscontinuationAr: string;
+  safeDiscontinuationEn: string;
+  badgeAr: string;
+}
+
+/**
+ * Evaluates Pill Splitting / Crushing safety and Optimal Meal Timing protocol
+ * based on pharmaceutical formulation (SR/XR/EC/Capsule/Tablet) and active ingredient.
+ */
+export function evaluatePillSplittingAndMealProtocol(
+  drugNames: string[],
+  dosageForm?: string
+): PillSplittingAndMealProtocol {
+  const combined = drugNames.filter(Boolean).join(' ').toLowerCase();
+  const form = (dosageForm || '').toLowerCase();
+
+  // 1. Determine Splitting Status
+  let splittingStatus: PillSplittingAndMealProtocol['splittingStatus'] = 'splittable_scored';
+  let splittingTitleAr = 'قابل للتقسيم عند وجود خط المنتصف (Scored Tablet)';
+  let splittingTitleEn = 'Splittable along scored line if prescribed';
+  let splittingReasonAr =
+    'يمكن تقسيم القرص العادي إلى نصفين عند الضرورة لتعديل الجرعة، مع بلعه مباشرة وعدم طحنه إلا بتوجيه الصيدلي.';
+  let splittingReasonEn =
+    'Standard immediate-release tablets can be split along the score line if needed for dose adjustment.';
+  let splittingBadgeAr = 'قابل للتقسيم';
+
+  // Non-oral or liquid forms
+  if (
+    form.includes('syrup') ||
+    form.includes('suspension') ||
+    form.includes('drops') ||
+    form.includes('ampoule') ||
+    form.includes('vial') ||
+    form.includes('injection') ||
+    form.includes('cream') ||
+    form.includes('ointment') ||
+    form.includes('gel') ||
+    /(شراب|معلق|نقط|أمبول|فيال|حقن|كريم|مرهم|جل|لبوس|اقماع|بخاخ)/.test(combined)
+  ) {
+    splittingStatus = 'non_oral';
+    splittingTitleAr = 'مستحضر غير مخصص للتقسيم (تُلتزم وحدة القياس المرجعية)';
+    splittingTitleEn = 'Non-splittable dosage form (Use calibrated measure)';
+    splittingReasonAr =
+      'يُحظر تخفيف المستحضر أو تجزئته عشوائياً؛ استخدم أداة القياس المعيارية أو التعليمات الموضعية المحددة.';
+    splittingReasonEn =
+      'Do not dilute or split arbitrarily; use the calibrated dosing device or standard unit.';
+    splittingBadgeAr = 'وحدة قياس محددة';
+  } else if (
+    /\b(sr|xr|mr|xl|cr|er|la|retard|ec|gastro|enteric)\b/i.test(combined) ||
+    /(ممتد المفعول|طويل المفعول|مغلف معويا|أوميبرازول|بانتوبرازول|إيزوميبرازول|لانزوبرازول|كونترولوك|نكسيوم|أنتودين|ديباكين كرونو|تيجريتول سي آر|ترامادول اس ار|دلتازيم|أدالات ل أ|جلوكوفاج اكس ار|كلاسيـد اكس ال)/i.test(
+      combined
+    )
+  ) {
+    splittingStatus = 'forbidden_sr_ec';
+    splittingTitleAr = 'يُحظر كسر أو مضغ أو طحن القرص (ممتد المفعول / مغلف معوياً)';
+    splittingTitleEn = 'Do NOT Split, Crush, or Chew (Extended-Release / Enteric-Coated)';
+    splittingReasonAr =
+      'كسر أو طحن هذا القرص يدمر الغلاف الدوائي المبرمج، مما يؤدي لتفريغ الجرعة كاملة دفعة واحدة (سمية دوائية) أو تلف المادة الفعالة بحمض المعدة.';
+    splittingReasonEn =
+      'Splitting or crushing destroys the controlled-release matrix or enteric coating, risking dose dumping or acid degradation.';
+    splittingBadgeAr = 'ممنوع الكسر أو الطحن';
+  } else if (form.includes('capsule') || /(كبسول|كبسولات|capsule)/i.test(combined)) {
+    splittingStatus = 'capsule_no_open';
+    splittingTitleAr = 'تُبلع الكبسولة كاملة دون فتح أو تفريغ المحتوى';
+    splittingTitleEn = 'Swallow Capsule Whole — Do Not Open or Chew';
+    splittingReasonAr =
+      'الغلاف الجيلاتيني مصمم لحماية المريء وتوجيه الامتصاص الدوائي؛ فتح الكبسولة يغير سرعة الامتصاص وقد يسبب التهاباً بالمريء.';
+    splittingReasonEn =
+      'The capsule shell protects the esophagus and regulates absorption rate; do not open or chew.';
+    splittingBadgeAr = 'تُبلع كاملة دون فتح';
+  }
+
+  // 2. Determine Optimal Meal Timing
+  let mealTiming: PillSplittingAndMealProtocol['mealTiming'] = 'flexible';
+  let mealTitleAr = 'قبل أو بعد الأكل (مع كوب ماء كامل)';
+  let mealTitleEn = 'With or Without Food (With a full glass of water)';
+  let mealReasonAr =
+    'لا يتأثر امتصاص هذا الدواء بشكل جوهري بالطعام؛ يُفضل تثبيت الموعد يومياً وتناوله مع الماء.';
+  let mealReasonEn =
+    'Absorption is not significantly affected by food; maintain a consistent daily schedule.';
+  let mealBadgeAr = 'توقيت مرن مع الماء';
+
+  if (/(التروكسين|ليـفوثيروكسين|ثيروكسين|eltroxin|levothyroxine|euthyrox)/i.test(combined)) {
+    mealTiming = 'morning_fasting';
+    mealTitleAr = 'على معدة فارغة تماماً صباحاً (قبل الإفطار بـ 60 دقيقة)';
+    mealTitleEn = 'Strictly on Empty Stomach in Morning (60 mins before breakfast)';
+    mealReasonAr =
+      'الطعام والقهوة والكالسيوم والحديد تمنع امتصاص هرمون الغدة الدرقية؛ يؤخذ صباحاً بالماء فقط قبل الأكل بساعة.';
+    mealReasonEn =
+      'Food, coffee, calcium, and iron markedly reduce thyroid hormone absorption.';
+    mealBadgeAr = 'صباحاً قبل الإفطار بساعة';
+  } else if (
+    /(أوميبرازول|بانتوبرازول|إيزوميبرازول|لانزوبرازول|راببيرازول|نكسيوم|كونترولوك|زوران|أنتودين|دومبيريدون|موتيليوم|موتيلات|أزيثرومايسين|زيثروماكس|كابوتين|كابتوبريل|أليندرونات|فوساماكس|تتراسيكلين|ريفامبيسين)/i.test(
+      combined
+    )
+  ) {
+    mealTiming = 'empty_stomach';
+    mealTitleAr = 'على معدة فارغة (قبل الأكل بـ 30 إلى 60 دقيقة)';
+    mealTitleEn = 'On Empty Stomach (30–60 minutes before meal)';
+    mealReasonAr =
+      'تناول الدواء قبل الوجبة بنصف ساعة إلى ساعة يضمن أعلى كفاءة امتصاص وتثبيط مثالي لمضخات الحمض أو عمل الدواء.';
+    mealReasonEn =
+      'Taking 30–60 minutes before meals ensures optimal bioavailability and therapeutic action.';
+    mealBadgeAr = 'قبل الأكل بـ 30-60 دقيقة';
+  } else if (
+    /(إيبوبروفين|بروفين|ديكلوفيناك|كتافلام|فولتارين|ميلوكسيكام|موبك|سيليبريكس|نابروكسين|كيتوبروفين|باي الكوفان|أسبيرين|كورتيزون|بريدنيزولون|سولوبريد|ديكساميثازون|أوجمنتين|كيورام|هاي بيوتك|فلاجيل|ميترونيدازول|ميتفورمين|جلوكوفاج|سيدوفاج|حديد|فيروجلوبين|زنك|فيتامين)/i.test(
+      combined
+    )
+  ) {
+    mealTiming = 'after_food';
+    mealTitleAr = 'وسط الأكل أو بعد الوجبة مباشرة (لحماية جدار المعدة)';
+    mealTitleEn = 'With or Immediately After Meals (Protects Gastric Mucosa)';
+    mealReasonAr =
+      'تناول الجرعة بعد الطعام مباشرة يمنع التهاب وحموضة المعدة ويقلل الغثيان واضطراب الجهاز الهضمي.';
+    mealReasonEn =
+      'Taking immediately after food prevents gastric irritation, heartburn, and nausea.';
+    mealBadgeAr = 'بعد الأكل مباشرة';
+  }
+
+  return {
+    splittingStatus,
+    splittingTitleAr,
+    splittingTitleEn,
+    splittingReasonAr,
+    splittingReasonEn,
+    splittingBadgeAr,
+    mealTiming,
+    mealTitleAr,
+    mealTitleEn,
+    mealReasonAr,
+    mealReasonEn,
+    mealBadgeAr,
+  };
+}
+
+/**
+ * Evaluates whether a medication carries a high clinical risk if stopped abruptly
+ * (Rebound hypertension/tachycardia, adrenal crisis, withdrawal, acid rebound, or AMR).
+ */
+export function evaluateSuddenStopReboundRisk(
+  drugNames: string[],
+  categoryKey?: string
+): SuddenStopReboundAlert | null {
+  const combined = drugNames.filter(Boolean).join(' ').toLowerCase();
+  const cat = (categoryKey || '').toLowerCase();
+
+  // 1. Beta-blockers & Antihypertensives (Concor, Bisoprolol, Propranolol, Atenolol, Nebivolol, Carvedilol, Clonidine, Amlodipine)
+  if (
+    /(كونكور|بيسوبرولول|إنديرال|بروبرانولول|أتينولول|تينورمين|نيبيفولول|نيبيلت|كارفيديلول|ديلاتريد|كلونيدين|تريتاس|راميبريل|إكسفورج|كانديسارتان|فالسارتان|لوسارتان|أملوديبين|نورفاسك)/i.test(
+      combined
+    )
+  ) {
+    return {
+      riskLevel: 'critical_rebound',
+      categoryTitleAr: 'تحذير التوقف المفاجئ: خطر الارتداد الوعائي وارتفاع الضغط الحاد',
+      categoryTitleEn: 'Abrupt Discontinuation Hazard: Rebound Hypertension & Tachycardia',
+      reboundDangerAr:
+        'إيقاف أدوية القلب وضغط الدم (خاصة حاصرات بيتا مثل البيسوبرولول والبروبرانولول) بشكل مفاجئ يسبب تسارعاً عنيفاً بضربات القلب، وارتفاعاً ارتدادياً خطيراً في ضغط الدم قد يؤدي لذبحات صدرية.',
+      reboundDangerEn:
+        'Stopping beta-blockers or antihypertensives abruptly can trigger severe rebound hypertension, reflex tachycardia, or angina.',
+      safeDiscontinuationAr:
+        'لا توقف الدواء أبداً عند الشعور بالتحسن أو انتهاء العبوة؛ أي تعديل أو سحب يجب أن يتم تدريجياً على مدار أسبوعين تحت إشراف الطبيب المعالج.',
+      safeDiscontinuationEn:
+        'Never stop when blood pressure normalizes; any discontinuation must be tapered gradually over 1–2 weeks by your cardiologist.',
+      badgeAr: 'يُحظر الإيقاف المفاجئ',
+    };
+  }
+
+  // 2. Corticosteroids (Prednisolone, Solupred, Dexamethasone, Betamethasone, Hydrocortisone)
+  if (
+    /(بريدنيزولون|سولوبريد|بريدسول|هوستاكورتين|ديكساميثازون|بيتاميثازون|كورتيزون|ميثيل بريدنيزولون|ميدرول|solupred|prednisolone|dexamethasone)/i.test(
+      combined
+    )
+  ) {
+    return {
+      riskLevel: 'critical_rebound',
+      categoryTitleAr: 'تحذير الغدة الكظرية: يُحظر قطع الكورتيزون فجأة دون سحب تدريجي',
+      categoryTitleEn: 'Adrenal Suppression Risk: Mandatory Gradual Steroid Tapering',
+      reboundDangerAr:
+        'استخدام الكورتيزون لأكثر من 5 إلى 7 أيام يثبط إفراز الكورتيزول الطبيعي بالجسم؛ التوقف المفاجئ يسبب هبوطاً حاداً بالضغط والسكر، وإعياءً شديداً وانتكاسة مضاعفة للالتهاب.',
+      reboundDangerEn:
+        'Abrupt cessation after >5–7 days risks acute adrenal insufficiency, hypotension, and severe inflammatory rebound.',
+      safeDiscontinuationAr:
+        'التزم بجدول السحب التدريجي (Tapering Schedule) بتقليل الجرعة على مراحل وفق تعليمات الطبيب حتى تستعيد الغدة الكظرية نشاطها الطبيعي.',
+      safeDiscontinuationEn:
+        'Follow a structured tapering schedule reducing the dose step-by-step under medical supervision.',
+      badgeAr: 'يلزم سحب تدريجي',
+    };
+  }
+
+  // 3. Neuropathic / CNS / Antidepressants / Antiepileptics (Pregabalin, Gabapentin, SSRIs, Carbamazepine, Valproate)
+  if (
+    /(بريجابالين|ليريكا|ليرولين|جابابنتين|نيورونتين|كونفنتين|سيرترالين|لوسترال|باروكسيتين|سيروكسات|فلوكستين|بروزاك|إسيتالوبرام|سيبرالكس|فينلافاكسين|إيفكسور|ديباكين|فالبروات|تيجريتول|كاربامازيبين|لاموتريجين|تريتيكو)/i.test(
+      combined
+    )
+  ) {
+    return {
+      riskLevel: 'critical_rebound',
+      categoryTitleAr: 'تحذير الجهاز العصبي: أعراض انسحابية حادة عند التوقف غير المتدرج',
+      categoryTitleEn: 'CNS Withdrawal Hazard: Do Not Discontinue Abruptly',
+      reboundDangerAr:
+        'قطع أدوية الأعصاب أو منظمات النواقل العصبية فجأة يسبب متلازمة انسحاب حادة تشمل: دواراً شديداً، أرقاً، صدمات كهربائية بالرأس، توتراً حاداً، أو عودة نوبات التشنج والألم العصبي.',
+      reboundDangerEn:
+        'Sudden cessation triggers withdrawal syndrome including dizziness, insomnia, paresthesias, anxiety, or rebound seizures.',
+      safeDiscontinuationAr:
+        'يُمنع تقليل الجرعة أو التوقف من تلقاء نفسك؛ يتم تخفيض الجرعة تدريجياً على مدى أسابيع بإشراف طبيب المخ والأعصاب.',
+      safeDiscontinuationEn:
+        'Taper slowly over several weeks exclusively under your neurologist or psychiatrist guidance.',
+      badgeAr: 'يُمنع القطع المفاجئ',
+    };
+  }
+
+  // 4. Proton Pump Inhibitors (Omeprazole, Pantoprazole, Esomeprazole, Lansoprazole)
+  if (
+    /(أوميبرازول|بانتوبرازول|إيزوميبرازول|لانزوبرازول|راببيرازول|نكسيوم|كونترولوك|زوران|أنتودين|جاسترازول|داونوبرازول)/i.test(
+      combined
+    )
+  ) {
+    return {
+      riskLevel: 'critical_rebound',
+      categoryTitleAr: 'تنبيه ارتداد الحمض المعدي (Rebound Acid Hypersecretion)',
+      categoryTitleEn: 'Rebound Acid Hypersecretion Warning',
+      reboundDangerAr:
+        'إيقاف مثبطات مضخة البروتون فجأة بعد استخدامها لأسابيع يدفع المعدة لإفراز حمض مضاعف تعويضي، مما يسبب حرقاناً وارتجاعاً أشد من السابق.',
+      reboundDangerEn:
+        'Stopping PPIs abruptly after prolonged use causes compensatory hypersecretion of stomach acid and severe heartburn.',
+      safeDiscontinuationAr:
+        'عند انتهاء فترة العلاج، يُفضل تقليل الجرعة تدريجياً (مثلاً يوم بعد يوم لمدة أسبوع) حسب توجيه الطبيب.',
+      safeDiscontinuationEn:
+        'Step down dose frequency gradually (e.g. every other day) when completing long courses.',
+      badgeAr: 'تدرج عند الإيقاف',
+    };
+  }
+
+  // 5. Systemic Antibiotics & Antimicrobials
+  if (
+    cat.includes('antibiotic') ||
+    cat.includes('anti_infective') ||
+    /(أموكسيسيلين|أوجمنتين|كيورام|هاي بيوتك|يونيكتام|أزيثرومايسين|زيثروماكس|كلاريثرومايسين|كلاسيد|سيبروفلوكساسين|سيبروباي|تافانيك|ليفوفلوكساسين|سيفوتاكسيم|سيفترياكسون|سيفكسيم|سوبراكس|زينات|فلاجيل|ميترونيدازول|سبترين|كليندامايسين|دوكسيسيكلين)/i.test(
+      combined
+    )
+  ) {
+    return {
+      riskLevel: 'course_completion',
+      categoryTitleAr: 'إلزامية إتمام الكورس العلاجي: خطر انتكاسة العدوى والبكتيريا المقاومة',
+      categoryTitleEn: 'Mandatory Course Completion: Prevent Relapse & Resistance',
+      reboundDangerAr:
+        'توقفك عن المضاد الحيوي فور اختفاء الحرارة أو الشعور بالتحسن يترك البكتيريا الأقوى حية داخل الجسم، مما يؤدي لعودة العدوى بشكل أشرس واكتساب البكتيريا مناعة ضد الدواء.',
+      reboundDangerEn:
+        'Stopping antibiotics early when symptoms improve leaves surviving bacteria to mutate and cause a resistant relapse.',
+      safeDiscontinuationAr:
+        'يجب إكمال عدد الأيام الموصوفة بالروشتة بالكامل حتى آخر جرعة، حتى لو اختفت الأعراض تماماً من اليوم الثاني.',
+      safeDiscontinuationEn:
+        'Complete the full prescribed duration even if you feel completely recovered.',
+      badgeAr: 'أكمل الكورس للنهاية',
+    };
+  }
+
+  return null;
+}

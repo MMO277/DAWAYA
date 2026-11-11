@@ -1,5 +1,9 @@
 import SmartChoiceSelect from './SmartChoiceSelect';
-import { evaluateDrugHydrationRequirement } from './medicationSafetyEngine';
+import {
+  evaluateDrugHydrationRequirement,
+  evaluatePillSplittingAndMealProtocol,
+  evaluateSuddenStopReboundRisk,
+} from './medicationSafetyEngine';
 import { useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
 import SmartDoseAlarmCard from './SmartDoseAlarmCard';
 import { createPortal } from 'react-dom';
@@ -1192,9 +1196,64 @@ export default function Tracker() {
                   </p>
                   {sch.notes && (
                     <p className="sch-notes">
-                      📝 <i>{sch.notes}</i>
+                      <i>{sch.notes}</i>
                     </p>
                   )}
+                  {(() => {
+                    const splitMeal = evaluatePillSplittingAndMealProtocol([sch.medicineName], sch.route);
+                    const rebound = evaluateSuddenStopReboundRisk([sch.medicineName]);
+                    return (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            padding: '3px 10px',
+                            borderRadius: '999px',
+                            background: '#e0f2fe',
+                            color: '#0369a1',
+                            border: '1px solid #bae6fd',
+                          }}
+                        >
+                          {splitMeal.mealBadgeAr}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            padding: '3px 10px',
+                            borderRadius: '999px',
+                            background:
+                              splitMeal.splittingStatus === 'forbidden_sr_ec' || splitMeal.splittingStatus === 'capsule_no_open'
+                                ? '#fee2e2'
+                                : '#dcfce7',
+                            color:
+                              splitMeal.splittingStatus === 'forbidden_sr_ec' || splitMeal.splittingStatus === 'capsule_no_open'
+                                ? '#991b1b'
+                                : '#166534',
+                            border: '1px solid rgba(0,0,0,0.08)',
+                          }}
+                        >
+                          {splitMeal.splittingBadgeAr}
+                        </span>
+                        {rebound && (
+                          <span
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              padding: '3px 10px',
+                              borderRadius: '999px',
+                              background: '#fef3c7',
+                              color: '#92400e',
+                              border: '1px solid #fde68a',
+                            }}
+                          >
+                            {rebound.badgeAr}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="sch-actions" style={{ flexWrap: 'wrap' }}>
                   <button

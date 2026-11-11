@@ -1,7 +1,12 @@
 import SmartChoiceSelect from './SmartChoiceSelect';
 import { createPortal } from 'react-dom';
 import { DosageFormVectorBadge, Realistic3DMedicineThumb } from './DawayaVectorIcons';
-import { evaluateOccupationalDrugSafety, evaluateDrugHydrationRequirement } from './medicationSafetyEngine';
+import {
+  evaluateOccupationalDrugSafety,
+  evaluateDrugHydrationRequirement,
+  evaluatePillSplittingAndMealProtocol,
+  evaluateSuddenStopReboundRisk,
+} from './medicationSafetyEngine';
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -723,6 +728,8 @@ export default function Medicines() {
                 profile.workEnvironmentNotes
               );
               const hydrationReq = evaluateDrugHydrationRequirement(drugTokens);
+              const splitMeal = evaluatePillSplittingAndMealProtocol(drugTokens, item.f);
+              const reboundAlert = evaluateSuddenStopReboundRisk(drugTokens, item.k);
 
               // Check allergy match
               const hasAllergyConflict = (profile.allergies || []).some((al) => {
@@ -864,6 +871,46 @@ export default function Medicines() {
                           {hydrationReq && (
                             <span className="dawaya-med-hydration-chip" title={hydrationReq.reasonAr}>
                               {isAr ? hydrationReq.badgeAr : 'Drink 2 Glasses of Water'}
+                            </span>
+                          )}
+
+                          {(splitMeal.splittingStatus === 'forbidden_sr_ec' || splitMeal.splittingStatus === 'capsule_no_open') && (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                background: '#fee2e2',
+                                color: '#b91c1c',
+                                fontWeight: 800,
+                                fontSize: '0.73rem',
+                                padding: '3px 9px',
+                                borderRadius: '999px',
+                                border: '1px solid #fecaca',
+                              }}
+                              title={splitMeal.splittingReasonAr}
+                            >
+                              {isAr ? splitMeal.splittingBadgeAr : 'Do Not Split/Crush'}
+                            </span>
+                          )}
+
+                          {reboundAlert && reboundAlert.riskLevel === 'critical_rebound' && (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                background: '#fef3c7',
+                                color: '#b45309',
+                                fontWeight: 800,
+                                fontSize: '0.73rem',
+                                padding: '3px 9px',
+                                borderRadius: '999px',
+                                border: '1px solid #fde68a',
+                              }}
+                              title={reboundAlert.reboundDangerAr}
+                            >
+                              {isAr ? reboundAlert.badgeAr : 'Do Not Stop Abruptly'}
                             </span>
                           )}
                         </div>
