@@ -115,7 +115,7 @@ function FormattedClinicalText({ text }: { text: string }) {
   return (
     <div style={{ display: 'grid', gap: '8px', lineHeight: 1.75, fontSize: '0.95rem', marginTop: '4px' }}>
       {blocks.map((block, bIdx) => {
-        const isWarnBlock = block.startsWith('⚠️') || block.startsWith('🚨');
+        const isWarnBlock = block.startsWith('⚠️') || block.startsWith('');
         const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
 
         if (isWarnBlock) {
@@ -899,15 +899,15 @@ export default function Assistant() {
                     >
                       {m.actionProposal
                         ? isAr
-                          ? '⚡ إجراء جاهز للتأكيد في حسابك'
-                          : '⚡ Proposed Health Action — Confirmation Required'
+                          ? 'إجراء جاهز للتأكيد في حسابك'
+                          : 'Proposed Health Action — Confirmation Required'
                         : m.isSystemActionResult
                           ? isAr
                             ? '📋 بيانات متسجلة في ملفك الصحي'
                             : '📋 Saved Patient Health Record'
                           : isAr
-                            ? '✨ مساعدك الصيدلاني الذكي'
-                            : '✨ Structured Medical Answer'}
+                            ? 'مساعدك الصيدلاني الذكي'
+                            : 'Structured Medical Answer'}
                     </span>
                     {plainForSpeech && (
                       <button

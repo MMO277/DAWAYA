@@ -28,7 +28,7 @@ export default function WomensHealthClinic() {
         };
       }
       return {
-        titleAr: '🚨 تأخر أكثر من 12 ساعة في حبة الرضاعة (فقدان الحماية المؤقت!)',
+        titleAr: 'تأخر أكثر من 12 ساعة في حبة الرضاعة (فقدان الحماية المؤقت!)',
         actionAr: 'خذي حبة واحدة فوراً الآن وأكملي الشريط في موعده، مع استخدام وسيلة عازلة إضافية لمدة **يومين كاملين (48 ساعة)**. إذا حدثت علاقة زوجية خلال اليومين الماضيين بدون حماية، استشيري الطبيبة حول وسيلة الطوارئ (كونترابلان).',
         color: '#dc2626',
         bg: '#fef2f2',
@@ -45,7 +45,7 @@ export default function WomensHealthClinic() {
       };
     }
     return {
-      titleAr: '🚨 نسيتِ حبتين أو أكثر (أكثر من 48 ساعة) من الأقراص المركبة:',
+      titleAr: 'نسيتِ حبتين أو أكثر (أكثر من 48 ساعة) من الأقراص المركبة:',
       actionAr: 'خذي **آخر حبة نسيتها فوراً الآن** (وتجاهلي الحبات الأقدم المنسية)، وأكملي الشريط في ميعاده، ولكن **يجب استخدام وسيلة حماية إضافية (واقي ذكري) لمدة 7 أيام متواصلة!** إذا كان النسيان في آخر 7 حبات من الشريط، ابدئي الشريط الجديد فوراً بمجرد انتهاء الحالي دون فترة راحة.',
       color: '#d97706',
       bg: '#fffbeb',
@@ -67,7 +67,7 @@ export default function WomensHealthClinic() {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
           <span style={{ background: 'rgba(255,255,255,0.2)', padding: '6px 14px', borderRadius: '30px', fontSize: '0.84rem', fontWeight: 700, color: '#fce7f3' }}>
-            🌸 {tr(lang, 'عيادة واستشاري صحة المرأة والغدد التناسلية (خبرة 40 عاماً)', 'Senior Women’s Health, PCOS & Contraception Clinic')}
+            {tr(lang, 'عيادة واستشاري صحة المرأة والغدد التناسلية (خبرة 40 عاماً)', 'Senior Women’s Health, PCOS & Contraception Clinic')}
           </span>
           <Link to="/clinics" className="btn small" style={{ background: '#ffffff', color: '#0D1F38', fontWeight: 800, textDecoration: 'none', borderRadius: '20px' }}>
             🏥 {tr(lang, 'العودة لمجمع العيادات (20 عيادة)', 'Back to Clinics Hub')}
@@ -92,9 +92,9 @@ export default function WomensHealthClinic() {
           { id: 'missed_pill', icon: '💊', titleAr: '١. نسيت حبة منع الحمل!', subAr: 'ماذا تفعلين فوراً حسب النوع؟' },
           { id: 'contraception_map', icon: '🛡️', titleAr: '٢. مقارنة وسائل منع الحمل', subAr: 'اللولب، الكبسولة، والحقن' },
           { id: 'pcos_protocol', icon: '🦋', titleAr: '٣. متلازمة تكيس المبايض', subAr: 'تنظيم الدورة والإينوزيتول' },
-          { id: 'dysmenorrhea', icon: '🌸', titleAr: '٤. آلام الدورة الشهرية الحادة', subAr: 'التسكين الآمن وعلامات البطانة' },
+          { id: 'dysmenorrhea', icon: '', titleAr: '٤. آلام الدورة الشهرية الحادة', subAr: 'التسكين الآمن وعلامات البطانة' },
           { id: 'breast_exam', icon: '🎗️', titleAr: '٥. الفحص الذاتي للثدي شهرياً', subAr: 'الموعد الصحيح والخطوات' },
-          { id: 'iron_menorrhagia', icon: '🩸', titleAr: '٦. غزارة الدورة ونقص الحديد', subAr: 'متى تكون الدورة نزيفاً مرضياً؟' },
+          { id: 'iron_menorrhagia', icon: '', titleAr: '٦. غزارة الدورة ونقص الحديد', subAr: 'متى تكون الدورة نزيفاً مرضياً؟' },
         ].map((t) => {
           const sel = activeTab === t.id;
           return (
@@ -134,8 +134,8 @@ export default function WomensHealthClinic() {
                 modalTitle="💊 نوع شريط منع الحمل"
                 modalSubtitle="اختاري نوع الأقراص لتحديد بروتوكول التصرف الصحيح"
                 options={[
-                  { value: 'combined', icon: '🌸', label: 'أقراص مركبة عادية', description: 'ياسمين، جينيرا، مارفيلون، سيلست (تحتوي على هرمونين)', badge: 'الأكثر شيوعاً' },
-                  { value: 'mini_lactation', icon: '🍼', label: 'أقراص الرضاعة الأحادية', description: 'سيرازيت، ميكرولوت، لاكتينور (تتطلب دقة صارمة في الميعاد)', badge: 'آمنة مع الرضاعة' },
+                  { value: 'combined', icon: '', label: 'أقراص مركبة عادية', description: 'ياسمين، جينيرا، مارفيلون، سيلست (تحتوي على هرمونين)', badge: 'الأكثر شيوعاً' },
+                  { value: 'mini_lactation', icon: '', label: 'أقراص الرضاعة الأحادية', description: 'سيرازيت، ميكرولوت، لاكتينور (تتطلب دقة صارمة في الميعاد)', badge: 'آمنة مع الرضاعة' },
                 ]}
               />
             </div>
@@ -148,9 +148,9 @@ export default function WomensHealthClinic() {
                 modalTitle="⏰ مدة تأخر الحبة المنسية"
                 modalSubtitle="حددي عدد الساعات التي مرت منذ الموعد المعتاد للحبة"
                 options={[
-                  { value: 'under_12', icon: '⚡', label: 'أقل من 12 ساعة (تذكرت في نفس اليوم)', description: 'تأخير بسيط في نفس اليوم', badge: 'أمان عالٍ' },
-                  { value: '12_to_24', icon: '⏳', label: 'بين 12 إلى 24 ساعة (حبة واحدة منسية)', description: 'مرت أكثر من 12 ساعة على حبة واحدة فقط', badge: 'انتباه مطلوب' },
-                  { value: 'over_24_two_pills', icon: '🚨', label: 'أكثر من 24 - 48 ساعة (نسيت حبتين أو أكثر)', description: 'نسيان يومين متتاليين أو أكثر من الشريط', badge: 'تحذير هام' },
+                  { value: 'under_12', icon: '', label: 'أقل من 12 ساعة (تذكرت في نفس اليوم)', description: 'تأخير بسيط في نفس اليوم', badge: 'أمان عالٍ' },
+                  { value: '12_to_24', icon: '', label: 'بين 12 إلى 24 ساعة (حبة واحدة منسية)', description: 'مرت أكثر من 12 ساعة على حبة واحدة فقط', badge: 'انتباه مطلوب' },
+                  { value: 'over_24_two_pills', icon: '', label: 'أكثر من 24 - 48 ساعة (نسيت حبتين أو أكثر)', description: 'نسيان يومين متتاليين أو أكثر من الشريط', badge: 'تحذير هام' },
                 ]}
               />
             </div>
@@ -203,7 +203,7 @@ export default function WomensHealthClinic() {
       {activeTab === 'dysmenorrhea' && (
         <section className="card" style={{ borderRadius: '16px', padding: '22px', marginBottom: '28px' }}>
           <h2 style={{ margin: '0 0 12px', fontSize: '1.35rem', fontWeight: 900, color: '#0D1F38' }}>
-            🌸 التغلب على آلام ومغص الدورة الشهرية الشديد (Dysmenorrhea)
+            التغلب على آلام ومغص الدورة الشهرية الشديد (Dysmenorrhea)
           </h2>
           <p className="small" style={{ fontWeight: 600, lineHeight: 1.7 }}>
             • **الخدعة الطبية لتسكين ألم الدورة:** المغص يحدث بسبب إفراز مادة (البروستاجلاندين) التي تعصر الرحم؛ تناول قرص مضاد للبروستاجلاندين (مثل بونستان فورت / نابروكسين / بروفين بعد الأكل) **قبل نزول الدورة بـ 12 ساعة أو مع أول نقطة** يمنع تكون المادة المسببة للألم من الأساس!<br />
@@ -229,7 +229,7 @@ export default function WomensHealthClinic() {
       {activeTab === 'iron_menorrhagia' && (
         <section className="card" style={{ borderRadius: '16px', padding: '22px', marginBottom: '28px' }}>
           <h2 style={{ margin: '0 0 12px', fontSize: '1.35rem', fontWeight: 900, color: '#0D1F38' }}>
-            🩸 غزارة الطمث ونزيف الدورة: السبب الخفي لأنيميا السيدات في مصر
+            غزارة الطمث ونزيف الدورة: السبب الخفي لأنيميا السيدات في مصر
           </h2>
           <p className="small" style={{ fontWeight: 600, lineHeight: 1.7 }}>
             • **متى تعتبر الدورة غزيرة مرضياً (Menorrhagia)؟** إذا استمرت أكثر من **7 أيام كاملة**، أو كنتِ تضطرين لتغيير الفوطة الصحية كل ساعة إلى ساعتين، أو تنزل كتل دموية متجلطة كبيرة.<br />

@@ -286,17 +286,32 @@ function SmartWelcomeOnboardingBanner() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '1.9rem' }}>🌟</span>
+          <span
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              background: 'rgba(255, 255, 255, 0.14)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </span>
           <div>
-            <strong style={{ fontSize: '0.98rem', display: 'block', color: '#ffffff', marginBottom: '2px' }}>
+            <strong style={{ fontSize: '0.95rem', display: 'block', color: '#ffffff', marginBottom: '2px' }}>
               {isAr
-                ? `أهلاً بك يا ${patientFirstName} في دوايا 👋 خطوة واحدة لتأمين صحتك!`
-                : `Welcome ${patientFirstName}! One quick step to secure your health:`}
+                ? `مرحباً ${patientFirstName} — استكمل إعداد ملف الأمان الدوائي`
+                : `Welcome ${patientFirstName} — Complete your medication safety profile`}
             </strong>
-            <span style={{ fontSize: '0.84rem', color: '#d1fae5', lineHeight: 1.4, display: 'block' }}>
+            <span style={{ fontSize: '0.82rem', color: '#d1fae5', lineHeight: 1.4, display: 'block' }}>
               {isAr
-                ? 'حدد مهنتك (سائق، مصنع، طالب، ربت منزل...) بكروت تفاعلية ليفحص الذكاء الاصطناعي أمان أي دواء تبحث عنه ضد النعاس والدوخة وحساسية الصدر.'
-                : 'Select your occupation so AI can screen your medicines for driving safety, alertness, and workplace lung hazards.'}
+                ? 'حدد طبيعة عملك لتفعيل الفحص التلقائي للأدوية المؤثرة على اليقظة والقيادة والجهاز التنفسي.'
+                : 'Set your occupation to enable automated screening for alertness and workplace safety.'}
             </span>
           </div>
         </div>
@@ -306,20 +321,18 @@ function SmartWelcomeOnboardingBanner() {
             style={{
               background: '#10b981',
               color: '#ffffff',
-              border: '1.5px solid #ffffff',
+              border: '1px solid rgba(255, 255, 255, 0.4)',
               fontWeight: 800,
-              fontSize: '0.88rem',
+              fontSize: '0.85rem',
               borderRadius: '999px',
-              padding: '7px 18px',
+              padding: '7px 16px',
               textDecoration: 'none',
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
             }}
           >
-            <span>🚗⚙️</span>
-            <span>{isAr ? 'اختر مهنتك الآن' : 'Set Occupation'}</span>
+            <span>{isAr ? 'تحديد المهنة' : 'Set Occupation'}</span>
           </Link>
           <button
             type="button"

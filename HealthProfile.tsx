@@ -567,19 +567,19 @@ export default function HealthProfile() {
       {/* Personal Identity Card */}
       <section className="card stack">
         <div className="card-head-row" style={{ flexWrap: 'wrap', gap: '8px' }}>
-          <h2>📋 {isAr ? 'البيانات الشخصية والحيوية للمريض:' : 'Patient Details & Vitals:'}</h2>
+          <h2>{isAr ? 'البيانات الشخصية والحيوية للمريض:' : 'Patient Details & Vitals:'}</h2>
           <div className="row wrapRow no-print" style={{ gap: '8px' }}>
             <button type="button" className="btn-secondary" onClick={() => setEditingPersonal(!editingPersonal)}>
-              {editingPersonal ? (isAr ? 'إلغاء' : 'Cancel') : (isAr ? '✏️ تعديل البيانات' : '✏️ Edit')}
+              {editingPersonal ? (isAr ? 'إلغاء' : 'Cancel') : (isAr ? 'تعديل البيانات' : 'Edit')}
             </button>
             <button type="button" className="btn-secondary" onClick={() => window.print()}>
-              📋 {isAr ? 'طباعة الكارت الطبي' : 'Print Medical ID'}
+              {isAr ? 'طباعة الكارت الطبي' : 'Print Medical ID'}
             </button>
             <button type="button" className="btn small" style={{ background: '#138866', borderColor: '#138866', color: '#101E36', fontWeight: 800 }} onClick={handleShareImage}>
-              ⬇️ {isAr ? 'تنزيل الكارت PNG' : 'Download ID PNG'}
+              {isAr ? 'تنزيل الكارت PNG' : 'Download ID PNG'}
             </button>
             <Link to="/passport" className="btn small ghost">
-              🪪 {isAr ? 'صفحة الكارت الذكي المستقلة' : 'Full ID Page'}
+              {isAr ? 'صفحة الكارت الذكي المستقلة' : 'Full ID Page'}
             </Link>
           </div>
         </div>
@@ -676,7 +676,7 @@ export default function HealthProfile() {
                   <span style={{ fontSize: '1.3rem' }}>🚗⚙️</span>
                   <strong style={{ fontSize: '0.98rem' }}>
                     {isAr
-                      ? 'المهنة وطبيعة العمل (ذكاء فحص أمان الدواء مع السواقة والتركيز والماكينات):'
+                      ? 'المهنة وبيئة العمل:'
                       : 'Occupation & Daily Work Safety Category:'}
                   </strong>
                 </label>
@@ -684,7 +684,7 @@ export default function HealthProfile() {
                 <SmartChoiceSelect
                   value={occupationInput}
                   onChange={(val) => setOccupationInput(val)}
-                  modalTitle={isAr ? '🚗⚙️ اختر مهنتك لتأمين دوائك' : 'Select Your Occupation'}
+                  modalTitle={isAr ? 'اختر مهنتك لتأمين دوائك' : 'Select Your Occupation'}
                   modalSubtitle={isAr ? 'يقوم الذكاء الاصطناعي بفحص أي دواء تبحث عنه ضد النعاس والدوخة وحساسية الصدر المهنية' : 'AI automatically screens your medications against workplace hazards'}
                   options={[
                     {
@@ -699,7 +699,7 @@ export default function HealthProfile() {
                       icon: '⚙️',
                       label: isAr ? 'عامل مصنع وماكينات' : 'Factory & Machinery Operator',
                       description: isAr ? 'تشغيل آلات حادة، غبار، بودرة، كيماويات — فحص سرعة الاستجابة وحماية الصدر' : 'Alert for reaction speed and respiratory dust hazards',
-                      badge: isAr ? '🏭 فحص أمان الصدر والماكينات' : 'Lung & Machinery Guard',
+                      badge: isAr ? 'فحص أمان الصدر والماكينات' : 'Lung & Machinery Guard',
                     },
                     {
                       value: 'office_desk',
@@ -849,14 +849,14 @@ export default function HealthProfile() {
                 )}
 
                 <div style={{ fontSize: '0.8rem', color: '#047857', marginTop: '8px', fontWeight: 700 }}>
-                  💡 {isAr
-                    ? 'اضغط على الخانة أعلاه لتفتح لك نافذة اختيار المهنة بالكروت التفاعلية!'
+                  {isAr
+                    ? 'يتم فحص الأدوية تلقائياً وفقاً لمتطلبات اليقظة والسلامة المهنية الخاصة بعملك.'
                     : 'Tap the field above to open the interactive occupation choice cards!'}
                 </div>
               </div>
             </div>
             <button type="submit" className="btn" style={{ alignSelf: 'flex-start' }}>
-              💾 {isAr ? 'حفظ البيانات ومزامنة الـ QR' : 'Save & Sync QR'}
+              {isAr ? 'حفظ البيانات ومزامنة الـ QR' : 'Save & Sync QR'}
             </button>
           </form>
         ) : (
@@ -870,20 +870,20 @@ export default function HealthProfile() {
             <div className="profile-detail-full" style={{ background: '#f0fdf4', padding: '10px 14px', borderRadius: '12px', border: '1.5px solid #86efac' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                 <div>
-                  <b style={{ color: '#065f46' }}>🚗⚙️ {isAr ? 'المهنة وطبيعة العمل:' : 'Occupation:'}</b>{' '}
+                  <b style={{ color: '#065f46' }}>{isAr ? 'المهنة وطبيعة العمل:' : 'Occupation:'}</b>{' '}
                   <strong style={{ color: '#0D1F38' }}>
                     {profile.occupation === 'driver_transport'
-                      ? (isAr ? '🚗 سائق (فحص أمان السواقة والنعاس مفعل)' : 'Driver (Driving & Drowsiness Guard Active)')
+                      ? (isAr ? 'سائق (فحص أمان السواقة والنعاس مفعل)' : 'Driver (Driving & Drowsiness Guard Active)')
                       : profile.occupation === 'machinery_factory'
-                      ? (isAr ? '⚙️ عامل مصنع وماكينات (فحص الصدر والتركيز مفعل)' : 'Machinery Operator')
+                      ? (isAr ? 'عامل مصنع وماكينات (فحص الصدر والتركيز مفعل)' : 'Machinery Operator')
                       : profile.occupation === 'office_desk'
-                      ? (isAr ? '💻 عمل مكتبي وإداري' : 'Office Desk')
+                      ? (isAr ? 'عمل مكتبي وإداري' : 'Office Desk')
                       : profile.occupation === 'student'
-                      ? (isAr ? '🎓 طالب / دراسة وامتحانات' : 'Student')
+                      ? (isAr ? 'طالب / دراسة وامتحانات' : 'Student')
                       : profile.occupation === 'homemaker'
-                      ? (isAr ? '🏡 ربت منزل / رعاية أسرية' : 'Homemaker')
+                      ? (isAr ? 'ربت منزل / رعاية أسرية' : 'Homemaker')
                       : profile.occupation === 'other'
-                      ? (isAr ? `✍️ ${profile.customOccupationTitle || 'مهنة خاصة'}` : `✍️ ${profile.customOccupationTitle || 'Custom Occupation'}`)
+                      ? (isAr ? `${profile.customOccupationTitle || 'مهنة خاصة'}` : `${profile.customOccupationTitle || 'Custom Occupation'}`)
                       : (isAr ? 'فحص عام اعتيادي' : 'General')}
                   </strong>
                 </div>
@@ -891,15 +891,15 @@ export default function HealthProfile() {
               {profile.occupation === 'machinery_factory' && ((profile.factoryEnvironmentHazards && profile.factoryEnvironmentHazards.length > 0) || profile.workEnvironmentNotes) && (
                 <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed rgba(16, 185, 129, 0.4)', fontSize: '0.84rem' }}>
                   <span style={{ fontWeight: 800, color: '#047857' }}>
-                    🏭 {isAr ? 'بيئة المصنع المحذورة للصدر والرئتين:' : 'Factory Hazards:'}
+                    {isAr ? 'بيئة المصنع المحذورة للصدر والرئتين:' : 'Factory Hazards:'}
                   </span>{' '}
                   {profile.factoryEnvironmentHazards && profile.factoryEnvironmentHazards.map((h) => (
                     <span key={h} className="badge" style={{ marginInlineEnd: '4px', background: '#dcfce7', color: '#166534', border: '1px solid #86efac', fontSize: '0.75rem' }}>
-                      {h === 'dust_powder' ? '💨 أتربة وغبار وبودرة'
-                        : h === 'chemicals_fumes' ? '🧪 أبخرة وكيماويات'
-                        : h === 'textile_cotton' ? '🧵 ألياف وغزل قطني'
-                        : h === 'paints_solvents' ? '🎨 دهانات ورش دوكو'
-                        : h === 'sharp_machinery' ? '🔨 ماكينات حادة ثقيلة'
+                      {h === 'dust_powder' ? 'أتربة وغبار وبودرة'
+                        : h === 'chemicals_fumes' ? 'أبخرة وكيماويات'
+                        : h === 'textile_cotton' ? 'ألياف وغزل قطني'
+                        : h === 'paints_solvents' ? 'دهانات ورش دوكو'
+                        : h === 'sharp_machinery' ? 'ماكينات حادة ثقيلة'
                         : h}
                     </span>
                   ))}
@@ -1013,7 +1013,7 @@ export default function HealthProfile() {
                   <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                     <div>
                       <div className="row wrapRow" style={{ gap: '8px', alignItems: 'center' }}>
-                        <strong>📋 {rx.medicineName}</strong>
+                        <strong>{rx.medicineName}</strong>
                         <span
                           className={`verification-badge ${
                             rx.verificationStatus === 'needs_clarification' ? 'clarify' : 'unverified'
@@ -1315,7 +1315,7 @@ export default function HealthProfile() {
                   <SmartChoiceSelect
                     value={evidence}
                     onChange={(val) => setEvidence(val as EvidenceStatus)}
-                    modalTitle={isAr ? '📋 حالة توثيق الحساسية' : 'Evidence Status'}
+                    modalTitle={isAr ? 'حالة توثيق الحساسية' : 'Evidence Status'}
                     options={[
                       { value: 'patient_reported', icon: '🗣️', label: isAr ? 'أبلغ عنها المريض' : 'Patient-Reported', description: isAr ? 'ظهرت أعراض سابقة عند تناول الدواء' : 'Previous reaction reported' },
                       { value: 'clinically_verified', icon: '🔬', label: isAr ? 'مؤكدة سريرياً باختبار جلد' : 'Clinically Verified', description: isAr ? 'مثبتة باختبار حساسية أو تقرير طبي' : 'Verified by skin test' },
@@ -1327,7 +1327,7 @@ export default function HealthProfile() {
 
               <div className="modal-actions">
                 <button type="submit" className="btn">
-                  💾 {isAr ? 'حفظ الحساسية' : 'Save Record'}
+                  {isAr ? 'حفظ الحساسية' : 'Save Record'}
                 </button>
                 <button type="button" className="btn-secondary" onClick={() => setShowAllergyModal(false)}>
                   {isAr ? 'إلغاء' : 'Cancel'}
@@ -1377,7 +1377,7 @@ export default function HealthProfile() {
                 </select>
               </div>
               <div className="modal-actions">
-                <button type="submit" className="btn">💾 {isAr ? 'حفظ الدواء' : 'Save'}</button>
+                <button type="submit" className="btn">{isAr ? 'حفظ الدواء' : 'Save'}</button>
                 <button type="button" className="btn-secondary" onClick={() => setShowMedModal(false)}>{isAr ? 'إلغاء' : 'Cancel'}</button>
               </div>
             </form>
@@ -1390,7 +1390,7 @@ export default function HealthProfile() {
       <section className="card stack" style={{ borderTop: '4px solid #138866', marginTop: 8 }}>
         <div className="card-head-row no-print" style={{ flexWrap: 'wrap', gap: '8px' }}>
           <h2 className="section-title">
-            🪪 {isAr ? 'الكارت الطبي الذكي — دوايا | DAWAYA (QR الطوارئ للمستشفى والطبيب)' : 'DAWAYA Smart Medical ID & Emergency Passport'}
+            {isAr ? 'الكارت الطبي الذكي — دوايا | DAWAYA (QR الطوارئ للمستشفى والطبيب)' : 'DAWAYA Smart Medical ID & Emergency Passport'}
           </h2>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             <button
@@ -1401,7 +1401,7 @@ export default function HealthProfile() {
                 window.scrollTo({ top: 220, behavior: 'smooth' });
               }}
             >
-              ✏️ {isAr ? 'إدخال العمر وفصيلة الدم والوزن' : 'Edit Age & Blood Type'}
+              {isAr ? 'إدخال العمر وفصيلة الدم والوزن' : 'Edit Age & Blood Type'}
             </button>
             <button
               type="button"
@@ -1461,14 +1461,14 @@ export default function HealthProfile() {
             style={{ background: '#138866', borderColor: '#138866', color: '#101E36', fontWeight: 800 }}
             onClick={handleShareImage}
           >
-            ⬇️ {isAr ? 'تنزيل الكارت كصورة (HD PNG)' : 'Download ID Card (PNG)'}
+            {isAr ? 'تنزيل الكارت كصورة (HD PNG)' : 'Download ID Card (PNG)'}
           </button>
           <button
             type="button"
             className="btn-secondary small"
             onClick={() => window.print()}
           >
-            📋 {isAr ? 'طباعة الكارت الطبي' : 'Print Medical ID'}
+            {isAr ? 'طباعة الكارت الطبي' : 'Print Medical ID'}
           </button>
           <button
             type="button"
@@ -1509,7 +1509,7 @@ export default function HealthProfile() {
                 style={{ fontSize: '0.78rem' }}
                 onClick={() => { setShowPinSetup(true); setPinInput(''); }}
               >
-                {savedPin ? (isAr ? '✏️ تغيير PIN' : '✏️ Change PIN') : (isAr ? '+ تعيين PIN' : '+ Set PIN')}
+                {savedPin ? (isAr ? 'تغيير PIN' : 'Change PIN') : (isAr ? '+ تعيين PIN' : '+ Set PIN')}
               </button>
             </div>
 

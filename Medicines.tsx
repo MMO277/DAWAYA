@@ -762,18 +762,18 @@ export default function Medicines() {
               if (hasAllergyConflict) {
                 safetyState = 'danger';
                 safetyText = isAr
-                  ? '🚨 تحذير حرج: يتعارض مع حساسيتك الدوائية المسجلة!'
+                  ? 'تعارض دوائي: يتعارض مع سجل الحساسية'
                   : '🚨 Critical: Conflicts with your recorded allergy!';
               } else if (occAlerts.length > 0) {
                 safetyState = 'danger';
                 const isResp = occAlerts[0].warningAr.includes('الصدر');
                 safetyText = isResp
-                  ? (isAr ? '⚠️ تنبيه للصدر — يحذر مع أتربة وبودرة المصنع' : '⚠️ Lung Alert — Caution with factory dust')
-                  : (isAr ? '⚠️ يسبب النعاس — يحظر أثناء القيادة والعمل' : '⚠️ Causes Drowsiness — Do not drive');
+                  ? (isAr ? 'تنبيه مهني: يحذر مع التعرض لأتربة المصنع' : '⚠️ Lung Alert — Caution with factory dust')
+                  : (isAr ? 'تنبيه يقظة: يسبب النعاس ويحظر أثناء القيادة' : '⚠️ Causes Drowsiness — Do not drive');
               } else if (hasOrganConflict) {
                 safetyState = 'caution';
                 safetyText = isAr
-                  ? '⚠️ يتطلب تعديل جرعة مع وظائف الكلى/الكبد لديك'
+                  ? 'تنبيه كلوي/كبدي: يتطلب مراجعة الجرعة'
                   : '⚠️ Requires renal/hepatic dose adjustment';
               }
 
@@ -863,7 +863,7 @@ export default function Medicines() {
 
                           {hydrationReq && (
                             <span className="dawaya-med-hydration-chip" title={hydrationReq.reasonAr}>
-                              {isAr ? hydrationReq.badgeAr : '💧 Drink 2 Glasses of Water'}
+                              {isAr ? hydrationReq.badgeAr : 'Drink 2 Glasses of Water'}
                             </span>
                           )}
                         </div>
@@ -964,7 +964,7 @@ export default function Medicines() {
               const safetyState: 'safe' | 'danger' = occAlerts.length > 0 ? 'danger' : 'safe';
               const safetyText =
                 occAlerts.length > 0
-                  ? (isAr ? '⚠️ يسبب النعاس — يحظر أثناء القيادة' : '⚠️ Causes Drowsiness — Do not drive')
+                  ? (isAr ? 'تنبيه يقظة: يسبب النعاس ويحظر أثناء القيادة' : '⚠️ Causes Drowsiness — Do not drive')
                   : (isAr ? `✓ آمن مع ملفك ومهنتك (${occupationLabel})` : `✓ Safe with your profile (${occupationLabel})`);
 
               return (
@@ -1020,7 +1020,7 @@ export default function Medicines() {
                           )}
                           {hydrationReq && (
                             <span className="dawaya-med-hydration-chip">
-                              {isAr ? hydrationReq.badgeAr : '💧 2 Glasses Water'}
+                              {isAr ? hydrationReq.badgeAr : '2 Glasses Water'}
                             </span>
                           )}
                         </div>

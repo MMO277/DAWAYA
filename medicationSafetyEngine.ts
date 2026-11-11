@@ -1998,7 +1998,7 @@ export function evaluateOccupationalDrugSafety(
           alerts.push({
             drugName: drug,
             hazardLevel: 'critical_danger',
-            warningAr: `🚨 تحذير مهني خطير: مهنتك مسجلة (${occupation === 'driver_transport' ? 'سائق طريق' : 'عامل مصنع وماكينات'}). هذا الدواء (${drug}) ${rule.warningAr} ويمنع القيادة وتشغيل الآلات بتاتاً أثناء مفعوله!`,
+            warningAr: `تنبيه السلامة المهنية: مهنتك مسجلة (${occupation === 'driver_transport' ? 'سائق طريق' : 'عامل مصنع وماكينات'}). هذا الدواء (${drug}) ${rule.warningAr} ويمنع القيادة وتشغيل الآلات بتاتاً أثناء مفعوله!`,
             safeWorkAdviceAr: 'يفضل تناول الجرعة قبل النوم مباشرة أو طلب بديل مضاد للحساسية لا يسبب النعاس (مثل لوراتادين أو ديسلوراتادين).',
           });
         }
@@ -2012,7 +2012,7 @@ export function evaluateOccupationalDrugSafety(
           alerts.push({
             drugName: drug,
             hazardLevel: 'caution',
-            warningAr: `🏭 تنبيه بيئة المصنع للصدر والرئتين: بما أنك تتعرض لأتربة وبودرة أو كيماويات في عملك، فهذا الدواء (${drug}) ${rule.warningAr}`,
+            warningAr: `تنبيه الجهاز التنفسي لبيئة العمل: بما أنك تتعرض لأتربة وبودرة أو كيماويات في عملك، فهذا الدواء (${drug}) ${rule.warningAr}`,
             safeWorkAdviceAr: 'يُرجى استشارة الطبيب لوصف بديل موسع للشعب أو خافض للضغط لا يحفز السعال التحسسي.',
           });
           break;
@@ -2058,13 +2058,13 @@ export function evaluateDrugHydrationRequirement(
         needsExtraWater: true,
         cupsRequired: 2,
         stayUprightMinutes: 30,
-        titleAr: '💧 منبه شرب الماء الإجباري: كوبا ماء كاملان + عدم الاستلقاء 30 دقيقة',
+        titleAr: 'إرشاد تناول الجرعة: كوبا ماء كاملان + عدم الاستلقاء 30 دقيقة',
         titleEn: 'Mandatory Hydration: 2 Full Glasses of Water + Stay Upright 30 Mins',
         reasonAr:
           'هذا الدواء قد يلتصق بجدار المريء ويسبب تقرحاً حاداً وحرقاناً شديداً إذا بُلع بقليل من الماء أو قبل النوم مباشرة.',
         reasonEn:
           'This medication can cause severe pill esophagitis if taken with little water or right before lying down.',
-        badgeAr: '💧 كوبا ماء + 30 دقيقة جلوس',
+        badgeAr: 'يشترط كوبا ماء + عدم الاستلقاء',
       };
     }
 
@@ -2077,7 +2077,7 @@ export function evaluateDrugHydrationRequirement(
         'تناول هذا الدواء مع وفرة من الماء (كوبين كاملين) يحمي الكلى من التركيز الدوائي ويخفف تخريش جدار المعدة.',
       reasonEn:
         'Drinking plenty of water with this medication protects kidney filtration and reduces gastric irritation.',
-      badgeAr: '💧 يلزم شرب كوبين ماء',
+      badgeAr: 'يشترط كوبا ماء مع الجرعة',
     };
   }
 
@@ -2090,13 +2090,13 @@ export function evaluateDrugHydrationRequirement(
     return {
       needsExtraWater: true,
       cupsRequired: 2,
-      titleAr: '💧 منبه شرب الماء الإجباري: اشرب كوبين ماء كاملين لمنع ترسب الأملاح بالكلى',
+      titleAr: 'إرشاد تناول الجرعة: اشرب كوبين ماء كاملين لمنع ترسب الأملاح بالكلى',
       titleEn: 'Renal Hydration Guard: Drink 2 Full Glasses of Water to Prevent Crystals',
       reasonAr:
         'يتركز هذا الدواء في المسالك البولية وقد يكوّن بلورات أو أملاحاً بالكلى في حالة الجفاف؛ شرب الماء بكثرة ضروري طوال اليوم.',
       reasonEn:
         'This drug concentrates in urine and can form renal crystals if dehydrated; maintain high fluid intake.',
-      badgeAr: '💧 حماية الكلى: كوبا ماء',
+      badgeAr: 'حماية الكلى: كوبا ماء',
     };
   }
 

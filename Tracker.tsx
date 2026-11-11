@@ -115,7 +115,7 @@ function SmartHydrationGuardTrackerWidget({
           </div>
           <div>
             <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 900, color: '#0369a1' }}>
-              {isAr ? 'منبه وحارس شرب الماء الإجباري مع الأدوية (Smart Hydration Guard)' : 'Smart Medication Hydration Guard'}
+              {isAr ? 'متابعة شرب الماء اليومي مع الأدوية' : 'Smart Medication Hydration Guard'}
             </h3>
             <p className="small" style={{ margin: '2px 0 0', opacity: 0.85, fontWeight: 600 }}>
               {isAr
@@ -139,7 +139,7 @@ function SmartHydrationGuardTrackerWidget({
             }}
             onClick={() => {
               const res = openNativeSystemClockAlarm(
-                isAr ? '💧 منبه شرب كوبين ماء مع الدواء' : '💧 Drink 2 Glasses of Water',
+                isAr ? 'تذكير شرب كوبين ماء مع الدواء' : '💧 Drink 2 Glasses of Water',
                 isAr ? 'حارس دوايا الذكي لحماية الكلى والمريء' : 'DAWAYA Hydration Guard',
                 '10:00',
                 isAr
@@ -161,7 +161,7 @@ function SmartHydrationGuardTrackerWidget({
               fontSize: '0.88rem',
             }}
           >
-            {cupsDrank} / 8 {isAr ? 'أكواب اليوم' : 'Cups Today'} {cupsDrank >= 8 ? '🎉' : ''}
+            {cupsDrank} / 8 {isAr ? 'أكواب اليوم' : 'Cups Today'} {cupsDrank >= 8 ? '' : ''}
           </span>
         </div>
       </div>
@@ -202,7 +202,7 @@ function SmartHydrationGuardTrackerWidget({
                 transform: filled ? 'scale(1.03)' : 'scale(1)',
               }}
             >
-              <span style={{ fontSize: '1.35rem' }}>{filled ? '🥤' : '🥛'}</span>
+              <span style={{ fontSize: '1.35rem' }}>{filled ? '●' : '○'}</span>
               <span>{isAr ? `كوب ${cupNum}` : `Cup ${cupNum}`}</span>
               <span style={{ fontSize: '0.68rem', opacity: 0.85 }}>250 ml</span>
             </button>
@@ -238,7 +238,7 @@ function SmartHydrationGuardTrackerWidget({
           }}
         >
           <strong style={{ fontSize: '0.88rem', color: '#0369a1', display: 'block', marginBottom: '6px' }}>
-            🚨 {isAr ? 'أدوية مسجلة في جدولك تشترط شرب كوبين ماء كاملين مع كل جرعة:' : 'Your Active Medications Requiring 2 Full Glasses of Water:'}
+            {isAr ? 'أدوية مسجلة في جدولك تشترط شرب كوبين ماء كاملين مع كل جرعة:' : 'Your Active Medications Requiring 2 Full Glasses of Water:'}
           </strong>
           <div style={{ display: 'grid', gap: '6px' }}>
             {hydrationAlerts.map((item, idx) => (
@@ -512,10 +512,10 @@ export default function Tracker() {
         prescriptionId: rxId,
         medicineName: savedRx.medicineName,
         summaryAr: liveValidation.hasBlockingFlags
-          ? `🚨 تم حفظ الروشتة (${savedRx.medicineName}) بحالة «تحتاج لتوضيح من الطبيب/الصيدلي» بدون تفعيل جدول جرعات.`
+          ? `تم حفظ الروشتة (${savedRx.medicineName}) بحالة «تحتاج لتوضيح من الطبيب/الصيدلي» بدون تفعيل جدول جرعات.`
           : `📋 تم حفظ الروشتة (${savedRx.medicineName}) كمسودة غير موثّقة لمراجعتها قبل الجدولة.`,
         summaryEn: liveValidation.hasBlockingFlags
-          ? `🚨 Saved prescription (${savedRx.medicineName}) as "Flagged for Professional Clarification" without scheduling doses.`
+          ? `Saved prescription (${savedRx.medicineName}) as "Flagged for Professional Clarification" without scheduling doses.`
           : `📋 Saved prescription (${savedRx.medicineName}) as unverified draft pending verification.`,
       }
     );
@@ -1238,7 +1238,7 @@ export default function Tracker() {
                     }}
                     title={isAr ? 'تجربة شاشة ورنين منبه الموبايل الآن' : 'Launch full-screen phone alarm now'}
                   >
-                    🚨 {isAr ? 'تجربة شاشة المنبه الآن' : 'Test Phone Alarm'}
+                    {isAr ? 'تجربة شاشة المنبه الآن' : 'Test Phone Alarm'}
                   </button>
                   <button type="button" className="btn-secondary" onClick={() => openEdit(sch)}>
                     ✏️ {isAr ? 'تعديل' : 'Edit'}

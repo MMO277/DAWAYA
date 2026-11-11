@@ -615,7 +615,7 @@ export default function ChatWidget() {
               `Emergencias SOS (${countryName}: ${emergency.number})`
             )}
           >
-            <span className="fab-icon">🚨</span>
+            <span className="fab-icon"></span>
             <span className="fab-label">
               {tr(
                 lang,
@@ -652,7 +652,7 @@ export default function ChatWidget() {
         <div className="chat-popup sos-popup" role="dialog" aria-modal="true">
           <div className="popup-head sos-head">
             <div className="popup-title">
-              <span className="head-avatar">🚨</span>
+              <span className="head-avatar"></span>
               <div>
                 <b>{isAr ? 'طوارئ الحساسية الدوائية والإسعاف' : 'Drug Allergy & Emergency SOS'}</b>
                 <div className="online-status">
@@ -907,15 +907,15 @@ export default function ChatWidget() {
                       <div className="ai-badge">
                         {m.actionProposal
                           ? isAr
-                            ? '⚡ إجراء جاهز للتأكيد في حسابك'
-                            : '⚡ Proposed Health Action'
+                            ? 'إجراء جاهز للتأكيد في حسابك'
+                            : 'Proposed Health Action'
                           : m.isSystemActionResult
                             ? isAr
                               ? '📋 من ملفك الصحي'
                               : '📋 Saved Patient Record'
                             : isAr
-                              ? '✨ مساعدك الصيدلاني الذكي'
-                              : '✨ AI Health Assistant'}
+                              ? 'مساعدك الصيدلاني الذكي'
+                              : 'AI Health Assistant'}
                       </div>
                       {plainText && (
                         <button

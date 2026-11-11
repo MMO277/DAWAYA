@@ -550,16 +550,16 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
         >
           {callState === 'connecting'
             ? isAr
-              ? '⏳ جارٍ الاتصال وفتح قناة الصوت...'
-              : '⏳ Connecting audio line...'
+              ? 'جارٍ الاتصال وفتح قناة الصوت...'
+              : 'Connecting audio line...'
             : callState === 'listening'
             ? isAr
               ? '🎙️ الطبيب يستمع لك الآن.. اتكلم براحتك'
               : '🎙️ Doctor is listening live... Speak freely'
             : callState === 'thinking'
             ? isAr
-              ? '⚡ الطبيب يدرس حالتك ويجهز الرد...'
-              : '⚡ Analyzing clinical context...'
+              ? 'الطبيب يدرس حالتك ويجهز الرد...'
+              : 'Analyzing clinical context...'
             : callState === 'speaking'
             ? isAr
               ? '🔊 الطبيب يتحدث معك الآن...'
@@ -602,7 +602,7 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
             {callState === 'listening' ? (
               <>
                 <span style={{ fontSize: '1.25rem' }}>⏹️</span>
-                <span>{isAr ? 'سامعك.. دوس هنا للإرسال 🚀' : 'Listening.. Tap to send 🚀'}</span>
+                <span>{isAr ? 'سامعك.. دوس هنا للإرسال' : 'Listening.. Tap to send'}</span>
               </>
             ) : callState === 'speaking' ? (
               <>
@@ -808,7 +808,7 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
               cursor: manualText.trim() ? 'pointer' : 'default',
             }}
           >
-            {isAr ? 'إرسال ✈️' : 'Send ✈️'}
+            {isAr ? 'إرسال' : 'Send'}
           </button>
         </form>
 

@@ -352,7 +352,7 @@ export default function PatientDashboard() {
             <span style={{ fontSize: '1.5rem' }}>💧</span>
             <div>
               <strong style={{ fontSize: '0.96rem', display: 'block', color: '#0369a1' }}>
-                {isAr ? 'حارس ومنبه شرب الماء اليومي مع الأدوية (8 أكواب = 2 لتر)' : 'Daily Medication Hydration Guard (8 Glasses)'}
+                {isAr ? 'متابعة شرب الماء اليومي (8 أكواب / 2 لتر)' : 'Daily Medication Hydration Guard (8 Glasses)'}
               </strong>
               <span className="small muted">
                 {isAr ? 'اضغط على الكوب لتسجيل شرب الماء وحماية الكلى والمريء من ترسبات الأدوية' : 'Tap a glass to log water intake and protect your kidneys'}
@@ -370,7 +370,7 @@ export default function PatientDashboard() {
               border: '1px solid #7dd3fc',
             }}
           >
-            {waterCups} / 8 {isAr ? 'أكواب اليوم' : 'Cups'} {waterCups >= 8 ? '🎉' : ''}
+            {waterCups} / 8 {isAr ? 'أكواب اليوم' : 'Cups'} {waterCups >= 8 ? '' : ''}
           </span>
         </div>
 
@@ -398,7 +398,7 @@ export default function PatientDashboard() {
                   transition: 'all 0.15s ease',
                 }}
               >
-                <span style={{ fontSize: '1.2rem' }}>{active ? '🥤' : '🥛'}</span>
+                <span style={{ fontSize: '1.2rem' }}>{active ? '●' : '○'}</span>
                 <span>{isAr ? `كوب ${num}` : `#${num}`}</span>
               </button>
             );

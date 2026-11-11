@@ -254,14 +254,14 @@ export default function MedicinePage() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '1.4rem' }}>🚗⚠️</span>
+                <span style={{ fontSize: '1.4rem' }}></span>
                 <strong style={{ fontSize: '0.98rem' }}>فحص أمان السواقة وطبيعة العمل مع هذا الدواء:</strong>
               </div>
               <p style={{ margin: '4px 0 6px', fontSize: '0.88rem', lineHeight: 1.6, color: '#7f1d1d' }}>
                 {alert.warningAr}
               </p>
               <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: '8px' }}>
-                💡 <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
+                <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
               </div>
             </div>
           );
@@ -305,14 +305,14 @@ export default function MedicinePage() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '1.4rem' }}>🚗⚠️</span>
+                <span style={{ fontSize: '1.4rem' }}></span>
                 <strong style={{ fontSize: '0.98rem' }}>فحص أمان السواقة وطبيعة العمل مع هذا الدواء:</strong>
               </div>
               <p style={{ margin: '4px 0 6px', fontSize: '0.88rem', lineHeight: 1.6, color: '#7f1d1d' }}>
                 {alert.warningAr}
               </p>
               <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: '8px' }}>
-                💡 <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
+                <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
               </div>
             </div>
           );
@@ -400,10 +400,10 @@ export default function MedicinePage() {
             style={{ background: '#138866', borderColor: '#138866', color: '#101E36', fontWeight: 800 }}
             onClick={handleAddCurrentMedication}
           >
-            ➕ {isAr ? 'أضف لأدويتي الحالية' : 'Add to My Medications'}
+            {isAr ? 'أضف لأدويتي الحالية' : 'Add to My Medications'}
           </button>
           <Link to={`/tracker?med=${encodeURIComponent(name)}`} className="btn small ghost">
-            ⏰ {isAr ? 'ضبط منبه جرعات' : 'Set Reminder'}
+            {isAr ? 'ضبط منبه جرعات' : 'Set Reminder'}
           </Link>
           <button
             type="button"
@@ -415,13 +415,13 @@ export default function MedicinePage() {
             {inWatchlist ? '🔔 ' + (isAr ? 'قيد المتابعة ✓' : 'Watching ✓') : '🔔 ' + (isAr ? 'أبلغني عند التوفر' : 'Notify If Available')}
           </button>
           <Link to={`/daily-schedule?med=${encodeURIComponent(name)}`} className="btn ghost small">
-            📅 {tr(lang, 'جدول مواعيد الجرعات', 'Dose Schedule')}
+            {tr(lang, 'جدول مواعيد الجرعات', 'Dose Schedule')}
           </Link>
           <Link to="/prescription-radar" className="btn ghost small">
-            📡 {isAr ? 'فحص في رادار الروشتة' : 'Prescription Radar'}
+            {isAr ? 'فحص في رادار الروشتة' : 'Prescription Radar'}
           </Link>
           <Link to={`/allergy-checker?q=${encodeURIComponent(m.id)}`} className="btn ghost small">
-            🛡️ {isAr ? 'فحص الحساسية والأمان' : 'Allergy & Safety Check'}
+            {isAr ? 'فحص الحساسية والأمان' : 'Allergy & Safety Check'}
           </Link>
           <a
             href={`https://wa.me/?text=${encodeURIComponent(
@@ -434,7 +434,7 @@ export default function MedicinePage() {
             className="btn ghost small"
             style={{ color: '#138866', borderColor: 'rgba(19, 136, 102, 0.4)' }}
           >
-            📤 {isAr ? 'مشاركة عبر واتساب' : 'Share on WhatsApp'}
+            {isAr ? 'مشاركة عبر واتساب' : 'Share on WhatsApp'}
           </a>
         </div>
       </div>
@@ -546,7 +546,7 @@ export default function MedicinePage() {
                 boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
               }}
             >
-              💧⏰ {isAr ? 'ضبط منبه الجرعة + شرب الماء' : 'Set Dose + Water Alarm'}
+              {isAr ? 'ضبط منبه الجرعة + شرب الماء' : 'Set Dose + Water Alarm'}
             </Link>
           </section>
         );
@@ -833,7 +833,7 @@ export default function MedicinePage() {
                 👤 {isAr ? 'ملفي الصحي' : 'My Profile'}
               </Link>
               <Link to="/prescription-radar" className="btn small">
-                📡 {isAr ? 'فحص روشتة كاملة' : 'Full Rx Check'}
+                {isAr ? 'فحص روشتة كاملة' : 'Full Rx Check'}
               </Link>
             </div>
           </div>
@@ -1034,7 +1034,7 @@ export default function MedicinePage() {
         <div className="head" style={{ marginBottom: '10px' }}>
           <div>
             <span className="badge" style={{ background: '#138866', color: '#fff', fontWeight: 800, marginBottom: '6px' }}>
-              💡 {isAr ? 'النشرة الدوائية المبسطة لراحة بالك' : 'Simplified Patient Leaflet'}
+              {isAr ? 'النشرة الدوائية المبسطة لراحة بالك' : 'Simplified Patient Leaflet'}
             </span>
             <h2 style={{ margin: 0, fontSize: '1.18rem', color: '#0D1F38' }}>
               📖 {isAr ? `نشرة (${name}) في 4 إجابات حاسمة بدون تعقيد مصطلحات:` : `Monograph of (${name}) in 4 Simple Answers:`}
@@ -1160,14 +1160,14 @@ export default function MedicinePage() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '1.4rem' }}>🚗⚠️</span>
+                <span style={{ fontSize: '1.4rem' }}></span>
                 <strong style={{ fontSize: '0.98rem' }}>فحص أمان السواقة وطبيعة العمل مع هذا الدواء:</strong>
               </div>
               <p style={{ margin: '4px 0 6px', fontSize: '0.88rem', lineHeight: 1.6, color: '#7f1d1d' }}>
                 {alert.warningAr}
               </p>
               <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: '8px' }}>
-                💡 <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
+                <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
               </div>
             </div>
           );

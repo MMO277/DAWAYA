@@ -87,11 +87,11 @@ export default function ClinicalNutritionClinic() {
       {/* 6 Navigation Tabs */}
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px', marginBottom: '22px' }}>
         {[
-          { id: 'tdee_calc', icon: '🔥', titleAr: '١. حاسبة السعرات والبروتين', subAr: 'حماية الشعر والعضل أثناء الدايت' },
+          { id: 'tdee_calc', icon: '', titleAr: '١. حاسبة السعرات والبروتين', subAr: 'حماية الشعر والعضل أثناء الدايت' },
           { id: 'glp1_injections', icon: '💉', titleAr: '٢. حقن التخسيس (أوزيمبيك/مونجارو)', subAr: 'الممنوعين منها وشروط البنج' },
           { id: 'orlistat_pills', icon: '💊', titleAr: '٣. كبسولات التخسيس (أورليستات)', subAr: 'تعويض الفيتامينات الذائبة' },
-          { id: 'intermittent_fasting', icon: '⏳', titleAr: '٤. الصيام المتقطع (16/8)', subAr: 'حرق الدهون العنيدة والأوتوفاجي' },
-          { id: 'insulin_resistance', icon: '🩸', titleAr: '٥. علاج مقاومة الإنسولين', subAr: 'اسمرار الرقبة ودهون البطن' },
+          { id: 'intermittent_fasting', icon: '', titleAr: '٤. الصيام المتقطع (16/8)', subAr: 'حرق الدهون العنيدة والأوتوفاجي' },
+          { id: 'insulin_resistance', icon: '', titleAr: '٥. علاج مقاومة الإنسولين', subAr: 'اسمرار الرقبة ودهون البطن' },
           { id: 'thinness_gain', icon: '💪', titleAr: '٦. علاج النحافة الصحية', subAr: 'تحذير كورتيزون التسمين والديكسازون!' },
         ].map((t) => {
           const sel = activeTab === t.id;
@@ -121,7 +121,7 @@ export default function ClinicalNutritionClinic() {
       {activeTab === 'tdee_calc' && (
         <section className="card" style={{ borderRadius: '16px', padding: '22px', marginBottom: '28px' }}>
           <h2 style={{ margin: '0 0 14px', fontSize: '1.35rem', fontWeight: 900, color: '#0D1F38' }}>
-            🔥 حاسبة السعرات الحرارية والاحتياج اليومي من البروتين والمياه
+            حاسبة السعرات الحرارية والاحتياج اليومي من البروتين والمياه
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px', marginBottom: '18px' }}>
             <div>
@@ -227,7 +227,7 @@ export default function ClinicalNutritionClinic() {
       {activeTab === 'intermittent_fasting' && (
         <section className="card" style={{ borderRadius: '16px', padding: '22px', marginBottom: '28px' }}>
           <h2 style={{ margin: '0 0 12px', fontSize: '1.35rem', fontWeight: 900, color: '#0D1F38' }}>
-            ⏳ بروتوكول الصيام المتقطع (16/8 للمبتدئين و 14/10 للسيدات)
+            بروتوكول الصيام المتقطع (16/8 للمبتدئين و 14/10 للسيدات)
           </h2>
           <p className="small" style={{ fontWeight: 600, lineHeight: 1.7 }}>
             • **الهدف الطبي من الصيام المتقطع:** ليس تقليل الأكل فقط، بل خفض هرمون الإنسولين لساعات متواصلة حتى تُفتح مخازن الدهون العنيدة وتنشط عملية الالتهام الذاتي للخلايا التالفة (Autophagy).<br />
@@ -240,7 +240,7 @@ export default function ClinicalNutritionClinic() {
       {activeTab === 'insulin_resistance' && (
         <section className="card" style={{ borderRadius: '16px', padding: '22px', marginBottom: '28px' }}>
           <h2 style={{ margin: '0 0 12px', fontSize: '1.35rem', fontWeight: 900, color: '#0D1F38' }}>
-            🩸 علاج مقاومة الإنسولين (HOMA-IR) واسمرار الرقبة ودهون البطن
+            علاج مقاومة الإنسولين (HOMA-IR) واسمرار الرقبة ودهون البطن
           </h2>
           <p className="small" style={{ fontWeight: 600, lineHeight: 1.7 }}>
             • **علامات مقاومة الإنسولين:** محيط خصر يتجاوز 88 سم للسيدات أو 102 سم للرجال، خطوط داكنة مخملية خلف الرقبة وتحت الإبط (Acanthosis Nigricans)، زوائد جلدية، وجوع شديد للحلويات بعد الأكل بساعتين.<br />

@@ -45,7 +45,7 @@ function SeverityBadge({ s, isAr }: { s: string; isAr: boolean }) {
     life_threatening: {
       bg: '#fee2e2',
       color: '#991b1b',
-      icon: '🚨',
+      icon: '',
       ar: 'مهددة للحياة (صدمة تحسسية)',
       en: 'Life-Threatening (Anaphylaxis)',
     },
@@ -59,7 +59,7 @@ function SeverityBadge({ s, isAr }: { s: string; isAr: boolean }) {
     moderate: {
       bg: '#fef9c3',
       color: '#713f12',
-      icon: '⚡',
+      icon: '',
       ar: 'متوسطة (طفح جلدي)',
       en: 'Moderate Reaction',
     },
@@ -295,7 +295,7 @@ function HealthView({
               border: '1px solid rgba(255,255,255,0.35)',
             }}
           >
-            <div style={{ fontSize: '0.74rem', opacity: 0.95 }}>🩸 {isAr ? 'فصيلة الدم' : 'Blood Type'}</div>
+            <div style={{ fontSize: '0.74rem', opacity: 0.95 }}>{isAr ? 'فصيلة الدم' : 'Blood Type'}</div>
             <div style={{ fontSize: '1.1rem', fontWeight: 900, marginTop: 2, direction: 'ltr', textAlign: isAr ? 'right' : 'left' }}>
               {profile.bloodType?.trim() ? profile.bloodType : isAr ? 'غير مسجلة' : 'Not set'}
             </div>
@@ -346,7 +346,7 @@ function HealthView({
               gap: 10,
             }}
           >
-            <span style={{ fontSize: '1.3rem' }}>🚗⚙️</span>
+            <span style={{ fontSize: '1.3rem' }}></span>
             <div>
               <div style={{ fontSize: '0.72rem', opacity: 0.9, fontWeight: 700 }}>
                 {isAr ? 'المهنة وطبيعة العمل (فحص أمان الأدوية مفعل)' : 'Occupation & Medication Safety'}
@@ -1009,7 +1009,7 @@ export default function PassportView() {
               style={{ marginTop: 10, width: '100%', borderColor: '#ef4444', color: '#ef4444', fontWeight: 800 }}
               onClick={handleEmergencyQuickView}
             >
-              🚨 {isAr ? 'وضع الطوارئ العاجل: عرض فصيلة الدم والحساسية فوراً' : 'Emergency Mode: View Blood Type & Allergies Now'}
+              {isAr ? 'وضع الطوارئ العاجل: عرض فصيلة الدم والحساسية فوراً' : 'Emergency Mode: View Blood Type & Allergies Now'}
             </button>
           )}
         </div>
@@ -1018,7 +1018,7 @@ export default function PassportView() {
       {/* شاشة التحميل */}
       {step === 'loading' && (
         <div className="card center" style={{ padding: '60px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>⏳</div>
+          <div style={{ fontSize: '2.5rem', marginBottom: 12 }}></div>
           <p>{isAr ? 'جارٍ التحقق وتحميل البيانات الطبية للمريض…' : 'Verifying & loading patient medical records…'}</p>
         </div>
       )}

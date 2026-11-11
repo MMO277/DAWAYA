@@ -1292,7 +1292,7 @@ export default function Home() {
         <section className="card" style={{ padding: '14px 16px', borderTop: '3px solid #138866' }}>
           <div className="row wrapRow" style={{ justifyContent: 'space-between', marginBottom: '10px', gap: '8px' }}>
             <b style={{ fontSize: '0.96rem', color: 'var(--navy)' }}>
-              🩺 {tr(lang, 'ابحث سريعاً حسب العرض أو التخصص الطبي:', 'Quick Browse by Symptom or Specialty:')}
+              {tr(lang, 'ابحث سريعاً حسب العرض أو التخصص الطبي:', 'Quick Browse by Symptom or Specialty:')}
             </b>
             <Link to="/medicines" className="small" style={{ fontWeight: 700, textDecoration: 'none', color: '#138866' }}>
               {tr(lang, 'تصفح كل الفئات (22 فئة) ←', 'Browse All Categories →')}
@@ -1300,14 +1300,14 @@ export default function Home() {
           </div>
           <div className="row wrapRow" style={{ gap: '8px' }}>
             {[
-              { q: 'باراسيتامول', cat: 'analgesics_antipyretics', ar: '🤕 صداع وسخونية', en: '🤕 Fever & Pain' },
-              { q: 'حساسية', cat: 'respiratory_cold_allergy', ar: '🤧 برد ورشح وحساسية', en: '🤧 Cold & Allergy' },
-              { q: 'بانتوبرازول', cat: 'gastrointestinal', ar: '🔥 حموضة وارتجاع ومعدة', en: '🔥 Stomach & GERD' },
-              { q: 'بيسوبرولول', cat: 'cardiovascular', ar: '💓 ضغط الدم والقلب', en: '💓 Blood Pressure & Heart' },
-              { q: 'ميتفورمين', cat: 'endocrine_diabetes', ar: '🩸 تنظيم السكري', en: '🩸 Diabetes Care' },
-              { q: 'ديكلوفيناك', cat: 'analgesics_antipyretics', ar: '🦴 مسكن عظام ومفاصل', en: '🦴 Joint & Muscle Pain' },
-              { q: 'فيتامين', cat: 'vitamins_supplements', ar: '⚡ فيتامينات ومناعة', en: '⚡ Vitamins & Immunity' },
-              { q: 'شراب', cat: 'all', ar: '👶 أشربة ونقط للأطفال', en: '👶 Pediatric Syrups & Drops' },
+              { q: 'باراسيتامول', cat: 'analgesics_antipyretics', ar: 'صداع وحرارة', en: '🤕 Fever & Pain' },
+              { q: 'حساسية', cat: 'respiratory_cold_allergy', ar: 'برد وحساسية', en: '🤧 Cold & Allergy' },
+              { q: 'بانتوبرازول', cat: 'gastrointestinal', ar: 'حموضة والجهاز الهضمي', en: '🔥 Stomach & GERD' },
+              { q: 'بيسوبرولول', cat: 'cardiovascular', ar: 'الضغط والقلب', en: '💓 Blood Pressure & Heart' },
+              { q: 'ميتفورمين', cat: 'endocrine_diabetes', ar: 'تنظيم السكري', en: '🩸 Diabetes Care' },
+              { q: 'ديكلوفيناك', cat: 'analgesics_antipyretics', ar: 'مسكنات العظام والمفاصل', en: '🦴 Joint & Muscle Pain' },
+              { q: 'فيتامين', cat: 'vitamins_supplements', ar: 'فيتامينات ومناعة', en: '⚡ Vitamins & Immunity' },
+              { q: 'شراب', cat: 'all', ar: 'أدوية وأشربة الأطفال', en: '👶 Pediatric Syrups & Drops' },
             ].map((sym) => (
               <Link
                 key={sym.ar}
