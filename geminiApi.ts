@@ -50,6 +50,14 @@ let cachedCloudAiKey = '';
 let cloudKeyLoaded = false;
 
 export async function loadSharedCloudAiKey(): Promise<string> {
+  // Clean up any legacy plaintext API keys from localStorage
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem('gemini_api_key');
+    } catch {
+      /* ignore */
+    }
+  }
   if (cloudKeyLoaded && cachedCloudAiKey) return cachedCloudAiKey;
   if (!firebaseConfigured || !db) return '';
   try {
@@ -60,9 +68,6 @@ export async function loadSharedCloudAiKey(): Promise<string> {
       if (k) {
         cachedCloudAiKey = k;
         cloudKeyLoaded = true;
-        if (typeof window !== 'undefined' && !localStorage.getItem('gemini_api_key')) {
-          localStorage.setItem('gemini_api_key', k);
-        }
         return k;
       }
     }
@@ -79,13 +84,7 @@ if (typeof window !== 'undefined') {
 }
 
 export function getApiKey(): string {
-  if (typeof window !== 'undefined') {
-    return (
-      localStorage.getItem('gemini_api_key') ||
-      cachedCloudAiKey ||
-      ENV_GEMINI_KEY
-    ).trim();
-  }
+  // Never read or store private AI credentials in localStorage; use in-memory/env config only
   return (cachedCloudAiKey || ENV_GEMINI_KEY).trim();
 }
 
@@ -97,10 +96,10 @@ export function setApiKey(key: string): void {
   const trimmed = key.trim();
   cachedCloudAiKey = trimmed;
   if (typeof window !== 'undefined') {
-    if (trimmed) {
-      localStorage.setItem('gemini_api_key', trimmed);
-    } else {
+    try {
       localStorage.removeItem('gemini_api_key');
+    } catch {
+      /* ignore */
     }
   }
   if (firebaseConfigured && db) {
@@ -115,7 +114,11 @@ export function setApiKey(key: string): void {
 export function clearApiKey(): void {
   cachedCloudAiKey = '';
   if (typeof window !== 'undefined') {
-    localStorage.removeItem('gemini_api_key');
+    try {
+      localStorage.removeItem('gemini_api_key');
+    } catch {
+      /* ignore */
+    }
   }
 }
 

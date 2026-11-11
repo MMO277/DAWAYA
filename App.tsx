@@ -110,6 +110,7 @@ const Research = lazyWithRetry(() => import('./Research'));
 const Dashboard = lazyWithRetry(() => import('./Dashboard'));
 const Editor = lazyWithRetry(() => import('./Editor'));
 const PartnersDirectoryPage = lazyWithRetry(() => import('./PartnersDirectory'));
+const PharmacyOwnerDashboard = lazyWithRetry(() => import('./PharmacyOwnerDashboard'));
 const PartnerPublicProfilePage = lazyWithRetry(() =>
   import('./PartnersDirectory').then((m) => ({ default: m.PartnerPublicProfilePage }))
 );
@@ -239,6 +240,8 @@ export default function App() {
               <Route path="/medicines" element={<Medicines />} />
               <Route path="/partners" element={<PartnersDirectoryPage />} />
               <Route path="/pharmacies" element={<PartnersDirectoryPage />} />
+              <Route path="/pharmacy-portal" element={<PharmacyOwnerDashboard />} />
+              <Route path="/pharmacy-dashboard" element={<PharmacyOwnerDashboard />} />
               <Route path="/partner/:id" element={<PartnerPublicProfilePage />} />
               <Route path="/cost-saver" element={<CostSaver />} />
               <Route path="/cold-shot-warning" element={<ColdShotWarning />} />

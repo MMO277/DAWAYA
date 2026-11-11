@@ -1068,3 +1068,402 @@ export function usePartnerEcosystem() {
       }),
   };
 }
+
+// ============================================================================
+// PHASE 2–7 ENTERPRISE SERVICES: PHARMACY APPLICATIONS, INVENTORY, DYNAMIC GEOGRAPHY & FRANCHISE
+// ============================================================================
+import {
+  EGYPTIAN_GOVERNORATES,
+  EgyptianGovernorateInfo,
+  FranchiseContractRecord,
+  PharmacyApplicationStatus,
+  PharmacyAuthorizedEmployee,
+  PharmacyInventoryItem,
+  PharmacyRegistrationApplication,
+} from './partnerTypes';
+
+const CACHE_PHARM_APPS_KEY = 'aa_pharmacy_applications_v1';
+const CACHE_PHARM_INV_KEY = 'aa_pharmacy_inventory_v1';
+const CACHE_PHARM_EMP_KEY = 'aa_pharmacy_employees_v1';
+const CACHE_FRANCHISE_KEY = 'aa_franchise_contracts_v1';
+const CACHE_DYNAMIC_GEO_KEY = 'aa_dynamic_geography_v1';
+
+let memPharmacyApps: PharmacyRegistrationApplication[] = safeReadJson(CACHE_PHARM_APPS_KEY, []);
+let memPharmacyInventory: PharmacyInventoryItem[] = safeReadJson(CACHE_PHARM_INV_KEY, [
+  {
+    id: 'inv_demo_aug_1g',
+    pharmacyId: 'partner_dawaya_flagship_mansoura',
+    pharmacyNameAr: 'صيدلية دوايا النموذجية — المنصورة',
+    governorateId: 'dakahlia',
+    cityCenter: 'المنصورة',
+    medicationId: 'EG-ABX-001',
+    tradeNameAr: 'أوجمنتين 1 جرام (14 قرص)',
+    tradeNameEn: 'Augmentin 1g Tablets',
+    activeIngredient: 'Amoxicillin 875mg + Clavulanic Acid 125mg',
+    strength: '1000 mg',
+    dosageForm: 'tablet',
+    quantityPacks: 18,
+    lowStockThreshold: 5,
+    stockStatus: 'available',
+    pharmacyPriceEgp: 190,
+    batchNumber: 'B-2026-09A',
+    expiryDateYYYYMMDD: '2027-08-30',
+    requiresPrescription: true,
+    lastUpdatedAtIso: new Date().toISOString(),
+    updatedByUid: 'system_seed',
+  },
+  {
+    id: 'inv_demo_zith_500',
+    pharmacyId: 'partner_dawaya_flagship_mansoura',
+    pharmacyNameAr: 'صيدلية دوايا النموذجية — المنصورة',
+    governorateId: 'dakahlia',
+    cityCenter: 'المنصورة',
+    medicationId: 'EG-ABX-083',
+    tradeNameAr: 'زيثروماكس 500 مجم (3 أقراص)',
+    tradeNameEn: 'Zithromax 500mg Tablets',
+    activeIngredient: 'Azithromycin 500mg',
+    strength: '500 mg',
+    dosageForm: 'tablet',
+    quantityPacks: 3,
+    lowStockThreshold: 5,
+    stockStatus: 'low_stock',
+    pharmacyPriceEgp: 165,
+    batchNumber: 'Z-2026-04C',
+    expiryDateYYYYMMDD: '2027-03-15',
+    requiresPrescription: true,
+    lastUpdatedAtIso: new Date().toISOString(),
+    updatedByUid: 'system_seed',
+  },
+]);
+let memPharmacyEmployees: PharmacyAuthorizedEmployee[] = safeReadJson(CACHE_PHARM_EMP_KEY, []);
+let memFranchiseContracts: FranchiseContractRecord[] = safeReadJson(CACHE_FRANCHISE_KEY, [
+  {
+    id: 'fr_contract_001',
+    pharmacyId: 'partner_dawaya_flagship_mansoura',
+    pharmacyNameAr: 'صيدلية دوايا النموذجية — المنصورة',
+    ownerName: 'د. مصطفى محمود إبراهيم',
+    governorateId: 'dakahlia',
+    cityCenter: 'المنصورة',
+    contractNumber: 'DW-FR-2026-001',
+    legalLicenseVerified: true,
+    syndicateApprovalRef: 'SYN-DK-88412',
+    initialFranchiseFeeEgp: 45000,
+    subscriptionCycle: 'monthly',
+    subscriptionFeeEgp: 2500,
+    royaltyPercentage: 3.5,
+    marketingContributionPct: 1.5,
+    startDateYYYYMMDD: '2026-01-01',
+    endDateYYYYMMDD: '2028-12-31',
+    renewalStatus: 'active',
+    totalReportedSalesEgp: 420000,
+    totalPaidFeesEgp: 62200,
+    outstandingBalanceEgp: 0,
+    overdueStatus: 'current',
+    updatedAtIso: new Date().toISOString(),
+  },
+]);
+let memDynamicGovs: EgyptianGovernorateInfo[] = safeReadJson(
+  CACHE_DYNAMIC_GEO_KEY,
+  EGYPTIAN_GOVERNORATES
+);
+
+export function getDynamicGovernorates(): EgyptianGovernorateInfo[] {
+  return memDynamicGovs.length > 0 ? memDynamicGovs : EGYPTIAN_GOVERNORATES;
+}
+
+export async function saveDynamicGovernorates(
+  govs: EgyptianGovernorateInfo[],
+  adminUid: string
+): Promise<void> {
+  memDynamicGovs = govs;
+  safeWriteJson(CACHE_DYNAMIC_GEO_KEY, memDynamicGovs);
+  emitPartnerUpdate();
+  if (configured && db) {
+    await setDoc(
+      doc(db, 'systemSettings', 'egypt_geography_hierarchy'),
+      {
+        governorates: govs,
+        updatedAtIso: new Date().toISOString(),
+        updatedBy: adminUid,
+      },
+      { merge: true }
+    );
+  }
+}
+
+export async function submitPharmacyRegistrationApplication(
+  appData: Omit<
+    PharmacyRegistrationApplication,
+    'id' | 'status' | 'verificationHistory' | 'createdAtIso' | 'updatedAtIso'
+  >
+): Promise<PharmacyRegistrationApplication> {
+  const nowIso = new Date().toISOString();
+  const id = `pharm_app_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`;
+  const record: PharmacyRegistrationApplication = {
+    ...appData,
+    id,
+    status: 'pending_review',
+    verificationHistory: [
+      {
+        timestampIso: nowIso,
+        actorUid: appData.applicantUid,
+        actorRole: 'pharmacy_owner',
+        fromStatus: 'draft',
+        toStatus: 'pending_review',
+        decisionReasonAr: 'تم إرسال طلب انضمام الصيدلية مع بيانات الترخيص للمراجعة المركزية',
+      },
+    ],
+    createdAtIso: nowIso,
+    updatedAtIso: nowIso,
+  };
+
+  memPharmacyApps = [record, ...memPharmacyApps];
+  safeWriteJson(CACHE_PHARM_APPS_KEY, memPharmacyApps);
+  emitPartnerUpdate();
+
+  if (configured && db) {
+    try {
+      await setDoc(doc(db, 'pharmacyApplications', id), record);
+    } catch {
+      /* fallback cached */
+    }
+  }
+  return record;
+}
+
+export async function reviewPharmacyApplicationDecision(
+  appId: string,
+  newStatus: PharmacyApplicationStatus,
+  reasonAr: string,
+  adminUid: string,
+  adminRole: string
+): Promise<void> {
+  const idx = memPharmacyApps.findIndex((a) => a.id === appId);
+  if (idx < 0) return;
+
+  const current = memPharmacyApps[idx];
+  const nowIso = new Date().toISOString();
+  let approvedPharmacyId = current.approvedPharmacyId;
+
+  // When approved, automatically provision an isolated Verified Partner & Branch record
+  if (newStatus === 'approved' && !approvedPharmacyId) {
+    approvedPharmacyId = `pharm_${current.id}`;
+    const newPartner: PartnerPublicRecord = {
+      id: approvedPharmacyId,
+      name: current.pharmacyNameAr,
+      nameAr: current.pharmacyNameAr,
+      nameEn: current.pharmacyNameEn || current.pharmacyNameAr,
+      logoUrl: current.logoUrl || '',
+      coverImageUrl: '',
+      descriptionAr: `صيدلية مرخصة ومعتمدة ضمن شبكة دوايا — ترخيص رقم (${current.licenseNumber})`,
+      descriptionEn: `Licensed & Verified DAWAYA Network Pharmacy — License #${current.licenseNumber}`,
+      categoryId: 'cat_independent_pharmacies',
+      partnerType: 'independent_pharmacy',
+      phone: current.phone,
+      hotline: current.phone,
+      publicEmail: current.applicantEmail,
+      websiteUrl: '',
+      externalOrderingUrl: '',
+      socialLinks: { whatsapp: current.whatsapp },
+      servicesOfferedAr: ['صرف الروشتات الطبية', 'فحص التداخلات الدوائية', 'توصيل للمنازل'],
+      servicesOfferedEn: ['Prescription Dispensing', 'Drug Safety Screening', 'Home Delivery'],
+      supportedGovernorates: [current.governorateId],
+      supportedCities: [current.cityCenter],
+      supportedDistricts: [current.districtVillage],
+      deliveryAvailable: current.deliveryAvailable,
+      deliveryCoverageAr: `${current.cityCenter} — ${current.districtVillage} (نطاق ${current.deliveryRadiusKm} كم)`,
+      deliveryCoverageEn: `${current.cityCenter} (${current.deliveryRadiusKm} km radius)`,
+      workingHoursAr: current.workingHoursAr,
+      workingHoursEn: current.is24Hours ? '24 Hours' : current.workingHoursAr,
+      is24Hours: current.is24Hours,
+      supportsOnlineOrdering: true,
+      requiresPrescriptionForAntibiotics: true,
+      partnershipStatus: 'active',
+      verificationStatus: 'verified',
+      publicationStatus: 'published',
+      visibilityStatus: 'visible',
+      apiIntegrationStatus: 'manual_only',
+      integrationMethod: 'manual_availability',
+      availabilitySyncEnabled: true,
+      priceSyncEnabled: true,
+      orderSyncEnabled: true,
+      lastSuccessfulSyncIso: nowIso,
+      syncSourceLabelAr: 'تحديث مباشر من نظام الصيدلية المعتمد',
+      syncSourceLabelEn: 'Live Verified Pharmacy Inventory',
+      visibility: {
+        ...createDefaultVisibilitySettings(approvedPharmacyId, adminUid),
+        showOnWebsite: true,
+        publishPartnerProfile: true,
+        showInPartnerDirectory: true,
+        showInMedicationSearch: true,
+        showInMedicationDetails: true,
+        showInNearbyPharmacies: true,
+        geographicScope: 'specific_governorates',
+        allowedGovernorates: [current.governorateId],
+      },
+      display: {
+        ...createDefaultDisplayCustomization(),
+        showVerificationBadge: true,
+      },
+      createdAtIso: nowIso,
+      updatedAtIso: nowIso,
+    };
+
+    memPartners = [newPartner, ...memPartners];
+    safeWriteJson(CACHE_PARTNERS_KEY, memPartners);
+  }
+
+  const updated: PharmacyRegistrationApplication = {
+    ...current,
+    status: newStatus,
+    adminDecisionReasonAr: reasonAr,
+    approvedPharmacyId,
+    updatedAtIso: nowIso,
+    verificationHistory: [
+      ...current.verificationHistory,
+      {
+        timestampIso: nowIso,
+        actorUid: adminUid,
+        actorRole: adminRole,
+        fromStatus: current.status,
+        toStatus: newStatus,
+        decisionReasonAr: reasonAr,
+      },
+    ],
+  };
+
+  memPharmacyApps[idx] = updated;
+  safeWriteJson(CACHE_PHARM_APPS_KEY, memPharmacyApps);
+  emitPartnerUpdate();
+
+  if (configured && db) {
+    try {
+      await setDoc(doc(db, 'pharmacyApplications', appId), updated);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export async function upsertPharmacyInventoryItem(
+  item: Omit<PharmacyInventoryItem, 'id' | 'lastUpdatedAtIso' | 'stockStatus'> & { id?: string }
+): Promise<PharmacyInventoryItem> {
+  const nowIso = new Date().toISOString();
+  const id = item.id || `inv_${item.pharmacyId}_${item.medicationId}`;
+  const stockStatus: PharmacyInventoryItem['stockStatus'] =
+    item.quantityPacks <= 0
+      ? 'out_of_stock'
+      : item.quantityPacks <= item.lowStockThreshold
+      ? 'low_stock'
+      : 'available';
+
+  const record: PharmacyInventoryItem = {
+    ...item,
+    id,
+    stockStatus,
+    lastUpdatedAtIso: nowIso,
+  };
+
+  const existingIdx = memPharmacyInventory.findIndex((x) => x.id === id);
+  if (existingIdx >= 0) {
+    memPharmacyInventory[existingIdx] = record;
+  } else {
+    memPharmacyInventory = [record, ...memPharmacyInventory];
+  }
+  safeWriteJson(CACHE_PHARM_INV_KEY, memPharmacyInventory);
+  emitPartnerUpdate();
+
+  if (configured && db) {
+    try {
+      await setDoc(doc(db, 'pharmacyInventory', id), record);
+    } catch {
+      /* ignore */
+    }
+  }
+  return record;
+}
+
+export async function deletePharmacyInventoryItem(invId: string): Promise<void> {
+  memPharmacyInventory = memPharmacyInventory.filter((x) => x.id !== invId);
+  safeWriteJson(CACHE_PHARM_INV_KEY, memPharmacyInventory);
+  emitPartnerUpdate();
+  if (configured && db) {
+    try {
+      await deleteDoc(doc(db, 'pharmacyInventory', invId));
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export async function savePharmacyEmployee(
+  emp: Omit<PharmacyAuthorizedEmployee, 'id' | 'addedAtIso'> & { id?: string }
+): Promise<void> {
+  const id = emp.id || `emp_${Date.now().toString(36)}`;
+  const record: PharmacyAuthorizedEmployee = {
+    ...emp,
+    id,
+    addedAtIso: new Date().toISOString(),
+  };
+  const idx = memPharmacyEmployees.findIndex((e) => e.id === id);
+  if (idx >= 0) {
+    memPharmacyEmployees[idx] = record;
+  } else {
+    memPharmacyEmployees = [record, ...memPharmacyEmployees];
+  }
+  safeWriteJson(CACHE_PHARM_EMP_KEY, memPharmacyEmployees);
+  emitPartnerUpdate();
+  if (configured && db) {
+    try {
+      await setDoc(doc(db, 'pharmacyEmployees', id), record);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export async function saveFranchiseContract(
+  contract: Omit<FranchiseContractRecord, 'id' | 'updatedAtIso'> & { id?: string }
+): Promise<void> {
+  const id = contract.id || `fr_${Date.now().toString(36)}`;
+  const record: FranchiseContractRecord = {
+    ...contract,
+    id,
+    updatedAtIso: new Date().toISOString(),
+  };
+  const idx = memFranchiseContracts.findIndex((c) => c.id === id);
+  if (idx >= 0) {
+    memFranchiseContracts[idx] = record;
+  } else {
+    memFranchiseContracts = [record, ...memFranchiseContracts];
+  }
+  safeWriteJson(CACHE_FRANCHISE_KEY, memFranchiseContracts);
+  emitPartnerUpdate();
+  if (configured && db) {
+    try {
+      await setDoc(doc(db, 'franchiseContracts', id), record);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function useDawayaPharmacyNetwork() {
+  const [, setTick] = useState(storeVersion);
+
+  useEffect(() => {
+    startPartnerEcosystemSync();
+    const onUpdate = () => setTick((v) => v + 1);
+    window.addEventListener(PARTNER_SYNC_EVENT, onUpdate);
+    return () => window.removeEventListener(PARTNER_SYNC_EVENT, onUpdate);
+  }, []);
+
+  return {
+    applications: memPharmacyApps,
+    inventory: memPharmacyInventory,
+    employees: memPharmacyEmployees,
+    franchiseContracts: memFranchiseContracts,
+    dynamicGovernorates: getDynamicGovernorates(),
+    orders: memOrders,
+  };
+}

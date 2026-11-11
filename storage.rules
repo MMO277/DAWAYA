@@ -12,15 +12,20 @@ service firebase.storage {
 
     function hasAdminOrEditorRole() {
       return isSignedIn() && (
-        request.auth.token.role in ['owner', 'admin', 'reviewer', 'editor']
-        || firestore.get(/databases/(default)/documents/roles/$(request.auth.uid)).data.role in ['owner', 'admin', 'reviewer', 'editor']
+        request.auth.token.role in ['owner', 'super_admin', 'admin', 'regional_manager', 'reviewer', 'editor']
+        || firestore.get(/databases/(default)/documents/roles/$(request.auth.uid)).data.role in ['owner', 'super_admin', 'admin', 'regional_manager', 'reviewer', 'editor']
       );
     }
 
-    // Patient Medical Documents (Prescriptions, Lab Reports, Medical Reports, Leaflets)
-    // Strictly private to the authenticated patient (max 8MB, images or PDF only)
+    function isPassportActivelyShared(uid) {
+      return firestore.exists(/databases/(default)/documents/passportShares/$(uid))
+        && firestore.get(/databases/(default)/documents/passportShares/$(uid)).data.expiresAt > 0;
+    }
+
+    // 1. Patient Medical Documents (Prescriptions, Lab Reports, Medical Reports)
+    // Strictly private to the authenticated patient or authorized admin reviewer
     match /patient_documents/{uid}/{fileName} {
-      allow read: if isOwner(uid);
+      allow read: if isOwner(uid) || hasAdminOrEditorRole();
       allow write: if isOwner(uid)
         && request.resource.size < 8 * 1024 * 1024
         && (
@@ -30,26 +35,39 @@ service firebase.storage {
       allow delete: if isOwner(uid);
     }
 
-    // Passport Photos — المريض يرفع صورته الشخصية فقط
+    // 2. Passport Photos — FIXED VULNERABILITY: Protected from unrestricted public scraping
+    // Readable only by the owner, admins, or when the patient's Smart Passport share link is active
     match /passport_photos/{uid}/{fileName} {
-      allow read: if true;
+      allow read: if isOwner(uid) || hasAdminOrEditorRole() || isPassportActivelyShared(uid);
       allow write: if isOwner(uid)
         && request.resource.size < 3 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if isOwner(uid) || hasAdminOrEditorRole();
     }
 
+    // 3. Pharmacy License & Verification Documents (Protected)
+    match /pharmacy_verification_docs/{applicantUid}/{fileName} {
+      allow read: if isOwner(applicantUid) || hasAdminOrEditorRole();
+      allow write: if isOwner(applicantUid)
+        && request.resource.size < 10 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('image/(jpeg|png|webp)')
+          || request.resource.contentType == 'application/pdf'
+        );
+      allow delete: if hasAdminOrEditorRole();
+    }
+
+    // 4. Partner & Pharmacy Assets & Order Prescriptions
     match /partner_assets/{partnerId}/{fileName} {
       allow read: if !(fileName.matches('prescription_.*')) || isSignedIn() || hasAdminOrEditorRole();
-      allow write: if (
-        // Prescription uploads by patients (max 8MB, image or PDF)
+      allow write: if isSignedIn() && (
         (fileName.matches('prescription_.*')
           && request.resource.size < 8 * 1024 * 1024
-          && (request.resource.contentType.matches('image/.*') || request.resource.contentType == 'application/pdf'))
+          && (request.resource.contentType.matches('image/(jpeg|png|webp)') || request.resource.contentType == 'application/pdf'))
         ||
-        // Logo and cover image uploads by Admin/Editor (max 5MB, image only)
         (hasAdminOrEditorRole()
           && request.resource.size < 5 * 1024 * 1024
-          && request.resource.contentType.matches('image/.*'))
+          && request.resource.contentType.matches('image/(jpeg|png|webp)'))
       );
     }
   }

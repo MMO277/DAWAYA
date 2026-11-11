@@ -28,8 +28,34 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, configured } from './firebase';
 
 export type AuthMode = 'login' | 'register' | 'forgot';
-export type Role = 'owner' | 'admin' | 'reviewer' | 'editor' | 'viewer';
-export const ROLES: Role[] = ['owner', 'admin', 'reviewer', 'editor', 'viewer'];
+export type Role =
+  | 'owner'
+  | 'super_admin'
+  | 'admin'
+  | 'regional_manager'
+  | 'reviewer'
+  | 'editor'
+  | 'pharmacy_owner'
+  | 'pharmacy_manager'
+  | 'pharmacist'
+  | 'employee'
+  | 'viewer'
+  | 'customer';
+
+export const ROLES: Role[] = [
+  'owner',
+  'super_admin',
+  'admin',
+  'regional_manager',
+  'reviewer',
+  'editor',
+  'pharmacy_owner',
+  'pharmacy_manager',
+  'pharmacist',
+  'employee',
+  'viewer',
+  'customer',
+];
 
 export const GUEST_MODE_KEY = 'aa_guest_mode';
 const ROLE_CACHE_PREFIX = 'aa_cached_role_';

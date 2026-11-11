@@ -3,7 +3,19 @@ import { Bi } from './types';
 // ============================================================================
 // ADMINISTRATIVE ROLES & PERMISSIONS
 // ============================================================================
-export type PartnerAdminRole = 'owner' | 'admin' | 'editor' | 'reviewer' | 'viewer';
+export type PartnerAdminRole =
+  | 'owner'
+  | 'super_admin'
+  | 'admin'
+  | 'regional_manager'
+  | 'editor'
+  | 'reviewer'
+  | 'pharmacy_owner'
+  | 'pharmacy_manager'
+  | 'pharmacist'
+  | 'employee'
+  | 'viewer'
+  | 'customer';
 
 export interface RolePermissionMatrix {
   canViewDashboard: boolean;
@@ -20,7 +32,7 @@ export interface RolePermissionMatrix {
 
 export function getRolePermissions(role: string | null | undefined): RolePermissionMatrix {
   const r = (role || '').toLowerCase();
-  if (r === 'owner' || r === 'admin') {
+  if (r === 'owner' || r === 'super_admin' || r === 'admin') {
     return {
       canViewDashboard: true,
       canCreateDraft: true,
@@ -34,7 +46,7 @@ export function getRolePermissions(role: string | null | undefined): RolePermiss
       canViewAuditLogs: true,
     };
   }
-  if (r === 'reviewer') {
+  if (r === 'reviewer' || r === 'regional_manager') {
     return {
       canViewDashboard: true,
       canCreateDraft: true,
@@ -48,7 +60,7 @@ export function getRolePermissions(role: string | null | undefined): RolePermiss
       canViewAuditLogs: true,
     };
   }
-  if (r === 'editor') {
+  if (r === 'editor' || r === 'pharmacy_owner' || r === 'pharmacy_manager') {
     return {
       canViewDashboard: true,
       canCreateDraft: true,
@@ -1155,4 +1167,193 @@ export function createEmptyPartnerRecord(uid = 'owner'): PartnerFullAdminRecord 
       updatedAtIso: now,
     },
   };
+}
+
+// ============================================================================
+// PHASE 2–7 ENTERPRISE ECOSYSTEM DATA MODELS (PHARMACY NETWORK, INVENTORY, ORDERS, FRANCHISE & GEOGRAPHY)
+// ============================================================================
+
+export type PharmacyApplicationStatus =
+  | 'draft'
+  | 'pending_review'
+  | 'under_verification'
+  | 'approved'
+  | 'rejected'
+  | 'suspended'
+  | 'archived';
+
+export const PHARMACY_APPLICATION_STATUS_LABELS: Record<
+  PharmacyApplicationStatus,
+  { ar: string; en: string; color: string; bg: string }
+> = {
+  draft: { ar: 'مسودة', en: 'Draft', color: '#475569', bg: '#f1f5f9' },
+  pending_review: { ar: 'قيد المراجعة الأولية', en: 'Pending Review', color: '#b45309', bg: '#fef3c7' },
+  under_verification: { ar: 'جاري فحص التراخيص والوثائق', en: 'Under Verification', color: '#0369a1', bg: '#e0f2fe' },
+  approved: { ar: 'معتمدة ومفعلة بالشبكة', en: 'Approved & Active', color: '#15803d', bg: '#dcfce7' },
+  rejected: { ar: 'مرفوضة', en: 'Rejected', color: '#b91c1c', bg: '#fee2e2' },
+  suspended: { ar: 'موقوفة مؤقتاً', en: 'Suspended', color: '#9a3412', bg: '#ffedd5' },
+  archived: { ar: 'مؤرشفة', en: 'Archived', color: '#64748b', bg: '#e2e8f0' },
+};
+
+export interface PharmacyVerificationHistoryEntry {
+  timestampIso: string;
+  actorUid: string;
+  actorRole: string;
+  fromStatus: PharmacyApplicationStatus;
+  toStatus: PharmacyApplicationStatus;
+  decisionReasonAr: string;
+  decisionReasonEn?: string;
+}
+
+export interface PharmacyRegistrationApplication {
+  id: string;
+  applicantUid: string;
+  applicantEmail: string;
+  pharmacyNameAr: string;
+  pharmacyNameEn: string;
+  licenseNumber: string;
+  commercialRegNumber: string;
+  taxCardNumber?: string;
+  ownerFullName: string;
+  ownerSyndicateNumber: string;
+  ownerNationalIdLast4: string;
+  phone: string;
+  whatsapp: string;
+  governorateId: string;
+  cityCenter: string;
+  districtVillage: string;
+  detailedAddressAr: string;
+  latitude: number | null;
+  longitude: number | null;
+  workingHoursAr: string;
+  is24Hours: boolean;
+  deliveryAvailable: boolean;
+  deliveryRadiusKm: number;
+  logoUrl?: string;
+  licenseDocumentUrl: string;
+  syndicateCardUrl?: string;
+  requestedModel: 'independent_partner' | 'dawaya_franchise';
+  status: PharmacyApplicationStatus;
+  adminDecisionReasonAr?: string;
+  requestedInfoNoteAr?: string;
+  approvedPharmacyId?: string;
+  verificationHistory: PharmacyVerificationHistoryEntry[];
+  createdAtIso: string;
+  updatedAtIso: string;
+}
+
+export type PharmacyStockStatus =
+  | 'available'
+  | 'low_stock'
+  | 'out_of_stock'
+  | 'unconfirmed';
+
+export const PHARMACY_STOCK_STATUS_LABELS: Record<
+  PharmacyStockStatus,
+  { ar: string; en: string; color: string; bg: string }
+> = {
+  available: { ar: 'متوفر بالصيدلية', en: 'Available in Stock', color: '#15803d', bg: '#dcfce7' },
+  low_stock: { ar: 'كمية محدودة (أوشك على النفاد)', en: 'Low Stock', color: '#b45309', bg: '#fef3c7' },
+  out_of_stock: { ar: 'غير متوفر حالياً', en: 'Out of Stock', color: '#b91c1c', bg: '#fee2e2' },
+  unconfirmed: { ar: 'التوفر غير مؤكد (يتطلب استفسار)', en: 'Availability Unconfirmed', color: '#475569', bg: '#f1f5f9' },
+};
+
+export interface PharmacyInventoryItem {
+  id: string;
+  pharmacyId: string;
+  pharmacyNameAr: string;
+  governorateId: string;
+  cityCenter: string;
+  medicationId: string;
+  tradeNameAr: string;
+  tradeNameEn: string;
+  activeIngredient: string;
+  strength: string;
+  dosageForm: string;
+  quantityPacks: number;
+  lowStockThreshold: number;
+  stockStatus: PharmacyStockStatus;
+  pharmacyPriceEgp: number;
+  batchNumber: string;
+  expiryDateYYYYMMDD: string;
+  requiresPrescription: boolean;
+  lastUpdatedAtIso: string;
+  updatedByUid: string;
+}
+
+export interface PharmacyAuthorizedEmployee {
+  id: string;
+  pharmacyId: string;
+  uid?: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  role: 'pharmacy_manager' | 'pharmacist' | 'employee';
+  syndicateNumber?: string;
+  canManageInventory: boolean;
+  canConfirmOrders: boolean;
+  canViewReports: boolean;
+  active: boolean;
+  addedAtIso: string;
+}
+
+export type CustomerOrderLifecycleStatus =
+  | 'new_order'
+  | 'pharmacy_confirmation'
+  | 'preparing'
+  | 'ready_for_delivery'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'cancelled'
+  | 'rejected';
+
+export const CUSTOMER_ORDER_STATUS_LABELS: Record<
+  CustomerOrderLifecycleStatus,
+  { ar: string; en: string; color: string; bg: string }
+> = {
+  new_order: { ar: 'طلب جديد (بانتظار قبول الصيدلية)', en: 'New Order (Awaiting Pharmacy Acceptance)', color: '#0369a1', bg: '#e0f2fe' },
+  pharmacy_confirmation: { ar: 'تم قبول وتأكيد الطلب من الصيدلية', en: 'Confirmed by Pharmacy', color: '#0d9488', bg: '#ccfbf1' },
+  preparing: { ar: 'جاري تحضير ومراجعة الدواء صيدلانياً', en: 'Preparing Medication', color: '#b45309', bg: '#fef3c7' },
+  ready_for_delivery: { ar: 'جاهز للتوصيل / الاستلام', en: 'Ready for Delivery / Pickup', color: '#4f46e5', bg: '#e0e7ff' },
+  out_for_delivery: { ar: 'مع مندوب التوصيل في الطريق إليك', en: 'Out for Delivery', color: '#7c3aed', bg: '#ede9fe' },
+  delivered: { ar: 'تم التسليم بنجاح', en: 'Delivered', color: '#15803d', bg: '#dcfce7' },
+  cancelled: { ar: 'ملغى من العميل', en: 'Cancelled', color: '#64748b', bg: '#f1f5f9' },
+  rejected: { ar: 'معتذر عنه / مرفوض من الصيدلية', en: 'Rejected by Pharmacy', color: '#b91c1c', bg: '#fee2e2' },
+};
+
+export interface CustomerDeliveryAddress {
+  id: string;
+  labelAr: string; // e.g., 'المنزل', 'العمل'
+  governorateId: string;
+  cityCenter: string;
+  districtVillage: string;
+  streetAndBuilding: string;
+  landmark?: string;
+  phone: string;
+  isDefault: boolean;
+}
+
+export interface FranchiseContractRecord {
+  id: string;
+  pharmacyId: string;
+  pharmacyNameAr: string;
+  ownerName: string;
+  governorateId: string;
+  cityCenter: string;
+  contractNumber: string;
+  legalLicenseVerified: boolean;
+  syndicateApprovalRef: string;
+  initialFranchiseFeeEgp: number;
+  subscriptionCycle: 'monthly' | 'annual';
+  subscriptionFeeEgp: number;
+  royaltyPercentage: number; // Configurable %
+  marketingContributionPct: number; // Configurable %
+  startDateYYYYMMDD: string;
+  endDateYYYYMMDD: string;
+  renewalStatus: 'active' | 'pending_renewal' | 'expired' | 'terminated';
+  totalReportedSalesEgp: number;
+  totalPaidFeesEgp: number;
+  outstandingBalanceEgp: number;
+  overdueStatus: 'current' | 'due_soon' | 'overdue';
+  updatedAtIso: string;
 }

@@ -8,7 +8,8 @@ import {
   PartnerPublicRecord,
   VERIFICATION_STATUS_LABELS,
 } from './partnerTypes';
-import { isPartnerVisiblePublicly, usePartnerEcosystem } from './partnerService';
+import { isPartnerVisiblePublicly, usePartnerEcosystem, useDawayaPharmacyNetwork } from './partnerService';
+import { PHARMACY_STOCK_STATUS_LABELS } from './partnerTypes';
 import { PublicPartnerCard } from './PublicPartnerCard';
 import Disclaimer from './Disclaimer';
 import { useLiveDrugCatalog } from './liveCatalogSync';
@@ -41,6 +42,7 @@ export default function PartnersDirectoryPage() {
   const activeTab = (sp.get('tab') as 'directory' | 'nearby' | 'orders' | 'emergency') || 'directory';
 
   const { categories, branches, orders, getVisiblePartners } = usePartnerEcosystem();
+  const { inventory: pharmacyInventory, dynamicGovernorates } = useDawayaPharmacyNetwork();
   const { products: liveCatalogProducts } = useLiveDrugCatalog();
 
   const [searchQ, setSearchQ] = useState('');
@@ -157,7 +159,7 @@ export default function PartnersDirectoryPage() {
     );
   };
 
-  const selectedGovMeta = EGYPTIAN_GOVERNORATES.find((g) => g.id === selectedGovId);
+  const selectedGovMeta = dynamicGovernorates.find((g) => g.id === selectedGovId);
 
   return (
     <main className="wrap stack" dir={isAr ? 'rtl' : 'ltr'}>
@@ -199,8 +201,11 @@ export default function PartnersDirectoryPage() {
           </div>
 
           <div className="row wrapRow" style={{ gap: '8px' }}>
-            <Link to="/medicines" className="btn" style={{ background: '#14b8a6', color: '#042f2e', fontWeight: 800 }}>
-               {isAr ?'ابحث عن دواء (26,572+)':'Find Medication (26,572+)'}
+            <Link to="/pharmacy-portal" className="btn" style={{ background: '#10b981', borderColor: '#10b981', color: '#ffffff', fontWeight: 800 }}>
+              {isAr ? 'بوابة الصيدليات والفرنشايز' : 'Pharmacy Owner Portal'}
+            </Link>
+            <Link to="/medicines" className="btn light" style={{ fontWeight: 800 }}>
+              {isAr ? 'ابحث عن دواء (26,572+)' : 'Find Medication (26,572+)'}
             </Link>
           </div>
         </div>
@@ -316,7 +321,7 @@ export default function PartnersDirectoryPage() {
                 }}
               >
                 <option value="all">{isAr ? 'كل المحافظات المصرية' : 'All Egyptian Governorates'}</option>
-                {EGYPTIAN_GOVERNORATES.map((g) => (
+                {dynamicGovernorates.map((g) => (
                   <option key={g.id} value={g.id}>
                     {isAr ? g.nameAr : g.nameEn}
                   </option>
@@ -448,7 +453,7 @@ export default function PartnersDirectoryPage() {
             <div className="grid">
               {visiblePublishedBranches.map((b) => {
                 const parentPartner = visiblePartners.find((p) => p.id === b.partnerId);
-                const govMeta = EGYPTIAN_GOVERNORATES.find((g) => g.id === b.governorateId);
+                const govMeta = dynamicGovernorates.find((g) => g.id === b.governorateId);
                 const distKm =
                   userCoords && b.latitude !== null && b.longitude !== null
                     ? haversineDistanceKm(userCoords.lat, userCoords.lng, b.latitude, b.longitude)
@@ -726,7 +731,7 @@ export function PartnerPublicProfilePage() {
     partner.display.showVerificationBadge && partner.verificationStatus === 'verified';
 
   const govNames = partner.supportedGovernorates.map((gid) => {
-    const g = EGYPTIAN_GOVERNORATES.find((x) => x.id === gid);
+    const g = dynamicGovernorates.find((x) => x.id === gid);
     return g ? (isAr ? g.nameAr : g.nameEn) : gid;
   });
 
@@ -913,7 +918,7 @@ export function PartnerPublicProfilePage() {
           </h2>
           <div className="grid">
             {publishedBranches.map((b) => {
-              const g = EGYPTIAN_GOVERNORATES.find((x) => x.id === b.governorateId);
+              const g = dynamicGovernorates.find((x) => x.id === b.governorateId);
               return (
                 <div key={b.id} className="subcard stack" style={{ justifyContent: 'space-between' }}>
                   <div>

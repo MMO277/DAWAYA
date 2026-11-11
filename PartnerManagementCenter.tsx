@@ -20,7 +20,12 @@ import {
   updatePartnerOrderStatus,
   updatePartnerQuickState,
   usePartnerEcosystem,
+  useDawayaPharmacyNetwork,
+  reviewPharmacyApplicationDecision,
+  saveDynamicGovernorates,
+  saveFranchiseContract,
 } from './partnerService';
+import { PHARMACY_APPLICATION_STATUS_LABELS, PharmacyApplicationStatus } from './partnerTypes';
 import { PartnerFormModal } from './PartnerFormModal';
 import {
   PartnerBranchManagerModal,
@@ -28,7 +33,7 @@ import {
   PartnerMedicationMappingModal,
 } from './PartnerBranchAndCategoryModals';
 
-type CenterSubTab = 'partners_list' | 'orders_queue' | 'audit_history';
+type CenterSubTab = 'partners_list' | 'pharmacy_applications' | 'franchise_financials' | 'dynamic_geography' | 'orders_queue' | 'audit_history';
 type SortKey = 'recent' | 'priority' | 'name' | 'branches';
 
 export default function PartnerManagementCenter({
@@ -42,6 +47,18 @@ export default function PartnerManagementCenter({
   const isAr = lang === 'ar';
   const permissions = useMemo(() => getRolePermissions(adminRole), [adminRole]);
   const { categories, branches, mappings, orders, auditLogs } = usePartnerEcosystem();
+  const { applications: pharmacyApps, franchiseContracts, dynamicGovernorates } = useDawayaPharmacyNetwork();
+  const [newGovNameAr, setNewGovNameAr] = useState('');
+  const [newGovNameEn, setNewGovNameEn] = useState('');
+  const [newCityNameAr, setNewCityNameAr] = useState('');
+  const [selectedGeoGovId, setSelectedGeoGovId] = useState('dakahlia');
+  const [frPharmName, setFrPharmName] = useState('');
+  const [frOwnerName, setFrOwnerName] = useState('');
+  const [frContractNo, setFrContractNo] = useState('DW-FR-2026-002');
+  const [frInitFee, setFrInitFee] = useState(45000);
+  const [frMonthlySub, setFrMonthlySub] = useState(2500);
+  const [frRoyaltyPct, setFrRoyaltyPct] = useState(3.5);
+  const [frMarketingPct, setFrMarketingPct] = useState(1.5);
 
   const [adminPartners, setAdminPartners] = useState<PartnerFullAdminRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -528,6 +545,30 @@ export default function PartnerManagementCenter({
           onClick={() => setSubTab('partners_list')}
         >
            {isAr ?`قائمة الشركاء والتحكم السريع (${adminPartners.length})`:`Partners & Quick Controls (${adminPartners.length})`}
+        </button>
+
+        <button
+          type="button"
+          className={`btn small ${subTab === 'pharmacy_applications' ? '' : 'ghost'}`}
+          onClick={() => setSubTab('pharmacy_applications')}
+        >
+          {isAr ? `طلبات تراخيص الصيدليات (${pharmacyApps.length})` : `Pharmacy Applications (${pharmacyApps.length})`}
+        </button>
+
+        <button
+          type="button"
+          className={`btn small ${subTab === 'franchise_financials' ? '' : 'ghost'}`}
+          onClick={() => setSubTab('franchise_financials')}
+        >
+          {isAr ? `إدارة الفرنشايز والماليات (${franchiseContracts.length})` : `Franchise & Financials (${franchiseContracts.length})`}
+        </button>
+
+        <button
+          type="button"
+          className={`btn small ${subTab === 'dynamic_geography' ? '' : 'ghost'}`}
+          onClick={() => setSubTab('dynamic_geography')}
+        >
+          {isAr ? `الإدارة الجغرافية الديناميكية (${dynamicGovernorates.length})` : `Dynamic Geography (${dynamicGovernorates.length})`}
         </button>
 
         <button
@@ -1167,6 +1208,313 @@ export default function PartnerManagementCenter({
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* SUB-TAB: PHARMACY LICENSE APPLICATIONS & VERIFICATION WORKFLOW */}
+      {/* ==================================================================== */}
+      {subTab === 'pharmacy_applications' && (
+        <div className="card stack">
+          <h3 style={{ margin: 0 }}>
+            {isAr ? 'مراجعة واعتماد طلبات انضمام الصيدليات والتراخيص الرسمية' : 'Pharmacy License Verification & Approval Workflow'}
+          </h3>
+          <p className="small muted" style={{ margin: 0 }}>
+            {isAr
+              ? 'لا تظهر أي صيدلية كشريك معتمد للجمهور إلا بعد فحص رخصة وزارة الصحة والقيد بنقابة الصيادلة واعتمادها من هنا.'
+              : 'Pharmacies remain unverified and hidden until approved here.'}
+          </p>
+
+          {pharmacyApps.length === 0 ? (
+            <p className="muted">{isAr ? 'لا توجد طلبات انضمام صيدليات قيد المراجعة حالياً.' : 'No pending pharmacy applications.'}</p>
+          ) : (
+            <div className="stack">
+              {pharmacyApps.map((app) => {
+                const st = PHARMACY_APPLICATION_STATUS_LABELS[app.status];
+                return (
+                  <div
+                    key={app.id}
+                    style={{
+                      padding: '16px',
+                      borderRadius: '14px',
+                      border: '1.5px solid var(--line)',
+                      display: 'grid',
+                      gap: '10px',
+                    }}
+                  >
+                    <div className="row wrapRow" style={{ justifyContent: 'space-between' }}>
+                      <div>
+                        <strong>{app.pharmacyNameAr} ({app.pharmacyNameEn})</strong>
+                        <div className="small muted">
+                          المالك: {app.ownerFullName} • رخصة رقم: <b>{app.licenseNumber}</b> • قيد النقابة: <b>{app.ownerSyndicateNumber}</b>
+                        </div>
+                        <div className="small muted">
+                          الموقع: {app.governorateId} — {app.cityCenter} — {app.districtVillage} ({app.detailedAddressAr}) • هاتف: {app.phone}
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          padding: '4px 12px',
+                          borderRadius: '999px',
+                          fontWeight: 800,
+                          fontSize: '0.8rem',
+                          color: st.color,
+                          background: st.bg,
+                        }}
+                      >
+                        {isAr ? st.ar : st.en}
+                      </span>
+                    </div>
+
+                    <div className="row wrapRow" style={{ gap: '8px' }}>
+                      {(
+                        [
+                          { status: 'under_verification', label: 'بدء فحص الوثائق', reason: 'جاري التحقق من رخصة وزارة الصحة والسجل التجاري' },
+                          { status: 'approved', label: 'اعتماد وتفعيل الصيدلية بالشبكة', reason: 'تم التحقق من التراخيص واعتماد الصيدلية رسمياً' },
+                          { status: 'rejected', label: 'رفض الطلب', reason: 'بيانات الترخيص غير مكتملة أو غير مطابقة' },
+                          { status: 'suspended', label: 'إيقاف مؤقت', reason: 'تم تعليق الصيدلية مؤقتاً لحين مراجعة الجودة' },
+                        ] as const
+                      ).map((act) => (
+                        <button
+                          key={act.status}
+                          type="button"
+                          className="btn small ghost"
+                          onClick={async () => {
+                            await reviewPharmacyApplicationDecision(
+                              app.id,
+                              act.status as PharmacyApplicationStatus,
+                              act.reason,
+                              adminUid,
+                              adminRole
+                            );
+                            showToast(`تم تحديث حالة طلب (${app.pharmacyNameAr}) إلى: ${act.label}`);
+                          }}
+                        >
+                          {act.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* SUB-TAB: FRANCHISE MANAGEMENT & FINANCIAL DASHBOARD */}
+      {/* ==================================================================== */}
+      {subTab === 'franchise_financials' && (
+        <div className="stack">
+          <div className="card stack">
+            <h3 style={{ margin: 0 }}>
+              {isAr ? 'لوحة الإدارة المالية وعقود فرنشايز صيدليات دوايا (Phase 7)' : 'DAWAYA Pharmacy Franchise & Financial Management'}
+            </h3>
+            <p className="small muted" style={{ margin: 0 }}>
+              {isAr
+                ? 'جميع نسب الفرنشايز والاشتراكات قابلة للتخصيص لكل عقد بشكل شفاف ومستقل مع مراجعة التراخيص القانونية المصرية.'
+                : 'Configurable franchise fees, subscriptions, and royalty percentages.'}
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '12px' }}>
+              <div className="subcard">
+                <span className="small muted">{isAr ? 'العقود النشطة' : 'Active Franchise Contracts'}</span>
+                <b style={{ fontSize: '1.5rem', color: '#059669' }}>{franchiseContracts.length}</b>
+              </div>
+              <div className="subcard">
+                <span className="small muted">{isAr ? 'إجمالي الاشتراكات الشهرية' : 'Monthly Subscription Revenue'}</span>
+                <b style={{ fontSize: '1.5rem', color: '#0284c7' }}>
+                  {franchiseContracts.reduce((a, c) => a + c.subscriptionFeeEgp, 0).toLocaleString()} ج.م
+                </b>
+              </div>
+              <div className="subcard">
+                <span className="small muted">{isAr ? 'إجمالي المحصل الفعلي' : 'Total Collected Fees'}</span>
+                <b style={{ fontSize: '1.5rem', color: '#15803d' }}>
+                  {franchiseContracts.reduce((a, c) => a + c.totalPaidFeesEgp, 0).toLocaleString()} ج.م
+                </b>
+              </div>
+            </div>
+
+            <div className="tablewrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{isAr ? 'رقم العقد والصيدلية' : 'Contract & Pharmacy'}</th>
+                    <th>{isAr ? 'المحافظة' : 'Location'}</th>
+                    <th>{isAr ? 'رسم الانضمام' : 'Initial Fee'}</th>
+                    <th>{isAr ? 'الاشتراك الدوري' : 'Subscription'}</th>
+                    <th>{isAr ? 'نسبة الرويالتي والتسويق' : 'Royalty & Marketing %'}</th>
+                    <th>{isAr ? 'المدفوعات والحالة' : 'Payments & Status'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {franchiseContracts.map((fc) => (
+                    <tr key={fc.id}>
+                      <td>
+                        <b>{fc.pharmacyNameAr}</b>
+                        <div className="small muted">{fc.contractNumber} • {fc.ownerName}</div>
+                      </td>
+                      <td>{fc.governorateId} — {fc.cityCenter}</td>
+                      <td>{fc.initialFranchiseFeeEgp.toLocaleString()} ج.م</td>
+                      <td>{fc.subscriptionFeeEgp.toLocaleString()} ج.م ({fc.subscriptionCycle === 'monthly' ? 'شهري' : 'سنوي'})</td>
+                      <td>رويالتي {fc.royaltyPercentage}% + تسويق {fc.marketingContributionPct}%</td>
+                      <td>
+                        <span className="badge approved">محصل: {fc.totalPaidFeesEgp.toLocaleString()} ج.م</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ paddingTop: '12px', borderTop: '1px solid var(--line)' }}>
+              <h4 style={{ margin: '0 0 10px' }}>{isAr ? 'إبرام عقد فرنشايز صيدلية جديد (بنسب مالية مرنة):' : 'Add Configurable Franchise Contract:'}</h4>
+              <div className="form-row">
+                <input placeholder="اسم الصيدلية" value={frPharmName} onChange={(e) => setFrPharmName(e.target.value)} />
+                <input placeholder="اسم الصيدلي المالك" value={frOwnerName} onChange={(e) => setFrOwnerName(e.target.value)} />
+                <input type="number" placeholder="رسم التعاقد (ج.م)" value={frInitFee} onChange={(e) => setFrInitFee(Number(e.target.value))} />
+                <input type="number" placeholder="الاشتراك الشهري (ج.م)" value={frMonthlySub} onChange={(e) => setFrMonthlySub(Number(e.target.value))} />
+                <input type="number" step="0.5" placeholder="نسبة الرويالتي %" value={frRoyaltyPct} onChange={(e) => setFrRoyaltyPct(Number(e.target.value))} />
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={async () => {
+                    if (!frPharmName.trim()) return;
+                    await saveFranchiseContract({
+                      pharmacyId: `pharm_${Date.now().toString(36)}`,
+                      pharmacyNameAr: frPharmName.trim(),
+                      ownerName: frOwnerName.trim() || 'د. صيدلي معتمد',
+                      governorateId: 'cairo',
+                      cityCenter: 'القاهرة',
+                      contractNumber: frContractNo,
+                      legalLicenseVerified: true,
+                      syndicateApprovalRef: 'SYN-VERIFIED',
+                      initialFranchiseFeeEgp: frInitFee,
+                      subscriptionCycle: 'monthly',
+                      subscriptionFeeEgp: frMonthlySub,
+                      royaltyPercentage: frRoyaltyPct,
+                      marketingContributionPct: frMarketingPct,
+                      startDateYYYYMMDD: '2026-11-11',
+                      endDateYYYYMMDD: '2029-11-11',
+                      renewalStatus: 'active',
+                      totalReportedSalesEgp: 0,
+                      totalPaidFeesEgp: frInitFee,
+                      outstandingBalanceEgp: 0,
+                      overdueStatus: 'current',
+                    });
+                    setFrPharmName('');
+                    showToast('تم حفظ عقد الفرنشايز الجديد في قاعدة البيانات.');
+                  }}
+                >
+                  حفظ عقد الفرنشايز
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* SUB-TAB: DYNAMIC GEOGRAPHIC HIERARCHY MANAGEMENT (PHASE 3) */}
+      {/* ==================================================================== */}
+      {subTab === 'dynamic_geography' && (
+        <div className="card stack">
+          <h3 style={{ margin: 0 }}>
+            {isAr ? 'الإدارة الجغرافية الديناميكية (مصر ← المحافظة ← المدينة/المركز ← الحي/القرية)' : 'Dynamic Geographic Hierarchy Management'}
+          </h3>
+          <p className="small muted" style={{ margin: 0 }}>
+            {isAr
+              ? 'أضف أو عدل المحافظات والمراكز والقرى ديناميكياً في Firestore دون الحاجة لتعديل الكود المصدري.'
+              : 'Manage governorates, centers, and villages dynamically in Firestore.'}
+          </p>
+
+          <div className="form-row">
+            <input
+              placeholder={isAr ? 'اسم المحافظة الجديدة (عربي)...' : 'New Governorate (AR)'}
+              value={newGovNameAr}
+              onChange={(e) => setNewGovNameAr(e.target.value)}
+            />
+            <input
+              placeholder={isAr ? 'اسم المحافظة (إنجليزي)...' : 'New Governorate (EN)'}
+              value={newGovNameEn}
+              onChange={(e) => setNewGovNameEn(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn small"
+              onClick={async () => {
+                if (!newGovNameAr.trim()) return;
+                const slug = (newGovNameEn.trim() || newGovNameAr.trim()).toLowerCase().replace(/\s+/g, '_');
+                const updated = [
+                  ...dynamicGovernorates,
+                  {
+                    id: slug,
+                    nameAr: newGovNameAr.trim(),
+                    nameEn: newGovNameEn.trim() || newGovNameAr.trim(),
+                    majorCities: [],
+                  },
+                ];
+                await saveDynamicGovernorates(updated, adminUid);
+                setNewGovNameAr('');
+                setNewGovNameEn('');
+                showToast('تمت إضافة المحافظة إلى الدليل الجغرافي الديناميكي.');
+              }}
+            >
+              {isAr ? 'إضافة محافظة' : 'Add Governorate'}
+            </button>
+          </div>
+
+          <div className="form-row" style={{ paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+            <select value={selectedGeoGovId} onChange={(e) => setSelectedGeoGovId(e.target.value)}>
+              {dynamicGovernorates.map((g) => (
+                <option key={g.id} value={g.id}>{g.nameAr} ({g.nameEn})</option>
+              ))}
+            </select>
+            <input
+              placeholder={isAr ? 'إضافة مركز / مدينة / قرية للمحافظة المختارة...' : 'Add Center / City / Village...'}
+              value={newCityNameAr}
+              onChange={(e) => setNewCityNameAr(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn small"
+              onClick={async () => {
+                if (!newCityNameAr.trim()) return;
+                const updated = dynamicGovernorates.map((g) => {
+                  if (g.id !== selectedGeoGovId) return g;
+                  return {
+                    ...g,
+                    majorCities: [
+                      ...g.majorCities,
+                      {
+                        id: `city_${Date.now().toString(36)}`,
+                        ar: newCityNameAr.trim(),
+                        en: newCityNameAr.trim(),
+                        districts: [newCityNameAr.trim()],
+                      },
+                    ],
+                  };
+                });
+                await saveDynamicGovernorates(updated, adminUid);
+                setNewCityNameAr('');
+                showToast('تمت إضافة المركز/المدينة بنجاح.');
+              }}
+            >
+              {isAr ? 'إضافة مركز / مدينة' : 'Add City / Center'}
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginTop: '8px' }}>
+            {dynamicGovernorates.map((g) => (
+              <div key={g.id} className="subcard">
+                <strong>{g.nameAr} ({g.nameEn})</strong>
+                <span className="small muted">
+                  المراكز والمدن ({g.majorCities.length}): {g.majorCities.map((c) => c.ar).join('، ') || '—'}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
