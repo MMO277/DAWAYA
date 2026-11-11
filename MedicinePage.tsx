@@ -1,5 +1,5 @@
 import SmartMedDoseReminderBadge from './SmartMedDoseReminderBadge';
-import { evaluateOccupationalDrugSafety } from './medicationSafetyEngine';
+import { evaluateOccupationalDrugSafety, evaluateDrugHydrationRequirement } from './medicationSafetyEngine';
 import FindMedicationPanel from './FindMedicationPanel';
 import Mechanism3DViewer from './Mechanism3DViewer';
 import { useEffect, useMemo, useState } from 'react';
@@ -475,6 +475,82 @@ export default function MedicinePage() {
           </Link>
         </section>
       )}
+
+      {/* Smart Mandatory Water Intake & Hydration Guard */}
+      {(() => {
+        const drugTokens = [
+          name || '',
+          dawayaRecord?.brandNameAr || '',
+          dawayaRecord?.brandNameEn || '',
+          dawayaRecord?.activeIngredient || '',
+          m.id || '',
+        ];
+        const hydrationReq = evaluateDrugHydrationRequirement(drugTokens);
+        if (!hydrationReq) return null;
+
+        return (
+          <section
+            className="card"
+            style={{
+              background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.1) 0%, rgba(14, 165, 233, 0.16) 100%)',
+              border: '2px solid #0284c7',
+              borderRadius: '18px',
+              padding: '16px 18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '14px',
+              boxShadow: '0 8px 22px rgba(2, 132, 199, 0.12)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: '240px' }}>
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '14px',
+                  background: '#0284c7',
+                  color: '#ffffff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.65rem',
+                  flexShrink: 0,
+                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
+                }}
+              >
+                💧
+              </div>
+              <div>
+                <strong style={{ fontSize: '1rem', display: 'block', color: '#0369a1', marginBottom: '4px' }}>
+                  {isAr ? hydrationReq.titleAr : hydrationReq.titleEn}
+                </strong>
+                <p className="small" style={{ margin: 0, lineHeight: 1.55, fontWeight: 600 }}>
+                  {isAr ? hydrationReq.reasonAr : hydrationReq.reasonEn}
+                </p>
+              </div>
+            </div>
+
+            <Link
+              to={`/tracker?med=${encodeURIComponent(name)}&hydration=2cups`}
+              className="btn small"
+              style={{
+                background: '#0284c7',
+                borderColor: '#0284c7',
+                color: '#ffffff',
+                fontWeight: 800,
+                borderRadius: '999px',
+                padding: '9px 18px',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
+              }}
+            >
+              💧⏰ {isAr ? 'ضبط منبه الجرعة + شرب الماء' : 'Set Dose + Water Alarm'}
+            </Link>
+          </section>
+        );
+      })()}
 
       {/* Clinical Pro Mode vs Patient Mode Toggle Bar */}
       <section className="pro-mode-toggle-banner">

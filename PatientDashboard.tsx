@@ -37,6 +37,25 @@ export default function PatientDashboard() {
   const { indexItems, totalCount, loaded } = useDawayaDrugDatabase();
 
   const [quickSearch, setQuickSearch] = useState('');
+  const todayWaterKey = `dawaya_water_cups_${formatLocalDateYYYYMMDD()}`;
+  const [waterCups, setWaterCups] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(todayWaterKey);
+      return saved ? Math.min(8, Math.max(0, parseInt(saved, 10) || 0)) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const handleToggleWaterCup = (cupNum: number) => {
+    const next = cupNum === waterCups ? cupNum - 1 : cupNum;
+    const clamped = Math.min(8, Math.max(0, next));
+    setWaterCups(clamped);
+    try {
+      localStorage.setItem(todayWaterKey, String(clamped));
+    } catch {
+      /* ignore */
+    }
+  };
 
   const quickResults = useMemo(() => {
     if (!quickSearch.trim() || quickSearch.trim().length < 2) return [];
@@ -315,6 +334,75 @@ export default function PatientDashboard() {
               ))}
             </div>
           )}
+        </div>
+      </section>
+
+      {/* 2.5 Daily Medication Hydration Guard Strip */}
+      <section
+        className="card"
+        style={{
+          background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(14, 165, 233, 0.14) 100%)',
+          border: '1.5px solid #0284c7',
+          borderRadius: '18px',
+          padding: '14px 18px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.5rem' }}>💧</span>
+            <div>
+              <strong style={{ fontSize: '0.96rem', display: 'block', color: '#0369a1' }}>
+                {isAr ? 'حارس ومنبه شرب الماء اليومي مع الأدوية (8 أكواب = 2 لتر)' : 'Daily Medication Hydration Guard (8 Glasses)'}
+              </strong>
+              <span className="small muted">
+                {isAr ? 'اضغط على الكوب لتسجيل شرب الماء وحماية الكلى والمريء من ترسبات الأدوية' : 'Tap a glass to log water intake and protect your kidneys'}
+              </span>
+            </div>
+          </div>
+          <span
+            style={{
+              background: waterCups >= 8 ? '#dcfce7' : '#e0f2fe',
+              color: waterCups >= 8 ? '#15803d' : '#0369a1',
+              padding: '4px 12px',
+              borderRadius: '999px',
+              fontWeight: 900,
+              fontSize: '0.84rem',
+              border: '1px solid #7dd3fc',
+            }}
+          >
+            {waterCups} / 8 {isAr ? 'أكواب اليوم' : 'Cups'} {waterCups >= 8 ? '🎉' : ''}
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(64px, 1fr))', gap: '6px' }}>
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => {
+            const active = num <= waterCups;
+            return (
+              <button
+                key={num}
+                type="button"
+                onClick={() => handleToggleWaterCup(num)}
+                style={{
+                  padding: '8px 4px',
+                  borderRadius: '12px',
+                  border: active ? '2px solid #0284c7' : '1px dashed #94a3b8',
+                  background: active ? 'linear-gradient(180deg, #38bdf8 0%, #0284c7 100%)' : 'var(--card-bg, #ffffff)',
+                  color: active ? '#ffffff' : 'var(--ink, #0D1F38)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '2px',
+                  fontWeight: 800,
+                  fontSize: '0.75rem',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>{active ? '🥤' : '🥛'}</span>
+                <span>{isAr ? `كوب ${num}` : `#${num}`}</span>
+              </button>
+            );
+          })}
         </div>
       </section>
 

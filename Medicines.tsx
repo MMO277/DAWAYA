@@ -1,5 +1,7 @@
+import SmartChoiceSelect from './SmartChoiceSelect';
 import { createPortal } from 'react-dom';
-import { DosageFormVectorBadge } from './DawayaVectorIcons';
+import { DosageFormVectorBadge, Realistic3DMedicineThumb } from './DawayaVectorIcons';
+import { evaluateOccupationalDrugSafety, evaluateDrugHydrationRequirement } from './medicationSafetyEngine';
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -478,114 +480,122 @@ export default function Medicines() {
               <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
                 {isAr ? 'الفئة الدوائية والعلاجية:' : 'Therapeutic Category:'}
               </label>
-              <select
+              <SmartChoiceSelect
                 value={selectedDawayaCat}
-                onChange={(e) => {
-                  const val = e.target.value as DawayaTherapeuticCategory | 'all';
-                  setSelectedDawayaCat(val);
+                onChange={(val) => {
+                  setSelectedDawayaCat(val as DawayaTherapeuticCategory | 'all');
                   setPage(1);
                 }}
-              >
-                <option value="all">
-                  {isAr ? 'كل التخصصات والفئات الدوائية (26,562)' : 'All Therapeutic Categories (26,562)'}
-                </option>
-                {(Object.keys(DAWAYA_CATEGORY_LABELS) as DawayaTherapeuticCategory[]).map((catKey) => (
-                  <option key={catKey} value={catKey}>
-                    {DAWAYA_CATEGORY_LABELS[catKey].icon}{' '}
-                    {isAr ? DAWAYA_CATEGORY_LABELS[catKey].ar : DAWAYA_CATEGORY_LABELS[catKey].en}
-                  </option>
-                ))}
-              </select>
+                modalTitle={isAr ? '🏥 اختر التخصص أو الفئة العلاجية' : 'Select Therapeutic Category'}
+                options={[
+                  { value: 'all', icon: '✨', label: isAr ? 'كل التخصصات والفئات (26,562)' : 'All Categories (26,562)' },
+                  ...(Object.keys(DAWAYA_CATEGORY_LABELS) as DawayaTherapeuticCategory[]).map((catKey) => ({
+                    value: catKey,
+                    icon: DAWAYA_CATEGORY_LABELS[catKey].icon,
+                    label: isAr ? DAWAYA_CATEGORY_LABELS[catKey].ar : DAWAYA_CATEGORY_LABELS[catKey].en,
+                  })),
+                ]}
+              />
             </div>
 
             <div>
               <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
                 {isAr ? 'الشكل الصيدلاني:' : 'Dosage Form:'}
               </label>
-              <select
+              <SmartChoiceSelect
                 value={selectedFormFilter}
-                onChange={(e) => {
-                  setSelectedFormFilter(e.target.value);
+                onChange={(val) => {
+                  setSelectedFormFilter(val);
                   setPage(1);
                 }}
-              >
-                <option value="all">{isAr ? 'جميع الأشكال الدوائية' : 'All Dosage Forms'}</option>
-                {(Object.keys(DOSAGE_FORM_LABELS) as DosageFormType[]).map((k) => (
-                  <option key={k} value={k}>
-                    {pick(DOSAGE_FORM_LABELS[k], lang)}
-                  </option>
-                ))}
-              </select>
+                modalTitle={isAr ? '💊 اختر الشكل الصيدلاني للدواء' : 'Select Dosage Form'}
+                options={[
+                  { value: 'all', icon: '📦', label: isAr ? 'جميع الأشكال الدوائية' : 'All Dosage Forms' },
+                  ...(Object.keys(DOSAGE_FORM_LABELS) as DosageFormType[]).map((k) => ({
+                    value: k,
+                    icon: '💊',
+                    label: pick(DOSAGE_FORM_LABELS[k], lang),
+                  })),
+                ]}
+              />
             </div>
 
             <div>
               <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
                 {isAr ? 'طريق الإعطاء:' : 'Route:'}
               </label>
-              <select
+              <SmartChoiceSelect
                 value={selectedRouteFilter}
-                onChange={(e) => {
-                  setSelectedRouteFilter(e.target.value);
+                onChange={(val) => {
+                  setSelectedRouteFilter(val);
                   setPage(1);
                 }}
-              >
-                <option value="all">{isAr ? 'كل طرق الإعطاء' : 'All Routes'}</option>
-                {(Object.keys(ROUTE_LABELS) as AdministrationRoute[]).map((r) => (
-                  <option key={r} value={r}>
-                    {pick(ROUTE_LABELS[r], lang)}
-                  </option>
-                ))}
-              </select>
+                modalTitle={isAr ? '💉 اختر طريق إعطاء الدواء' : 'Select Administration Route'}
+                options={[
+                  { value: 'all', icon: '✨', label: isAr ? 'كل طرق الإعطاء' : 'All Routes' },
+                  ...(Object.keys(ROUTE_LABELS) as AdministrationRoute[]).map((r) => ({
+                    value: r,
+                    icon: '🩺',
+                    label: pick(ROUTE_LABELS[r], lang),
+                  })),
+                ]}
+              />
             </div>
 
             <div>
               <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
                 {isAr ? 'توثيق الباركود:' : 'Barcode Status:'}
               </label>
-              <select
+              <SmartChoiceSelect
                 value={selectedBarcodeFilter}
-                onChange={(e) => {
-                  setSelectedBarcodeFilter(e.target.value as 'all' | 'verified' | 'pending');
+                onChange={(val) => {
+                  setSelectedBarcodeFilter(val as 'all' | 'verified' | 'pending');
                   setPage(1);
                 }}
-              >
-                <option value="all">{isAr ? 'الكل (26,562)' : 'All Records (26,562)'}</option>
-                <option value="verified">{isAr ? '✅ باركود متوفر وموثق (10,525)' : '✅ With Barcode (10,525)'}</option>
-                <option value="pending">{isAr ? '⏳ بدون باركود مسجل (16,037)' : '⏳ Missing Barcode (16,037)'}</option>
-              </select>
+                modalTitle={isAr ? '🏷️ حالة توثيق الباركود' : 'Barcode Verification Status'}
+                options={[
+                  { value: 'all', icon: '📋', label: isAr ? 'الكل (26,562 دواء)' : 'All Records (26,562)' },
+                  { value: 'verified', icon: '✅', label: isAr ? 'باركود متوفر وموثق (10,525)' : 'With Barcode (10,525)' },
+                  { value: 'pending', icon: '⏳', label: isAr ? 'بدون باركود مسجل (16,037)' : 'Missing Barcode (16,037)' },
+                ]}
+              />
             </div>
 
             <div>
               <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
                 {isAr ? 'تركيب المكونات الفعالة:' : 'Composition:'}
               </label>
-              <select
+              <SmartChoiceSelect
                 value={selectedComboFilter}
-                onChange={(e) => {
-                  setSelectedComboFilter(e.target.value as 'all' | 'single' | 'combo');
+                onChange={(val) => {
+                  setSelectedComboFilter(val as 'all' | 'single' | 'combo');
                   setPage(1);
                 }}
-              >
-                <option value="all">{isAr ? 'الكل (منفرد + مركب)' : 'All (Single + Multi-Ingredient)'}</option>
-                <option value="single">{isAr ? 'مادة فعالة منفردة' : 'Single Active Ingredient'}</option>
-                <option value="combo">{isAr ? 'دواء مركب (أكثر من مادة فعالة)' : 'Multi-Ingredient Combination'}</option>
-              </select>
+                modalTitle={isAr ? '🧪 تركيب المواد الفعالة' : 'Active Ingredient Composition'}
+                options={[
+                  { value: 'all', icon: '✨', label: isAr ? 'الكل (منفرد + مركب)' : 'All (Single + Combo)' },
+                  { value: 'single', icon: '1️⃣', label: isAr ? 'مادة فعالة منفردة' : 'Single Active Ingredient' },
+                  { value: 'combo', icon: '➕', label: isAr ? 'دواء مركب (أكثر من مادة فعالة)' : 'Multi-Ingredient Combo' },
+                ]}
+              />
             </div>
 
             <div>
               <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
                 {isAr ? 'ترتيب النتائج:' : 'Sort By:'}
               </label>
-              <select
+              <SmartChoiceSelect
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-              >
-                <option value="verified_first">{isAr ? 'المكتملة والموثقة أولاً' : 'Verified Records First'}</option>
-                <option value="relevance">{isAr ? 'الأكثر تطابقاً مع البحث' : 'Best Match'}</option>
-                <option value="name">{isAr ? 'الاسم التجاري (أبجدياً)' : 'Brand Name (A-Z)'}</option>
-                <option value="price_asc">{isAr ? 'السعر: من الأقل للأعلى' : 'Price: Low to High'}</option>
-                <option value="price_desc">{isAr ? 'السعر: من الأعلى للأقل' : 'Price: High to Low'}</option>
-              </select>
+                onChange={(val) => setSortBy(val as SortOption)}
+                modalTitle={isAr ? '⇅ ترتيب عرض الأدوية' : 'Sort Medicines By'}
+                options={[
+                  { value: 'verified_first', icon: '✅', label: isAr ? 'المكتملة والموثقة أولاً' : 'Verified Records First' },
+                  { value: 'relevance', icon: '🎯', label: isAr ? 'الأكثر تطابقاً مع البحث' : 'Best Match' },
+                  { value: 'name', icon: '🔤', label: isAr ? 'الاسم التجاري (أبجدياً)' : 'Brand Name (A-Z)' },
+                  { value: 'price_asc', icon: '📉', label: isAr ? 'السعر: من الأقل للأعلى' : 'Price: Low to High' },
+                  { value: 'price_desc', icon: '📈', label: isAr ? 'السعر: من الأعلى للأقل' : 'Price: High to Low' },
+                ]}
+              />
             </div>
           </div>
         )}
@@ -703,153 +713,173 @@ export default function Medicines() {
             {paginatedDawayaItems.map((item) => {
               const catMeta = DAWAYA_CATEGORY_LABELS[item.k] || DAWAYA_CATEGORY_LABELS.general_medicine;
               const flags = decodeWarningMask(item.w);
-              const warnPills: string[] = [];
-              if (flags.pregnancy) warnPills.push(isAr ? 'الحمل' : 'Pregnancy');
-              if (flags.lactation) warnPills.push(isAr ? 'الرضاعة' : 'Lactation');
-              if (flags.highBloodPressure) warnPills.push(isAr ? 'الضغط' : 'High BP');
-              if (flags.diabetes) warnPills.push(isAr ? 'السكري' : 'Diabetes');
-              if (flags.heart) warnPills.push(isAr ? 'القلب' : 'Heart');
-              if (flags.kidney) warnPills.push(isAr ? 'الكلى' : 'Kidney');
-              if (flags.liver) warnPills.push(isAr ? 'الكبد' : 'Liver');
+
+              // Evaluate Live Safety Status against Patient Profile & Occupation
+              const drugTokens = [item.a || '', item.n || '', item.g || ''];
+              const occAlerts = evaluateOccupationalDrugSafety(
+                drugTokens,
+                profile.occupation || 'driver_transport',
+                profile.factoryEnvironmentHazards,
+                profile.workEnvironmentNotes
+              );
+              const hydrationReq = evaluateDrugHydrationRequirement(drugTokens);
+
+              // Check allergy match
+              const hasAllergyConflict = (profile.allergies || []).some((al) => {
+                const key = (al.drugName || '').toLowerCase();
+                const fam = (al.allergenKey || '').toLowerCase();
+                const text = drugTokens.join(' ').toLowerCase();
+                if (key && text.includes(key)) return true;
+                if (fam === 'penicillin' && /(أموكسيسيلين|أوجمنتين|بنسلين|أمبيسيلين|يونيكتام|كيورام|هاي بيوتك|amoxicillin|augmentin|penicillin|ampicillin)/i.test(text)) return true;
+                if (fam === 'sulfa' && /(سلفا|سبترين|سوتريم|sulfa|septrin|cotrimoxazole)/i.test(text)) return true;
+                return false;
+              });
+
+              const hasOrganConflict =
+                (profile.renalStatus === 'impaired' && flags.kidney) ||
+                (profile.hepaticStatus === 'impaired' && flags.liver);
+
+              const occupationLabel =
+                profile.occupation === 'driver_transport'
+                  ? (isAr ? 'سائق' : 'Driver')
+                  : profile.occupation === 'machinery_factory'
+                  ? (isAr ? 'عامل مصنع' : 'Factory')
+                  : profile.occupation === 'student'
+                  ? (isAr ? 'طالب' : 'Student')
+                  : profile.occupation === 'office_desk'
+                  ? (isAr ? 'عمل مكتبي' : 'Office')
+                  : profile.occupation === 'homemaker'
+                  ? (isAr ? 'ربت منزل' : 'Homemaker')
+                  : profile.occupation === 'other' && profile.customOccupationTitle
+                  ? profile.customOccupationTitle
+                  : (isAr ? 'ملفك الصحي' : 'Your Profile');
+
+              let safetyState: 'safe' | 'danger' | 'caution' = 'safe';
+              let safetyText = isAr
+                ? `✓ آمن مع ملفك ومهنتك (${occupationLabel})`
+                : `✓ Safe with your profile (${occupationLabel})`;
+
+              if (hasAllergyConflict) {
+                safetyState = 'danger';
+                safetyText = isAr
+                  ? '🚨 تحذير حرج: يتعارض مع حساسيتك الدوائية المسجلة!'
+                  : '🚨 Critical: Conflicts with your recorded allergy!';
+              } else if (occAlerts.length > 0) {
+                safetyState = 'danger';
+                const isResp = occAlerts[0].warningAr.includes('الصدر');
+                safetyText = isResp
+                  ? (isAr ? '⚠️ تنبيه للصدر — يحذر مع أتربة وبودرة المصنع' : '⚠️ Lung Alert — Caution with factory dust')
+                  : (isAr ? '⚠️ يسبب النعاس — يحظر أثناء القيادة والعمل' : '⚠️ Causes Drowsiness — Do not drive');
+              } else if (hasOrganConflict) {
+                safetyState = 'caution';
+                safetyText = isAr
+                  ? '⚠️ يتطلب تعديل جرعة مع وظائف الكلى/الكبد لديك'
+                  : '⚠️ Requires renal/hepatic dose adjustment';
+              }
 
               return (
-                <div
-                  key={item.i}
-                  className="card"
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    borderTop: item.v === 1 ? '3px solid #138866' : '3px solid #CFD29D',
-                  }}
-                >
+                <div key={item.i} className="dawaya-med-card-v3">
                   <div>
-                    <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.04rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <DosageFormVectorBadge form={item.f} size={20} />
-                        <span>{isAr ? item.a || item.n : item.n}</span>
-                      </h3>
-                      {item.p !== null && (
-                        <span
-                          className="badge"
-                          style={{
-                            background: '#dcfce7',
-                            color: '#166534',
-                            fontWeight: 800,
-                            whiteSpace: 'nowrap',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                          }}
-                        >
-                          {item.op && item.op !== item.p && (
-                            <s style={{ opacity: 0.65, fontSize: '0.74rem', color: '#64748b' }}>
-                              {item.op.toFixed(2)}
-                            </s>
+                    {/* Top Action Icons Row: Save to Profile + WhatsApp Share + Info Page */}
+                    <div className="dawaya-med-card-v3-top-actions">
+                      <button
+                        type="button"
+                        className="dawaya-med-icon-btn"
+                        title={isAr ? 'حفظ الدواء في ملفي الصحي' : 'Save to my health profile'}
+                        onClick={() => handleAddMedicineToProfile(item.i, item.a, item.n, item.s)}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </button>
+
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(
+                          isAr
+                            ? `💊 دواء: ${item.a || item.n} (${item.n})\n🧪 المادة الفعالة: ${item.g || 'راجع النشرة'}\n💰 السعر الرسمي: ${item.p ? item.p.toFixed(2) + ' ج.م' : 'غير محدد'}\n🔗 التفاصيل والبدائل على منصة دوايا: https://mmo277.github.io/DAWAYA/#/medicine/${item.i}`
+                            : `💊 Medicine: ${item.n} (${item.a})\n🧪 Active Ingredient: ${item.g || 'See leaflet'}\n💰 Official Price: ${item.p ? item.p.toFixed(2) + ' EGP' : 'N/A'}\n🔗 Details & Generics on DAWAYA: https://mmo277.github.io/DAWAYA/#/medicine/${item.i}`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="dawaya-med-icon-btn"
+                        title={isAr ? 'مشاركة الدواء وسعره عبر واتساب' : 'Share on WhatsApp'}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="18" cy="5" r="3" />
+                          <circle cx="6" cy="12" r="3" />
+                          <circle cx="18" cy="19" r="3" />
+                          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                        </svg>
+                      </a>
+
+                      <Link
+                        to={`/medicine/${item.i}`}
+                        className="dawaya-med-icon-btn"
+                        title={isAr ? 'تفاصيل الدواء الكاملة والبدائل' : 'Full Medicine Details'}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </Link>
+                    </div>
+
+                    {/* Main Body: Realistic 3D Packaging Thumb + Title + Active Ingredient + Price Pill */}
+                    <div className="dawaya-med-card-v3-body">
+                      <Realistic3DMedicineThumb form={item.f} size={68} />
+
+                      <div className="dawaya-med-card-v3-info">
+                        <h3 className="dawaya-med-card-v3-title">
+                          <Link to={`/medicine/${item.i}`} className="dawaya-med-card-v3-title-link">
+                            {isAr ? item.a || item.n : item.n}{' '}
+                            {item.a && item.n && (
+                              <span style={{ fontWeight: 700, fontSize: '0.92rem', opacity: 0.85 }} dir="ltr">
+                                ({item.n})
+                              </span>
+                            )}
+                          </Link>
+                        </h3>
+
+                        <p className="dawaya-med-card-v3-ing">
+                          {item.g || (isAr ? `${pick(DOSAGE_FORM_LABELS[item.f as DosageFormType] || DOSAGE_FORM_LABELS.tablet, lang)} • ${catMeta.ar}` : catMeta.en)}
+                          {item.s ? ` • ${item.s}` : ''}
+                        </p>
+
+                        <div className="dawaya-med-card-v3-meta-row">
+                          {item.p !== null && (
+                            <span className="dawaya-med-price-pill">
+                              {item.op && item.op !== item.p && (
+                                <s style={{ opacity: 0.6, fontSize: '0.76rem' }}>
+                                  {item.op.toFixed(0)}
+                                </s>
+                              )}
+                              <span>
+                                {Number.isInteger(item.p) ? item.p : item.p.toFixed(1)} {isAr ? 'ج.م' : 'EGP'}
+                              </span>
+                            </span>
                           )}
-                          <span>
-                            {item.p.toFixed(2)} {isAr ? 'ج.م' : 'EGP'}
-                          </span>
-                        </span>
-                      )}
-                    </div>
 
-                    <p className="small muted" style={{ margin: '2px 0 8px' }} dir="ltr">
-                      {item.n}
-                    </p>
-
-                    <div className="small" style={{ lineHeight: 1.65 }}>
-                      <div>
-                        <b>{isAr ? 'المادة الفعالة:' : 'Active Ingredient:'} </b>
-                        <span style={{ color: item.g ? 'inherit' : '#d97706' }}>
-                          {item.g || (isAr ? 'غير مسجلة بالمصدر (تتطلب مراجعة النشرة)' : 'Unspecified in source')}
-                        </span>
+                          {hydrationReq && (
+                            <span className="dawaya-med-hydration-chip" title={hydrationReq.reasonAr}>
+                              {isAr ? hydrationReq.badgeAr : '💧 Drink 2 Glasses of Water'}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {item.s && (
-                        <div>
-                          <b>{isAr ? 'التركيز:' : 'Strength:'} </b>
-                          <span dir="ltr">{item.s}</span>
-                        </div>
-                      )}
-                      <div>
-                        <b>{isAr ? 'الشكل والفئة:' : 'Form & Category:'} </b>
-                        {pick(DOSAGE_FORM_LABELS[item.f as DosageFormType] || DOSAGE_FORM_LABELS.tablet, lang)} •{' '}
-                        <span>
-                          {catMeta.icon} {isAr ? catMeta.ar : catMeta.en}
-                        </span>
-                      </div>
-                      {item.c && (
-                        <div>
-                          <b>{isAr ? 'الشركة:' : 'Manufacturer:'} </b>
-                          {item.c}
-                        </div>
-                      )}
-                      {item.b && (
-                        <div>
-                          <b>{isAr ? 'الباركود:' : 'Barcode:'} </b>
-                          <code dir="ltr" style={{ fontWeight: 700 }}>{item.b}</code>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Safety Warning Badges */}
-                    <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {warnPills.length > 0 ? (
-                        warnPills.map((wp) => (
-                          <span key={wp} className="dawaya-warn-chip">
-                            ⚠️ {wp}
-                          </span>
-                        ))
-                      ) : (
-                        <span
-                          className="badge"
-                          style={{ background: 'var(--tint)', color: 'var(--muted)', fontSize: '0.72rem' }}
-                        >
-                          ℹ️ {isAr ? 'راجع النشرة للتحذيرات الخاصة' : 'See leaflet for warnings'}
-                        </span>
-                      )}
                     </div>
                   </div>
 
-                  <div
-                    className="row wrapRow"
-                    style={{
-                      gap: '6px',
-                      marginTop: '12px',
-                      paddingTop: '10px',
-                      borderTop: '1px solid var(--line)',
-                    }}
+                  {/* Full-Width Bottom Safety Bar (Matches Image 1 Green/Pink Status Bar) */}
+                  <Link
+                    to={`/medicine/${item.i}`}
+                    style={{ textDecoration: 'none' }}
                   >
-                    <Link
-                      to={`/medicine/${item.i}`}
-                      className="btn small"
-                      style={{ flex: 1 }}
-                    >
-                      📖 {isAr ? 'صفحة الدواء الكاملة' : 'Medicine Details'}
-                    </Link>
-                    <button
-                      type="button"
-                      className="btn small ghost"
-                      title={isAr ? 'إضافة لقائمة أدويتي الحالية في الملف الصحي' : 'Add to my current medications'}
-                      onClick={() => handleAddMedicineToProfile(item.i, item.a, item.n, item.s)}
-                    >
-                      ➕ {isAr ? 'لملفي' : '+Profile'}
-                    </button>
-                    <a
-                      href={`https://wa.me/?text=${encodeURIComponent(
-                        isAr
-                          ? `💊 دواء: ${item.a || item.n} (${item.n})\n🧪 المادة الفعالة: ${item.g || 'راجع النشرة'}\n💰 السعر الرسمي: ${item.p ? item.p.toFixed(2) + ' ج.م' : 'غير محدد'}\n🔗 التفاصيل والبدائل على منصة دوايا: https://mmo277.github.io/DAWAYA/#/medicine/${item.i}`
-                          : `💊 Medicine: ${item.n} (${item.a})\n🧪 Active Ingredient: ${item.g || 'See leaflet'}\n💰 Official Price: ${item.p ? item.p.toFixed(2) + ' EGP' : 'N/A'}\n🔗 Details & Generics on DAWAYA: https://mmo277.github.io/DAWAYA/#/medicine/${item.i}`
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn small ghost"
-                      title={isAr ? 'مشاركة بيانات الدواء وسعره عبر واتساب' : 'Share medicine & price on WhatsApp'}
-                      style={{ color: '#138866', borderColor: 'rgba(19, 136, 102, 0.35)' }}
-                    >
-                      📤 {isAr ? 'واتساب' : 'Share'}
-                    </a>
-                  </div>
+                    <div className={`dawaya-med-safety-strip ${safetyState}`}>
+                      <span>{safetyText}</span>
+                    </div>
+                  </Link>
                 </div>
               );
             })}
@@ -907,95 +937,106 @@ export default function Medicines() {
           <div className="grid">
             {paginatedProducts.map((p) => {
               const ing = ACTIVE_INGREDIENTS.find((a) => a.id === p.activeIngredientId);
+              const drugTokens = [p.tradeNameAr || '', p.tradeNameEn || '', p.scientificComposition || ''];
+              const occAlerts = evaluateOccupationalDrugSafety(
+                drugTokens,
+                profile.occupation || 'driver_transport',
+                profile.factoryEnvironmentHazards,
+                profile.workEnvironmentNotes
+              );
+              const hydrationReq = evaluateDrugHydrationRequirement(drugTokens);
+
+              const occupationLabel =
+                profile.occupation === 'driver_transport'
+                  ? (isAr ? 'سائق' : 'Driver')
+                  : profile.occupation === 'machinery_factory'
+                  ? (isAr ? 'عامل مصنع' : 'Factory')
+                  : profile.occupation === 'student'
+                  ? (isAr ? 'طالب' : 'Student')
+                  : profile.occupation === 'office_desk'
+                  ? (isAr ? 'عمل مكتبي' : 'Office')
+                  : profile.occupation === 'homemaker'
+                  ? (isAr ? 'ربت منزل' : 'Homemaker')
+                  : profile.occupation === 'other' && profile.customOccupationTitle
+                  ? profile.customOccupationTitle
+                  : (isAr ? 'ملفك الصحي' : 'Your Profile');
+
+              const safetyState: 'safe' | 'danger' = occAlerts.length > 0 ? 'danger' : 'safe';
+              const safetyText =
+                occAlerts.length > 0
+                  ? (isAr ? '⚠️ يسبب النعاس — يحظر أثناء القيادة' : '⚠️ Causes Drowsiness — Do not drive')
+                  : (isAr ? `✓ آمن مع ملفك ومهنتك (${occupationLabel})` : `✓ Safe with your profile (${occupationLabel})`);
+
               return (
-                <div
-                  key={p.productId}
-                  className="card"
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    borderTop: p.barcodeStatus === 'verified' ? '3px solid #16a34a' : '3px solid #94a3b8',
-                  }}
-                >
+                <div key={p.productId} className="dawaya-med-card-v3">
                   <div>
-                    <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
-                        {isAr ? p.tradeNameAr : p.tradeNameEn}
-                      </h3>
-                      {p.priceEgp !== null && (
-                        <span
-                          className="badge"
-                          style={{
-                            background: '#dcfce7',
-                            color: '#166534',
-                            fontWeight: 700,
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {p.priceEgp.toFixed(2)} {isAr ? 'ج.م' : 'EGP'}
-                        </span>
-                      )}
+                    <div className="dawaya-med-card-v3-top-actions">
+                      <button
+                        type="button"
+                        className="dawaya-med-icon-btn"
+                        title={isAr ? 'البدائل والباركود' : 'Alternatives & Barcode'}
+                        onClick={() => setSelectedProduct(p)}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </button>
+                      <Link
+                        to={`/medicine/${p.activeIngredientId}`}
+                        className="dawaya-med-icon-btn"
+                        title={isAr ? 'المرجع السريري الكامل' : 'Clinical Guide'}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </Link>
                     </div>
-                    <p className="small muted" style={{ margin: '2px 0 8px' }}>
-                      {isAr ? p.tradeNameEn : p.tradeNameAr}
-                    </p>
 
-                    <div className="small" style={{ lineHeight: 1.7 }}>
-                      <div>
-                        <b>{isAr ? 'المادة الفعالة:' : 'Active Ingredient:'} </b>
-                        <Link to={`/medicine/${p.activeIngredientId}`}>
-                          {ing ? (isAr ? ing.nameAr : ing.nameEn) : p.scientificComposition}
-                        </Link>
-                      </div>
-                      <div>
-                        <b>{isAr ? 'التركيز والشكل:' : 'Strength & Form:'} </b>
-                        <span dir="ltr">{p.strength}</span> — {pick(p.dosageFormLabel, lang)}
-                      </div>
-                      <div>
-                        <b>{isAr ? 'الشركة المصنعة:' : 'Manufacturer:'} </b>
-                        {p.manufacturer}
-                      </div>
-                      <div style={{ marginTop: '6px' }}>
-                        <b>{isAr ? 'الباركود الخطي:' : 'Linear Barcode:'} </b>
-                        {p.barcode ? (
-                          <code
-                            dir="ltr"
-                            style={{
-                              background: '#f0fdf4',
-                              color: '#15803d',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontWeight: 700,
-                            }}
-                          >
-                            {p.barcode} ✓
-                          </code>
-                        ) : (
-                          <span className="small muted">
-                            {isAr ? 'قيد التحقق الميداني' : 'Pending field check'}
-                          </span>
-                        )}
+                    <div className="dawaya-med-card-v3-body">
+                      <Realistic3DMedicineThumb form={p.dosageForm} size={68} />
+
+                      <div className="dawaya-med-card-v3-info">
+                        <h3 className="dawaya-med-card-v3-title">
+                          <Link to={`/medicine/${p.activeIngredientId}`} className="dawaya-med-card-v3-title-link">
+                            {isAr ? p.tradeNameAr : p.tradeNameEn}{' '}
+                            <span style={{ fontWeight: 700, fontSize: '0.92rem', opacity: 0.85 }} dir="ltr">
+                              ({p.tradeNameEn})
+                            </span>
+                          </Link>
+                        </h3>
+
+                        <p className="dawaya-med-card-v3-ing">
+                          {ing ? (isAr ? `${ing.nameAr} / ${ing.nameEn}` : ing.nameEn) : p.scientificComposition}
+                          {p.strength ? ` • ${p.strength}` : ''}
+                        </p>
+
+                        <div className="dawaya-med-card-v3-meta-row">
+                          {p.priceEgp !== null && (
+                            <span className="dawaya-med-price-pill">
+                              {Number.isInteger(p.priceEgp) ? p.priceEgp : p.priceEgp.toFixed(1)} {isAr ? 'ج.م' : 'EGP'}
+                            </span>
+                          )}
+                          {hydrationReq && (
+                            <span className="dawaya-med-hydration-chip">
+                              {isAr ? hydrationReq.badgeAr : '💧 2 Glasses Water'}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="row wrapRow" style={{ gap: '8px', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
-                    <button
-                      className="btn"
-                      style={{ flex: 1, padding: '7px 10px', fontSize: '0.88rem' }}
-                      onClick={() => setSelectedProduct(p)}
-                    >
-                      🔍 {isAr ? 'البدائل والباركود' : 'Alternatives'}
-                    </button>
-                    <Link
-                      to={`/medicine/${p.activeIngredientId}`}
-                      className="btn ghost"
-                      style={{ padding: '7px 10px', fontSize: '0.88rem' }}
-                    >
-                      📖 {isAr ? 'المرجع السريري' : 'Clinical Guide'}
-                    </Link>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProduct(p)}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%' }}
+                  >
+                    <div className={`dawaya-med-safety-strip ${safetyState}`}>
+                      <span>{safetyText}</span>
+                    </div>
+                  </button>
                 </div>
               );
             })}

@@ -1,3 +1,5 @@
+import SmartChoiceSelect from './SmartChoiceSelect';
+import { evaluateDrugHydrationRequirement } from './medicationSafetyEngine';
 import { useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
 import SmartDoseAlarmCard from './SmartDoseAlarmCard';
 import { createPortal } from 'react-dom';
@@ -39,6 +41,220 @@ import {
   downloadScheduleIcs,
   downloadTreatmentReportJson,
 } from './trackerData';
+
+
+function SmartHydrationGuardTrackerWidget({
+  schedules,
+  profileMeds,
+  isAr,
+}: {
+  schedules: TreatmentSchedule[];
+  profileMeds: string[];
+  isAr: boolean;
+}) {
+  const todayKey = `dawaya_water_cups_${formatLocalDateYYYYMMDD()}`;
+  const [cupsDrank, setCupsDrank] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(todayKey);
+      return saved ? Math.min(8, Math.max(0, parseInt(saved, 10) || 0)) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [alarmToast, setAlarmToast] = useState<string>('');
+
+  const updateCups = (next: number) => {
+    const clamped = Math.min(8, Math.max(0, next));
+    setCupsDrank(clamped);
+    try {
+      localStorage.setItem(todayKey, String(clamped));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // Detect any active medication requiring mandatory hydration
+  const allActiveNames = [
+    ...schedules.map((s) => s.medicineName),
+    ...profileMeds,
+  ].filter(Boolean);
+
+  const hydrationAlerts = allActiveNames
+    .map((name) => ({ name, req: evaluateDrugHydrationRequirement([name]) }))
+    .filter((item): item is { name: string; req: NonNullable<ReturnType<typeof evaluateDrugHydrationRequirement>> } => Boolean(item.req));
+
+  return (
+    <section
+      className="card no-print"
+      style={{
+        background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(14, 165, 233, 0.14) 100%)',
+        border: '2px solid #0284c7',
+        borderRadius: '20px',
+        padding: '18px 20px',
+        marginBottom: '16px',
+        boxShadow: '0 8px 24px rgba(2, 132, 199, 0.1)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '14px',
+              background: '#0284c7',
+              color: '#ffffff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.65rem',
+              boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
+            }}
+          >
+            💧
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 900, color: '#0369a1' }}>
+              {isAr ? 'منبه وحارس شرب الماء الإجباري مع الأدوية (Smart Hydration Guard)' : 'Smart Medication Hydration Guard'}
+            </h3>
+            <p className="small" style={{ margin: '2px 0 0', opacity: 0.85, fontWeight: 600 }}>
+              {isAr
+                ? 'اضغط على الأكواب لتسجيل شرب الماء اليومي (8 أكواب = 2 لتر) لحماية الكلى والمريء من ترسبات الأدوية:'
+                : 'Tap glasses to log your daily 8 cups of water and protect your kidneys & esophagus:'}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn small"
+            style={{
+              background: '#0284c7',
+              borderColor: '#0284c7',
+              color: '#ffffff',
+              borderRadius: '999px',
+              fontWeight: 800,
+              padding: '7px 14px',
+            }}
+            onClick={() => {
+              const res = openNativeSystemClockAlarm(
+                isAr ? '💧 منبه شرب كوبين ماء مع الدواء' : '💧 Drink 2 Glasses of Water',
+                isAr ? 'حارس دوايا الذكي لحماية الكلى والمريء' : 'DAWAYA Hydration Guard',
+                '10:00',
+                isAr
+              );
+              setAlarmToast(res.message);
+              setTimeout(() => setAlarmToast(''), 4000);
+            }}
+          >
+            ⏰ {isAr ? 'ضبط منبه شرب الماء بالموبايل' : 'Set Phone Water Alarm'}
+          </button>
+          <span
+            style={{
+              background: cupsDrank >= 8 ? '#dcfce7' : '#e0f2fe',
+              color: cupsDrank >= 8 ? '#15803d' : '#0369a1',
+              border: `1.5px solid ${cupsDrank >= 8 ? '#86efac' : '#7dd3fc'}`,
+              padding: '6px 14px',
+              borderRadius: '999px',
+              fontWeight: 900,
+              fontSize: '0.88rem',
+            }}
+          >
+            {cupsDrank} / 8 {isAr ? 'أكواب اليوم' : 'Cups Today'} {cupsDrank >= 8 ? '🎉' : ''}
+          </span>
+        </div>
+      </div>
+
+      {/* Interactive 8 Water Glasses Row */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))',
+          gap: '8px',
+          marginBottom: hydrationAlerts.length > 0 ? '14px' : '4px',
+        }}
+      >
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((cupNum) => {
+          const filled = cupNum <= cupsDrank;
+          return (
+            <button
+              key={cupNum}
+              type="button"
+              onClick={() => updateCups(cupNum === cupsDrank ? cupNum - 1 : cupNum)}
+              style={{
+                padding: '10px 6px',
+                borderRadius: '14px',
+                border: filled ? '2px solid #0284c7' : '1.5px dashed #94a3b8',
+                background: filled
+                  ? 'linear-gradient(180deg, #38bdf8 0%, #0284c7 100%)'
+                  : 'var(--card-bg, #ffffff)',
+                color: filled ? '#ffffff' : 'var(--ink, #0D1F38)',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '4px',
+                fontWeight: 800,
+                fontSize: '0.78rem',
+                transition: 'all 0.18s ease',
+                boxShadow: filled ? '0 4px 12px rgba(2, 132, 199, 0.35)' : 'none',
+                transform: filled ? 'scale(1.03)' : 'scale(1)',
+              }}
+            >
+              <span style={{ fontSize: '1.35rem' }}>{filled ? '🥤' : '🥛'}</span>
+              <span>{isAr ? `كوب ${cupNum}` : `Cup ${cupNum}`}</span>
+              <span style={{ fontSize: '0.68rem', opacity: 0.85 }}>250 ml</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {alarmToast && (
+        <div
+          style={{
+            marginTop: '8px',
+            padding: '8px 12px',
+            borderRadius: '10px',
+            background: '#dcfce7',
+            color: '#166534',
+            fontWeight: 700,
+            fontSize: '0.84rem',
+          }}
+        >
+          ✅ {alarmToast}
+        </div>
+      )}
+
+      {/* Specific Active Medications Requiring Mandatory Water */}
+      {hydrationAlerts.length > 0 && (
+        <div
+          style={{
+            marginTop: '10px',
+            padding: '12px 14px',
+            borderRadius: '14px',
+            background: 'rgba(255, 255, 255, 0.75)',
+            border: '1.5px solid #38bdf8',
+          }}
+        >
+          <strong style={{ fontSize: '0.88rem', color: '#0369a1', display: 'block', marginBottom: '6px' }}>
+            🚨 {isAr ? 'أدوية مسجلة في جدولك تشترط شرب كوبين ماء كاملين مع كل جرعة:' : 'Your Active Medications Requiring 2 Full Glasses of Water:'}
+          </strong>
+          <div style={{ display: 'grid', gap: '6px' }}>
+            {hydrationAlerts.map((item, idx) => (
+              <div key={idx} style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0f172a' }}>
+                • <b>{item.name}:</b> {isAr ? item.req.titleAr : item.req.titleEn} —{' '}
+                <span style={{ color: '#475569', fontWeight: 600 }}>
+                  {isAr ? item.req.reasonAr : item.req.reasonEn}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
 
 export default function Tracker() {
   const { lang } = useLang();
@@ -823,6 +1039,13 @@ export default function Tracker() {
         </div>
       </div>
 
+      {/* Smart Daily Water & Medication Hydration Guard */}
+      <SmartHydrationGuardTrackerWidget
+        schedules={schedules}
+        profileMeds={(profile.medications || []).map((m) => m.drugName)}
+        isAr={isAr}
+      />
+
       {/* Reminder Limitations Notice (Priority 5) */}
       <section className="reminder-limitations-box no-print">
         <strong>
@@ -1489,15 +1712,18 @@ export default function Tracker() {
                     <label>
                       <b>{isAr ? 'طريقة الاستعمال:' : 'Administration Route:'} *</b>
                     </label>
-                    <select value={route} onChange={(e) => setRoute(e.target.value)}>
-                      <option value="">
-                        {isAr ? '— اختر طريقة الاستعمال من الروشتة —' : '— Select Route from Prescription —'}
-                      </option>
-                      <option value="oral">{isAr ? 'أقراص / كبسول فموي' : 'Oral Tablet/Capsule'}</option>
-                      <option value="suspension">{isAr ? 'شراب معلق للأطفال' : 'Oral Suspension'}</option>
-                      <option value="injection">{isAr ? 'حقن (وريد/عضل)' : 'Injection'}</option>
-                      <option value="topical">{isAr ? 'موضعي (كريم/جل)' : 'Topical'}</option>
-                    </select>
+                    <SmartChoiceSelect
+                      value={route}
+                      onChange={(val) => setRoute(val)}
+                      placeholder={isAr ? '— اختر طريقة الاستعمال —' : '— Select Route —'}
+                      modalTitle={isAr ? '💊 اختر طريقة استعمال الدواء' : 'Select Administration Route'}
+                      options={[
+                        { value: 'oral', icon: '💊', label: isAr ? 'أقراص / كبسول فموي' : 'Oral Tablet/Capsule', description: isAr ? 'يُبلع عن طريق الفم مع الماء' : 'Swallowed orally with water' },
+                        { value: 'suspension', icon: '🍼', label: isAr ? 'شراب معلق للأطفال' : 'Oral Suspension', description: isAr ? 'يُرج جيداً قبل كل جرعة بالسرنجة المدرجة' : 'Shake well before measuring dose' },
+                        { value: 'injection', icon: '💉', label: isAr ? 'حقن (وريد / عضل)' : 'Injection (IM / IV)', description: isAr ? 'أمبول أو فيال للحقن العضلي أو الوريدي' : 'Ampoule or vial for injection' },
+                        { value: 'topical', icon: '🧴', label: isAr ? 'موضعي (كريم / مرهم / قطرة)' : 'Topical (Cream / Drops)', description: isAr ? 'استخدام ظاهري موضعي' : 'External topical application' },
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -1519,15 +1745,18 @@ export default function Tracker() {
                     <label>
                       <b>🔢 {isAr ? 'عدد الجرعات يومياً (يحسب المواعيد تلقائياً):' : 'Doses Per Day (Auto-Calculates Times):'} *</b>
                     </label>
-                    <select value={frequency} onChange={(e) => handleFrequencyChange(e.target.value)}>
-                      <option value="">
-                        {isAr ? '— اختر التكرار اليومي من الروشتة —' : '— Select Prescribed Frequency —'}
-                      </option>
-                      <option value="once_daily">{isAr ? 'جرعة واحدة يومياً (كل 24 ساعة)' : '1 dose daily (every 24h)'}</option>
-                      <option value="twice_daily">{isAr ? 'جرعتان يومياً (كل 12 ساعة)' : '2 doses daily (every 12h)'}</option>
-                      <option value="thrice_daily">{isAr ? '3 جرعات يومياً (كل 8 ساعات)' : '3 doses daily (every 8h)'}</option>
-                      <option value="four_times_daily">{isAr ? '4 جرعات يومياً (كل 6 ساعات)' : '4 doses daily (every 6h)'}</option>
-                    </select>
+                    <SmartChoiceSelect
+                      value={frequency}
+                      onChange={(val) => handleFrequencyChange(val)}
+                      placeholder={isAr ? '— اختر التكرار اليومي —' : '— Select Daily Frequency —'}
+                      modalTitle={isAr ? '🔢 عدد الجرعات يومياً (يحسب المواعيد تلقائياً)' : 'Doses Per Day'}
+                      options={[
+                        { value: 'once_daily', icon: '1️⃣', label: isAr ? 'جرعة واحدة يومياً (كل 24 ساعة)' : '1 dose daily (every 24h)', badge: isAr ? 'كل 24 ساعة' : 'Every 24h' },
+                        { value: 'twice_daily', icon: '2️⃣', label: isAr ? 'جرعتان يومياً (كل 12 ساعة)' : '2 doses daily (every 12h)', badge: isAr ? 'كل 12 ساعة' : 'Every 12h' },
+                        { value: 'thrice_daily', icon: '3️⃣', label: isAr ? '3 جرعات يومياً (كل 8 ساعات)' : '3 doses daily (every 8h)', badge: isAr ? 'كل 8 ساعات' : 'Every 8h' },
+                        { value: 'four_times_daily', icon: '4️⃣', label: isAr ? '4 جرعات يومياً (كل 6 ساعات)' : '4 doses daily (every 6h)', badge: isAr ? 'كل 6 ساعات' : 'Every 6h' },
+                      ]}
+                    />
                   </div>
                 </div>
 

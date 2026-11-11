@@ -2023,3 +2023,82 @@ export function evaluateOccupationalDrugSafety(
 
   return alerts;
 }
+
+export interface DrugHydrationRequirement {
+  needsExtraWater: boolean;
+  cupsRequired: number;
+  stayUprightMinutes?: number;
+  titleAr: string;
+  titleEn: string;
+  reasonAr: string;
+  reasonEn: string;
+  badgeAr: string;
+}
+
+/**
+ * Evaluates whether a medication requires mandatory extra water intake (e.g. 2 full cups)
+ * or staying upright for 30 minutes to prevent pill esophagitis or renal crystal nephropathy.
+ */
+export function evaluateDrugHydrationRequirement(
+  drugNames: string[]
+): DrugHydrationRequirement | null {
+  const combined = drugNames.filter(Boolean).join(' ').toLowerCase();
+
+  // 1. Esophageal ulceration risk (Tetracyclines, Doxycycline, Bisphosphonates, Clindamycin, Iron, Potassium)
+  if (
+    /(دوكسيسيكلين|فيبراميسين|دوكسي|تتراسيكلين|أليندرونات|فوساماكس|كليندامايسين|دالاسين|حديد|فيروجلوبين|فوار|بوتاسيوم|أسبيرين|إيبوبروفين|بروفين|كتافلام|فولتارين|ديكلوفيناك|ميلوكسيكام|سيليبريكس)/i.test(
+      combined
+    )
+  ) {
+    const isEsophagealStrict = /(دوكسيسيكلين|فيبراميسين|دوكسي|تتراسيكلين|أليندرونات|فوساماكس|كليندامايسين|دالاسين)/i.test(
+      combined
+    );
+    if (isEsophagealStrict) {
+      return {
+        needsExtraWater: true,
+        cupsRequired: 2,
+        stayUprightMinutes: 30,
+        titleAr: '💧 منبه شرب الماء الإجباري: كوبا ماء كاملان + عدم الاستلقاء 30 دقيقة',
+        titleEn: 'Mandatory Hydration: 2 Full Glasses of Water + Stay Upright 30 Mins',
+        reasonAr:
+          'هذا الدواء قد يلتصق بجدار المريء ويسبب تقرحاً حاداً وحرقاناً شديداً إذا بُلع بقليل من الماء أو قبل النوم مباشرة.',
+        reasonEn:
+          'This medication can cause severe pill esophagitis if taken with little water or right before lying down.',
+        badgeAr: '💧 كوبا ماء + 30 دقيقة جلوس',
+      };
+    }
+
+    return {
+      needsExtraWater: true,
+      cupsRequired: 2,
+      titleAr: '💧 منبه شرب الماء الإجباري لحماية الكلى والمعدة (كوبا ماء مع الجرعة)',
+      titleEn: 'Hydration Guard: Drink 2 Full Glasses of Water with Dose',
+      reasonAr:
+        'تناول هذا الدواء مع وفرة من الماء (كوبين كاملين) يحمي الكلى من التركيز الدوائي ويخفف تخريش جدار المعدة.',
+      reasonEn:
+        'Drinking plenty of water with this medication protects kidney filtration and reduces gastric irritation.',
+      badgeAr: '💧 يلزم شرب كوبين ماء',
+    };
+  }
+
+  // 2. Renal crystal formation risk (Fluoroquinolones: Ciprofloxacin, Levofloxacin; Sulfonamides: Septrin, Sutrim; Acyclovir; Uric acid meds)
+  if (
+    /(سيبروفلوكساسين|سيبروباي|سيبرو|تافانيك|ليفوفلوكساسين|موكسيفلوكساسين|أفالوكس|سبترين|سوتريم|سلفا|أسيكلوفير|زوفيراكس|زيلوريك|ألوبيورينول|فيبوكسوستات|يوروسولفين|فوار)/i.test(
+      combined
+    )
+  ) {
+    return {
+      needsExtraWater: true,
+      cupsRequired: 2,
+      titleAr: '💧 منبه شرب الماء الإجباري: اشرب كوبين ماء كاملين لمنع ترسب الأملاح بالكلى',
+      titleEn: 'Renal Hydration Guard: Drink 2 Full Glasses of Water to Prevent Crystals',
+      reasonAr:
+        'يتركز هذا الدواء في المسالك البولية وقد يكوّن بلورات أو أملاحاً بالكلى في حالة الجفاف؛ شرب الماء بكثرة ضروري طوال اليوم.',
+      reasonEn:
+        'This drug concentrates in urine and can form renal crystals if dehydrated; maintain high fluid intake.',
+      badgeAr: '💧 حماية الكلى: كوبا ماء',
+    };
+  }
+
+  return null;
+}

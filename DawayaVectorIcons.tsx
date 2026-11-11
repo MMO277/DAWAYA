@@ -385,3 +385,215 @@ export function DawayaRouteVectorIcon({
   }
   return <NavBookSourcesVectorIcon size={size} color={color} />;
 }
+
+/**
+ * 3D High-Detail Realistic Medicine Packaging & Dosage Form Illustration
+ * Matches the realistic 3D product box + pills/bottle mockup aesthetic.
+ */
+export function Realistic3DMedicineThumb({
+  form,
+  size = 64,
+}: {
+  form?: string;
+  size?: number;
+}) {
+  const f = (form || 'tablet').toLowerCase();
+
+  // 1. Syrup / Suspension / Drops -> 3D Amber Bottle + Product Box
+  if (
+    f.includes('syrup') ||
+    f.includes('suspension') ||
+    f.includes('solution') ||
+    f.includes('drops') ||
+    f.includes('شراب') ||
+    f.includes('نقط')
+  ) {
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 16,
+          background: 'linear-gradient(145deg, #e6f7f2 0%, #d1f2e8 100%)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.8), 0 4px 10px rgba(16, 185, 129, 0.12)',
+          border: '1px solid rgba(16, 185, 129, 0.22)',
+        }}
+      >
+        <svg width={size * 0.82} height={size * 0.82} viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          {/* Medicine Box in background */}
+          <rect x="28" y="10" width="24" height="42" rx="4" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1.5" />
+          <path d="M28 18H52V28H28V18Z" fill="#7c3aed" fillOpacity="0.85" />
+          <rect x="32" y="33" width="16" height="3" rx="1.5" fill="#94a3b8" />
+          <rect x="32" y="39" width="11" height="2.5" rx="1.2" fill="#cbd5e1" />
+
+          {/* 3D Amber Syrup Bottle in foreground */}
+          <rect x="15" y="12" width="12" height="6" rx="2" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" />
+          <path
+            d="M12 24C12 20.5 14.5 18 18 18H24C27.5 18 30 20.5 30 24V49C30 51.2 28.2 53 26 53H16C13.8 53 12 51.2 12 49V24Z"
+            fill="url(#amberBottleGrad)"
+            stroke="#92400e"
+            strokeWidth="1.5"
+          />
+          {/* Bottle White & Orange Label */}
+          <rect x="13" y="29" width="16" height="15" rx="1.5" fill="#ffffff" />
+          <rect x="13" y="29" width="16" height="5" fill="#f97316" />
+          <rect x="15.5" y="37" width="11" height="2" rx="1" fill="#64748b" />
+          <rect x="15.5" y="40.5" width="7" height="1.8" rx="0.9" fill="#94a3b8" />
+          {/* Bottle Glass Highlight */}
+          <path d="M15 22V48" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.45" />
+          <defs>
+            <linearGradient id="amberBottleGrad" x1="12" y1="18" x2="30" y2="53" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#d97706" />
+              <stop offset="0.5" stopColor="#b45309" />
+              <stop offset="1" stopColor="#78350f" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+    );
+  }
+
+  // 2. Ampoule / Vial / Injection -> 3D Vial + Syringe + Box
+  if (
+    f.includes('ampoule') ||
+    f.includes('vial') ||
+    f.includes('infusion') ||
+    f.includes('injection') ||
+    f.includes('حقن') ||
+    f.includes('أمبول') ||
+    f.includes('فيال')
+  ) {
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 16,
+          background: 'linear-gradient(145deg, #e0f2fe 0%, #bae6fd 100%)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.8), 0 4px 10px rgba(2, 132, 199, 0.14)',
+          border: '1px solid rgba(2, 132, 199, 0.25)',
+        }}
+      >
+        <svg width={size * 0.82} height={size * 0.82} viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          {/* Vial Box */}
+          <rect x="12" y="14" width="22" height="38" rx="3.5" fill="#ffffff" stroke="#94a3b8" strokeWidth="1.5" />
+          <rect x="12" y="21" width="22" height="8" fill="#0284c7" />
+          <rect x="16" y="34" width="14" height="2.5" rx="1.2" fill="#64748b" />
+          {/* Glass Vial */}
+          <rect x="33" y="20" width="12" height="5" rx="1.5" fill="#0ea5e9" />
+          <rect x="31" y="25" width="16" height="27" rx="3" fill="#f0f9ff" stroke="#0284c7" strokeWidth="1.6" />
+          <rect x="32.5" y="34" width="13" height="12" rx="1" fill="#38bdf8" fillOpacity="0.35" />
+          <rect x="34" y="33" width="10" height="8" rx="1" fill="#ffffff" stroke="#bae6fd" />
+          {/* Diagonal Syringe accent */}
+          <path d="M46 12L54 20M49 15L39 25" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </div>
+    );
+  }
+
+  // 3. Cream / Ointment / Gel -> 3D Medical Tube + Box
+  if (
+    f.includes('cream') ||
+    f.includes('ointment') ||
+    f.includes('gel') ||
+    f.includes('topical') ||
+    f.includes('كريم') ||
+    f.includes('مرهم')
+  ) {
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 16,
+          background: 'linear-gradient(145deg, #fef3c7 0%, #fde68a 100%)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.8), 0 4px 10px rgba(217, 119, 6, 0.14)',
+          border: '1px solid rgba(217, 119, 6, 0.25)',
+        }}
+      >
+        <svg width={size * 0.82} height={size * 0.82} viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <rect x="12" y="20" width="40" height="18" rx="3" fill="#ffffff" stroke="#94a3b8" strokeWidth="1.5" />
+          <rect x="12" y="20" width="12" height="18" rx="2" fill="#f59e0b" />
+          <path d="M18 42L42 42L46 34H14L18 42Z" fill="#ffffff" stroke="#64748b" strokeWidth="1.5" />
+          <rect x="46" y="35.5" width="6" height="5" rx="1" fill="#0d9488" />
+          <rect x="22" y="36.5" width="16" height="3" rx="1.5" fill="#10b981" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Default: 3D Medicine Box + Silver Blister Pack + Red/White & Purple/Blue Capsules (Matches Image 1 Augmentin Card!)
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 16,
+        background: 'linear-gradient(145deg, #e6f7f2 0%, #d1f2e8 100%)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.85), 0 4px 10px rgba(16, 185, 129, 0.14)',
+        border: '1px solid rgba(16, 185, 129, 0.22)',
+      }}
+    >
+      <svg width={size * 0.86} height={size * 0.86} viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        {/* 3D White & Purple Medicine Box */}
+        <path
+          d="M10 18C10 15.7909 11.7909 14 14 14H38C40.2091 14 42 15.7909 42 18V42C42 44.2091 40.2091 46 38 46H14C11.7909 46 10 44.2091 10 42V18Z"
+          fill="#ffffff"
+          stroke="#cbd5e1"
+          strokeWidth="1.5"
+        />
+        {/* Box Purple Brand Stripe */}
+        <path d="M10 18C10 15.7909 11.7909 14 14 14H20V46H14C11.7909 46 10 44.2091 10 42V18Z" fill="#7c3aed" />
+        <rect x="24" y="21" width="13" height="3" rx="1.5" fill="#334155" />
+        <rect x="24" y="26.5" width="9" height="2.2" rx="1.1" fill="#94a3b8" />
+
+        {/* Silver Blister Pack on Right */}
+        <rect
+          x="35"
+          y="18"
+          width="19"
+          height="28"
+          rx="3.5"
+          transform="rotate(6 35 18)"
+          fill="#e2e8f0"
+          stroke="#94a3b8"
+          strokeWidth="1.4"
+        />
+        <circle cx="41" cy="24" r="2.6" fill="#94a3b8" />
+        <circle cx="49" cy="25" r="2.6" fill="#94a3b8" />
+        <circle cx="40" cy="32" r="2.6" fill="#94a3b8" />
+        <circle cx="48" cy="33" r="2.6" fill="#94a3b8" />
+        <circle cx="39" cy="40" r="2.6" fill="#94a3b8" />
+        <circle cx="47" cy="41" r="2.6" fill="#94a3b8" />
+
+        {/* Foreground 3D Red/White Capsule */}
+        <g transform="rotate(-18 18 48)">
+          <rect x="11" y="44" width="16" height="7.5" rx="3.75" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1.2" />
+          <path d="M11 47.75C11 45.6789 12.6789 44 14.75 44H19V51.5H14.75C12.6789 51.5 11 49.8211 11 47.75Z" fill="#ef4444" />
+        </g>
+
+        {/* Foreground 3D Blue/Purple Capsule */}
+        <g transform="rotate(14 36 49)">
+          <rect x="28" y="45" width="16" height="7.5" rx="3.75" fill="#e0e7ff" stroke="#a5b4fc" strokeWidth="1.2" />
+          <path d="M36 45H40.25C42.3211 45 44 46.6789 44 48.75C44 50.8211 42.3211 52.5 40.25 52.5H36V45Z" fill="#4f46e5" />
+        </g>
+      </svg>
+    </div>
+  );
+}
