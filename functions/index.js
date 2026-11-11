@@ -1,7 +1,9 @@
 /**
- * DAWAYA Server-Side AI Proxy & Security Cloud Functions
- * Protects GEMINI_API_KEY inside Google Cloud Secret Manager / Server Environment.
- * Never exposes private AI provider keys or raw upstream errors to browser clients.
+ * DAWAYA Server-Side AI Proxy & Security Cloud Functions (Stage 3 Hardened)
+ * - Keeps GEMINI_API_KEY exclusively in Google Cloud Secret Manager / Server Env.
+ * - Enforces distributed cross-instance rate limiting (per-UID and per-IP) via Firestore transactions.
+ * - Enforces Firebase Auth ID token verification + optional Firebase App Check verification.
+ * - Enforces approved model allowlist and strips patient PII before calling upstream AI.
  */
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
@@ -11,36 +13,60 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
+const db = admin.firestore();
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
 
-// Per-UID sliding window rate limiter (max 20 requests / 60s)
-const uidCallTimestamps = new Map();
-const MAX_REQ_PER_MIN = 20;
-const MAX_TEXT_CHARS = 16000;
+const ALLOWED_MODELS = new Set(['gemini-2.0-flash', 'gemini-2.5-flash']);
+const MAX_REQ_PER_UID_PER_MIN = 20;
+const MAX_REQ_PER_IP_PER_MIN = 40;
+const RATE_WINDOW_MS = 60 * 1000;
+const MAX_TEXT_CHARS = 12000;
 const MAX_BASE64_CHARS = 5500000; // ~4MB binary
 
-function checkUidRateLimit(uid) {
+function sanitizePromptPii(rawText) {
+  return String(rawText || '')
+    .replace(/\b\d{14}\b/g, '[REDACTED_NATIONAL_ID]')
+    .replace(/\b(?:\+?20|0)?1[0125]\d{8}\b/g, '[REDACTED_PHONE]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]');
+}
+
+/**
+ * Shared cross-instance sliding-window rate limiter backed by Firestore transactions.
+ */
+async function checkDistributedRateLimit(bucketKey, maxAllowed) {
+  const safeId = bucketKey.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120);
+  const ref = db.collection('_rateLimits').doc(safeId);
   const now = Date.now();
-  const prev = (uidCallTimestamps.get(uid) || []).filter((t) => now - t < 60000);
-  if (prev.length >= MAX_REQ_PER_MIN) {
-    return false;
-  }
-  prev.push(now);
-  uidCallTimestamps.set(uid, prev);
-  return true;
+
+  return await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : { timestamps: [] };
+    const recent = Array.isArray(data.timestamps)
+      ? data.timestamps.filter((t) => typeof t === 'number' && now - t < RATE_WINDOW_MS)
+      : [];
+
+    if (recent.length >= maxAllowed) {
+      return false;
+    }
+
+    recent.push(now);
+    tx.set(ref, { timestamps: recent, updatedAtMs: now }, { merge: true });
+    return true;
+  });
 }
 
 exports.dawayaAiProxy = onRequest(
   { secrets: [GEMINI_API_KEY], cors: true, maxInstances: 20, timeoutSeconds: 30 },
   async (req, res) => {
-    const path = req.path || req.url || '';
+    const reqPath = req.path || req.url || '';
 
     // 1. Safe non-sensitive readiness health endpoint (/api/ai/status)
-    if (req.method === 'GET' && path.includes('/status')) {
-      const secretVal = process.env.GEMINI_API_KEY || '';
+    if (req.method === 'GET' && reqPath.includes('/status')) {
+      const secretVal = (process.env.GEMINI_API_KEY || '').trim();
       return res.status(200).json({
         configured: Boolean(secretVal && secretVal.length > 10),
         provider: 'dawaya_server_proxy',
+        allowedModels: Array.from(ALLOWED_MODELS),
         medicalDisclaimerRequired: true,
         maxTextChars: MAX_TEXT_CHARS,
       });
@@ -50,7 +76,20 @@ exports.dawayaAiProxy = onRequest(
       return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
     }
 
-    // 2. Authenticate Firebase User Token
+    // 2. Verify Firebase App Check token when present or enforced
+    const appCheckToken = req.headers['x-firebase-appcheck'];
+    if (process.env.ENFORCE_APP_CHECK === 'true') {
+      if (!appCheckToken) {
+        return res.status(401).json({ error: 'APP_CHECK_TOKEN_REQUIRED' });
+      }
+      try {
+        await admin.appCheck().verifyToken(String(appCheckToken));
+      } catch {
+        return res.status(401).json({ error: 'INVALID_APP_CHECK_TOKEN' });
+      }
+    }
+
+    // 3. Authenticate Firebase User ID Token
     const authHeader = req.headers.authorization || '';
     if (!authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'AUTHENTICATION_REQUIRED' });
@@ -63,30 +102,47 @@ exports.dawayaAiProxy = onRequest(
       return res.status(401).json({ error: 'INVALID_AUTH_TOKEN' });
     }
 
-    // 3. Enforce per-user rate limit
-    if (!checkUidRateLimit(decodedToken.uid)) {
-      return res.status(429).json({ error: 'RATE_LIMIT_EXCEEDED' });
+    // 4. Shared Distributed Rate Limiting (Per-UID and Per-IP across all instances)
+    const forwardedFor = String(req.headers['x-forwarded-for'] || req.ip || 'unknown_ip');
+    const clientIp = forwardedFor.split(',')[0].trim();
+
+    try {
+      const [uidAllowed, ipAllowed] = await Promise.all([
+        checkDistributedRateLimit(`uid_${decodedToken.uid}`, MAX_REQ_PER_UID_PER_MIN),
+        checkDistributedRateLimit(`ip_${clientIp}`, MAX_REQ_PER_IP_PER_MIN),
+      ]);
+      if (!uidAllowed || !ipAllowed) {
+        return res.status(429).json({ error: 'RATE_LIMIT_EXCEEDED' });
+      }
+    } catch {
+      return res.status(503).json({ error: 'RATE_LIMIT_SERVICE_UNAVAILABLE' });
     }
 
-    // 4. Validate input size & structure
+    // 5. Validate input size, model allowlist & structure
     const body = req.body || {};
-    const promptText = typeof body.prompt === 'string' ? body.prompt.trim() : '';
-    if (!promptText || promptText.length > MAX_TEXT_CHARS) {
+    const rawPrompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+    if (!rawPrompt || rawPrompt.length > MAX_TEXT_CHARS) {
       return res.status(400).json({ error: 'INVALID_PROMPT_LENGTH' });
     }
     if (body.inlineImageBase64 && String(body.inlineImageBase64).length > MAX_BASE64_CHARS) {
       return res.status(413).json({ error: 'IMAGE_PAYLOAD_TOO_LARGE' });
     }
 
+    const requestedModel = String(body.model || 'gemini-2.0-flash');
+    const model = ALLOWED_MODELS.has(requestedModel) ? requestedModel : 'gemini-2.0-flash';
+
     const secretKey = (process.env.GEMINI_API_KEY || '').trim();
     if (!secretKey) {
       return res.status(503).json({ error: 'AI_SERVICE_NOT_CONFIGURED_ON_SERVER' });
     }
 
-    // 5. Call upstream provider exclusively from server side
+    // 6. Redact PII and call upstream provider exclusively from server side with timeout
+    const sanitizedPrompt = sanitizePromptPii(rawPrompt);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+
     try {
-      const model = body.model === 'gemini-2.5-flash' ? 'gemini-2.5-flash' : 'gemini-2.0-flash';
-      const parts = [{ text: promptText }];
+      const parts = [{ text: sanitizedPrompt }];
       if (body.inlineImageBase64 && body.mimeType) {
         parts.push({
           inlineData: {
@@ -104,6 +160,7 @@ exports.dawayaAiProxy = onRequest(
             'Content-Type': 'application/json',
             'x-goog-api-key': secretKey,
           },
+          signal: ctrl.signal,
           body: JSON.stringify({
             systemInstruction: {
               parts: [
@@ -120,6 +177,7 @@ exports.dawayaAiProxy = onRequest(
           }),
         }
       );
+      clearTimeout(timer);
 
       if (!upstreamResp.ok) {
         return res.status(502).json({ error: 'UPSTREAM_AI_UNAVAILABLE' });
@@ -131,7 +189,8 @@ exports.dawayaAiProxy = onRequest(
         safetyDisclaimer: 'هذه المعلومات إرشادية وتثقيفية ولا تغني عن استشارة الطبيب أو الصيدلي.',
       });
     } catch {
-      return res.status(500).json({ error: 'INTERNAL_PROXY_ERROR' });
+      clearTimeout(timer);
+      return res.status(504).json({ error: 'UPSTREAM_AI_TIMEOUT_OR_ERROR' });
     }
   }
 );

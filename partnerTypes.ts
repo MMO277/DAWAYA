@@ -439,7 +439,7 @@ export interface PartnerOrderRecord {
   medicationNameEn: string;
   strength: string;
   dosageForm: string;
-  quantityPacks: number;
+  quantityPacks: number | null; // null in public projection so quantities are never fabricated
   // Patient / Delivery Details
   patientName: string;
   patientPhone: string;
@@ -1270,7 +1270,7 @@ export interface PharmacyInventoryItem {
   activeIngredient: string;
   strength: string;
   dosageForm: string;
-  quantityPacks: number;
+  quantityPacks: number | null; // null in public projection so quantities are never fabricated
   lowStockThreshold: number;
   stockStatus: PharmacyStockStatus;
   pharmacyPriceEgp: number;

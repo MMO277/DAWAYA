@@ -8,7 +8,7 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid && uid.size() > 0;
     }
 
-    // Section 3 Fix: Share is valid ONLY when not revoked AND expiresAt is strictly in the future (> request.time)
+    // Section 3: Share is valid ONLY when not revoked AND expiresAt is strictly in the future (> request.time)
     function isPassportShareDocValid(shareData) {
       return shareData.revoked != true
           && (
@@ -76,7 +76,7 @@ service cloud.firestore {
       return userHasRoleIn(['super_admin', 'owner']);
     }
 
-    // Strict Pharmacy-Level Isolation Helpers
+    // Section 5: Strict Pharmacy Tenant Isolation Helpers
     function isPharmacyMember(pharmacyId) {
       return isSignedIn()
           && pharmacyId is string
@@ -87,6 +87,28 @@ service cloud.firestore {
               exists(roleDocPath())
               && get(roleDocPath()).data.pharmacyId == pharmacyId
               && get(roleDocPath()).data.role in ['pharmacy_owner', 'pharmacy_manager', 'pharmacist', 'employee']
+            )
+            || (
+              exists(/databases/$(database)/documents/pharmacies/$(pharmacyId))
+              && get(/databases/$(database)/documents/pharmacies/$(pharmacyId)).data.ownerUid == request.auth.uid
+            )
+            || (
+              exists(/databases/$(database)/documents/partners/$(pharmacyId))
+              && get(/databases/$(database)/documents/partners/$(pharmacyId)).data.ownerUid == request.auth.uid
+            )
+          );
+    }
+
+    function isPharmacyPharmacistOrManager(pharmacyId) {
+      return isSignedIn()
+          && pharmacyId is string
+          && pharmacyId.size() > 0
+          && (
+            isAdmin()
+            || (
+              exists(roleDocPath())
+              && get(roleDocPath()).data.pharmacyId == pharmacyId
+              && get(roleDocPath()).data.role in ['pharmacy_owner', 'pharmacy_manager', 'pharmacist']
             )
             || (
               exists(/databases/$(database)/documents/pharmacies/$(pharmacyId))
@@ -121,7 +143,7 @@ service cloud.firestore {
           );
     }
 
-    // Section 2 Fix: Strict field allowlist for pharmacy applicants updating draft/pending applications
+    // Section 2: Strict field allowlist for pharmacy applicants updating draft/pending applications
     function validApplicantApplicationUpdate() {
       return isSignedIn()
           && resource.data.applicantUid == request.auth.uid
@@ -164,7 +186,7 @@ service cloud.firestore {
           ]);
     }
 
-    // Section 4 Fix: Explicit Order State Machine Validation
+    // Section 4: Explicit Order State Machine Validation
     function isValidOrderTransition(oldStatus, newStatus) {
       return (oldStatus in ['new_order', 'pending_review', 'pending_pharmacy_review']
               && newStatus in ['pharmacy_confirmation', 'confirmed_available', 'rejected', 'cancelled'])
@@ -180,10 +202,10 @@ service cloud.firestore {
 
     // ── 1. Users & Customer Profiles (Protected Personal & Medical Data) ──
     match /users/{uid} {
-      // Section 3 Fix: Never expose full private user document via public passport share
-      allow read: if isOwner(uid) || isAdmin();
+      // Section 3 Fix: Private patient records are strictly private to the owner (never editor/reviewer/regional_manager)
+      allow read: if isOwner(uid);
       allow create, update: if isOwner(uid) && validUserDocWrite();
-      allow delete: if isAdmin();
+      allow delete: if isOwner(uid) || isAdmin();
 
       match /auditLogs/{logId} {
         allow read: if isOwner(uid) || isAdmin();
@@ -195,10 +217,12 @@ service cloud.firestore {
       }
 
       match /medicalDocuments/{docId} {
+        // Section 3 Fix: Only the patient owner can read/write their private medical documents
         allow read: if isOwner(uid);
         allow create, update: if isOwner(uid)
           && request.resource.data.category in ['prescription', 'lab_report', 'medical_report', 'leaflet', 'other']
-          && request.resource.data.fileName is string;
+          && request.resource.data.fileName is string
+          && request.resource.data.fileName.size() <= 255;
         allow delete: if isOwner(uid);
       }
 
@@ -210,9 +234,25 @@ service cloud.firestore {
         allow read, write: if isOwner(uid);
       }
 
+      // Section 4 Fix: Secure Notifications — users can only create self-notifications for themselves; no cross-user spoofing
       match /notifications/{notifId} {
-        allow read, update: if isOwner(uid);
-        allow create: if isSignedIn();
+        allow read: if isOwner(uid);
+        allow create: if (
+            isOwner(uid)
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.source == 'user_self'
+            && request.resource.data.type in ['dose_reminder', 'appointment_note', 'personal_alert']
+            && request.resource.data.title is string
+            && request.resource.data.title.size() >= 1
+            && request.resource.data.title.size() <= 200
+            && request.resource.data.keys().hasOnly(['uid', 'source', 'type', 'title', 'body', 'read', 'createdAtIso'])
+          )
+          || isAdmin();
+        allow update: if isOwner(uid)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.source == resource.data.source
+          && request.resource.data.type == resource.data.type
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAtIso']);
         allow delete: if isOwner(uid) || isAdmin();
       }
     }
@@ -251,12 +291,13 @@ service cloud.firestore {
     }
 
     match /settings/{docId} {
-      allow read: if docId != 'ai_config' || isAdmin();
+      // Section 2 & 6 Fix: Never allow public reads of legacy gbridge_* or ai_config documents
+      allow read: if !(docId.matches('gbridge_.*')) && docId != 'ai_config' && docId != 'google_app_accounts_list';
       allow write: if isAdmin();
     }
 
     match /system_config/{docId} {
-      allow read: if true;
+      allow read: if docId != 'ai_secrets';
       allow write: if isAdmin();
     }
 
@@ -266,8 +307,13 @@ service cloud.firestore {
     }
 
     match /roles/{uid} {
-      allow read: if isOwner(uid) || isViewer();
+      allow read: if isOwner(uid) || isAdmin();
       allow write: if isAdmin() || isPlatformOwner();
+    }
+
+    // Server-only distributed rate limiting store (Cloud Functions Admin SDK only)
+    match /_rateLimits/{limitId} {
+      allow read, write: if false;
     }
 
     // ── 3. Dynamic Geographic Hierarchy (Egypt -> Governorate -> City/Center -> District/Village) ──
@@ -286,7 +332,7 @@ service cloud.firestore {
       allow write: if isAdmin() || isRegionalManager();
     }
 
-    // ── 4. DAWAYA Pharmacy Network, Applications, Inventory & Employees (Strict Isolation) ──
+    // ── 4. DAWAYA Pharmacy Network, Applications, Inventory & Employees (Strict Tenant Isolation) ──
     match /pharmacyApplications/{appId} {
       allow create: if isSignedIn()
         && request.resource.data.applicantUid == request.auth.uid
@@ -297,8 +343,12 @@ service cloud.firestore {
         && request.resource.data.status in ['draft', 'pending_review']
         && !('approvedPharmacyId' in request.resource.data)
         && !('reviewedByUid' in request.resource.data);
-      allow read: if isSignedIn() && (resource.data.applicantUid == request.auth.uid || isReviewer());
-      // Section 2 Fix: Applicants can only edit permitted draft fields; only admin/regional_manager can approve/reject
+      // Section 3 Fix: Only applicant or license-verifying Regional Manager / Admin can read applications
+      allow read: if isSignedIn() && (
+        resource.data.applicantUid == request.auth.uid
+        || isRegionalManager()
+        || isAdmin()
+      );
       allow update: if validApplicantApplicationUpdate()
         || ((isAdmin() || isRegionalManager())
             && request.resource.data.applicantUid == resource.data.applicantUid);
@@ -308,11 +358,26 @@ service cloud.firestore {
     match /pharmacies/{pharmacyId} {
       allow read: if resource.data.status == 'approved'
         || isPharmacyMember(pharmacyId)
-        || isReviewer();
+        || isRegionalManager()
+        || isAdmin();
       allow create: if isAdmin() || isRegionalManager();
-      allow update: if (isPharmacyManagerOrOwner(pharmacyId)
+      // Section 5 Fix: Pharmacy owner can only update operational contact/hours fields, never status, ownerUid, or licenseNumber
+      allow update: if (
+          isPharmacyManagerOrOwner(pharmacyId)
           && request.resource.data.status == resource.data.status
-          && request.resource.data.ownerUid == resource.data.ownerUid)
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.licenseNumber == resource.data.licenseNumber
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'phone',
+            'whatsapp',
+            'workingHoursAr',
+            'is24Hours',
+            'deliveryAvailable',
+            'deliveryRadiusKm',
+            'detailedAddressAr',
+            'updatedAtIso'
+          ])
+        )
         || isAdmin()
         || isRegionalManager();
       allow delete: if isAdmin();
@@ -324,26 +389,38 @@ service cloud.firestore {
         || isPharmacyManagerOrOwner(resource.data.pharmacyId)
         || isAdmin()
       );
-      allow create, update: if isSignedIn()
+      allow create: if isSignedIn()
         && request.resource.data.pharmacyId is string
         && request.resource.data.role in ['pharmacy_manager', 'pharmacist', 'employee']
         && (isPharmacyManagerOrOwner(request.resource.data.pharmacyId) || isAdmin());
+      // Section 5 Fix: pharmacyId is strictly immutable on update to prevent cross-pharmacy employee reassignment
+      allow update: if isSignedIn()
+        && request.resource.data.pharmacyId == resource.data.pharmacyId
+        && request.resource.data.role in ['pharmacy_manager', 'pharmacist', 'employee']
+        && (isPharmacyManagerOrOwner(resource.data.pharmacyId) || isAdmin());
       allow delete: if isSignedIn() && (
         isPharmacyManagerOrOwner(resource.data.pharmacyId)
         || isAdmin()
       );
     }
 
-    // Section 9 Fix: Private operational inventory (batches, thresholds, internal metadata) restricted to pharmacy staff & admins
+    // Section 5 & 9 Fix: Private operational inventory restricted to pharmacy clinical staff/managers & immutable pharmacyId
     match /pharmacyInventory/{invId} {
       allow read: if isSignedIn() && (
         isPharmacyMember(resource.data.pharmacyId)
-        || isReviewer()
         || isAdmin()
       );
-      allow create, update: if isSignedIn()
+      allow create: if isSignedIn()
         && request.resource.data.pharmacyId is string
-        && isPharmacyMember(request.resource.data.pharmacyId)
+        && isPharmacyPharmacistOrManager(request.resource.data.pharmacyId)
+        && request.resource.data.quantityPacks is number
+        && request.resource.data.quantityPacks >= 0
+        && request.resource.data.pharmacyPriceEgp is number
+        && request.resource.data.pharmacyPriceEgp > 0
+        && request.resource.data.stockStatus in ['available', 'low_stock', 'out_of_stock', 'unconfirmed'];
+      allow update: if isSignedIn()
+        && request.resource.data.pharmacyId == resource.data.pharmacyId
+        && isPharmacyPharmacistOrManager(resource.data.pharmacyId)
         && request.resource.data.quantityPacks is number
         && request.resource.data.quantityPacks >= 0
         && request.resource.data.pharmacyPriceEgp is number
@@ -353,12 +430,32 @@ service cloud.firestore {
         && isPharmacyManagerOrOwner(resource.data.pharmacyId);
     }
 
-    // Section 9 Fix: Public availability projection exposing ONLY intentional public catalog/availability fields
+    // Section 5 & 9 Fix: Public availability projection exposing ONLY intentional public catalog/availability fields (never fabricated quantities)
     match /pharmacyPublicInventory/{invId} {
       allow read: if true;
-      allow create, update: if isSignedIn()
+      allow create: if isSignedIn()
         && request.resource.data.pharmacyId is string
-        && isPharmacyMember(request.resource.data.pharmacyId)
+        && isPharmacyPharmacistOrManager(request.resource.data.pharmacyId)
+        && request.resource.data.pharmacyPriceEgp is number
+        && request.resource.data.pharmacyPriceEgp > 0
+        && request.resource.data.stockStatus in ['available', 'low_stock', 'out_of_stock', 'unconfirmed']
+        && request.resource.data.keys().hasOnly([
+          'id',
+          'pharmacyId',
+          'medicationId',
+          'tradeNameAr',
+          'tradeNameEn',
+          'activeIngredient',
+          'strength',
+          'dosageForm',
+          'pharmacyPriceEgp',
+          'stockStatus',
+          'requiresPrescription',
+          'lastUpdatedAtIso'
+        ]);
+      allow update: if isSignedIn()
+        && request.resource.data.pharmacyId == resource.data.pharmacyId
+        && isPharmacyPharmacistOrManager(resource.data.pharmacyId)
         && request.resource.data.pharmacyPriceEgp is number
         && request.resource.data.pharmacyPriceEgp > 0
         && request.resource.data.stockStatus in ['available', 'low_stock', 'out_of_stock', 'unconfirmed']
@@ -405,20 +502,44 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // ── 6. Partner Management & Pharmacy Network Collections ──
+    // ── 6. Partner Management & Pharmacy Network Collections (Section 5 Tenant Isolation) ──
     match /partners/{partnerId} {
       allow read: if true;
-      allow create: if isEditor()
+      allow create: if isAdmin()
         && request.resource.data.nameAr is string
         && request.resource.data.nameEn is string;
-      allow update: if isEditor() || isPharmacyManagerOrOwner(partnerId);
+      // Section 5 Fix: Pharmacy owner can only update operational contact/hours fields; cannot self-verify, self-publish, or change ownerUid
+      allow update: if isAdmin()
+        || (
+          isPharmacyManagerOrOwner(partnerId)
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.verificationStatus == resource.data.verificationStatus
+          && request.resource.data.partnershipStatus == resource.data.partnershipStatus
+          && request.resource.data.publicationStatus == resource.data.publicationStatus
+          && request.resource.data.visibilityStatus == resource.data.visibilityStatus
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'phone',
+            'hotline',
+            'publicEmail',
+            'websiteUrl',
+            'socialLinks',
+            'workingHoursAr',
+            'workingHoursEn',
+            'is24Hours',
+            'deliveryAvailable',
+            'deliveryCoverageAr',
+            'deliveryCoverageEn',
+            'servicesOfferedAr',
+            'servicesOfferedEn',
+            'updatedAtIso'
+          ])
+        );
       allow delete: if isAdmin();
     }
 
     match /partnerPrivateAdmin/{partnerId} {
-      allow read: if isViewer() || isPharmacyManagerOrOwner(partnerId);
-      allow create, update: if isEditor();
-      allow delete: if isAdmin();
+      allow read: if isAdmin() || isPharmacyManagerOrOwner(partnerId);
+      allow create, update, delete: if isAdmin();
     }
 
     match /partnerCategories/{categoryId} {
@@ -428,19 +549,29 @@ service cloud.firestore {
 
     match /partnerBranches/{branchId} {
       allow read: if true;
-      allow create, update: if isEditor()
-        || (isSignedIn() && request.resource.data.partnerId is string && isPharmacyManagerOrOwner(request.resource.data.partnerId));
+      allow create: if isAdmin()
+        || (isSignedIn()
+            && request.resource.data.partnerId is string
+            && isPharmacyManagerOrOwner(request.resource.data.partnerId)
+            && request.resource.data.published == false);
+      // Section 5 Fix: partnerId is immutable; non-admin pharmacy owner cannot alter published status directly
+      allow update: if isAdmin()
+        || (isSignedIn()
+            && resource.data.partnerId is string
+            && request.resource.data.partnerId == resource.data.partnerId
+            && request.resource.data.published == resource.data.published
+            && isPharmacyManagerOrOwner(resource.data.partnerId));
       allow delete: if isAdmin();
     }
 
     match /partnerServiceAreas/{areaId} {
       allow read: if true;
-      allow write: if isEditor();
+      allow write: if isAdmin() || isRegionalManager();
     }
 
     match /partnerVisibility/{partnerId} {
       allow read: if true;
-      allow write: if isReviewer() || isAdmin();
+      allow write: if isAdmin();
     }
 
     match /partnerIntegrations/{partnerId} {
@@ -450,18 +581,28 @@ service cloud.firestore {
 
     match /partnerMedicationMappings/{mappingId} {
       allow read: if true;
-      allow create, update: if isEditor()
-        || (isSignedIn() && request.resource.data.partnerId is string && isPharmacyMember(request.resource.data.partnerId));
-      allow delete: if isEditor()
-        || (isSignedIn() && resource.data.partnerId is string && isPharmacyManagerOrOwner(resource.data.partnerId));
+      allow create: if isAdmin()
+        || (isSignedIn()
+            && request.resource.data.partnerId is string
+            && isPharmacyPharmacistOrManager(request.resource.data.partnerId));
+      // Section 5 Fix: partnerId is immutable on update
+      allow update: if isAdmin()
+        || (isSignedIn()
+            && resource.data.partnerId is string
+            && request.resource.data.partnerId == resource.data.partnerId
+            && isPharmacyPharmacistOrManager(resource.data.partnerId));
+      allow delete: if isAdmin()
+        || (isSignedIn()
+            && resource.data.partnerId is string
+            && isPharmacyManagerOrOwner(resource.data.partnerId));
     }
 
     match /partnerPromotions/{promoId} {
       allow read: if (resource.data.active == true) || isViewer();
-      allow write: if isEditor();
+      allow write: if isAdmin();
     }
 
-    // Section 4 Fix: Partner Orders & Customer Orders enforce state machine + immutable ownership/item fields
+    // Section 4 & 5 Fix: Partner Orders & Customer Orders enforce state machine + tenant isolation + immutable fields
     match /partnerOrders/{orderId} {
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
@@ -476,7 +617,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         resource.data.userId == request.auth.uid
         || isPharmacyMember(resource.data.partnerId)
-        || isViewer()
+        || isAdmin()
       );
       allow update: if isSignedIn()
         && request.resource.data.userId == resource.data.userId
@@ -485,16 +626,14 @@ service cloud.firestore {
         && request.resource.data.quantity == resource.data.quantity
         && request.resource.data.createdAtIso == resource.data.createdAtIso
         && (
-          // Customer may only cancel their own order while in initial pending/new state
           (
             resource.data.userId == request.auth.uid
             && resource.data.status in ['new_order', 'pending_review', 'pending_pharmacy_review']
             && request.resource.data.status == 'cancelled'
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAtIso', 'statusHistory'])
           )
-          // Pharmacy member or admin may advance order along valid state machine transitions
           || (
-            (isPharmacyMember(resource.data.partnerId) || isEditor())
+            (isPharmacyMember(resource.data.partnerId) || isAdmin())
             && isValidOrderTransition(resource.data.status, request.resource.data.status)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAtIso', 'statusHistory', 'pharmacyNotes', 'assignedPharmacistUid'])
           )
@@ -510,7 +649,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         resource.data.customerUid == request.auth.uid
         || isPharmacyMember(resource.data.pharmacyId)
-        || isViewer()
+        || isAdmin()
       );
       allow update: if isSignedIn()
         && request.resource.data.customerUid == resource.data.customerUid
@@ -524,7 +663,7 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAtIso', 'statusHistory'])
           )
           || (
-            (isPharmacyMember(resource.data.pharmacyId) || isEditor())
+            (isPharmacyMember(resource.data.pharmacyId) || isAdmin())
             && isValidOrderTransition(resource.data.status, request.resource.data.status)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAtIso', 'statusHistory', 'pharmacyNotes', 'assignedPharmacistUid'])
           )
@@ -532,9 +671,8 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Section 8 Fix: Audit logs are append-only and restricted to authorized admin/pharmacy roles with actor UID verification
     match /adminAuditLogs/{logId} {
-      allow read: if isReviewer() || isAdmin();
+      allow read: if isAdmin();
       allow create: if isSignedIn()
         && (
           isEditor()
@@ -587,18 +725,18 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // ── 8. Smart Patient Passport (Section 3 Fix: strict expiration + revocation check) ──
+    // ── 8. Smart Patient Passport ──
     match /passportShares/{uid} {
       allow read, write: if isOwner(uid);
-      allow get: if isOwner(uid) || isAdmin() || isPassportShareDocValid(resource.data);
-      allow list: if isOwner(uid) || isAdmin();
+      allow get: if isOwner(uid) || isPassportShareDocValid(resource.data);
+      allow list: if isOwner(uid);
     }
 
     match /passportShares/{uid}/accessLogs/{logId} {
       allow create: if isPassportActivelyShared(uid)
         && request.resource.data.accessedAt is number
         && request.resource.data.note is string;
-      allow read: if isOwner(uid) || isAdmin();
+      allow read: if isOwner(uid);
       allow update, delete: if false;
     }
   }

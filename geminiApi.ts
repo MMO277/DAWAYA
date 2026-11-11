@@ -47,6 +47,18 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 let serverAiProxyReady = false;
 let proxyCheckComplete = false;
 
+const AI_PROXY_BASE_URL =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AI_PROXY_BASE_URL
+    ? String(import.meta.env.VITE_AI_PROXY_BASE_URL).replace(/\/+$/, '')
+    : '') || '';
+
+export function sanitizePatientPiiForAi(rawText: string): string {
+  return (rawText || '')
+    .replace(/\b\d{14}\b/g, '[REDACTED_ID]')
+    .replace(/\b(?:\+?20|0)?1[0125]\d{8}\b/g, '[REDACTED_PHONE]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]');
+}
+
 export async function loadSharedCloudAiKey(): Promise<string> {
   if (typeof window !== 'undefined') {
     try {
@@ -57,13 +69,20 @@ export async function loadSharedCloudAiKey(): Promise<string> {
   }
   if (proxyCheckComplete) return '';
   proxyCheckComplete = true;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4500);
   try {
-    const resp = await fetch('/api/ai/status', { method: 'GET' });
+    const resp = await fetch(`${AI_PROXY_BASE_URL}/api/ai/status`, {
+      method: 'GET',
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
     if (resp.ok) {
       const data = await resp.json();
       serverAiProxyReady = Boolean(data?.configured);
     }
   } catch {
+    clearTimeout(timer);
     serverAiProxyReady = false;
   }
   return '';
@@ -79,39 +98,49 @@ export async function callServerAiProxy(params: {
   mimeType?: string;
   model?: string;
 }): Promise<string> {
-  if (!serverAiProxyReady) return '';
+  if (!serverAiProxyReady) {
+    await loadSharedCloudAiKey();
+    if (!serverAiProxyReady) return '';
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 14000);
   try {
     const { auth } = await import('./firebase');
     const token = auth?.currentUser ? await auth.currentUser.getIdToken() : '';
-    if (!token) return '';
-    const resp = await fetch('/api/ai/generate', {
+    if (!token) {
+      clearTimeout(timer);
+      return '';
+    }
+    const sanitizedPrompt = sanitizePatientPiiForAi(params.prompt).slice(0, 12000);
+    const resp = await fetch(`${AI_PROXY_BASE_URL}/api/ai/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
+      signal: ctrl.signal,
       body: JSON.stringify({
-        prompt: params.prompt.slice(0, 16000),
+        prompt: sanitizedPrompt,
         inlineImageBase64: params.inlineImageBase64,
         mimeType: params.mimeType,
-        model: params.model || 'gemini-2.0-flash',
+        model: params.model === 'gemini-2.5-flash' ? 'gemini-2.5-flash' : 'gemini-2.0-flash',
       }),
     });
+    clearTimeout(timer);
     if (!resp.ok) return '';
     const data = await resp.json();
     return typeof data?.text === 'string' ? data.text.trim() : '';
   } catch {
+    clearTimeout(timer);
     return '';
   }
 }
 
 export function getApiKey(): string {
-  // Never expose any secret key to client code
   return '';
 }
 
 export function hasApiKey(): boolean {
-  // Reflects actual verified server proxy readiness without exposing secrets
   return serverAiProxyReady;
 }
 
@@ -305,155 +334,21 @@ async function gtxTranslate(text: string, sl: string, tl: string): Promise<strin
 
 /**
  * Calls an OpenAI-compatible `/chat/completions` endpoint directly first,
- * and if the browser blocks it due to CORS (`TypeError`), retries automatically via `corsproxy.io`!
+ * and if the browser blocks it due to CORS (`TypeError`), retries automatically via `removed-legacy-endpoint`!
  */
-async function callOpenAiCompatibleEndpoint(params: {
+async function callOpenAiCompatibleEndpoint(_params: {
   url: string;
   model: string;
   messages: Array<{ role: string; content: string }>;
   apiKey?: string;
   timeoutMs?: number;
 }): Promise<string | null> {
-  const { url, model, messages, apiKey, timeoutMs = 9500 } = params;
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (apiKey) {
-    headers['Authorization'] = `Bearer ${apiKey}`;
-  }
-  const bodyStr = JSON.stringify({
-    model,
-    messages,
-    temperature: 0.35,
-    max_tokens: 800,
-    stream: false,
-  });
-
-  const urlsToTry = [
-    url,
-    `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-  ];
-
-  for (const targetUrl of urlsToTry) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      const res = await fetch(targetUrl, {
-        method: 'POST',
-        headers,
-        body: bodyStr,
-        signal: ctrl.signal,
-      });
-      clearTimeout(timer);
-      if (res.ok) {
-        const data = await res.json();
-        const reply =
-          data?.choices?.[0]?.message?.content ||
-          data?.choices?.[0]?.text ||
-          data?.response ||
-          '';
-        if (isValidCloudReply(reply)) {
-          return cleanAssistantMarkdown(reply);
-        }
-      } else if (res.status >= 400 && res.status < 500) {
-        // HTTP 4xx from upstream server means CORS worked but model/route rejected; no need to retry via proxy
-        break;
-      }
-    } catch {
-      clearTimeout(timer);
-      // Network/CORS error on direct URL -> loop continues to corsproxy.io
-    }
-  }
+  // Section 6 Security Fix: Disabled direct browser calls to third-party AI gateways and public CORS proxy relays.
   return null;
 }
 
-/**
- * Fetches FRESH Arabic/Global news snippets from Google News RSS (`news.google.com/rss/search`)
- * Strictly filters out stale articles when asking about today/recent events!
- */
-async function fetchLiveGoogleNewsSnippets(query: string, maxAgeDays = 30): Promise<string[]> {
-  const q = query.trim();
-  if (!q) return [];
-
-  let searchQ = q
-    .replace(/مين هيلعب انهارده|مين هيلعب النهارده|مين بيلعب النهارده/g, 'مواعيد مباريات اليوم')
-    .replace(/خلص كام/g, 'نتيجة مباراة')
-    .replace(/الجاي امتي|الجاي إمتى/g, 'موعد مباراة القادمة')
-    .replace(/امتي|إمتى/g, 'موعد');
-
-  const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(
-    searchQ
-  )}&hl=ar&gl=EG&ceid=EG:ar`;
-
-  const nowMs = Date.now();
-  const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
-
-  // 1) Try rss2json
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 4500);
-    const res = await fetch(
-      `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`,
-      { signal: ctrl.signal }
-    );
-    clearTimeout(timer);
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data?.items) && data.items.length > 0) {
-        const freshItems = data.items.filter((item: any) => {
-          if (!item.pubDate) return true;
-          const dt = new Date(item.pubDate).getTime();
-          return Number.isNaN(dt) || nowMs - dt <= maxAgeMs;
-        });
-        const chosen = (freshItems.length > 0 ? freshItems : data.items).slice(0, 5);
-        return chosen.map((item: any) => {
-          const title = (item.title || '').replace(/\s+/g, ' ').trim();
-          const pubDate = item.pubDate ? item.pubDate.split(' ')[0] : '';
-          return `• ${pubDate ? `[${pubDate}] ` : ''}${title}`;
-        });
-      }
-    }
-  } catch {
-    /* fallback to allorigins */
-  }
-
-  // 2) Try allorigins.win/raw XML parsing
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 4500);
-    const res = await fetch(
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`,
-      { signal: ctrl.signal }
-    );
-    clearTimeout(timer);
-    if (res.ok) {
-      const xml = await res.text();
-      const itemMatches = Array.from(xml.matchAll(/<item>([\s\S]*?)<\/item>/g)).slice(0, 8);
-      const snippets: string[] = [];
-      for (const m of itemMatches) {
-        const block = m[1];
-        const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/);
-        const dateMatch = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
-        const title = (titleMatch?.[1] || '')
-          .replace(/<!\[CDATA\[|\]\]>/g, '')
-          .replace(/&quot;/g, '"')
-          .replace(/&amp;/g, '&')
-          .trim();
-        const rawDate = dateMatch?.[1] || '';
-        const dtMs = rawDate ? new Date(rawDate).getTime() : NaN;
-        if (!Number.isNaN(dtMs) && nowMs - dtMs > maxAgeMs) continue;
-        const dateStr = !Number.isNaN(dtMs) ? new Date(dtMs).toLocaleDateString('ar-EG') : '';
-        if (title) {
-          snippets.push(`• ${dateStr ? `[${dateStr}] ` : ''}${title}`);
-        }
-        if (snippets.length >= 5) break;
-      }
-      if (snippets.length > 0) return snippets;
-    }
-  } catch {
-    /* ignore */
-  }
-
+async function fetchLiveGoogleNewsSnippets(_query: string, _maxAgeDays = 30): Promise<string[]> {
+  // Section 6 Security Fix: Disabled public CORS relays (rss2json / allorigins).
   return [];
 }
 
@@ -939,129 +834,25 @@ export async function askGemini(
     ? `${question}\n\n${webContextForAi}`
     : question;
 
-  // 1) Official Google Gemini API (when a valid AIza... key is present)
+  // 1) Official DAWAYA Server-Side AI Proxy (Authenticated & PII-Sanitized)
   if (hasApiKey()) {
-    for (const geminiModel of ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 10000);
-      try {
-        const proxyUrl = '/api/ai/generate';
-        const recentHistory = history.slice(-6);
-        const contents = [
-          ...recentHistory.map((m) => ({
-            role: m.who === 'me' ? 'user' : 'model',
-            parts: [{ text: (m.text || '').slice(0, 500) }],
-          })),
-          {
-            role: 'user',
-            parts: [{ text: fullPromptForKeyedModels }],
-          },
-        ];
+    const recentHistoryText = history
+      .slice(-6)
+      .map((m) => `${m.who === 'me' ? 'المريض' : 'المساعد'}: ${(m.text || '').slice(0, 400)}`)
+      .join('\n');
+    const combinedPrompt = `${dynamicSystemPrompt}\n\n${
+      recentHistoryText ? `[سياق المحادثة السابقة:\n${recentHistoryText}]\n\n` : ''
+    }${fullPromptForKeyedModels}`;
 
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: controller.signal,
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: dynamicSystemPrompt }] },
-            contents,
-            generationConfig: { temperature: 0.35, maxOutputTokens: 850 },
-          }),
-        });
-        clearTimeout(timer);
-
-        if (response.ok) {
-          const data = await response.json();
-          const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (isValidCloudReply(reply)) return cleanAssistantMarkdown(reply);
-        }
-      } catch {
-        clearTimeout(timer);
+    for (const geminiModel of ['gemini-2.5-flash', 'gemini-2.0-flash']) {
+      const proxyReply = await callServerAiProxy({
+        prompt: combinedPrompt,
+        model: geminiModel,
+      });
+      if (isValidCloudReply(proxyReply)) {
+        return cleanAssistantMarkdown(proxyReply);
       }
     }
-  }
-
-  // 1B) Groq Cloud API (if `gsk_...` key is present)
-  if (key && key.startsWith('gsk_')) {
-    const groqReply = await callOpenAiCompatibleEndpoint({
-      url: 'https://api.groq.com/openai/v1/chat/completions',
-      model: 'llama-3.3-70b-versatile',
-      apiKey: key,
-      messages: [
-        { role: 'system', content: dynamicSystemPrompt },
-        ...history.slice(-6).map((m) => ({
-          role: m.who === 'me' ? 'user' : 'assistant',
-          content: (m.text || '').slice(0, 400),
-        })),
-        { role: 'user', content: fullPromptForKeyedModels },
-      ],
-    });
-    if (groqReply) return groqReply;
-  }
-
-  // Build concise message history for the Keyless Anonymous LLM Gateways
-  const compactHistory = history
-    .slice(-4)
-    .filter((m) => Boolean(m.text && m.text.trim()))
-    .map((m) => ({
-      role: m.who === 'me' ? 'user' : 'assistant',
-      content: m.text.slice(0, 300),
-    }));
-
-  const isMedicalOrActionQuery =
-    /(دوا|دواء|مضاد|جرعه|جرعة|مرض|حساسيه|حساسية|سجل|ضيف|منبه|روشته|روشتة|تحليل|ملفي|الم|وجع|سعر|بديل)/i.test(
-      cleanUserQ
-    );
-  const effectiveUserContent = isMedicalOrActionQuery
-    ? `${question.slice(0, 800)}${webContextForAi ? `\n${webContextForAi}` : ''}`
-    : questionWithLiveWeb;
-
-  const compactMessages = [
-    { role: 'system', content: COMPACT_CLOUD_SYSTEM_PROMPT },
-    ...compactHistory,
-    { role: 'user', content: effectiveUserContent },
-  ];
-
-  // 2) KEYLESS PROVIDER A: OVHcloud Anonymous AI Endpoints (Llama 3.3 70B, GPT-OSS 120B, Qwen 3.8 27B - No API Key Required!)
-  for (const ovhModel of [
-    'Meta-Llama-3_3-70B-Instruct',
-    'gpt-oss-120b',
-    'Qwen3.8-27B',
-    'Mistral-Small-3.2-24B-Instruct',
-  ]) {
-    const ovhReply = await callOpenAiCompatibleEndpoint({
-      url: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions',
-      model: ovhModel,
-      messages: compactMessages,
-      timeoutMs: 9500,
-    });
-    if (ovhReply) return ovhReply;
-  }
-
-  // 3) KEYLESS PROVIDER B: Kilo Code Free AI Gateway (`kilo-auto/free`, `openrouter/free` - 200 req/hr per IP, No API Key Required!)
-  for (const kiloModel of [
-    'kilo-auto/free',
-    'openrouter/free',
-    'nvidia/nemotron-3.5-lightning:free',
-  ]) {
-    const kiloReply = await callOpenAiCompatibleEndpoint({
-      url: 'https://api.kilo.ai/api/gateway/chat/completions',
-      model: kiloModel,
-      messages: compactMessages,
-      timeoutMs: 9500,
-    });
-    if (kiloReply) return kiloReply;
-  }
-
-  // 4) KEYLESS PROVIDER C: LLM7.io Anonymous Turbo Gateway (`gpt-oss:20b`, `mistral-Nemo-Instruct-2407` - No API Key Required!)
-  for (const llm7Model of ['gpt-oss:20b', 'mistral-Nemo-Instruct-2407', 'default']) {
-    const llm7Reply = await callOpenAiCompatibleEndpoint({
-      url: 'https://api.llm7.io/v1/chat/completions',
-      model: llm7Model,
-      messages: compactMessages,
-      timeoutMs: 9000,
-    });
-    if (llm7Reply) return llm7Reply;
   }
 
   // 5) If we already fetched verified live internet data (Today's ESPN Matches / Team Schedule / Weather / Currency / Prayer), return it cleanly!
@@ -1669,7 +1460,7 @@ export function matchEgyptianDrugFromText(rawText: string): {
 
 /**
  * Downscales large camera/gallery images in the browser to <=800px JPEG (<95 KB)
- * so Cloud OCR (`api.ocr.space` 1024 KB limit) and Vision endpoints never reject phone photos,
+ * so Cloud OCR (`removed-legacy-endpoint` 1024 KB limit) and Vision endpoints never reject phone photos,
  * and checks native BarcodeDetector.
  */
 export async function prepareImageForOcrAndVision(
@@ -1810,100 +1601,14 @@ export async function performBrowserTesseractOcr(imageDataUrl: string): Promise<
  * Uses a prompt with ZERO medicine names or examples so the model can never echo
  * or hallucinate a drug name from the prompt. Filters out refusals or conversational replies.
  */
-async function runZeroHintVisionOcr(dataUri: string): Promise<string> {
-  try {
-    const visionPrompt =
-      'Transcribe ONLY the exact visible text and numbers (Arabic and English) printed on the package or written on the paper in this image. Do NOT guess, do NOT add examples, and do NOT write sentences. If no text is readable, reply with the single word: NONE';
-    const res = await fetch('https://text.pollinations.ai/openai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'openai',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: visionPrompt },
-              { type: 'image_url', image_url: { url: dataUri } },
-            ],
-          },
-        ],
-        temperature: 0.0,
-      }),
-    });
-    if (!res.ok) return '';
-    const json = await res.json();
-    const raw = (json?.choices?.[0]?.message?.content || '').trim();
-    if (!raw || /^none$/i.test(raw)) return '';
-    if (
-      /sorry|cannot|unable|can't|assist|provide|image_url|base64|عذراً|لا يمكنني/i.test(raw)
-    ) {
-      return '';
-    }
-    return raw;
-  } catch {
-    return '';
-  }
+async function runZeroHintVisionOcr(_dataUri: string): Promise<string> {
+  // Section 6 Security Fix: Never transmit patient medical/prescription images to third-party public endpoints.
+  return '';
 }
 
-/**
- * Sequential Cloud OCR helper (`api.ocr.space`) that avoids firing 2 simultaneous requests
- * with the same public `helloworld` key (which triggers concurrent rate-limiting).
- * Engine 1 (`ara`) reads BOTH Arabic and English/Latin characters in a single request!
- */
-async function runCloudOcrNonColliding(dataUri: string): Promise<string> {
-  const texts: string[] = [];
-
-  // 1) Engine 1 with 'ara' reads both Arabic and English/Latin characters
-  try {
-    const fdAra = new FormData();
-    fdAra.append('apikey', 'helloworld');
-    fdAra.append('base64Image', dataUri);
-    fdAra.append('language', 'ara');
-    fdAra.append('OCREngine', '1');
-    fdAra.append('scale', 'true');
-    const rAra = await fetch('https://api.ocr.space/parse/image', {
-      method: 'POST',
-      body: fdAra,
-    });
-    if (rAra.ok) {
-      const jAra = await rAra.json();
-      const parsedAra = jAra?.ParsedResults?.[0]?.ParsedText || '';
-      if (parsedAra.trim()) {
-        texts.push(parsedAra.trim());
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-
-  // 2) If Engine 1 did not match a drug yet, run Engine 2 ('eng') sequentially
-  const currentMatch = matchEgyptianDrugFromText(texts.join('\n'));
-  if (!currentMatch.matchedIngredientId) {
-    try {
-      const fdEng = new FormData();
-      fdEng.append('apikey', 'helloworld');
-      fdEng.append('base64Image', dataUri);
-      fdEng.append('language', 'eng');
-      fdEng.append('OCREngine', '2');
-      fdEng.append('scale', 'true');
-      const rEng = await fetch('https://api.ocr.space/parse/image', {
-        method: 'POST',
-        body: fdEng,
-      });
-      if (rEng.ok) {
-        const jEng = await rEng.json();
-        const parsedEng = jEng?.ParsedResults?.[0]?.ParsedText || '';
-        if (parsedEng.trim()) {
-          texts.push(parsedEng.trim());
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
-  return texts.join('\n').trim();
+async function runCloudOcrNonColliding(_dataUri: string): Promise<string> {
+  // Section 6 Security Fix: Never transmit patient medical/prescription images to public shared-key OCR services.
+  return '';
 }
 
 function parseVisionText(rawText: string): {
@@ -1940,7 +1645,7 @@ function parseVisionText(rawText: string): {
  * Multi-Engine Bilingual Vision & OCR Scanner:
  * Reads both Arabic and English medicine names accurately using:
  * 1) Native BarcodeDetector
- * 2) Non-colliding Cloud OCR (`api.ocr.space` Engine 1 Arabic+Latin, then Engine 2 English)
+ * 2) Non-colliding Cloud OCR (`removed-legacy-endpoint` Engine 1 Arabic+Latin, then Engine 2 English)
  * 3) Google Gemini Vision (if user API key `AIza...` is configured)
  * 4) Zero-hint Vision OCR transcription (no drug names in prompt so it never hallucinates)
  * 5) Local in-browser Tesseract.js OCR (`eng+ara`) fallback
@@ -1969,34 +1674,11 @@ Then write a clear clinical summary without markdown tables or ** symbols.`;
 
   const runGemini = async (): Promise<string> => {
     if (!hasApiKey()) return '';
-    return await callServerAiProxy({ prompt, inlineImageBase64: prepared.cleanBase64, mimeType: prepared.mimeType });
-    const proxyUrl = '/api/ai/generate';
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: prepared.mimeType || 'image/jpeg',
-                  data: prepared.base64Data,
-                },
-              },
-            ],
-          },
-        ],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 600 },
-      }),
+    return await callServerAiProxy({
+      prompt,
+      inlineImageBase64: prepared.base64Data,
+      mimeType: prepared.mimeType || 'image/jpeg',
     });
-    if (!response.ok) return '';
-    const data = await response.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   };
 
   const [geminiRes, cloudOcrRes, zeroHintRes] = await Promise.allSettled([
@@ -2386,34 +2068,11 @@ RX_CONTRADICTIONS: [any contradictory or ambiguous instructions noticed, or NONE
 
   const runGemini = async (): Promise<string> => {
     if (!hasApiKey()) return '';
-    return await callServerAiProxy({ prompt, inlineImageBase64: prepared.cleanBase64, mimeType: prepared.mimeType });
-    const proxyUrl = '/api/ai/generate';
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: prepared.mimeType || 'image/jpeg',
-                  data: prepared.base64Data,
-                },
-              },
-            ],
-          },
-        ],
-        generationConfig: { temperature: 0.05, maxOutputTokens: 500 },
-      }),
+    return await callServerAiProxy({
+      prompt,
+      inlineImageBase64: prepared.base64Data,
+      mimeType: prepared.mimeType || 'image/jpeg',
     });
-    if (!response.ok) return '';
-    const data = await response.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   };
 
   const [geminiRes, cloudOcrRes, zeroHintRes] = await Promise.allSettled([

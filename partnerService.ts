@@ -6,7 +6,9 @@ import {
   getDoc,
   getDocs,
   onSnapshot,
+  runTransaction,
   setDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { db, configured, storage } from './firebase';
@@ -636,12 +638,12 @@ export async function savePartnerFullRecord(
   safeWriteJson(CACHE_PRIVATE_KEY, memPrivateMap);
   emitPartnerUpdate();
 
-  // Save to Firestore (Public data in `partners/{id}`, sensitive admin notes in `partnerPrivateAdmin/{id}`)
+  // Section 8 Fix: Atomic multi-document write using writeBatch(db)
   if (configured && db) {
-    await Promise.all([
-      setDoc(doc(db, COL_PARTNERS, cleanPublic.id), cleanPublic),
-      setDoc(doc(db, COL_PARTNER_PRIVATE, cleanPublic.id), cleanPrivate),
-    ]);
+    const batch = writeBatch(db);
+    batch.set(doc(db, COL_PARTNERS, cleanPublic.id), cleanPublic);
+    batch.set(doc(db, COL_PARTNER_PRIVATE, cleanPublic.id), cleanPrivate);
+    await batch.commit();
   }
 
   await recordAdminAuditLog({
@@ -930,10 +932,25 @@ export async function deletePartnerMedicationMapping(
 // ORDER SUBMISSION & TRACKING SERVICE
 // ============================================================================
 export async function createPartnerOrder(
-  orderDraft: Omit<PartnerOrderRecord, 'id' | 'orderNumber' | 'createdAtIso' | 'updatedAtIso' | 'statusHistory'>
+  orderDraft: Omit<PartnerOrderRecord, 'id' | 'orderNumber' | 'createdAtIso' | 'updatedAtIso' | 'statusHistory'> & { idempotencyKey?: string }
 ): Promise<PartnerOrderRecord> {
+  if (!orderDraft.partnerId || !orderDraft.medicationId || (orderDraft.quantity ?? 1) <= 0) {
+    throw new Error('INVALID_ORDER_PARAMETERS');
+  }
+  const minuteBucket = Math.floor(Date.now() / 60000);
+  const dedupSeed =
+    orderDraft.idempotencyKey ||
+    `${orderDraft.userId || 'guest'}_${orderDraft.partnerId}_${orderDraft.medicationId}_${orderDraft.quantity}_${minuteBucket}`;
+  const safeDedupId = dedupSeed.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 96);
+
+  // Prevent duplicate in-memory order creation on rapid retry
+  const existingMem = memOrders.find((o) => o.id === `order_${safeDedupId}`);
+  if (existingMem) {
+    return existingMem;
+  }
+
   const nowIso = new Date().toISOString();
-  const id = `order_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const id = `order_${safeDedupId}`;
   const orderNumber = `AA-RX-${Date.now().toString().slice(-6)}`;
 
   const fullOrder: PartnerOrderRecord = {
@@ -957,17 +974,23 @@ export async function createPartnerOrder(
     ],
   };
 
-  memOrders = [fullOrder, ...memOrders];
-  safeWriteJson(CACHE_ORDERS_KEY, memOrders);
-  emitPartnerUpdate();
-
   if (configured && db) {
     try {
-      await setDoc(doc(db, COL_PARTNER_ORDERS, id), fullOrder);
-    } catch {
-      /* keep in local storage if guest/offline */
+      const orderRef = doc(db, COL_PARTNER_ORDERS, id);
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(orderRef);
+        if (!snap.exists()) {
+          tx.set(orderRef, fullOrder);
+        }
+      });
+    } catch (err: unknown) {
+      throw new Error(`ORDER_CLOUD_SAVE_FAILED: ${(err as Error)?.message || 'Failed to save order'}`);
     }
   }
+
+  memOrders = [fullOrder, ...memOrders.filter((o) => o.id !== id)];
+  safeWriteJson(CACHE_ORDERS_KEY, memOrders);
+  emitPartnerUpdate();
 
   return fullOrder;
 }
@@ -1040,13 +1063,23 @@ export async function updatePartnerOrderStatus(
     ],
   };
 
+  if (configured && db) {
+    const orderRef = doc(db, COL_PARTNER_ORDERS, orderId);
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(orderRef);
+      if (snap.exists()) {
+        const serverOrder = snap.data() as PartnerOrderRecord;
+        if (!isValidOrderStateTransition(serverOrder.status, newStatus, adminRole)) {
+          throw new Error(`INVALID_SERVER_ORDER_TRANSITION: ${serverOrder.status} -> ${newStatus}`);
+        }
+      }
+      tx.set(orderRef, updated);
+    });
+  }
+
   memOrders[idx] = updated;
   safeWriteJson(CACHE_ORDERS_KEY, memOrders);
   emitPartnerUpdate();
-
-  if (configured && db) {
-    await setDoc(doc(db, COL_PARTNER_ORDERS, orderId), updated);
-  }
 
   await recordAdminAuditLog({
     action: 'order_status_updated',
@@ -1234,7 +1267,7 @@ export function startDawayaNetworkRealtimeSync(): void {
                     activeIngredient: data.activeIngredient || '',
                     strength: data.strength || '',
                     dosageForm: data.dosageForm || 'tablet',
-                    quantityPacks: data.stockStatus === 'out_of_stock' ? 0 : 1,
+                    quantityPacks: null, // Section 9 Fix: Never fabricate stock quantities in public responses
                     lowStockThreshold: 5,
                     stockStatus: data.stockStatus || 'unconfirmed',
                     pharmacyPriceEgp: Number(data.pharmacyPriceEgp || 0),
@@ -1511,29 +1544,30 @@ export async function reviewPharmacyApplicationDecision(
 
   if (configured && db) {
     try {
-      await setDoc(doc(db, COL_PHARMACY_APPLICATIONS, appId), updated);
+      // Section 8 Fix: Atomic multi-document approval & partner provisioning via writeBatch(db)
+      const batch = writeBatch(db);
+      batch.set(doc(db, COL_PHARMACY_APPLICATIONS, appId), updated);
       if (provisionedPartner && approvedPharmacyId) {
-        await Promise.all([
-          setDoc(doc(db, COL_PARTNERS, approvedPharmacyId), {
-            ...provisionedPartner,
-            ownerUid: current.applicantUid,
-          }),
-          setDoc(doc(db, 'pharmacies', approvedPharmacyId), {
-            id: approvedPharmacyId,
-            ownerUid: current.applicantUid,
-            nameAr: current.pharmacyNameAr,
-            nameEn: current.pharmacyNameEn || current.pharmacyNameAr,
-            licenseNumber: current.licenseNumber,
-            syndicateRegistrationNumber: current.syndicateRegistrationNumber,
-            governorateId: current.governorateId,
-            cityCenter: current.cityCenter,
-            districtVillage: current.districtVillage,
-            status: 'approved',
-            approvedByUid: adminUid,
-            approvedAtIso: nowIso,
-          }),
-        ]);
+        batch.set(doc(db, COL_PARTNERS, approvedPharmacyId), {
+          ...provisionedPartner,
+          ownerUid: current.applicantUid,
+        });
+        batch.set(doc(db, 'pharmacies', approvedPharmacyId), {
+          id: approvedPharmacyId,
+          ownerUid: current.applicantUid,
+          nameAr: current.pharmacyNameAr,
+          nameEn: current.pharmacyNameEn || current.pharmacyNameAr,
+          licenseNumber: current.licenseNumber,
+          syndicateRegistrationNumber: current.syndicateRegistrationNumber,
+          governorateId: current.governorateId,
+          cityCenter: current.cityCenter,
+          districtVillage: current.districtVillage,
+          status: 'approved',
+          approvedByUid: adminUid,
+          approvedAtIso: nowIso,
+        });
       }
+      await batch.commit();
       lastPersistenceError = null;
     } catch (err: unknown) {
       lastPersistenceError = (err as Error)?.message || 'APPLICATION_REVIEW_SAVE_FAILED';
@@ -1567,7 +1601,7 @@ export async function upsertPharmacyInventoryItem(
   if (!item.pharmacyId || !item.medicationId) {
     throw new Error('MISSING_PHARMACY_OR_MEDICATION_ID');
   }
-  if (!Number.isFinite(item.quantityPacks) || item.quantityPacks < 0) {
+  if (item.quantityPacks === null || !Number.isFinite(item.quantityPacks) || item.quantityPacks < 0) {
     throw new Error('INVALID_STOCK_QUANTITY: Stock quantity cannot be negative.');
   }
   if (!Number.isFinite(item.pharmacyPriceEgp) || item.pharmacyPriceEgp <= 0) {
@@ -1608,10 +1642,11 @@ export async function upsertPharmacyInventoryItem(
 
   if (configured && db) {
     try {
-      await Promise.all([
-        setDoc(doc(db, COL_PHARMACY_INVENTORY, id), record),
-        setDoc(doc(db, COL_PHARMACY_PUBLIC_INVENTORY, id), publicAvailabilityProjection),
-      ]);
+      // Section 8 Fix: Atomic write of private operational inventory + public availability projection
+      const batch = writeBatch(db);
+      batch.set(doc(db, COL_PHARMACY_INVENTORY, id), record);
+      batch.set(doc(db, COL_PHARMACY_PUBLIC_INVENTORY, id), publicAvailabilityProjection);
+      await batch.commit();
       lastPersistenceError = null;
     } catch (err: unknown) {
       lastPersistenceError = (err as Error)?.message || 'INVENTORY_CLOUD_SAVE_FAILED';
@@ -1634,10 +1669,10 @@ export async function upsertPharmacyInventoryItem(
 export async function deletePharmacyInventoryItem(invId: string): Promise<void> {
   if (configured && db) {
     try {
-      await Promise.all([
-        deleteDoc(doc(db, COL_PHARMACY_INVENTORY, invId)),
-        deleteDoc(doc(db, COL_PHARMACY_PUBLIC_INVENTORY, invId)),
-      ]);
+      const batch = writeBatch(db);
+      batch.delete(doc(db, COL_PHARMACY_INVENTORY, invId));
+      batch.delete(doc(db, COL_PHARMACY_PUBLIC_INVENTORY, invId));
+      await batch.commit();
       lastPersistenceError = null;
     } catch (err: unknown) {
       lastPersistenceError = (err as Error)?.message || 'INVENTORY_DELETE_FAILED';

@@ -660,7 +660,7 @@ export default function PharmacyOwnerDashboard() {
                           <div className="small muted">{item.activeIngredient} • {item.strength}</div>
                         </td>
                         <td><b>{item.pharmacyPriceEgp} ج.م</b></td>
-                        <td><b>{item.quantityPacks} عبوة</b></td>
+                        <td><b>{item.quantityPacks !== null ? `${item.quantityPacks} عبوة` : (isAr ? 'حسب حالة التوفر' : 'By Status')}</b></td>
                         <td>
                           <span
                             style={{

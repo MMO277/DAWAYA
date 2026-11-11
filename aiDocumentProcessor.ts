@@ -605,42 +605,19 @@ export async function analyzeUploadedMedicalDocument(params: {
 
   // Also check if Gemini Vision can extract multi-drug lines or Culture S/R tables when an API key is configured
   let multiText = ocrResult.rawExtractedText || '';
-  const apiKey = getApiKey();
-  if (apiKey && (apiKey.startsWith('AIza') || apiKey.startsWith('AQ.') || apiKey.length > 20) && params.mimeType.startsWith('image/')) {
+  if (hasApiKey() && params.mimeType.startsWith('image/')) {
     try {
-      const url = '/api/ai/generate';
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  text: 'List every medication, lab value (e.g. Creatinine, WBC, CRP, Hemoglobin), or Culture & Sensitivity result (Organism name, Sensitive S antibiotics, Resistant R antibiotics) visible in this image on separate lines. Never guess or invent unreadable values.',
-                },
-                {
-                  inlineData: {
-                    mimeType: params.mimeType,
-                    data: params.base64Data,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: { temperature: 0.05, maxOutputTokens: 500 },
-        }),
+      const extra = await callServerAiProxy({
+        prompt:
+          'List every medication, lab value (e.g. Creatinine, WBC, CRP, Hemoglobin), or Culture & Sensitivity result (Organism name, Sensitive S antibiotics, Resistant R antibiotics) visible in this image on separate lines. Never guess or invent unreadable values.',
+        inlineImageBase64: params.base64Data,
+        mimeType: params.mimeType,
       });
-      if (resp.ok) {
-        const data = await resp.json();
-        const extra = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        if (extra) {
-          multiText = `${multiText}\n${extra}`.trim();
-        }
+      if (extra) {
+        multiText = `${multiText}\n${extra}`.trim();
       }
     } catch {
-      // Ignore vision enhancement error and rely on deterministic OCR result
+      // Rely on deterministic OCR result if proxy is unavailable
     }
   }
 

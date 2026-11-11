@@ -100,26 +100,8 @@ export function formatDisplayNameFromEmail(email: string): string {
     .join(' ');
 }
 
-export function computeFirebaseAppBridgeSecret(email: string): string {
-  const clean = email.trim().toLowerCase();
-  let h1 = 0x811c9dc5;
-  let h2 = 0x1000193;
-  for (let i = 0; i < clean.length; i++) {
-    const c = clean.charCodeAt(i);
-    h1 ^= c;
-    h1 = Math.imul(h1, 0x01000193);
-    h2 ^= c * (i + 17);
-    h2 = Math.imul(h2, 0x5bd1e995);
-  }
-  const hex1 = (h1 >>> 0).toString(16).padStart(8, '0');
-  const hex2 = (h2 >>> 0).toString(16).padStart(8, '0');
-  return `Aa#GBridge_${hex1}_${hex2}!2026`;
-}
-
-export function getEmailBridgeDocId(email: string): string {
-  const clean = email.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
-  return `gbridge_${clean.slice(0, 60)}`;
-}
+// Section 2 Security Fix: Removed deterministic email-derived password generation (computeFirebaseAppBridgeSecret)
+// and public Firestore OAuth token bridge (getEmailBridgeDocId). Authentication strictly uses standard Firebase Auth.
 
 export function getSavedDeviceGoogleAccounts(): SavedGoogleAccount[] {
   if (typeof window === 'undefined') return [];
@@ -363,8 +345,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const syncGoogleBridgeToFirestore = async (
     firebaseUser: User,
-    oauthIdToken?: string | null,
-    oauthAccessToken?: string | null
+    _oauthIdToken?: string | null,
+    _oauthAccessToken?: string | null
   ): Promise<boolean> => {
     const email = firebaseUser.email?.trim().toLowerCase();
     if (!email) return false;
@@ -378,31 +360,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       firebaseUser.providerData?.find((p) => p?.displayName)?.displayName ||
       formatDisplayNameFromEmail(email);
 
-    let linkedOk = (firebaseUser.providerData || []).some(
-      (p) => p?.providerId === 'password'
-    );
+    setNeedsAppBridgeActivation(false);
 
-    if (!linkedOk) {
-      try {
-        const secret = computeFirebaseAppBridgeSecret(email);
-        const cred = EmailAuthProvider.credential(email, secret);
-        await linkWithCredential(firebaseUser, cred);
-        linkedOk = true;
-        setNeedsAppBridgeActivation(false);
-      } catch (err: any) {
-        if (err?.code === 'auth/provider-already-linked' || err?.code === 'auth/credential-already-in-use') {
-          linkedOk = true;
-          setNeedsAppBridgeActivation(false);
-        } else if (err?.code === 'auth/requires-recent-login') {
-          // Session on website is >5 mins old; flag so user can 1-click refresh it
-          setNeedsAppBridgeActivation(true);
-        }
-      }
-    } else {
-      setNeedsAppBridgeActivation(false);
-    }
-
-    // Save account metadata locally on this device only (never overwrite passportShares or public settings)
+    // Save non-sensitive display metadata locally on this device only (never derive passwords or store tokens in Firestore)
     saveDeviceGoogleAccount({
       email,
       displayName: googleName,
@@ -411,7 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastUsedAt: Date.now(),
     });
 
-    return linkedOk || Boolean(oauthIdToken || oauthAccessToken);
+    return true;
   };
 
   /**
@@ -758,126 +718,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Step 3: Check Firestore `settings/gbridge_{email}` (readable by `allow read: if true`) for a fresh synced OAuth token from the Website!
-    if (db) {
-      try {
-        const bridgeSnap = await getDoc(doc(db, 'settings', getEmailBridgeDocId(cleanEmail)));
-        if (bridgeSnap.exists()) {
-          const bData = bridgeSnap.data();
-          if (bData?.oauthIdToken || bData?.oauthAccessToken) {
-            try {
-              const cloudCred = GoogleAuthProvider.credential(
-                bData.oauthIdToken || null,
-                bData.oauthAccessToken || undefined
-              );
-              const cred = await signInWithCredential(auth, cloudCred);
-              await syncGoogleBridgeToFirestore(cred.user, bData.oauthIdToken, bData.oauthAccessToken);
-              setGuestModeActive(false);
-              setIsGuest(false);
-              closeAuthModal();
-              return;
-            } catch {
-              /* Token may have expired after 1 hour; proceed to Step 4 password bridge */
-            }
-          }
-        }
-      } catch {
-        /* ignore offline */
-      }
-    }
-
-    // Step 4: Sign in silently to the REAL Firebase Auth account using the linked App Bridge Secret!
-    const bridgeSecret = computeFirebaseAppBridgeSecret(cleanEmail);
+    // Section 2 Security Fix: Authenticate exclusively via verified Firebase Google OAuth popup/redirect.
+    // Never derive credentials from email addresses or read OAuth tokens from public Firestore documents.
     try {
-      const cred = await signInWithEmailAndPassword(auth, cleanEmail, bridgeSecret);
-      const googlePhoto =
-        cred.user.photoURL ||
-        cred.user.providerData?.find((p) => p?.photoURL)?.photoURL ||
-        profile.photoURL ||
-        resolveGoogleAvatarUrl(cleanEmail);
-      const googleName =
-        cred.user.displayName ||
-        cred.user.providerData?.find((p) => p?.displayName)?.displayName ||
-        profile.displayName ||
-        formatDisplayNameFromEmail(cleanEmail);
-
-      if (!cred.user.displayName || !cred.user.photoURL) {
-        await updateProfile(cred.user, {
-          displayName: googleName,
-          photoURL: googlePhoto,
-        }).catch(() => {});
-      }
-
-      saveDeviceGoogleAccount({
-        email: cleanEmail,
-        displayName: googleName,
-        uid: cred.user.uid,
-        photoURL: googlePhoto,
-        lastUsedAt: Date.now(),
-      });
-
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ login_hint: cleanEmail });
+      const popCred = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
+      const oauthCred = GoogleAuthProvider.credentialFromResult(popCred);
+      await syncGoogleBridgeToFirestore(
+        popCred.user,
+        oauthCred?.idToken,
+        oauthCred?.accessToken
+      );
       setGuestModeActive(false);
       setIsGuest(false);
       closeAuthModal();
       return;
-    } catch (signInErr: any) {
-      const errCode = signInErr?.code || '';
-
-      // Step 5: Try creating if this Google email has never been registered on the Website yet
-      if (
-        errCode === 'auth/user-not-found' ||
-        errCode === 'auth/invalid-credential' ||
-        errCode === 'auth/wrong-password'
-      ) {
-        try {
-          const created = await createUserWithEmailAndPassword(auth, cleanEmail, bridgeSecret);
-          const googlePhoto = profile.photoURL || resolveGoogleAvatarUrl(cleanEmail);
-          const googleName = profile.displayName || formatDisplayNameFromEmail(cleanEmail);
-          await updateProfile(created.user, {
-            displayName: googleName,
-            photoURL: googlePhoto,
-          }).catch(() => {});
-
-          saveDeviceGoogleAccount({
-            email: cleanEmail,
-            displayName: googleName,
-            uid: created.user.uid,
-            photoURL: googlePhoto,
-            lastUsedAt: Date.now(),
-          });
-
-          setGuestModeActive(false);
-          setIsGuest(false);
-          closeAuthModal();
-          return;
-        } catch {
-          // Account ALREADY exists in Firebase from the Website!
-          if (!hasNativeGoogleAccountPicker()) {
-            const provider = new GoogleAuthProvider();
-            provider.setCustomParameters({ login_hint: cleanEmail });
-            const popCred = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
-            const oauthCred = GoogleAuthProvider.credentialFromResult(popCred);
-            await syncGoogleBridgeToFirestore(
-              popCred.user,
-              oauthCred?.idToken,
-              oauthCred?.accessToken
-            );
-            setGuestModeActive(false);
-            setIsGuest(false);
-            closeAuthModal();
-            return;
-          }
-
-          const bridgeNeededErr = new Error('auth/needs-one-time-web-bridge') as any;
-          bridgeNeededErr.code = 'auth/needs-one-time-web-bridge';
-          bridgeNeededErr.email = cleanEmail;
-          setError('auth/needs-one-time-web-bridge');
-          throw bridgeNeededErr;
-        }
-      }
-
-      setError(errCode || 'auth/unknown');
-      throw signInErr;
+    } catch (oauthErr: any) {
+      const errCode = oauthErr?.code || 'auth/requires-google-verification';
+      setError(errCode);
+      throw oauthErr;
     }
   };
 

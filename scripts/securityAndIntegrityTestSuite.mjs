@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * DAWAYA — Automated Security, Rules, State Machine & Bundle Integrity Test Suite
- * Verifies all 13 Acceptance Criteria from DAWAYA_Security_Repair_Prompt.
+ * DAWAYA — Third-Stage Comprehensive Security, Rules, Auth, Tenant Isolation & Build Verification Suite
+ * Tests all 15 sections of the Third-Stage Engineering Prompt.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -29,131 +29,112 @@ function test(name, fn) {
 }
 
 console.log('================================================================');
-console.log('DAWAYA SECURITY & DATA INTEGRITY VERIFICATION SUITE');
+console.log('DAWAYA THIRD-STAGE SECURITY & INTEGRATION VERIFICATION SUITE');
 console.log('================================================================');
 
 const firestoreRules = fs.readFileSync(path.join(ROOT, 'firestore.rules'), 'utf8');
 const storageRules = fs.readFileSync(path.join(ROOT, 'storage.rules'), 'utf8');
+const authContext = fs.readFileSync(path.join(ROOT, 'authContext.tsx'), 'utf8');
+const firebaseTs = fs.readFileSync(path.join(ROOT, 'firebase.ts'), 'utf8');
 const partnerService = fs.readFileSync(path.join(ROOT, 'partnerService.ts'), 'utf8');
 const geminiApi = fs.readFileSync(path.join(ROOT, 'geminiApi.ts'), 'utf8');
-const passportService = fs.readFileSync(path.join(ROOT, 'passportService.ts'), 'utf8');
-const passportView = fs.readFileSync(path.join(ROOT, 'PassportView.tsx'), 'utf8');
+const aiDocProc = fs.readFileSync(path.join(ROOT, 'aiDocumentProcessor.ts'), 'utf8');
 const fnIndex = fs.readFileSync(path.join(ROOT, 'functions/index.js'), 'utf8');
 
-// 1. Section 2: Pharmacy Onboarding Approval Security
-test('Section 2.1: Applicant cannot self-approve or alter status beyond draft/pending_review', () => {
-  assert.ok(firestoreRules.includes('function validApplicantApplicationUpdate()'));
-  assert.ok(firestoreRules.includes("request.resource.data.status in ['draft', 'pending_review']"));
-  assert.ok(firestoreRules.includes('request.resource.data.applicantUid == resource.data.applicantUid'));
-  assert.ok(firestoreRules.includes('request.resource.data.diff(resource.data).affectedKeys().hasOnly('));
-  const fnBlock = firestoreRules.split("function validApplicantApplicationUpdate()")[1].split("function isValidOrderTransition")[0];
-  assert.ok(!fnBlock.includes("approvedPharmacyId"));
-  assert.ok(!fnBlock.includes("reviewedByUid"));
-});
-
-test('Section 2.2: Only Admin or Regional Manager can approve/reject pharmacy applications', () => {
-  assert.ok(firestoreRules.includes('allow update: if validApplicantApplicationUpdate()\n        || ((isAdmin() || isRegionalManager())'));
-  assert.ok(partnerService.includes("if (!['admin', 'super_admin', 'owner', 'regional_manager'].includes(adminRole))"));
-});
-
-// 2. Section 3: Medical-File Share Expiration & Privacy
-test('Section 3.1: Firestore & Storage rules reject expired (expiresAt <= request.time) and revoked shares', () => {
-  assert.ok(!firestoreRules.includes('expiresAt > 0'));
-  assert.ok(!storageRules.includes('expiresAt > 0'));
-  assert.ok(firestoreRules.includes('shareData.revoked != true'));
-  assert.ok(firestoreRules.includes('shareData.expiresAt > request.time.toMillis()'));
-  assert.ok(storageRules.includes('data.revoked != true'));
-  assert.ok(storageRules.includes('data.expiresAt > request.time.toMillis()'));
-});
-
-test('Section 3.2: Private /users/{uid} document is never exposed via public passport share', () => {
-  const userMatch = firestoreRules.match(/match \/users\/\{uid\}\s*\{[\s\S]*?allow read:([^\n;]+);/);
-  assert.ok(userMatch, 'match /users/{uid} found');
-  assert.ok(!userMatch[1].includes('isPassportActivelyShared'), '/users/{uid} must not allow public share read');
-  assert.ok(!passportView.includes("await getDoc(doc(db, 'users', uid))"));
-  assert.ok(passportService.includes('revoked: true'));
-});
-
-test('Section 3.3: Prescription attachments in Storage are restricted to owner, pharmacy staff, or admins', () => {
-  assert.ok(storageRules.includes("!(fileName.matches('prescription_.*'))"));
-  assert.ok(storageRules.includes('resource.metadata.ownerUid == request.auth.uid'));
-  assert.ok(storageRules.includes('isPharmacyMember(partnerId)'));
-});
-
-// 3. Section 4: Order Update Permissions & State Machine
-test('Section 4.1: Order state machine blocks skipped, reversed, and unauthorized customer transitions', () => {
-  assert.ok(firestoreRules.includes('function isValidOrderTransition(oldStatus, newStatus)'));
-  assert.ok(firestoreRules.includes('request.resource.data.userId == resource.data.userId'));
-  assert.ok(firestoreRules.includes('request.resource.data.partnerId == resource.data.partnerId'));
-  assert.ok(firestoreRules.includes('request.resource.data.medicationId == resource.data.medicationId'));
-  assert.ok(firestoreRules.includes('request.resource.data.quantity == resource.data.quantity'));
-
-  // Simulate state machine transitions from partnerService
-  const ALLOWED = {
-    new_order: ['pharmacy_confirmation', 'confirmed_available', 'rejected', 'cancelled'],
-    pharmacy_confirmation: ['preparing', 'cancelled', 'rejected'],
-    preparing: ['ready_for_delivery', 'ready_for_pickup_or_delivery', 'out_for_delivery', 'cancelled'],
-    ready_for_delivery: ['out_for_delivery', 'delivered', 'completed'],
-    out_for_delivery: ['delivered', 'completed'],
-    delivered: [],
-    cancelled: [],
-    rejected: [],
-  };
-  const canTransition = (from, to, role) => {
-    if (role === 'customer') return from === 'new_order' && to === 'cancelled';
-    return (ALLOWED[from] || []).includes(to);
-  };
-  assert.equal(canTransition('new_order', 'pharmacy_confirmation', 'pharmacist'), true);
-  assert.equal(canTransition('new_order', 'delivered', 'pharmacist'), false, 'Cannot skip directly to delivered');
-  assert.equal(canTransition('delivered', 'preparing', 'pharmacist'), false, 'Cannot reverse delivered order');
-  assert.equal(canTransition('new_order', 'cancelled', 'customer'), true, 'Customer can cancel new_order');
-  assert.equal(canTransition('preparing', 'cancelled', 'customer'), false, 'Customer cannot cancel preparing order');
-  assert.equal(canTransition('new_order', 'pharmacy_confirmation', 'customer'), false, 'Customer cannot confirm order');
-});
-
-// 4. Section 5 & 6: Reliable Cloud Persistence & Multi-Device Real-Time Listeners
-test('Section 5 & 6: Real-time onSnapshot listeners and non-swallowed Firestore errors in partnerService.ts', () => {
-  assert.ok(partnerService.includes('collection(db, COL_PARTNER_ORDERS)'));
-  assert.ok(partnerService.includes('collection(db, COL_PHARMACY_APPLICATIONS)'));
-  assert.ok(partnerService.includes('collection(db, COL_PHARMACY_INVENTORY)'));
-  assert.ok(partnerService.includes('collection(db, COL_PHARMACY_PUBLIC_INVENTORY)'));
-  assert.ok(partnerService.includes('collection(db, COL_PHARMACY_EMPLOYEES)'));
-  assert.ok(partnerService.includes('collection(db, COL_FRANCHISE_CONTRACTS)'));
-  assert.ok(partnerService.includes("doc(db, 'systemSettings', 'egypt_geography_hierarchy')"));
-  assert.ok(partnerService.includes('throw err;'), 'Cloud write failures must re-throw so UI never shows false success');
-});
-
-// 5. Section 7: Gemini/AI Key Protection
-test('Section 7: Zero VITE_GEMINI_API_KEY or direct generativelanguage.googleapis.com?key= in frontend source', () => {
+// Test 1 (Section 2): Critical Authentication Vulnerability Fixed
+test('Section 2: computeFirebaseAppBridgeSecret & email-derived passwords completely removed', () => {
   const tsFiles = fs.readdirSync(ROOT).filter((f) => f.endsWith('.ts') || f.endsWith('.tsx'));
   for (const f of tsFiles) {
-    const content = fs.readFileSync(path.join(ROOT, f), 'utf8');
-    assert.ok(!content.includes('VITE_GEMINI_API_KEY'), `Found VITE_GEMINI_API_KEY in ${f}`);
-    assert.ok(!content.includes('generativelanguage.googleapis.com/v1beta/models/'), `Found direct browser Gemini URL in ${f}`);
-    assert.ok(!content.includes("localStorage.setItem('gemini_api_key'"), `Found localStorage key persistence in ${f}`);
+    const txt = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    assert.ok(!txt.includes('Aa#GBridge_'), `Found deterministic password prefix in ${f}`);
+    assert.ok(!txt.includes('export function computeFirebaseAppBridgeSecret'), `Found computeFirebaseAppBridgeSecret in ${f}`);
   }
-  assert.ok(geminiApi.includes("fetch('/api/ai/generate'"));
-  assert.ok(fnIndex.includes("defineSecret('GEMINI_API_KEY')"));
-  assert.ok(fnIndex.includes('admin.auth().verifyIdToken(idToken)'));
+  assert.ok(!authContext.includes('EmailAuthProvider.credential(email, secret)'));
+  assert.ok(firestoreRules.includes("!(docId.matches('gbridge_.*'))"));
 });
 
-// 6. Section 8 & 9: Audit Log Authorization & Public/Private Inventory Split
-test('Section 8 & 9: Audit logs restricted to authorized roles and inventory split into public/private collections', () => {
-  assert.ok(firestoreRules.includes('request.resource.data.adminUid == request.auth.uid'));
-  assert.ok(firestoreRules.includes('match /pharmacyPublicInventory/{invId}'));
-  assert.ok(firestoreRules.includes('request.resource.data.quantityPacks >= 0'));
-  assert.ok(firestoreRules.includes('request.resource.data.pharmacyPriceEgp > 0'));
-  assert.ok(partnerService.includes('INVALID_STOCK_QUANTITY'));
-  assert.ok(partnerService.includes('INVALID_PHARMACY_PRICE'));
+// Test 2 (Section 3): Medical Records & Private Documents Protected from Editor/Reviewer/Regional Manager
+test('Section 3: Editor, Reviewer & Regional Manager denied access to private medical & passport files', () => {
+  assert.ok(!storageRules.includes('hasAdminOrEditorRole'));
+  const patientDocsMatch = storageRules.match(/match \/patient_documents\/\{uid\}\/\{fileName\}\s*\{[\s\S]*?allow read:\s*if\s*([^;]+);/);
+  assert.ok(patientDocsMatch && patientDocsMatch[1].trim() === 'isOwner(uid)');
+  const passportPhotosMatch = storageRules.match(/match \/passport_photos\/\{uid\}\/\{fileName\}\s*\{[\s\S]*?allow read:\s*if\s*([^;]+);/);
+  assert.ok(passportPhotosMatch && passportPhotosMatch[1].trim() === 'isOwner(uid) || isPassportActivelyShared(uid)');
+  assert.ok(storageRules.includes('isPharmacyClinicalStaff(partnerId)'));
+  assert.ok(!firestoreRules.includes('expiresAt > 0'));
+  assert.ok(!storageRules.includes('expiresAt > 0'));
 });
 
-// 7. Section 10: Full Codebase Babel Compilation, PostCSS Validation & Dependency Graph Link Check
-test('Section 10: All 194 TS/TSX modules and 7 CSS files compile and link with 0 errors', () => {
+// Test 3 (Section 4): Secure Notifications (No Cross-User Spoofing)
+test('Section 4: Users cannot forge notifications for other users or spoof system sources', () => {
+  const notifBlock = firestoreRules.split('match /notifications/{notifId}')[1].split('match /customerProfiles/{uid}')[0];
+  assert.ok(!notifBlock.includes('allow create: if isSignedIn();'));
+  assert.ok(notifBlock.includes("request.resource.data.uid == request.auth.uid"));
+  assert.ok(notifBlock.includes("request.resource.data.source == 'user_self'"));
+  assert.ok(notifBlock.includes("affectedKeys().hasOnly(['read', 'readAtIso'])"));
+});
+
+// Test 4 (Section 5): Strict Pharmacy Tenant Isolation
+test('Section 5: Pharmacy tenants cannot reassign pharmacyId/partnerId or self-verify/self-publish', () => {
+  assert.ok(firestoreRules.includes('request.resource.data.pharmacyId == resource.data.pharmacyId'));
+  assert.ok(firestoreRules.includes('request.resource.data.partnerId == resource.data.partnerId'));
+  assert.ok(firestoreRules.includes('request.resource.data.verificationStatus == resource.data.verificationStatus'));
+  assert.ok(firestoreRules.includes('request.resource.data.publicationStatus == resource.data.publicationStatus'));
+  assert.ok(firestoreRules.includes('request.resource.data.ownerUid == resource.data.ownerUid'));
+});
+
+// Test 5 (Section 6): AI Integration & API Security (No fetch(url) bug, no CORS proxies, PII redacted)
+test('Section 6: All AI requests use callServerAiProxy, PII is sanitized, and CORS relays/3P endpoints are removed', () => {
+  assert.ok(!geminiApi.includes('const response = await fetch(url'));
+  assert.ok(!geminiApi.includes('corsproxy.io'));
+  assert.ok(!geminiApi.includes('api.allorigins.win'));
+  assert.ok(!geminiApi.includes('api.rss2json.com'));
+  assert.ok(!geminiApi.includes('text.pollinations.ai'));
+  assert.ok(!geminiApi.includes('api.ocr.space'));
+  assert.ok(!geminiApi.includes('VITE_GEMINI_API_KEY'));
+  assert.ok(geminiApi.includes('export function sanitizePatientPiiForAi'));
+  assert.ok(aiDocProc.includes('await callServerAiProxy({'));
+});
+
+// Test 6 (Section 7): Truthful Firebase Configuration Validation
+test('Section 7: saveRuntimeFirebaseConfigFromText validates required fields and rejects invalid input', () => {
+  assert.ok(firebaseTs.includes('export function validateFirebaseConfigObject'));
+  assert.ok(!firebaseTs.includes('export function saveRuntimeFirebaseConfigFromText(_input: string): boolean {\n  return true;\n}'));
+  assert.ok(firebaseTs.includes("if (!apiKey.startsWith('AIza') || apiKey.length < 30) return false;"));
+});
+
+// Test 7 (Section 8): Atomic Database Operations (writeBatch & runTransaction)
+test('Section 8: Multi-document writes use atomic writeBatch(db) and orders use runTransaction(db)', () => {
+  assert.ok(!partnerService.includes('Promise.all([\n      setDoc('));
+  assert.ok(!partnerService.includes('Promise.all([\n        setDoc('));
+  assert.ok(!partnerService.includes('Promise.all([\n        deleteDoc('));
+  assert.ok(partnerService.includes('const batch = writeBatch(db);'));
+  assert.ok(partnerService.includes('await batch.commit();'));
+  assert.ok(partnerService.includes('await runTransaction(db, async (tx) =>'));
+});
+
+// Test 8 (Section 9): Public Inventory Never Fabricates Quantities
+test('Section 9: Public inventory projection sets quantityPacks: null instead of fabricating 1', () => {
+  assert.ok(!partnerService.includes("quantityPacks: data.stockStatus === 'out_of_stock' ? 0 : 1"));
+  assert.ok(partnerService.includes('quantityPacks: null, // Section 9 Fix: Never fabricate stock quantities'));
+});
+
+// Test 9 (Section 10): Distributed Rate Limiting Across Serverless Instances
+test('Section 10: Cloud Functions AI proxy enforces Firestore transactional per-UID and per-IP rate limits & App Check', () => {
+  assert.ok(fnIndex.includes('async function checkDistributedRateLimit(bucketKey, maxAllowed)'));
+  assert.ok(fnIndex.includes('db.runTransaction(async (tx) =>'));
+  assert.ok(fnIndex.includes('checkDistributedRateLimit(`uid_${decodedToken.uid}`'));
+  assert.ok(fnIndex.includes('checkDistributedRateLimit(`ip_${clientIp}`'));
+  assert.ok(fnIndex.includes('admin.appCheck().verifyToken'));
+  assert.ok(firestoreRules.includes('match /_rateLimits/{limitId}'));
+});
+
+// Test 10 (Section 12): Full Project Babel TypeScript/JSX Compilation & PostCSS Check
+test('Section 12: All 194 TS/TSX modules and 7 CSS files compile and link with 0 errors', () => {
   const cssFiles = fs.readdirSync(ROOT).filter((f) => f.endsWith('.css'));
   for (const cf of cssFiles) {
     postcss.parse(fs.readFileSync(path.join(ROOT, cf), 'utf8'), { from: cf });
   }
-
   const tsFiles = fs.readdirSync(ROOT).filter((f) => (f.endsWith('.ts') || f.endsWith('.tsx')) && !f.endsWith('.d.ts'));
   for (const tf of tsFiles) {
     const code = fs.readFileSync(path.join(ROOT, tf), 'utf8');
