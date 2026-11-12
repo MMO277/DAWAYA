@@ -5,9 +5,6 @@ import { PublicPartnerPlacementSection } from './PartnersDirectory';
 import { CSSProperties, FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLang } from './i18n';
-import { useAuth } from './authContext';
-import OwnerVisionHub from './OwnerVisionHub';
-import PharmacyOwnerDashboard from './PharmacyOwnerDashboard';
 import { ARTICLES } from './articlesData';
 import { pick, tr } from './types';
 import Disclaimer from './Disclaimer';
@@ -31,7 +28,6 @@ const GlobalSpotlightModal = lazy(() =>
 
 export default function Home() {
   const { t, lang } = useLang();
-  const authCtx = useAuth();
   const isAr = lang === 'ar';
   const nav = useNavigate();
   const { isProMode, setProMode } = useClinicalProMode();
@@ -692,98 +688,8 @@ export default function Home() {
     { id: 'doctor', icon: '🩺', ar: 'للطبيب والصيدلي', en: 'Doctor & Pharmacist' },
   ];
 
-  if (authCtx.user && authCtx.activeMode === 'admin') {
-    return (
-      <main className="wrap stack" style={{ paddingTop: '12px' }}>
-        <OwnerVisionHub onOpenFullAdminTab={() => nav('/admin')} />
-      </main>
-    );
-  }
-
-  if (authCtx.user && authCtx.activeMode === 'pharmacy') {
-    return <PharmacyOwnerDashboard />;
-  }
-
   return (
     <main style={{ paddingTop: 0 }}>
-      {authCtx.user && authCtx.availableModes && authCtx.availableModes.length > 1 && (
-        <div
-          className="wrap"
-          style={{
-            paddingTop: '10px',
-            paddingBottom: '6px',
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              background: '#0D1F38',
-              padding: '4px',
-              borderRadius: '999px',
-              border: '1.5px solid #CFD29D',
-              gap: '4px',
-              flexWrap: 'wrap',
-              boxShadow: '0 6px 18px rgba(13, 31, 56, 0.22)',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => authCtx.switchMode('patient')}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '999px',
-                border: 'none',
-                background: '#CFD29D',
-                color: '#0D1F38',
-                fontWeight: 900,
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-              }}
-            >
-              {isAr ? 'وضع المريض (الحالي)' : 'Patient Mode'}
-            </button>
-            {authCtx.availableModes.some((m) => m.mode === 'pharmacy') && (
-              <button
-                type="button"
-                onClick={() => authCtx.switchMode('pharmacy')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '999px',
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  fontSize: '0.8rem',
-                  cursor: 'pointer',
-                }}
-              >
-                {isAr ? 'غرفة صاحب الصيدلية' : 'Pharmacy Vision'}
-              </button>
-            )}
-            {authCtx.availableModes.some((m) => m.mode === 'admin') && (
-              <button
-                type="button"
-                onClick={() => authCtx.switchMode('admin')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '999px',
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#CFD29D',
-                  fontWeight: 800,
-                  fontSize: '0.8rem',
-                  cursor: 'pointer',
-                }}
-              >
-                {isAr ? 'رؤية مالك المنصة' : 'Owner Vision'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
       <style>{`
         .modern-hero {
           background: linear-gradient(145deg, #101E36 0%, #162B4D 52%, #138866 100%);

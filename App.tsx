@@ -8,7 +8,6 @@ import { AuthProvider } from './authContext';
 import { EmergencyLocationProvider } from './emergencyLocation';
 import AuthModal from './AuthModal';
 import Home from './Home';
-import { ProtectedRoute } from './RoleSwitcherAndGuard';
 import { startPartnerEcosystemSync } from './partnerService';
 
 /**
@@ -215,42 +214,8 @@ export default function App() {
                 <Route path="/medicines" element={<Medicines />} />
                 <Route path="/partners" element={<PartnersDirectoryPage />} />
                 <Route path="/pharmacies" element={<PartnersDirectoryPage />} />
-                <Route
-                  path="/pharmacy-portal"
-                  element={
-                    <ProtectedRoute
-                      requiredMode="pharmacy"
-                      requiredRoles={[
-                        'pharmacy_owner',
-                        'pharmacy_manager',
-                        'pharmacist',
-                        'pharmacy_employee',
-                        'central_admin',
-                        'super_admin',
-                      ]}
-                    >
-                      <PharmacyOwnerDashboard />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/pharmacy-dashboard"
-                  element={
-                    <ProtectedRoute
-                      requiredMode="pharmacy"
-                      requiredRoles={[
-                        'pharmacy_owner',
-                        'pharmacy_manager',
-                        'pharmacist',
-                        'pharmacy_employee',
-                        'central_admin',
-                        'super_admin',
-                      ]}
-                    >
-                      <PharmacyOwnerDashboard />
-                    </ProtectedRoute>
-                  }
-                />
+                <Route path="/pharmacy-portal" element={<PharmacyOwnerDashboard />} />
+                <Route path="/pharmacy-dashboard" element={<PharmacyOwnerDashboard />} />
                 <Route path="/partner/:id" element={<PartnerPublicProfilePage />} />
                 <Route path="/cost-saver" element={<CostSaver />} />
                 <Route path="/cold-shot-warning" element={<ColdShotWarning />} />
@@ -392,58 +357,9 @@ export default function App() {
                   }
                 />
                 <Route path="/game" element={<BacteriaHunter />} />
-                <Route
-                  path="/admin"
-                  element={
-                    configured ? (
-                      <ProtectedRoute
-                        requiredMode="admin"
-                        requiredRoles={[
-                          'super_admin',
-                          'central_admin',
-                          'regional_manager',
-                          'content_reviewer',
-                          'content_editor',
-                          'viewer',
-                        ]}
-                      >
-                        <Dashboard />
-                      </ProtectedRoute>
-                    ) : (
-                      <ConfigMissing />
-                    )
-                  }
-                />
-                <Route
-                  path="/admin/new"
-                  element={
-                    configured ? (
-                      <ProtectedRoute
-                        requiredMode="admin"
-                        requiredPermissions={['medications.manage']}
-                      >
-                        <Editor />
-                      </ProtectedRoute>
-                    ) : (
-                      <ConfigMissing />
-                    )
-                  }
-                />
-                <Route
-                  path="/admin/medicine/:id"
-                  element={
-                    configured ? (
-                      <ProtectedRoute
-                        requiredMode="admin"
-                        requiredPermissions={['medications.manage']}
-                      >
-                        <Editor />
-                      </ProtectedRoute>
-                    ) : (
-                      <ConfigMissing />
-                    )
-                  }
-                />
+                <Route path="/admin" element={configured ? <Dashboard /> : <ConfigMissing />} />
+                <Route path="/admin/new" element={configured ? <Editor /> : <ConfigMissing />} />
+                <Route path="/admin/medicine/:id" element={configured ? <Editor /> : <ConfigMissing />} />
                 <Route path="/passport" element={<SmartPassport />} />
                 <Route path="/smart-passport" element={<SmartPassport />} />
                 <Route path="/passport/:uid" element={<PassportView />} />

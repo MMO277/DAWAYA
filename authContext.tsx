@@ -3,8 +3,6 @@ import {
   useContext,
   useEffect,
   useState,
-  useCallback,
-  useMemo,
   ReactNode,
 } from 'react';
 import {
@@ -24,65 +22,42 @@ import {
   GoogleAuthProvider,
   browserPopupRedirectResolver,
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, configured } from './firebase';
-import {
-  AccountStatus,
-  AuthorizationState,
-  CanonicalRole,
-  CANONICAL_ROLES,
-  computeEffectivePermissions,
-  DEFAULT_AUTHZ_STATE,
-  ensureDefaultPatientProfile,
-  fetchUserAuthorizationState,
-  getActiveMembership as rbacGetActiveMembership,
-  getAuthorizedRoles as rbacGetAuthorizedRoles,
-  getAvailableInterfaceModes,
-  getInterfaceModeForRole,
-  hasPermission as rbacHasPermission,
-  hasRole as rbacHasRole,
-  canAccessBranch as rbacCanAccessBranch,
-  canAccessPharmacy as rbacCanAccessPharmacy,
-  canAccessRegion as rbacCanAccessRegion,
-  InterfaceMode,
-  normalizeRoleId,
-  PermissionId,
-  PharmacyMembership,
-  RegionalMembership,
-  Role as RbacRole,
-  toLegacyCompatibleRole,
-} from './rbacEngine';
 
 export type AuthMode = 'login' | 'register' | 'forgot';
-export type Role = RbacRole;
+export type Role =
+  | 'owner'
+  | 'super_admin'
+  | 'admin'
+  | 'regional_manager'
+  | 'reviewer'
+  | 'editor'
+  | 'pharmacy_owner'
+  | 'pharmacy_manager'
+  | 'pharmacist'
+  | 'employee'
+  | 'viewer'
+  | 'customer'
+  | 'user';
 
 export const ROLES: Role[] = [
-  'super_admin',
-  'central_admin',
   'owner',
+  'super_admin',
   'admin',
   'regional_manager',
-  'content_reviewer',
   'reviewer',
-  'content_editor',
   'editor',
   'pharmacy_owner',
   'pharmacy_manager',
   'pharmacist',
-  'pharmacy_employee',
   'employee',
   'viewer',
-  'patient',
   'customer',
 ];
 
-export { CANONICAL_ROLES };
-
 export const GUEST_MODE_KEY = 'aa_guest_mode';
 const ROLE_CACHE_PREFIX = 'aa_cached_role_';
-const ACTIVE_ROLE_CACHE_PREFIX = 'aa_active_role_';
-const ACTIVE_PHARMACY_CACHE_PREFIX = 'aa_active_pharm_';
-const ACTIVE_REGION_CACHE_PREFIX = 'aa_active_region_';
 export const SAVED_GOOGLE_ACCOUNTS_KEY = 'aa_saved_google_accounts_v1';
 
 export interface SavedGoogleAccount {
@@ -199,6 +174,7 @@ export function removeSavedDeviceGoogleAccount(email: string): void {
 }
 
 export async function fetchCloudSyncedGoogleAccounts(): Promise<SavedGoogleAccount[]> {
+  // Strictly return accounts saved on THIS device only (never leak global accounts across visitors)
   return getSavedDeviceGoogleAccounts();
 }
 
@@ -245,36 +221,6 @@ export interface NativePickedGoogleProfile {
 export interface AuthContextType {
   user: User | null;
   role: Role | null;
-  canonicalRole: CanonicalRole;
-  activeRole: CanonicalRole;
-  activeMode: InterfaceMode;
-  authorizedRoles: CanonicalRole[];
-  pharmacyMemberships: PharmacyMembership[];
-  regionalMemberships: RegionalMembership[];
-  activePharmacyId: string | null;
-  activeRegionId: string | null;
-  effectivePermissions: PermissionId[];
-  accountStatus: AccountStatus;
-  availableModes: {
-    mode: InterfaceMode;
-    role: CanonicalRole;
-    labelAr: string;
-    labelEn: string;
-    badge: string;
-    targetRoute: string;
-  }[];
-  switchMode: (
-    modeOrRole: InterfaceMode | CanonicalRole,
-    options?: { pharmacyId?: string; regionId?: string }
-  ) => boolean;
-  refreshPermissions: () => Promise<void>;
-  hasRole: (targetRole: Role) => boolean;
-  hasPermission: (perm: PermissionId, options?: { pharmacyId?: string; regionId?: string }) => boolean;
-  canAccessPharmacy: (pharmacyId: string) => boolean;
-  canAccessBranch: (pharmacyId: string, branchId: string) => boolean;
-  canAccessRegion: (regionId: string) => boolean;
-  getActiveMembership: (pharmacyId?: string) => PharmacyMembership | null;
-  getAuthorizedRoles: () => CanonicalRole[];
   roleStatus: string;
   loading: boolean;
   error: string | null;
@@ -304,26 +250,6 @@ export interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   role: null,
-  canonicalRole: 'patient',
-  activeRole: 'patient',
-  activeMode: 'patient',
-  authorizedRoles: ['patient'],
-  pharmacyMemberships: [],
-  regionalMemberships: [],
-  activePharmacyId: null,
-  activeRegionId: null,
-  effectivePermissions: ['patient.access', 'medications.view'],
-  accountStatus: 'active',
-  availableModes: [],
-  switchMode: () => false,
-  refreshPermissions: async () => {},
-  hasRole: () => false,
-  hasPermission: () => false,
-  canAccessPharmacy: () => false,
-  canAccessBranch: () => false,
-  canAccessRegion: () => false,
-  getActiveMembership: () => null,
-  getAuthorizedRoles: () => ['patient'],
   roleStatus: '',
   loading: false,
   error: null,
@@ -391,7 +317,6 @@ export function translateAuthError(errCode: string, isAr = true): string {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<Role | null>(null);
-  const [authzState, setAuthzState] = useState<AuthorizationState>(DEFAULT_AUTHZ_STATE);
   const [roleStatus, setRoleStatus] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -426,6 +351,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setNeedsAppBridgeActivation(false);
 
+    // Save non-sensitive display metadata locally on this device only (never derive passwords or store tokens in Firestore)
     saveDeviceGoogleAccount({
       email,
       displayName: googleName,
@@ -472,223 +398,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
-  const syncUserRoleInBackground = useCallback(async (uid: string, currentUser?: User | null) => {
-    let preferredActiveRole: CanonicalRole | null = null;
+  const syncUserRoleInBackground = async (uid: string, currentUser?: User | null) => {
     try {
-      const savedActive = localStorage.getItem(ACTIVE_ROLE_CACHE_PREFIX + uid);
-      if (savedActive) preferredActiveRole = normalizeRoleId(savedActive);
       const cachedR = localStorage.getItem(ROLE_CACHE_PREFIX + uid) as Role | null;
       if (cachedR && ROLES.includes(cachedR)) {
         setRole(cachedR);
         setRoleStatus('ok');
-      } else {
-        // Section 3: Every signed-in user receives 'patient' automatically as safe baseline
-        setRole('patient');
-        setRoleStatus('ok');
       }
-    } catch {
-      setRole('patient');
-    }
+    } catch {}
 
-    let claimRoleStr: string | null = null;
-    if (currentUser && typeof currentUser.getIdTokenResult === 'function') {
-      try {
-        const tokenResult = await currentUser.getIdTokenResult().catch(() => null);
-        if (typeof tokenResult?.claims?.role === 'string') {
-          claimRoleStr = tokenResult.claims.role.trim().toLowerCase();
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-
+    if (!db || !configured) return;
     try {
-      const resolvedState = await fetchUserAuthorizationState(
-        uid,
-        currentUser?.email,
-        claimRoleStr,
-        preferredActiveRole
-      );
-
-      // Restore cached pharmacyId / regionId if still valid in memberships
-      try {
-        const cachedPharmId = localStorage.getItem(ACTIVE_PHARMACY_CACHE_PREFIX + uid);
-        if (
-          cachedPharmId &&
-          resolvedState.pharmacyMemberships.some((m) => m.status === 'active' && m.pharmacyId === cachedPharmId)
-        ) {
-          resolvedState.activePharmacyId = cachedPharmId;
+      if (currentUser && typeof currentUser.getIdTokenResult === 'function') {
+        const tokenResult = await currentUser.getIdTokenResult().catch(() => null);
+        const claimRole = tokenResult?.claims?.role;
+        if (typeof claimRole === 'string' && ROLES.includes(claimRole.trim().toLowerCase() as Role)) {
+          const r = claimRole.trim().toLowerCase() as Role;
+          setRole(r);
+          setRoleStatus('ok');
+          try { localStorage.setItem(ROLE_CACHE_PREFIX + uid, r); } catch {}
+          return;
         }
-        const cachedRegId = localStorage.getItem(ACTIVE_REGION_CACHE_PREFIX + uid);
-        if (
-          cachedRegId &&
-          resolvedState.regionalMemberships.some((m) => m.status === 'active' && m.regionId === cachedRegId)
-        ) {
-          resolvedState.activeRegionId = cachedRegId;
-        }
-      } catch {
-        /* ignore */
       }
 
-      setAuthzState(resolvedState);
-
-      // Expose legacy-compatible role for existing components while keeping patient as baseline
-      const legacyCompat =
-        resolvedState.primaryRole === 'patient'
-          ? 'patient'
-          : toLegacyCompatibleRole(resolvedState.primaryRole);
-      setRole(legacyCompat);
-      setRoleStatus(resolvedState.accountStatus === 'suspended' ? 'suspended' : 'ok');
-
-      try {
-        localStorage.setItem(ROLE_CACHE_PREFIX + uid, legacyCompat);
-        localStorage.setItem(ACTIVE_ROLE_CACHE_PREFIX + uid, resolvedState.activeRole);
-      } catch {
-        /* ignore */
+      const snap = await getDoc(doc(db, 'roles', uid));
+      if (!snap.exists()) {
+        setRole(null);
+        setRoleStatus('missing');
+      } else {
+        const raw = snap.data().role;
+        const r = typeof raw === 'string' ? (raw.trim().toLowerCase() as Role) : null;
+        if (r && ROLES.includes(r)) {
+          setRole(r);
+          setRoleStatus('ok');
+          try { localStorage.setItem(ROLE_CACHE_PREFIX + uid, r); } catch {}
+        } else {
+          setRole(null);
+          setRoleStatus(`invalid:${String(raw)}`);
+        }
       }
     } catch (e) {
-      // Safe fallback on network/offline error: strictly 'patient' permissions
-      setRole('patient');
       setRoleStatus(`error:${(e as { code?: string }).code ?? 'offline'}`);
     }
-  }, []);
-
-  /**
-   * Section 5: Secure Role & Interface Mode Switching without signing out.
-   * Verifies that the user actually owns the target role/mode and active membership before switching.
-   */
-  const switchMode = useCallback(
-    (
-      modeOrRole: InterfaceMode | CanonicalRole,
-      options?: { pharmacyId?: string; regionId?: string }
-    ): boolean => {
-      if (authzState.accountStatus === 'suspended') return false;
-
-      let targetRole: CanonicalRole = 'patient';
-      if (modeOrRole === 'patient') {
-        targetRole = 'patient';
-      } else if (modeOrRole === 'pharmacy') {
-        const pharmOrder: CanonicalRole[] = [
-          'pharmacy_owner',
-          'pharmacy_manager',
-          'pharmacist',
-          'pharmacy_employee',
-        ];
-        const found = pharmOrder.find((r) => authzState.authorizedRoles.includes(r));
-        if (found) {
-          targetRole = found;
-        } else if (
-          authzState.authorizedRoles.includes('super_admin') ||
-          authzState.authorizedRoles.includes('central_admin')
-        ) {
-          targetRole = 'pharmacy_owner';
-        } else {
-          return false;
-        }
-      } else if (modeOrRole === 'admin') {
-        const adminOrder: CanonicalRole[] = [
-          'super_admin',
-          'central_admin',
-          'regional_manager',
-          'content_reviewer',
-          'content_editor',
-          'viewer',
-        ];
-        const found = adminOrder.find((r) => authzState.authorizedRoles.includes(r));
-        if (!found) return false;
-        targetRole = found;
-      } else {
-        const normalized = normalizeRoleId(modeOrRole);
-        if (
-          !authzState.authorizedRoles.includes(normalized) &&
-          !authzState.authorizedRoles.includes('super_admin') &&
-          !authzState.authorizedRoles.includes('central_admin')
-        ) {
-          return false;
-        }
-        targetRole = normalized;
-      }
-
-      // Verify pharmacy scope if switching to pharmacy role
-      let nextPharmacyId = options?.pharmacyId || authzState.activePharmacyId;
-      if (
-        ['pharmacy_owner', 'pharmacy_manager', 'pharmacist', 'pharmacy_employee'].includes(targetRole) &&
-        !authzState.authorizedRoles.includes('super_admin') &&
-        !authzState.authorizedRoles.includes('central_admin')
-      ) {
-        const validMem =
-          authzState.pharmacyMemberships.find(
-            (m) => m.status === 'active' && (!nextPharmacyId || m.pharmacyId === nextPharmacyId)
-          ) || authzState.pharmacyMemberships.find((m) => m.status === 'active');
-        if (!validMem) return false;
-        nextPharmacyId = validMem.pharmacyId;
-      }
-
-      // Verify regional scope if switching to regional_manager
-      let nextRegionId = options?.regionId || authzState.activeRegionId;
-      if (
-        targetRole === 'regional_manager' &&
-        !authzState.authorizedRoles.includes('super_admin') &&
-        !authzState.authorizedRoles.includes('central_admin')
-      ) {
-        const validReg =
-          authzState.regionalMemberships.find(
-            (m) => m.status === 'active' && (!nextRegionId || m.regionId === nextRegionId)
-          ) || authzState.regionalMemberships.find((m) => m.status === 'active');
-        if (!validReg) return false;
-        nextRegionId = validReg.regionId;
-      }
-
-      const nextMode = getInterfaceModeForRole(targetRole);
-      const nextPerms = computeEffectivePermissions(
-        targetRole,
-        authzState.authorizedRoles,
-        authzState.pharmacyMemberships,
-        authzState.regionalMemberships,
-        nextPharmacyId
-      );
-
-      const nextState: AuthorizationState = {
-        ...authzState,
-        activeRole: targetRole,
-        activeMode: nextMode,
-        activePharmacyId: nextPharmacyId || null,
-        activeRegionId: nextRegionId || null,
-        effectivePermissions: nextPerms,
-      };
-      setAuthzState(nextState);
-
-      if (user?.uid) {
-        try {
-          localStorage.setItem(ACTIVE_ROLE_CACHE_PREFIX + user.uid, targetRole);
-          if (nextPharmacyId) {
-            localStorage.setItem(ACTIVE_PHARMACY_CACHE_PREFIX + user.uid, nextPharmacyId);
-          }
-          if (nextRegionId) {
-            localStorage.setItem(ACTIVE_REGION_CACHE_PREFIX + user.uid, nextRegionId);
-          }
-        } catch {
-          /* ignore */
-        }
-        // Persist UI activeRole preference in customerProfiles/{uid} (non-authoritative UI preference)
-        if (configured && db) {
-          setDoc(
-            doc(db, 'customerProfiles', user.uid),
-            { activeRole: targetRole, updatedAt: new Date().toISOString() },
-            { merge: true }
-          ).catch(() => {});
-        }
-      }
-
-      return true;
-    },
-    [authzState, user?.uid]
-  );
-
-  const refreshPermissions = useCallback(async () => {
-    if (!user?.uid) return;
-    await syncUserRoleInBackground(user.uid, user);
-  }, [user, syncUserRoleInBackground]);
+  };
 
   useEffect(() => {
     void fetchCloudSyncedGoogleAccounts();
@@ -730,8 +482,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setModalOpen(false);
         setLoading(false);
 
-        // Section 3: Ensure default 'patient' profile exists
-        void ensureDefaultPatientProfile(currentUser);
         await syncUserRoleInBackground(currentUser.uid, currentUser);
 
         if (currentUser.email) {
@@ -747,7 +497,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null);
         setRole(null);
-        setAuthzState(DEFAULT_AUTHZ_STATE);
         setRoleStatus('');
         setLoading(false);
         setGuestModeActive(true);
@@ -758,7 +507,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       unsubscribe();
     };
-  }, [syncUserRoleInBackground]);
+  }, []);
 
   const clearError = () => setError(null);
 
@@ -992,10 +741,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /**
-   * Section 3: Default User Registration
-   * Automatically assigns the "patient" role and initializes a safe patient profile.
-   */
   const register = async (email: string, password: string, displayName = '', rememberMe = true) => {
     setError(null);
     if (!configured || !auth) {
@@ -1010,18 +755,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await updateProfile(cred.user, { displayName: displayName.trim() });
         setUser({ ...cred.user, displayName: displayName.trim() } as User);
       }
-      // Immediately assign safe default 'patient' state locally & in customerProfiles/{uid}
-      setRole('patient');
-      setAuthzState({
-        ...DEFAULT_AUTHZ_STATE,
-        uid: cred.user.uid,
-        primaryRole: 'patient',
-        activeRole: 'patient',
-        activeMode: 'patient',
-        authorizedRoles: ['patient'],
-      });
-      await ensureDefaultPatientProfile(cred.user);
-
       if (cred.user.email) {
         saveDeviceGoogleAccount({
           email: cred.user.email.toLowerCase(),
@@ -1072,7 +805,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const oauthCred = GoogleAuthProvider.credentialFromResult(cred);
 
       if (cred.user) {
-        await ensureDefaultPatientProfile(cred.user);
         await syncGoogleBridgeToFirestore(
           cred.user,
           oauthCred?.idToken,
@@ -1105,15 +837,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!configured || !auth) {
       setUser(null);
       setRole(null);
-      setAuthzState(DEFAULT_AUTHZ_STATE);
       setRoleStatus('');
       return;
     }
     try {
       await signOut(auth);
       setUser(null);
-      setRole(null);
-      setAuthzState(DEFAULT_AUTHZ_STATE);
     } catch (err: any) {
       console.error('Logout error:', err);
       const code = err?.code || 'auth/unknown';
@@ -1138,69 +867,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const availableModes = useMemo(() => getAvailableInterfaceModes(authzState), [authzState]);
-
-  const checkHasRole = useCallback(
-    (targetRole: Role) => rbacHasRole(authzState, targetRole),
-    [authzState]
-  );
-
-  const checkHasPermission = useCallback(
-    (perm: PermissionId, options?: { pharmacyId?: string; regionId?: string }) =>
-      rbacHasPermission(authzState, perm, options),
-    [authzState]
-  );
-
-  const checkCanAccessPharmacy = useCallback(
-    (pharmacyId: string) => rbacCanAccessPharmacy(authzState, pharmacyId),
-    [authzState]
-  );
-
-  const checkCanAccessBranch = useCallback(
-    (pharmacyId: string, branchId: string) => rbacCanAccessBranch(authzState, pharmacyId, branchId),
-    [authzState]
-  );
-
-  const checkCanAccessRegion = useCallback(
-    (regionId: string) => rbacCanAccessRegion(authzState, regionId),
-    [authzState]
-  );
-
-  const getActiveMembership = useCallback(
-    (pharmacyId?: string) => rbacGetActiveMembership(authzState, pharmacyId),
-    [authzState]
-  );
-
-  const getAuthorizedRoles = useCallback(
-    () => rbacGetAuthorizedRoles(authzState),
-    [authzState]
-  );
-
   return (
     <AuthContext.Provider
       value={{
         user,
         role,
-        canonicalRole: authzState.primaryRole,
-        activeRole: authzState.activeRole,
-        activeMode: authzState.activeMode,
-        authorizedRoles: authzState.authorizedRoles,
-        pharmacyMemberships: authzState.pharmacyMemberships,
-        regionalMemberships: authzState.regionalMemberships,
-        activePharmacyId: authzState.activePharmacyId,
-        activeRegionId: authzState.activeRegionId,
-        effectivePermissions: authzState.effectivePermissions,
-        accountStatus: authzState.accountStatus,
-        availableModes,
-        switchMode,
-        refreshPermissions,
-        hasRole: checkHasRole,
-        hasPermission: checkHasPermission,
-        canAccessPharmacy: checkCanAccessPharmacy,
-        canAccessBranch: checkCanAccessBranch,
-        canAccessRegion: checkCanAccessRegion,
-        getActiveMembership,
-        getAuthorizedRoles,
         roleStatus,
         loading,
         error,

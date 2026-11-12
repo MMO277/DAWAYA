@@ -33,46 +33,6 @@
         { "fieldPath": "partnerId", "order": "ASCENDING" },
         { "fieldPath": "timestampIso", "order": "DESCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "userRoles",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "uid", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "pharmacyMemberships",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "uid", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "pharmacyMemberships",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "pharmacyId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "regionalMemberships",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "uid", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "auditLogs",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "targetUid", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
-      ]
     }
   ],
   "fieldOverrides": []

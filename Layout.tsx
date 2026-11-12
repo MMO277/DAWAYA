@@ -23,7 +23,6 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useLang, SUPPORTED_LANGS } from './i18n';
 import { Lang, localizeFallbackText, tr } from './types';
 import { useAuth } from './authContext';
-import { RoleModeSwitcher } from './RoleSwitcherAndGuard';
 import Disclaimer from './Disclaimer';
 import { useEmergencyLocation } from './emergencyLocation';
 
@@ -1878,11 +1877,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             </div>
 
             <div className="drawer-links">
-              {user && authCtx.availableModes && authCtx.availableModes.length > 1 && (
-                <div style={{ padding: '4px 6px 10px' }}>
-                  <RoleModeSwitcher fullWidth />
-                </div>
-              )}
               {/* Direct Home Item */}
               <NavLink
                 to="/"
@@ -2001,46 +1995,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                 </span>
                 <span className="item-arrow" aria-hidden="true">{pageDir === 'rtl' ? '←' : '→'}</span>
               </button>
-              {(authCtx.hasRole('pharmacy_owner') ||
-                authCtx.hasRole('pharmacy_manager') ||
-                authCtx.hasRole('pharmacist') ||
-                authCtx.hasRole('pharmacy_employee')) && (
-                <NavLink
-                  to="/pharmacy-portal"
-                  onClick={() => {
-                    authCtx.switchMode('pharmacy');
-                    closeDrawer(false);
-                  }}
-                  className={({ isActive }) => `drawer-item ${isActive ? 'active' : ''}`}
-                  style={{ border: '1px solid rgba(16, 185, 129, 0.45)', background: 'rgba(16, 185, 129, 0.14)' }}
-                >
-                  <span className="item-icon" aria-hidden="true">🏥</span>
-                  <span className="item-title">
-                    {tr(lang, 'بوابة إدارة الصيدلية (Pharmacy Mode)', 'Pharmacy Management Portal')}
-                  </span>
-                  <span className="item-arrow" aria-hidden="true">{pageDir === 'rtl' ? '←' : '→'}</span>
-                </NavLink>
-              )}
-              {(!user ||
-                authCtx.hasRole('super_admin') ||
-                authCtx.hasRole('central_admin') ||
-                authCtx.hasRole('regional_manager') ||
-                authCtx.hasRole('content_reviewer') ||
-                authCtx.hasRole('content_editor') ||
-                authCtx.hasRole('viewer')) && (
-                <NavLink
-                  to="/admin"
-                  onClick={() => {
-                    if (user) authCtx.switchMode('admin');
-                    closeDrawer(false);
-                  }}
-                  className={({ isActive }) => `drawer-item admin ${isActive ? 'active' : ''}`}
-                >
-                  <span className="item-icon" aria-hidden="true">⚙️</span>
-                  <span className="item-title">{t('navAdmin')}</span>
-                  <span className="item-arrow" aria-hidden="true">{pageDir === 'rtl' ? '←' : '→'}</span>
-                </NavLink>
-              )}
+              <NavLink
+                to="/admin"
+                onClick={() => closeDrawer(false)}
+                className={({ isActive }) => `drawer-item admin ${isActive ? 'active' : ''}`}
+              >
+                <span className="item-icon" aria-hidden="true">⚙️</span>
+                <span className="item-title">{t('navAdmin')}</span>
+                <span className="item-arrow" aria-hidden="true">{pageDir === 'rtl' ? '←' : '→'}</span>
+              </NavLink>
 
               {!user && (
                 <>
@@ -2196,156 +2159,56 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {/* Professional Academic & Medical Footer on All Pages */}
       
-      {/* Role-Aware Floating Glass Bottom Navigation Dock for Mobile & Android App */}
+      {/* Floating Glass Bottom Navigation Dock for Mobile & Android App */}
       <nav
         className="dawaya-floating-bottom-dock no-print"
         aria-label={tr(lang, 'شريط التنقل السريع السفلي', 'Bottom quick navigation')}
       >
-        {authCtx.activeMode === 'pharmacy' ? (
-          <>
-            <NavLink
-              to="/pharmacy-portal"
-              className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
-            >
-              <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>🏥</span>
-              <span>{tr(lang, 'الصيدلية', 'Pharmacy')}</span>
-            </NavLink>
-            <NavLink
-              to="/medicines"
-              className={({ isActive }) =>
-                `dawaya-dock-item${isActive || pathname.startsWith('/medicine/') ? ' active' : ''}`
-              }
-            >
-              <NavCapsuleVectorIcon size={21} />
-              <span>{tr(lang, 'الكتالوج', 'Catalog')}</span>
-            </NavLink>
-            <NavLink
-              to="/scan"
-              className={({ isActive }) => `dawaya-dock-center-scan${isActive ? ' active' : ''}`}
-              title={tr(lang, 'مسح باركود الدواء', 'Scan Barcode')}
-            >
-              <span className="dawaya-dock-scan-circle">
-                <HeroScannerVectorIcon size={24} color="#FFFFFF" />
-              </span>
-              <span className="dawaya-dock-scan-label">{tr(lang, 'الباركود', 'Scan')}</span>
-            </NavLink>
-            <NavLink
-              to="/partners"
-              className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
-            >
-              <NavDashboardVectorIcon size={20} />
-              <span>{tr(lang, 'الشبكة', 'Network')}</span>
-            </NavLink>
-            <button
-              type="button"
-              onClick={() => {
-                authCtx.switchMode('patient');
-                navigate('/');
-              }}
-              className="dawaya-dock-item"
-              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              <span style={{ fontSize: '1.15rem', lineHeight: 1 }}>👤</span>
-              <span>{tr(lang, 'وضع المريض', 'Patient Mode')}</span>
-            </button>
-          </>
-        ) : authCtx.activeMode === 'admin' ? (
-          <>
-            <NavLink
-              to="/admin"
-              className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
-            >
-              <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>🛡️</span>
-              <span>{tr(lang, 'الإدارة', 'Admin')}</span>
-            </NavLink>
-            <NavLink
-              to="/medicines"
-              className={({ isActive }) =>
-                `dawaya-dock-item${isActive || pathname.startsWith('/medicine/') ? ' active' : ''}`
-              }
-            >
-              <NavCapsuleVectorIcon size={21} />
-              <span>{tr(lang, 'الأدوية', 'Drugs')}</span>
-            </NavLink>
-            <NavLink
-              to="/scan"
-              className={({ isActive }) => `dawaya-dock-center-scan${isActive ? ' active' : ''}`}
-              title={tr(lang, 'مسح الباركود', 'Scan')}
-            >
-              <span className="dawaya-dock-scan-circle">
-                <HeroScannerVectorIcon size={24} color="#FFFFFF" />
-              </span>
-              <span className="dawaya-dock-scan-label">{tr(lang, 'الماسح', 'Scan')}</span>
-            </NavLink>
-            <NavLink
-              to="/partners"
-              className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
-            >
-              <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>🏥</span>
-              <span>{tr(lang, 'الشركاء', 'Partners')}</span>
-            </NavLink>
-            <button
-              type="button"
-              onClick={() => {
-                authCtx.switchMode('patient');
-                navigate('/');
-              }}
-              className="dawaya-dock-item"
-              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              <span style={{ fontSize: '1.15rem', lineHeight: 1 }}>👤</span>
-              <span>{tr(lang, 'وضع المريض', 'Patient Mode')}</span>
-            </button>
-          </>
-        ) : (
-          <>
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
-            >
-              <NavHomeVectorIcon size={21} />
-              <span>{tr(lang, 'الرئيسية', 'Home', 'Accueil', 'Inicio')}</span>
-            </NavLink>
+        <NavLink
+          to="/"
+          end
+          className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
+        >
+          <NavHomeVectorIcon size={21} />
+          <span>{tr(lang, 'الرئيسية', 'Home', 'Accueil', 'Inicio')}</span>
+        </NavLink>
 
-            <NavLink
-              to="/medicines"
-              className={({ isActive }) =>
-                `dawaya-dock-item${isActive || pathname.startsWith('/medicine/') ? ' active' : ''}`
-              }
-            >
-              <NavCapsuleVectorIcon size={21} />
-              <span>{tr(lang, 'الأدوية', 'Drugs', 'Médicaments', 'Fármacos')}</span>
-            </NavLink>
+        <NavLink
+          to="/medicines"
+          className={({ isActive }) =>
+            `dawaya-dock-item${isActive || pathname.startsWith('/medicine/') ? ' active' : ''}`
+          }
+        >
+          <NavCapsuleVectorIcon size={21} />
+          <span>{tr(lang, 'الأدوية', 'Drugs', 'Médicaments', 'Fármacos')}</span>
+        </NavLink>
 
-            <NavLink
-              to="/scan"
-              className={({ isActive }) => `dawaya-dock-center-scan${isActive ? ' active' : ''}`}
-              title={tr(lang, 'مسح الباركود والروشتة', 'Scan Barcode & Rx')}
-            >
-              <span className="dawaya-dock-scan-circle">
-                <HeroScannerVectorIcon size={24} color="#FFFFFF" />
-              </span>
-              <span className="dawaya-dock-scan-label">{tr(lang, 'الماسح', 'Scan', 'Scanner', 'Escanear')}</span>
-            </NavLink>
+        <NavLink
+          to="/scan"
+          className={({ isActive }) => `dawaya-dock-center-scan${isActive ? ' active' : ''}`}
+          title={tr(lang, 'مسح الباركود والروشتة', 'Scan Barcode & Rx')}
+        >
+          <span className="dawaya-dock-scan-circle">
+            <HeroScannerVectorIcon size={24} color="#FFFFFF" />
+          </span>
+          <span className="dawaya-dock-scan-label">{tr(lang, 'الماسح', 'Scan', 'Scanner', 'Escanear')}</span>
+        </NavLink>
 
-            <NavLink
-              to="/patient-dashboard"
-              className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
-            >
-              <NavDashboardVectorIcon size={20} />
-              <span>{tr(lang, 'لوحة المريض', 'Hub', 'Patient', 'Panel')}</span>
-            </NavLink>
+        <NavLink
+          to="/patient-dashboard"
+          className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
+        >
+          <NavDashboardVectorIcon size={20} />
+          <span>{tr(lang, 'لوحة المريض', 'Hub', 'Patient', 'Panel')}</span>
+        </NavLink>
 
-            <NavLink
-              to="/clinics"
-              className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
-            >
-              <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>🏥</span>
-              <span>{tr(lang, 'العيادات', 'Clinics', 'Cliniques', 'Clínicas')}</span>
-            </NavLink>
-          </>
-        )}
+        <NavLink
+          to="/clinics"
+          className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
+        >
+          <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>🏥</span>
+          <span>{tr(lang, 'العيادات', 'Clinics', 'Cliniques', 'Clínicas')}</span>
+        </NavLink>
       </nav>
 
       <footer className="pro-footer">

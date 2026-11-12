@@ -1,10 +1,8 @@
-import React, { FormEvent, useEffect, useMemo, useState } from 'react';
+import React, { FormEvent, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
 import { useAuth } from './authContext';
 import SmartChoiceSelect from './SmartChoiceSelect';
-import { RoleModeSwitcher } from './RoleSwitcherAndGuard';
-import { PermissionId, ROLE_DEFINITIONS } from './rbacEngine';
 import {
   CUSTOMER_ORDER_STATUS_LABELS,
   CustomerOrderLifecycleStatus,
@@ -24,7 +22,6 @@ import { useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
 
 type PortalTab =
   | 'overview'
-  | 'pharmacy_profile'
   | 'inventory'
   | 'orders'
   | 'employees'
@@ -34,17 +31,7 @@ type PortalTab =
 export default function PharmacyOwnerDashboard() {
   const { lang } = useLang();
   const isAr = lang === 'ar';
-  const {
-    user,
-    role,
-    canonicalRole,
-    activeRole,
-    pharmacyMemberships,
-    activePharmacyId: ctxActivePharmacyId,
-    hasPermission,
-    switchMode,
-    openAuthModal,
-  } = useAuth();
+  const { user, role, openAuthModal } = useAuth();
   const {
     applications,
     inventory,
@@ -52,9 +39,10 @@ export default function PharmacyOwnerDashboard() {
     dynamicGovernorates,
     orders,
   } = useDawayaPharmacyNetwork();
-  const { partners, branches } = usePartnerEcosystem();
+  const { partners } = usePartnerEcosystem();
   const { indexItems } = useDawayaDrugDatabase();
 
+  const [activeTab, setActiveTab] = useState<PortalTab>('overview');
   const [toastMsg, setToastMsg] = useState<string>('');
 
   // Identify the pharmacy owned or managed by the current user
@@ -68,131 +56,31 @@ export default function PharmacyOwnerDashboard() {
     [myApplications]
   );
 
-  const empMatch = useMemo(
-    () =>
-      employees.find(
-        (e) =>
-          user?.email &&
-          e.email.toLowerCase() === user.email.toLowerCase() &&
-          e.active
-      ),
-    [employees, user?.email]
-  );
-
-  // Determine whether the user is an authorized pharmacy member or platform admin
-  const isAuthorizedPharmacyUser = useMemo(() => {
-    if (
-      canonicalRole === 'super_admin' ||
-      canonicalRole === 'central_admin' ||
-      ['pharmacy_owner', 'pharmacy_manager', 'pharmacist', 'pharmacy_employee'].includes(canonicalRole) ||
-      ['pharmacy_owner', 'pharmacy_manager', 'pharmacist', 'pharmacy_employee'].includes(activeRole)
-    ) {
-      return true;
-    }
-    if (pharmacyMemberships.some((m) => m.status === 'active')) return true;
-    if (myApprovedApp || empMatch) return true;
-    return false;
-  }, [canonicalRole, activeRole, pharmacyMemberships, myApprovedApp, empMatch]);
-
-  const [activeTab, setActiveTab] = useState<PortalTab>(() =>
-    isAuthorizedPharmacyUser ? 'overview' : 'register_pharmacy'
-  );
-
-  useEffect(() => {
-    if (!isAuthorizedPharmacyUser && activeTab !== 'register_pharmacy') {
-      setActiveTab('register_pharmacy');
-    }
-  }, [isAuthorizedPharmacyUser, activeTab]);
-
-  // Strictly scoped activePharmacyId for Tenant Isolation (Section 5 & 9)
   const activePharmacyId = useMemo(() => {
-    if (ctxActivePharmacyId) return ctxActivePharmacyId;
-    if (pharmacyMemberships.length > 0) return pharmacyMemberships[0].pharmacyId;
     if (myApprovedApp?.approvedPharmacyId) return myApprovedApp.approvedPharmacyId;
-    if (empMatch) return empMatch.pharmacyId;
-    if (canonicalRole === 'super_admin' || canonicalRole === 'central_admin') {
+    if (role === 'owner' || role === 'super_admin' || role === 'admin') {
       return 'partner_dawaya_flagship_mansoura';
     }
+    const empMatch = employees.find((e) => e.email.toLowerCase() === (user?.email || '').toLowerCase() && e.active);
+    if (empMatch) return empMatch.pharmacyId;
     return 'partner_dawaya_flagship_mansoura';
-  }, [ctxActivePharmacyId, pharmacyMemberships, myApprovedApp, empMatch, canonicalRole]);
-
-  const activePartnerRecord = useMemo(
-    () => partners.find((x) => x.id === activePharmacyId) || null,
-    [partners, activePharmacyId]
-  );
-
-  const activePharmacyBranches = useMemo(
-    () => branches.filter((b) => b.partnerId === activePharmacyId),
-    [branches, activePharmacyId]
-  );
+  }, [myApprovedApp, role, employees, user?.email]);
 
   const activePharmacyName = useMemo(() => {
-    const memName = pharmacyMemberships.find((m) => m.pharmacyId === activePharmacyId)?.pharmacyNameAr;
-    if (memName) return memName;
     if (myApprovedApp) return myApprovedApp.pharmacyNameAr;
-    if (activePartnerRecord) return activePartnerRecord.nameAr;
-    return 'صيدلية دوايا النموذجية — المنصورة';
-  }, [pharmacyMemberships, activePharmacyId, myApprovedApp, activePartnerRecord]);
+    const p = partners.find((x) => x.id === activePharmacyId);
+    return p ? p.nameAr : 'صيدلية دوايا النموذجية — المنصورة';
+  }, [myApprovedApp, partners, activePharmacyId]);
 
-  // Determine effective pharmacy role for UI adaptation (Owner vs Pharmacist vs Employee)
-  const effectivePharmacyRole = useMemo(() => {
-    const mem = pharmacyMemberships.find((m) => m.pharmacyId === activePharmacyId);
-    if (mem) return mem.role;
-    if (
-      activeRole === 'pharmacy_owner' ||
-      activeRole === 'pharmacy_manager' ||
-      activeRole === 'pharmacist' ||
-      activeRole === 'pharmacy_employee'
-    ) {
-      return activeRole;
-    }
-    if (empMatch) {
-      return empMatch.role === 'employee' ? 'pharmacy_employee' : empMatch.role;
-    }
-    return 'pharmacy_owner';
-  }, [pharmacyMemberships, activePharmacyId, activeRole, empMatch]);
-
-  // Granular Permission Flags (Sections 6B, 6C, 6D)
-  const canViewInventory =
-    isAuthorizedPharmacyUser &&
-    (hasPermission('inventory.view', { pharmacyId: activePharmacyId }) ||
-      effectivePharmacyRole !== 'pharmacy_employee' ||
-      empMatch?.canManageInventory !== false);
-
-  const canManageInventory =
-    isAuthorizedPharmacyUser &&
-    (hasPermission('inventory.manage', { pharmacyId: activePharmacyId }) ||
-      effectivePharmacyRole === 'pharmacy_owner' ||
-      effectivePharmacyRole === 'pharmacy_manager' ||
-      effectivePharmacyRole === 'pharmacist');
-
-  const canManageOrders =
-    isAuthorizedPharmacyUser &&
-    (hasPermission('orders.manage', { pharmacyId: activePharmacyId }) ||
-      Boolean(empMatch));
-
-  const canManageEmployees =
-    isAuthorizedPharmacyUser &&
-    (hasPermission('employees.manage', { pharmacyId: activePharmacyId }) ||
-      effectivePharmacyRole === 'pharmacy_owner' ||
-      effectivePharmacyRole === 'pharmacy_manager');
-
-  const canViewReports =
-    isAuthorizedPharmacyUser &&
-    (hasPermission('reports.view', { pharmacyId: activePharmacyId }) ||
-      effectivePharmacyRole === 'pharmacy_owner' ||
-      effectivePharmacyRole === 'pharmacy_manager' ||
-      Boolean(empMatch?.canViewReports));
-
-  // Isolated Data for this specific pharmacy ONLY (Tenant Isolation)
+  // Isolated Data for this specific pharmacy ONLY
   const myInventory = useMemo(
     () => inventory.filter((item) => item.pharmacyId === activePharmacyId),
     [inventory, activePharmacyId]
   );
 
   const myOrders = useMemo(
-    () => orders.filter((ord) => ord.partnerId === activePharmacyId),
-    [orders, activePharmacyId]
+    () => orders.filter((ord) => ord.partnerId === activePharmacyId || role === 'owner' || role === 'admin'),
+    [orders, activePharmacyId, role]
   );
 
   const myEmployees = useMemo(
@@ -237,15 +125,12 @@ export default function PharmacyOwnerDashboard() {
   const [regLicenseUrl, setRegLicenseUrl] = useState('');
   const [regModel, setRegModel] = useState<'independent_partner' | 'dawaya_franchise'>('independent_partner');
 
-  // Employee Form State + Granular Staff Permissions
+  // Employee Form State
   const [empName, setEmpName] = useState('');
   const [empEmail, setEmpEmail] = useState('');
   const [empPhone, setEmpPhone] = useState('');
   const [empRole, setEmpRole] = useState<'pharmacy_manager' | 'pharmacist' | 'employee'>('pharmacist');
   const [empSyndicate, setEmpSyndicate] = useState('');
-  const [empCanManageInv, setEmpCanManageInv] = useState(true);
-  const [empCanConfirmOrders, setEmpCanConfirmOrders] = useState(true);
-  const [empCanViewReports, setEmpCanViewReports] = useState(false);
 
   const handleExportInventoryCsv = () => {
     const headers = ['TradeName_AR', 'TradeName_EN', 'ActiveIngredient', 'Strength', 'Price_EGP', 'Quantity_Packs', 'StockStatus', 'BatchNumber', 'ExpiryDate'];
@@ -278,12 +163,6 @@ export default function PharmacyOwnerDashboard() {
     return diffDays <= 90;
   });
 
-  const pendingOrdersCount = myOrders.filter((o) =>
-    ['new_order', 'pending_review', 'pending_pharmacy_review', 'pharmacy_confirmation', 'preparing'].includes(o.status)
-  ).length;
-  const completedOrdersCount = myOrders.filter((o) => o.status === 'delivered').length;
-  const cancelledOrdersCount = myOrders.filter((o) => o.status === 'cancelled' || o.status === 'rejected').length;
-
   const filteredRadarInventory = useMemo(() => {
     if (invRadarFilter === 'low_stock') return lowStockItems;
     if (invRadarFilter === 'expiring_soon') return expiringSoonItems;
@@ -311,10 +190,6 @@ export default function PharmacyOwnerDashboard() {
 
   const handleSaveInventory = async (e: FormEvent) => {
     e.preventDefault();
-    if (!canManageInventory) {
-      showToast(isAr ? 'عفواً، صلاحية حسابك لا تسمح بتعديل أسعار أو كميات المخزون.' : 'Permission denied to modify inventory.');
-      return;
-    }
     if (!tradeNameAr.trim() || priceEgp <= 0 || qtyPacks < 0) {
       showToast(isAr ? 'يرجى إدخال سعر أكبر من صفر وكمية صحيحة غير سالبة.' : 'Please enter a valid positive price and non-negative stock.');
       return;
@@ -390,6 +265,7 @@ export default function PharmacyOwnerDashboard() {
           ? 'تم إرسال طلب انضمام الصيدلية للمراجعة المركزية بنجاح. سيظل الطلب قيد المراجعة حتى التحقق من الترخيص.'
           : 'Pharmacy application submitted for central verification.'
       );
+      setActiveTab('overview');
     } catch (err: unknown) {
       showToast(
         isAr
@@ -401,10 +277,6 @@ export default function PharmacyOwnerDashboard() {
 
   const handleAddEmployee = async (e: FormEvent) => {
     e.preventDefault();
-    if (!canManageEmployees) {
-      showToast(isAr ? 'إدارة الموظفين مخصصة لمالك أو مدير الصيدلية فقط.' : 'Employee management is restricted to Pharmacy Owner/Manager.');
-      return;
-    }
     if (!empName.trim() || !empEmail.trim()) return;
     try {
       await savePharmacyEmployee({
@@ -414,9 +286,9 @@ export default function PharmacyOwnerDashboard() {
         phone: empPhone.trim(),
         role: empRole,
         syndicateNumber: empSyndicate.trim(),
-        canManageInventory: empCanManageInv,
-        canConfirmOrders: empCanConfirmOrders,
-        canViewReports: empCanViewReports,
+        canManageInventory: true,
+        canConfirmOrders: empRole !== 'employee',
+        canViewReports: empRole === 'pharmacy_manager',
         active: true,
       });
       setEmpName('');
@@ -432,75 +304,6 @@ export default function PharmacyOwnerDashboard() {
       );
     }
   };
-
-  const handleToggleEmployeeActive = async (emp: typeof myEmployees[0]) => {
-    if (!canManageEmployees) return;
-    try {
-      await savePharmacyEmployee({
-        ...emp,
-        active: !emp.active,
-      });
-      showToast(
-        emp.active
-          ? isAr ? `تم إيقاف عضوية (${emp.fullName}) مؤقتاً.` : `Suspended ${emp.fullName}.`
-          : isAr ? `تمت إعادة تفعيل عضوية (${emp.fullName}).` : `Reactivated ${emp.fullName}.`
-      );
-    } catch {
-      showToast(isAr ? 'تعذر تحديث حالة الموظف.' : 'Could not update employee status.');
-    }
-  };
-
-  const roleHeaderBadgeLabel = useMemo(() => {
-    if (!isAuthorizedPharmacyUser) {
-      return isAr ? 'بوابة تقديم طلب انضمام صيدلية جديدة لشبكة دوايا' : 'DAWAYA Pharmacy Onboarding Application';
-    }
-    if (effectivePharmacyRole === 'pharmacist') {
-      return isAr ? 'واجهة الصيدلي الإكلينيكي المعتمد (Pharmacist Interface)' : 'Licensed Pharmacist Interface';
-    }
-    if (effectivePharmacyRole === 'pharmacy_employee') {
-      return isAr ? 'واجهة موظف الصيدلية وتجهيز الطلبات (Pharmacy Staff Interface)' : 'Pharmacy Employee Operations Interface';
-    }
-    if (effectivePharmacyRole === 'pharmacy_manager') {
-      return isAr ? 'واجهة مدير فرع الصيدلية (Pharmacy Branch Manager)' : 'Pharmacy Branch Manager Interface';
-    }
-    return isAr ? 'بوابة مالك الصيدلية المعتمد والفرنشايز — عزل بيانات كامل' : 'DAWAYA Pharmacy Owner Dashboard';
-  }, [isAuthorizedPharmacyUser, effectivePharmacyRole, isAr]);
-
-  // Role-filtered tabs (Sections 6B, 6C, 6D)
-  const visibleTabs = useMemo(() => {
-    if (!isAuthorizedPharmacyUser) {
-      return [
-        { id: 'register_pharmacy', ar: 'طلب انضمام / ترخيص صيدلية جديدة', en: 'Pharmacy Registration' },
-      ];
-    }
-    const tabs: { id: PortalTab; ar: string; en: string }[] = [
-      { id: 'overview', ar: 'نظرة عامة والتنبيهات', en: 'Overview & Alerts' },
-      { id: 'pharmacy_profile', ar: 'ملف الصيدلية والفروع', en: 'Pharmacy & Branches' },
-    ];
-    if (canViewInventory) {
-      tabs.push({ id: 'inventory', ar: `المخزون والأسعار (${myInventory.length})`, en: `Inventory (${myInventory.length})` });
-    }
-    if (canManageOrders) {
-      tabs.push({ id: 'orders', ar: `طلبات العملاء (${myOrders.length})`, en: `Customer Orders (${myOrders.length})` });
-    }
-    if (canManageEmployees) {
-      tabs.push({ id: 'employees', ar: `فريق الصيدلية (${myEmployees.length})`, en: `Staff (${myEmployees.length})` });
-    }
-    if (canViewReports) {
-      tabs.push({ id: 'reports', ar: 'التقارير والمبيعات', en: 'Sales & Reports' });
-    }
-    tabs.push({ id: 'register_pharmacy', ar: 'طلب ترخيص فرع / صيدلية', en: 'New Pharmacy App' });
-    return tabs;
-  }, [
-    isAuthorizedPharmacyUser,
-    canViewInventory,
-    canManageOrders,
-    canManageEmployees,
-    canViewReports,
-    myInventory.length,
-    myOrders.length,
-    myEmployees.length,
-  ]);
 
   return (
     <main className="wrap stack">
@@ -530,75 +333,42 @@ export default function PharmacyOwnerDashboard() {
                 marginBottom: '8px',
               }}
             >
-              {roleHeaderBadgeLabel}
+              {isAr ? 'بوابة إدارة الصيدليات المعتمدة والفرنشايز — عزل بيانات كامل' : 'DAWAYA Pharmacy Owner & Inventory Portal'}
             </span>
             <h1 style={{ margin: '0 0 6px', color: '#ffffff', fontSize: '1.55rem' }}>
-              {isAuthorizedPharmacyUser
-                ? activePharmacyName
-                : isAr
-                ? 'انضم لشبكة صيدليات دوايا المعتمدة'
-                : 'Join DAWAYA Verified Pharmacy Network'}
+              {activePharmacyName}
             </h1>
             <p className="small" style={{ margin: 0, color: '#cbd5e1' }}>
-              {isAuthorizedPharmacyUser
-                ? isAr
-                  ? `معرّف الصيدلية المعزول (Tenant ID): ${activePharmacyId} — دورك النشط: ${ROLE_DEFINITIONS[effectivePharmacyRole]?.nameAr || effectivePharmacyRole}`
-                  : `Isolated Tenant ID: ${activePharmacyId} — Active Role: ${ROLE_DEFINITIONS[effectivePharmacyRole]?.nameEn || effectivePharmacyRole}`
-                : isAr
-                ? 'قدم طلب توثيق ترخيص صيدليتك لتفعيل بوابة المخزون واستقبال طلبات المرضى.'
-                : 'Submit your pharmacy license application to activate your isolated pharmacy dashboard.'}
+              {isAr
+                ? 'إدارة المخزون الفعلي، الأسعار، تواريخ الصلاحية، تأكيد طلبات العملاء، وفريق الصيادلة بصلاحيات معزولة.'
+                : 'Manage verified stock, prices, batch expiry dates, customer order confirmations, and authorized pharmacy staff.'}
             </p>
           </div>
           <div className="row wrapRow" style={{ gap: '8px' }}>
-            <RoleModeSwitcher />
+            <button
+              type="button"
+              className="btn small"
+              style={{ background: '#10b981', borderColor: '#10b981', color: '#ffffff', fontWeight: 800 }}
+              onClick={() => setActiveTab('register_pharmacy')}
+            >
+              {isAr ? 'تسجيل صيدلية جديدة بالشبكة' : 'Register New Pharmacy'}
+            </button>
             <Link to="/partners" className="btn small light">
               {isAr ? 'دليل الصيدليات العام' : 'Public Pharmacy Directory'}
             </Link>
           </div>
         </div>
 
-        {/* Multi-Pharmacy Membership Switcher (if user belongs to >1 pharmacy) */}
-        {pharmacyMemberships.length > 1 && (
-          <div
-            style={{
-              marginTop: '14px',
-              padding: '10px 14px',
-              borderRadius: '12px',
-              background: 'rgba(255,255,255,0.08)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              flexWrap: 'wrap',
-            }}
-          >
-            <span className="small" style={{ color: '#CFD29D', fontWeight: 800 }}>
-              🏥 {isAr ? 'التبديل بين الصيدليات المصرح لك بإدارتها:' : 'Switch Active Pharmacy:'}
-            </span>
-            {pharmacyMemberships.map((mem) => (
-              <button
-                key={mem.id}
-                type="button"
-                onClick={() => switchMode(mem.role, { pharmacyId: mem.pharmacyId })}
-                style={{
-                  padding: '4px 12px',
-                  borderRadius: '999px',
-                  border: activePharmacyId === mem.pharmacyId ? '1.5px solid #CFD29D' : '1px solid rgba(255,255,255,0.25)',
-                  background: activePharmacyId === mem.pharmacyId ? '#059669' : 'transparent',
-                  color: '#ffffff',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                {mem.pharmacyNameAr || mem.pharmacyId} ({ROLE_DEFINITIONS[mem.role]?.badge})
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Navigation Tabs */}
         <div className="row wrapRow" style={{ gap: '8px', marginTop: '18px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-          {visibleTabs.map((t) => (
+          {[
+            { id: 'overview', ar: 'نظرة عامة والتنبيهات', en: 'Overview & Alerts' },
+            { id: 'inventory', ar: `المخزون والأسعار (${myInventory.length})`, en: `Inventory (${myInventory.length})` },
+            { id: 'orders', ar: `طلبات العملاء (${myOrders.length})`, en: `Customer Orders (${myOrders.length})` },
+            { id: 'employees', ar: `فريق الصيدلية (${myEmployees.length})`, en: `Staff (${myEmployees.length})` },
+            { id: 'reports', ar: 'التقارير والمبيعات', en: 'Sales & Reports' },
+            { id: 'register_pharmacy', ar: 'طلب انضمام / ترخيص صيدلية', en: 'Pharmacy Registration' },
+          ].map((t) => (
             <button
               key={t.id}
               type="button"
@@ -634,183 +404,46 @@ export default function PharmacyOwnerDashboard() {
         </div>
       )}
 
-      {/* TAB 1: DESIGN 1 OVERVIEW — 2x2 Dark Navy & Gold KPI Grid + Live Orders & Shortage Radar */}
-      {isAuthorizedPharmacyUser && activeTab === 'overview' && (
+      {/* TAB 1: OVERVIEW & ALERTS */}
+      {activeTab === 'overview' && (
         <div className="stack">
           <div
             style={{
-              background: 'linear-gradient(145deg, #091526 0%, #0D1F38 100%)',
-              padding: '16px',
-              borderRadius: '24px',
-              boxShadow: '0 16px 38px rgba(13, 31, 56, 0.28)',
-              border: '1px solid rgba(207, 210, 157, 0.25)',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+              gap: '12px',
             }}
           >
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-                gap: '14px',
-              }}
-            >
-              <div
-                style={{
-                  background: 'linear-gradient(135deg, #102442 0%, #0D1F38 100%)',
-                  border: '1.5px solid #CFD29D',
-                  borderRadius: '18px',
-                  padding: '16px 18px',
-                  boxShadow: '0 0 18px rgba(16, 185, 129, 0.15)',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f8fafc', fontWeight: 700, fontSize: '0.9rem' }}>
-                  <span>{isAr ? 'قيمة المخزون والمبيعات:' : 'Stock & Sales Value:'}</span>
-                  <span style={{ color: '#10b981' }}>▲</span>
-                </div>
-                <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#CFD29D', marginTop: '6px' }}>
-                  {myInventory.reduce((acc, i) => acc + i.pharmacyPriceEgp * (i.quantityPacks || 1), 0).toLocaleString()} <small style={{ fontSize: '0.9rem' }}>ج.م</small>
-                </div>
+            <div className="card" style={{ borderTop: '4px solid #10b981' }}>
+              <span className="small muted">{isAr ? 'أصناف المخزون الموثقة' : 'Verified Inventory Items'}</span>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#059669', marginTop: '4px' }}>
+                {myInventory.length}
               </div>
-
-              <div
-                onClick={() => setActiveTab('orders')}
-                style={{
-                  background: 'linear-gradient(135deg, #102442 0%, #0D1F38 100%)',
-                  border: '1.5px solid #CFD29D',
-                  borderRadius: '18px',
-                  padding: '16px 18px',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.9rem' }}>
-                  {isAr ? 'الطلبات الواردة للصيدلية:' : 'Incoming Orders:'}
-                </div>
-                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#CFD29D', marginTop: '6px' }}>
-                  {myOrders.length} <small style={{ fontSize: '0.82rem', color: '#10b981' }}>({isAr ? `جديد: ${pendingOrdersCount}` : `Pending: ${pendingOrdersCount}`})</small>
-                </div>
-              </div>
-
-              <div
-                onClick={() => {
-                  setInvRadarFilter('low_stock');
-                  setActiveTab('inventory');
-                }}
-                style={{
-                  background: 'linear-gradient(135deg, #102442 0%, #0D1F38 100%)',
-                  border: '1.5px solid #CFD29D',
-                  borderRadius: '18px',
-                  padding: '16px 18px',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.9rem' }}>
-                  {isAr ? 'عجز ونواقص الرف:' : 'Shelf Shortages:'}
-                </div>
-                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#CFD29D', marginTop: '6px' }}>
-                  {lowStockItems.length} <small style={{ fontSize: '0.85rem' }}>{isAr ? 'أصناف' : 'items'}</small>
-                </div>
-              </div>
-
-              <div
-                onClick={() => setActiveTab('inventory')}
-                style={{
-                  background: 'linear-gradient(135deg, #102442 0%, #0D1F38 100%)',
-                  border: '1.5px solid #CFD29D',
-                  borderRadius: '18px',
-                  padding: '16px 18px',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.9rem' }}>
-                  {isAr ? 'أصناف المخزون الموثقة:' : 'Verified Stock Items:'}
-                </div>
-                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#CFD29D', marginTop: '6px' }}>
-                  {myInventory.length}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Direct Live Orders & Shortage Preview on Overview (Design 1 Style) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: '14px' }}>
-            <div className="card stack" style={{ borderRadius: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0 }}>{isAr ? 'الطلبات الواردة الآن' : 'Live Incoming Orders'}</h3>
-                <button type="button" className="btn small ghost" onClick={() => setActiveTab('orders')}>
-                  {isAr ? 'كل الطلبات ←' : 'All Orders →'}
-                </button>
-              </div>
-              {myOrders.slice(0, 3).map((ord) => (
-                <div
-                  key={ord.id}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: '14px',
-                    border: '1px solid var(--line)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '10px',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <div>
-                    <b>{ord.medicationNameAr} ({ord.quantity || 1} عبوة)</b>
-                    <div className="small muted">{ord.patientName} • {ord.city}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('orders')}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: '10px',
-                      border: '1px solid #b5b37c',
-                      background: 'linear-gradient(135deg, #d4d6a1 0%, #c2c086 100%)',
-                      color: '#0D1F38',
-                      fontWeight: 900,
-                      fontSize: '0.78rem',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {isAr ? 'مراجعة وتأكيد الطلب' : 'Review Order'}
-                  </button>
-                </div>
-              ))}
+              <span className="small muted">{isAr ? 'محدثة بتوقيت الصيدلية الفعلي' : 'Real-time synced'}</span>
             </div>
 
-            <div className="card stack" style={{ borderRadius: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0 }}>{isAr ? 'رادار العجز والنواقص بالصيدلية' : 'Pharmacy Shortage Radar'}</h3>
-                <button
-                  type="button"
-                  className="btn small ghost"
-                  onClick={() => {
-                    setInvRadarFilter('low_stock');
-                    setActiveTab('inventory');
-                  }}
-                >
-                  {isAr ? 'تحديث الرصيد ←' : 'Restock →'}
-                </button>
+            <div className="card" style={{ borderTop: '4px solid #f59e0b' }}>
+              <span className="small muted">{isAr ? 'تنبيهات النواقص (Low Stock)' : 'Low / Out of Stock Alerts'}</span>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#d97706', marginTop: '4px' }}>
+                {lowStockItems.length}
               </div>
-              {(lowStockItems.length > 0 ? lowStockItems : myInventory.slice(0, 3)).slice(0, 4).map((item) => (
-                <div key={item.id} style={{ display: 'grid', gap: '5px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
-                    <b>{item.tradeNameAr}</b>
-                    <span style={{ fontWeight: 800, color: (item.quantityPacks || 0) <= item.lowStockThreshold ? '#d97706' : '#059669' }}>
-                      {isAr ? `الرصيد: ${item.quantityPacks ?? 0} عبوة` : `Stock: ${item.quantityPacks ?? 0}`}
-                    </span>
-                  </div>
-                  <div style={{ width: '100%', height: '7px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.14)', overflow: 'hidden' }}>
-                    <div
-                      style={{
-                        width: `${Math.min(100, Math.max(12, ((item.quantityPacks || 1) / 25) * 100))}%`,
-                        height: '100%',
-                        borderRadius: '999px',
-                        background: (item.quantityPacks || 0) <= item.lowStockThreshold ? '#f59e0b' : '#10b981',
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
+              <span className="small muted">{isAr ? 'تحتاج لإعادة طلب من الموزع' : 'Requires restocking'}</span>
+            </div>
+
+            <div className="card" style={{ borderTop: '4px solid #ef4444' }}>
+              <span className="small muted">{isAr ? 'تنبيهات قرب انتهاء الصلاحية (<90 يوم)' : 'Expiring Within 90 Days'}</span>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#dc2626', marginTop: '4px' }}>
+                {expiringSoonItems.length}
+              </div>
+              <span className="small muted">{isAr ? 'فحص التشغيلات وتواريخ الانتهاء' : 'Batch expiry tracking'}</span>
+            </div>
+
+            <div className="card" style={{ borderTop: '4px solid #0284c7' }}>
+              <span className="small muted">{isAr ? 'طلبات العملاء الواردة' : 'Incoming Customer Orders'}</span>
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#0284c7', marginTop: '4px' }}>
+                {myOrders.length}
+              </div>
+              <span className="small muted">{isAr ? 'لا يُؤكد الطلب إلا بموافقة الصيدلي' : 'Requires pharmacist confirmation'}</span>
             </div>
           </div>
 
@@ -865,213 +498,140 @@ export default function PharmacyOwnerDashboard() {
         </div>
       )}
 
-      {/* TAB 1B: PHARMACY PROFILE & BRANCH MANAGEMENT (Section 6B) */}
-      {isAuthorizedPharmacyUser && activeTab === 'pharmacy_profile' && (
-        <section className="card stack">
-          <h2 style={{ margin: 0 }}>
-            {isAr ? 'ملف الصيدلية المعتمد والفروع المرتبطة ومواعيد العمل' : 'Pharmacy Profile, Verification & Branches'}
-          </h2>
-          <div className="form-row">
-            <div className="subcard stack" style={{ gap: '6px' }}>
-              <b>{isAr ? 'بيانات الصيدلية الأساسية:' : 'Core Pharmacy Info:'}</b>
-              <div className="small"><b>{isAr ? 'الاسم:' : 'Name:'}</b> {activePharmacyName}</div>
-              <div className="small"><b>{isAr ? 'معرّف الصيدلية (Tenant ID):' : 'Tenant ID:'}</b> <code dir="ltr">{activePharmacyId}</code></div>
-              <div className="small">
-                <b>{isAr ? 'حالة التوثيق:' : 'Verification Status:'}</b>{' '}
-                <span className="badge approved">
-                  {activePartnerRecord?.verificationStatus || 'verified'}
-                </span>
-              </div>
-            </div>
-
-            <div className="subcard stack" style={{ gap: '6px' }}>
-              <b>{isAr ? 'مواعيد العمل والتوصيل:' : 'Hours & Delivery:'}</b>
-              <div className="small">
-                <b>{isAr ? 'مواعيد العمل:' : 'Opening Hours:'}</b>{' '}
-                {activePartnerRecord?.workingHoursAr || 'يومياً على مدار 24 ساعة'}
-              </div>
-              <div className="small">
-                <b>{isAr ? 'التوصيل المنزلي:' : 'Home Delivery:'}</b>{' '}
-                {activePartnerRecord?.deliveryAvailable !== false
-                  ? isAr ? 'متاح ومفعل ✓' : 'Available ✓'
-                  : isAr ? 'استلام من الفرع فقط' : 'In-store pickup only'}
-              </div>
-              <div className="small">
-                <b>{isAr ? 'هاتف التواصل:' : 'Contact Phone:'}</b>{' '}
-                <span dir="ltr">{activePartnerRecord?.phone || activePartnerRecord?.hotline || '19011'}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="subcard stack">
-            <b>{isAr ? `الفروع المعتمدة المرتبطة بالصيدلية (${activePharmacyBranches.length}):` : `Authorized Pharmacy Branches (${activePharmacyBranches.length}):`}</b>
-            {activePharmacyBranches.length === 0 ? (
-              <p className="small muted" style={{ margin: 0 }}>
-                {isAr ? 'الفرع الرئيسي مفعل ويعمل تحت نفس معرّف الصيدلية.' : 'Main flagship branch is active.'}
-              </p>
-            ) : (
-              <div className="stack" style={{ gap: '8px' }}>
-                {activePharmacyBranches.map((br) => (
-                  <div
-                    key={br.id}
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: '10px',
-                      border: '1px solid var(--line)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <div>
-                      <b>{br.branchNameAr}</b> — <span className="small muted">{br.city} ({br.addressAr})</span>
-                    </div>
-                    <span className="badge approved">{br.is24Hours ? '24h' : br.workingHoursAr}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
       {/* TAB 2: PHARMACY INVENTORY & BATCH/EXPIRY MANAGEMENT */}
-      {isAuthorizedPharmacyUser && canViewInventory && activeTab === 'inventory' && (
+      {activeTab === 'inventory' && (
         <div className="stack">
-          {canManageInventory && (
-            <section className="card stack">
-              <h2 style={{ margin: 0 }}>
-                {isAr ? 'إضافة أو تحديث رصيد دواء بمخزون الصيدلية' : 'Update Verified Pharmacy Medication Inventory'}
-              </h2>
-              <p className="small muted" style={{ margin: 0 }}>
-                {isAr
-                  ? 'وجود الدواء في قاعدة بيانات دوايا لا يعني توفره تلقائياً بكل صيدلية؛ يتم عرض التوفر للعملاء فقط بناءً على تحديثك الفعلي هنا.'
-                  : 'Listing in DAWAYA catalog does not imply stock; customers only see availability verified here.'}
-              </p>
+          <section className="card stack">
+            <h2 style={{ margin: 0 }}>
+              {isAr ? 'إضافة أو تحديث رصيد دواء بمخزون الصيدلية' : 'Update Verified Pharmacy Medication Inventory'}
+            </h2>
+            <p className="small muted" style={{ margin: 0 }}>
+              {isAr
+                ? 'وجود الدواء في قاعدة بيانات دوايا لا يعني توفره تلقائياً بكل صيدلية؛ يتم عرض التوفر للعملاء فقط بناءً على تحديثك الفعلي هنا.'
+                : 'Listing in DAWAYA catalog does not imply stock; customers only see availability verified here.'}
+            </p>
 
-              {/* Quick Autofill from 26,562 Catalog + 1-Tap Barcode Camera Scanner */}
-              <div className="form-group">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                  <label style={{ margin: 0 }}><b>{isAr ? 'ابحث في موسوعة دوايا (26,562 دواء) أو امسح باركود العلبة:' : 'Search DAWAYA Catalog or Scan Carton Barcode:'}</b></label>
-                  <label
-                    className="btn small ghost"
-                    style={{ cursor: 'pointer', borderRadius: '999px', margin: 0 }}
-                  >
-                    {isAr ? 'مسح باركود العلبة بالكاميرا' : 'Scan Box Barcode via Camera'}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      style={{ display: 'none' }}
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        try {
-                          if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
-                            const bmp = await createImageBitmap(file);
-                            const detector = new (window as any).BarcodeDetector({
-                              formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'qr_code'],
-                            });
-                            const codes = await detector.detect(bmp);
-                            if (codes && codes.length > 0 && codes[0].rawValue) {
-                              const codeStr = String(codes[0].rawValue).trim();
-                              setInvSearchQ(codeStr);
-                              showToast(isAr ? `تم قراءة الباركود بنجاح: ${codeStr}` : `Barcode detected: ${codeStr}`);
-                              return;
-                            }
+            {/* Quick Autofill from 26,562 Catalog + 1-Tap Barcode Camera Scanner */}
+            <div className="form-group">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                <label style={{ margin: 0 }}><b>{isAr ? 'ابحث في موسوعة دوايا (26,562 دواء) أو امسح باركود العلبة:' : 'Search DAWAYA Catalog or Scan Carton Barcode:'}</b></label>
+                <label
+                  className="btn small ghost"
+                  style={{ cursor: 'pointer', borderRadius: '999px', margin: 0 }}
+                >
+                  {isAr ? 'مسح باركود العلبة بالكاميرا' : 'Scan Box Barcode via Camera'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+                          const bmp = await createImageBitmap(file);
+                          const detector = new (window as any).BarcodeDetector({
+                            formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'qr_code'],
+                          });
+                          const codes = await detector.detect(bmp);
+                          if (codes && codes.length > 0 && codes[0].rawValue) {
+                            const codeStr = String(codes[0].rawValue).trim();
+                            setInvSearchQ(codeStr);
+                            showToast(isAr ? `تم قراءة الباركود بنجاح: ${codeStr}` : `Barcode detected: ${codeStr}`);
+                            return;
                           }
-                          showToast(isAr ? 'يرجى تقريب الكاميرا من الخطوط السوداء للباركود أو كتابة الرقم بالبحث.' : 'Please focus clearly on the barcode or type the digits.');
-                        } catch {
-                          showToast(isAr ? 'تعذر قراءة الباركود تلقائياً، يمكنك كتابة أول حروف الدواء مباشرة.' : 'Could not read barcode automatically.');
                         }
+                        showToast(isAr ? 'يرجى تقريب الكاميرا من الخطوط السوداء للباركود أو كتابة الرقم بالبحث.' : 'Please focus clearly on the barcode or type the digits.');
+                      } catch {
+                        showToast(isAr ? 'تعذر قراءة الباركود تلقائياً، يمكنك كتابة أول حروف الدواء مباشرة.' : 'Could not read barcode automatically.');
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              <input
+                type="search"
+                value={invSearchQ}
+                onChange={(e) => setInvSearchQ(e.target.value)}
+                placeholder={isAr ? 'اكتب اسم الدواء أو الباركود (مثال: أوجمنتين، كونكور، زيثروماكس)...' : 'Type brand name or barcode...'}
+              />
+              {matchingCatalogMeds.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                  {matchingCatalogMeds.map((m) => (
+                    <button
+                      key={m.i}
+                      type="button"
+                      className="chip"
+                      onClick={() => {
+                        setSelectedMedId(m.i);
+                        setTradeNameAr(m.a || m.n);
+                        setTradeNameEn(m.n);
+                        setActiveIng(m.g || '');
+                        setStrength(m.s || '');
+                        setDosageForm(m.f || 'tablet');
+                        if (m.p) setPriceEgp(m.p);
+                        setInvSearchQ('');
                       }}
-                    />
-                  </label>
+                    >
+                      {m.a || m.n} ({m.p ? `${m.p} ج.م` : ''})
+                    </button>
+                  ))}
                 </div>
-                <input
-                  type="search"
-                  value={invSearchQ}
-                  onChange={(e) => setInvSearchQ(e.target.value)}
-                  placeholder={isAr ? 'اكتب اسم الدواء أو الباركود (مثال: أوجمنتين، كونكور، زيثروماكس)...' : 'Type brand name or barcode...'}
-                />
-                {matchingCatalogMeds.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
-                    {matchingCatalogMeds.map((m) => (
-                      <button
-                        key={m.i}
-                        type="button"
-                        className="chip"
-                        onClick={() => {
-                          setSelectedMedId(m.i);
-                          setTradeNameAr(m.a || m.n);
-                          setTradeNameEn(m.n);
-                          setActiveIng(m.g || '');
-                          setStrength(m.s || '');
-                          setDosageForm(m.f || 'tablet');
-                          if (m.p) setPriceEgp(m.p);
-                          setInvSearchQ('');
-                        }}
-                      >
-                        {m.a || m.n} ({m.p ? `${m.p} ج.م` : ''})
-                      </button>
-                    ))}
-                  </div>
-                )}
+              )}
+            </div>
+
+            <form onSubmit={handleSaveInventory} className="stack">
+              <div className="form-row">
+                <div className="form-group">
+                  <label><b>{isAr ? 'الاسم التجاري (عربي):' : 'Trade Name (AR):'} *</b></label>
+                  <input value={tradeNameAr} onChange={(e) => setTradeNameAr(e.target.value)} required />
+                </div>
+                <div className="form-group">
+                  <label><b>{isAr ? 'الاسم التجاري (إنجليزي):' : 'Trade Name (EN):'}</b></label>
+                  <input value={tradeNameEn} onChange={(e) => setTradeNameEn(e.target.value)} />
+                </div>
               </div>
 
-              <form onSubmit={handleSaveInventory} className="stack">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label><b>{isAr ? 'الاسم التجاري (عربي):' : 'Trade Name (AR):'} *</b></label>
-                    <input value={tradeNameAr} onChange={(e) => setTradeNameAr(e.target.value)} required />
-                  </div>
-                  <div className="form-group">
-                    <label><b>{isAr ? 'الاسم التجاري (إنجليزي):' : 'Trade Name (EN):'}</b></label>
-                    <input value={tradeNameEn} onChange={(e) => setTradeNameEn(e.target.value)} />
-                  </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label><b>{isAr ? 'المادة الفعالة:' : 'Active Ingredient:'}</b></label>
+                  <input value={activeIng} onChange={(e) => setActiveIng(e.target.value)} />
                 </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label><b>{isAr ? 'المادة الفعالة:' : 'Active Ingredient:'}</b></label>
-                    <input value={activeIng} onChange={(e) => setActiveIng(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label><b>{isAr ? 'التركيز:' : 'Strength:'}</b></label>
-                    <input value={strength} onChange={(e) => setStrength(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label><b>{isAr ? 'السعر الفعلي بالصيدلية (ج.م):' : 'Verified Price (EGP):'} *</b></label>
-                    <input type="number" step="0.5" min="1" value={priceEgp} onChange={(e) => setPriceEgp(Number(e.target.value))} required />
-                  </div>
+                <div className="form-group">
+                  <label><b>{isAr ? 'التركيز:' : 'Strength:'}</b></label>
+                  <input value={strength} onChange={(e) => setStrength(e.target.value)} />
                 </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label><b>{isAr ? 'الكمية المتوفرة (عدد العبوات):' : 'Quantity (Packs):'} *</b></label>
-                    <input type="number" min="0" value={qtyPacks} onChange={(e) => setQtyPacks(Number(e.target.value))} required />
-                  </div>
-                  <div className="form-group">
-                    <label><b>{isAr ? 'حد تنبيه النواقص (Low Stock Alert):' : 'Low Stock Threshold:'}</b></label>
-                    <input type="number" min="1" value={lowThreshold} onChange={(e) => setLowThreshold(Number(e.target.value))} />
-                  </div>
-                  <div className="form-group">
-                    <label><b>{isAr ? 'رقم التشغيلة (Batch Number):' : 'Batch Number:'}</b></label>
-                    <input value={batchNo} onChange={(e) => setBatchNo(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label><b>{isAr ? 'تاريخ انتهاء الصلاحية (Expiry Date):' : 'Expiry Date:'} *</b></label>
-                    <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} required />
-                  </div>
+                <div className="form-group">
+                  <label><b>{isAr ? 'السعر الفعلي بالصيدلية (ج.م):' : 'Verified Price (EGP):'} *</b></label>
+                  <input type="number" step="0.5" min="1" value={priceEgp} onChange={(e) => setPriceEgp(Number(e.target.value))} required />
                 </div>
+              </div>
 
-                <button type="submit" className="btn" style={{ alignSelf: 'flex-start' }}>
-                  {isAr ? 'حفظ وتحديث المخزون الفعلي' : 'Save Verified Inventory'}
-                </button>
-              </form>
-            </section>
-          )}
+              <div className="form-row">
+                <div className="form-group">
+                  <label><b>{isAr ? 'الكمية المتوفرة (عدد العبوات):' : 'Quantity (Packs):'} *</b></label>
+                  <input type="number" min="0" value={qtyPacks} onChange={(e) => setQtyPacks(Number(e.target.value))} required />
+                </div>
+                <div className="form-group">
+                  <label><b>{isAr ? 'حد تنبيه النواقص (Low Stock Alert):' : 'Low Stock Threshold:'}</b></label>
+                  <input type="number" min="1" value={lowThreshold} onChange={(e) => setLowThreshold(Number(e.target.value))} />
+                </div>
+                <div className="form-group">
+                  <label><b>{isAr ? 'رقم التشغيلة (Batch Number):' : 'Batch Number:'}</b></label>
+                  <input value={batchNo} onChange={(e) => setBatchNo(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label><b>{isAr ? 'تاريخ انتهاء الصلاحية (Expiry Date):' : 'Expiry Date:'} *</b></label>
+                  <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} required />
+                </div>
+              </div>
+
+              <button type="submit" className="btn" style={{ alignSelf: 'flex-start' }}>
+                {isAr ? 'حفظ وتحديث المخزون الفعلي' : 'Save Verified Inventory'}
+              </button>
+            </form>
+          </section>
 
           <section className="card stack">
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
@@ -1120,7 +680,7 @@ export default function PharmacyOwnerDashboard() {
                     <th>{isAr ? 'الحالة' : 'Status'}</th>
                     <th>{isAr ? 'التشغيلة والصلاحية' : 'Batch & Expiry'}</th>
                     <th>{isAr ? 'آخر تحديث' : 'Last Updated'}</th>
-                    {canManageInventory && <th>{isAr ? 'إجراء' : 'Action'}</th>}
+                    <th>{isAr ? 'إجراء' : 'Action'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1153,17 +713,15 @@ export default function PharmacyOwnerDashboard() {
                           <div className="small muted">انتهاء: {item.expiryDateYYYYMMDD}</div>
                         </td>
                         <td className="small muted">{item.lastUpdatedAtIso.slice(0, 16).replace('T', ' ')}</td>
-                        {canManageInventory && (
-                          <td>
-                            <button
-                              type="button"
-                              className="btn small ghost"
-                              onClick={() => deletePharmacyInventoryItem(item.id)}
-                            >
-                              {isAr ? 'حذف' : 'Remove'}
-                            </button>
-                          </td>
-                        )}
+                        <td>
+                          <button
+                            type="button"
+                            className="btn small ghost"
+                            onClick={() => deletePharmacyInventoryItem(item.id)}
+                          >
+                            {isAr ? 'حذف' : 'Remove'}
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -1175,7 +733,7 @@ export default function PharmacyOwnerDashboard() {
       )}
 
       {/* TAB 3: CUSTOMER ORDERS & 8-STAGE LIFECYCLE */}
-      {isAuthorizedPharmacyUser && canManageOrders && activeTab === 'orders' && (
+      {activeTab === 'orders' && (
         <section className="card stack">
           <h2 style={{ margin: 0 }}>{isAr ? 'إدارة وتأكيد طلبات العملاء والروشتات' : 'Customer Orders & Pharmacist Confirmation'}</h2>
           <p className="small muted" style={{ margin: 0 }}>
@@ -1301,11 +859,11 @@ export default function PharmacyOwnerDashboard() {
         </section>
       )}
 
-      {/* TAB 4: AUTHORIZED PHARMACY EMPLOYEES & GRANULAR STAFF PERMISSIONS */}
-      {isAuthorizedPharmacyUser && canManageEmployees && activeTab === 'employees' && (
+      {/* TAB 4: AUTHORIZED PHARMACY EMPLOYEES */}
+      {activeTab === 'employees' && (
         <div className="stack">
           <section className="card stack">
-            <h2 style={{ margin: 0 }}>{isAr ? 'إضافة صيدلي أو موظف معتمد وتخصيص صلاحياته بالصيدلية' : 'Add Authorized Pharmacy Staff & Configure Permissions'}</h2>
+            <h2 style={{ margin: 0 }}>{isAr ? 'إضافة صيدلي أو موظف معتمد بالصيدلية' : 'Add Authorized Pharmacy Staff'}</h2>
             <p className="small muted" style={{ margin: 0 }}>
               {isAr
                 ? 'يتم تقييد صلاحيات الموظف ليعمل على مخزون وطلبات هذه الصيدلية فقط دون الوصول لأي صيدلية أخرى.'
@@ -1325,134 +883,26 @@ export default function PharmacyOwnerDashboard() {
                   <label><b>{isAr ? 'الدور الوظيفي بالصيدلية:' : 'Staff Role:'}</b></label>
                   <SmartChoiceSelect
                     value={empRole}
-                    onChange={(v) => {
-                      const nextR = v as 'pharmacy_manager' | 'pharmacist' | 'employee';
-                      setEmpRole(nextR);
-                      setEmpCanManageInv(nextR !== 'employee');
-                      setEmpCanConfirmOrders(true);
-                      setEmpCanViewReports(nextR === 'pharmacy_manager');
-                    }}
+                    onChange={(v) => setEmpRole(v as any)}
                     modalTitle={isAr ? 'اختر الدور الوظيفي بالصيدلية' : 'Select Pharmacy Role'}
                     options={[
-                      { value: 'pharmacy_manager', label: isAr ? 'مدير فرع صيدلية (Pharmacy Manager)' : 'Pharmacy Manager' },
-                      { value: 'pharmacist', label: isAr ? 'صيدلي معتمد (Pharmacist — الطلبات والروشتات والمخزون)' : 'Pharmacist' },
-                      { value: 'employee', label: isAr ? 'موظف صيدلية (Pharmacy Employee — تجهيز الطلبات والتوصيل)' : 'Pharmacy Employee' },
+                      { value: 'pharmacy_manager', label: isAr ? 'مدير صيدلية (صلاحية كاملة للصيدلية)' : 'Pharmacy Manager' },
+                      { value: 'pharmacist', label: isAr ? 'صيدلي (إدارة المخزون وتأكيد الروشتات والطلبات)' : 'Pharmacist' },
+                      { value: 'employee', label: isAr ? 'مساعد صيدلي / مدخل بيانات المخزون' : 'Inventory Staff' },
                     ]}
                   />
                 </div>
               </div>
-
-              {/* Configurable Granular Staff Permissions (Section 6B & 6D) */}
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '12px',
-                  background: 'var(--bg)',
-                  border: '1px solid var(--line)',
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '14px',
-                }}
-              >
-                <b className="small" style={{ width: '100%' }}>
-                  🔑 {isAr ? 'تخصيص الصلاحيات المسموحة لهذا الموظف:' : 'Configure Permitted Responsibilities:'}
-                </b>
-                <label className="small" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <input
-                    type="checkbox"
-                    checked={empCanConfirmOrders}
-                    onChange={(e) => setEmpCanConfirmOrders(e.target.checked)}
-                  />
-                  <span>{isAr ? 'معالجة وتجهيز طلبات الأدوية (orders.manage)' : 'Process Medication Orders (orders.manage)'}</span>
-                </label>
-                <label className="small" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <input
-                    type="checkbox"
-                    checked={empCanManageInv}
-                    onChange={(e) => setEmpCanManageInv(e.target.checked)}
-                  />
-                  <span>{isAr ? 'تحديث أصناف وكميات المخزون (inventory.manage)' : 'Update Inventory & Stock (inventory.manage)'}</span>
-                </label>
-                <label className="small" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <input
-                    type="checkbox"
-                    checked={empCanViewReports}
-                    onChange={(e) => setEmpCanViewReports(e.target.checked)}
-                  />
-                  <span>{isAr ? 'الاطلاع على تقارير المبيعات والأداء (reports.view)' : 'View Sales & Performance Reports (reports.view)'}</span>
-                </label>
-              </div>
-
               <button type="submit" className="btn" style={{ alignSelf: 'flex-start' }}>
                 {isAr ? 'إضافة للفريق المعتمد' : 'Add Staff Member'}
               </button>
             </form>
           </section>
-
-          {/* Current Pharmacy Staff List with Suspend / Reactivate Controls */}
-          <section className="card stack">
-            <h3 style={{ margin: 0 }}>
-              {isAr ? `قائمة صيادلة وموظفي الصيدلية الحاليين (${myEmployees.length})` : `Current Pharmacy Staff (${myEmployees.length})`}
-            </h3>
-            {myEmployees.length === 0 ? (
-              <p className="muted">{isAr ? 'لم يتم تسجيل موظفين إضافيين لهذه الصيدلية بعد.' : 'No staff members added yet.'}</p>
-            ) : (
-              <div className="tablewrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>{isAr ? 'الاسم والإيميل' : 'Name & Email'}</th>
-                      <th>{isAr ? 'الدور الوظيفي' : 'Role'}</th>
-                      <th>{isAr ? 'الصلاحيات الممنوحة' : 'Permissions'}</th>
-                      <th>{isAr ? 'الحالة' : 'Status'}</th>
-                      <th>{isAr ? 'إجراءات' : 'Actions'}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {myEmployees.map((emp) => (
-                      <tr key={emp.id}>
-                        <td>
-                          <b>{emp.fullName}</b>
-                          <div className="small muted" dir="ltr">{emp.email}</div>
-                        </td>
-                        <td>
-                          <span className="badge approved">{emp.role.toUpperCase()}</span>
-                        </td>
-                        <td className="small">
-                          {[
-                            emp.canConfirmOrders ? (isAr ? 'الطلبات' : 'Orders') : null,
-                            emp.canManageInventory ? (isAr ? 'المخزون' : 'Inventory') : null,
-                            emp.canViewReports ? (isAr ? 'التقارير' : 'Reports') : null,
-                          ]
-                            .filter(Boolean)
-                            .join(' • ')}
-                        </td>
-                        <td>
-                          <span className={emp.active ? 'badge approved' : 'badge rejected'}>
-                            {emp.active ? (isAr ? 'نشط' : 'Active') : (isAr ? 'موقوف' : 'Suspended')}
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn small ghost"
-                            onClick={() => handleToggleEmployeeActive(emp)}
-                          >
-                            {emp.active ? (isAr ? 'إيقاف مؤقت' : 'Suspend') : (isAr ? 'إعادة تفعيل' : 'Reactivate')}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
         </div>
       )}
 
       {/* TAB 5: SALES & ANALYTICS REPORTS */}
-      {isAuthorizedPharmacyUser && canViewReports && activeTab === 'reports' && (
+      {activeTab === 'reports' && (
         <section className="card stack">
           <h2 style={{ margin: 0 }}>{isAr ? 'تقارير أداء الصيدلية والمبيعات والنواقص' : 'Pharmacy Sales & Inventory Analytics'}</h2>
           <div className="form-row">
@@ -1465,7 +915,7 @@ export default function PharmacyOwnerDashboard() {
             <div className="subcard">
               <b>{isAr ? 'الطلبات المكتملة:' : 'Delivered Orders:'}</b>
               <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#0284c7' }}>
-                {completedOrdersCount}
+                {myOrders.filter((o) => o.status === 'delivered').length}
               </div>
             </div>
             <div className="subcard">
