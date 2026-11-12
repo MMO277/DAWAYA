@@ -8,8 +8,8 @@ import { AuthProvider } from './authContext';
 import { EmergencyLocationProvider } from './emergencyLocation';
 import AuthModal from './AuthModal';
 import Home from './Home';
+import { ProtectedRoute } from './RoleSwitcherAndGuard';
 import { startPartnerEcosystemSync } from './partnerService';
-import { ensureDawayaDatabaseLoaded } from './dawayaDrugDatabaseService';
 
 /**
  * Offline-safe & OTA-safe lazy loader.
@@ -209,163 +209,245 @@ export default function App() {
           <DawayaErrorBoundary>
             <Suspense fallback={<PageLoadingFallback />}>
               <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/patient-dashboard" element={<PatientDashboard />} />
-              <Route path="/dashboard" element={<PatientDashboard />} />
-              <Route path="/medicines" element={<Medicines />} />
-              <Route path="/partners" element={<PartnersDirectoryPage />} />
-              <Route path="/pharmacies" element={<PartnersDirectoryPage />} />
-              <Route path="/pharmacy-portal" element={<PharmacyOwnerDashboard />} />
-              <Route path="/pharmacy-dashboard" element={<PharmacyOwnerDashboard />} />
-              <Route path="/partner/:id" element={<PartnerPublicProfilePage />} />
-              <Route path="/cost-saver" element={<CostSaver />} />
-              <Route path="/cold-shot-warning" element={<ColdShotWarning />} />
-                            <Route path="/home-cabinet" element={<HomeMedicineCabinet />} />
-              <Route path="/cabinet" element={<HomeMedicineCabinet />} />
-              <Route path="/ramadan-clock" element={<RamadanFastingClock />} />
-              <Route path="/fasting-clock" element={<RamadanFastingClock />} />
-              <Route path="/travel-kit" element={<TravelMedKit />} />
-              <Route path="/travel" element={<TravelMedKit />} />
-              <Route path="/daily-schedule" element={<DailyScheduleGenerator />} />
-              <Route path="/green-prescription" element={<GreenPrescription />} />
-              <Route path="/awareness-week" element={<AwarenessWeek />} />
-              <Route path="/compare" element={<CompareDrugs />} />
-              <Route path="/complete-checkup" element={<OneClickCheckup />} />
-              <Route path="/prescription-radar" element={<PrescriptionRadar />} />
-              <Route path="/interactions" element={<Interactions />} />
-              <Route path="/safe-disposal" element={<SafeDisposal />} />
-              <Route path="/tracker" element={<Tracker />} />
-              <Route path="/side-effects" element={<SideEffectsGuide />} />
-              <Route path="/listen" element={<ListenLearn />} />
-              <Route path="/health-profile" element={<HealthProfile />} />
-              <Route path="/allergy-checker" element={<AllergyChecker />} />
-              <Route path="/pediatric-helper" element={<PediatricHelper />} />
-              <Route path="/medicine/:id" element={<MedicinePage />} />
-              <Route path="/articles" element={<Articles />} />
-              <Route path="/articles/:id" element={<ArticlePage />} />
-              <Route path="/quiz" element={<Quiz />} />
-              <Route path="/scan" element={<Scan />} />
-              <Route path="/learn" element={<Learn />} />
-              <Route path="/assistant" element={<Assistant />} />
-              <Route path="/myth" element={<MythFact />} />
-              <Route path="/methodology" element={<Methodology />} />
-              <Route path="/research" element={<Research />} />
-                                                                                                  <Route path="/nutrition-clinic" element={<ClinicalNutritionClinic />} />
-              <Route path="/women-clinic" element={<WomensHealthClinic />} />
-              <Route path="/geriatric-clinic" element={<GeriatricCareClinic />} />
-              <Route path="/hair-clinic" element={<HairSkincareClinic />} />
-              <Route path="/chest-clinic" element={<ChestRespiratoryClinic />} />
-              <Route path="/body-map" element={<InteractiveBodyMap />} />
-              <Route path="/food-drug-checker" element={<FoodDrugInteractionChecker />} />
-              <Route path="/lab-photo-scanner" element={<SmartLabAndRxPhotoScanner />} />
-              <Route path="/organ-simulator" element={<VisualBodyDrugSimulator />} />
-              <Route path="/meal-planner" element={<ChronicMealPlanner />} />
-              <Route path="/medical-report" element={<ComprehensiveMedicalReport />} />
-              <Route path="/missed-dose-rescue" element={<MissedDoseRescueSolver />} />
-              <Route path="/missed-dose" element={<MissedDoseRescueSolver />} />
-              <Route path="/doctor-visit-prep" element={<DoctorVisitPrep />} />
-              <Route path="/doctor-prep" element={<DoctorVisitPrep />} />
-              <Route path="/vaccine-tracker" element={<EgyptianVaccineTracker />} />
-              <Route path="/vaccines" element={<EgyptianVaccineTracker />} />
-
-              <Route path="/symptom-triage" element={<SmartSymptomTriage />} />
-<Route path="/eye-clinic" element={<OphthalmologyClinic />} />
-              <Route path="/ent-clinic" element={<EntClinic />} />
-              <Route path="/lab-clinic" element={<LabTestDecoderClinic />} />
-              <Route path="/urology-clinic" element={<UrologyRenalClinic />} />
-              <Route path="/neuro-clinic" element={<NeurologyClinic />} />
-              <Route path="/poison-clinic" element={<PoisonFirstAidClinic />} />
-<Route path="/clinics" element={<SpecialtyClinicsHub />} />
-              <Route path="/specialty-clinics" element={<SpecialtyClinicsHub />} />
-              <Route path="/ortho-clinic" element={<OrthopedicsClinic />} />
-              <Route path="/gastro-clinic" element={<GastroClinic />} />
-              <Route path="/derma-clinic" element={<DermatologyClinic />} />
-              <Route path="/dental-clinic" element={<DentalEmergencyClinic />} />
-              <Route path="/g6pd-clinic" element={<G6pdFavismClinic />} />
-              <Route path="/chronic-clinic" element={<ChronicCareClinic />} />
-<Route path="/baby-first-year" element={<NewbornFirstYearGuide />} />
-              <Route path="/newborn-guide" element={<NewbornFirstYearGuide />} />
-              <Route path="/infant-care" element={<NewbornFirstYearGuide />} />
-<Route path="/pregnancy-guide" element={<PregnancySafetyNavigator />} />
-              <Route path="/pregnancy" element={<PregnancySafetyNavigator />} />
-              <Route path="/pregnant" element={<PregnancySafetyNavigator />} />
-<Route path="/airport-banned-meds" element={<AirportBannedMedsScanner />} />
-              <Route path="/banned-meds" element={<AirportBannedMedsScanner />} />
-              <Route path="/baby-milk" element={<BabyMilkFormulaNavigator />} />
-              <Route path="/milk-formula" element={<BabyMilkFormulaNavigator />} />
-              <Route path="/senior-pills" element={<SeniorPillVisualIdentifier />} />
-              <Route path="/pill-identifier" element={<SeniorPillVisualIdentifier />} />
-              <Route path="/steroid-taper" element={<SteroidTaperingCalendar />} />
-              <Route path="/cortisone-taper" element={<SteroidTaperingCalendar />} />
-              <Route path="/hypo-rescue" element={<HypoRescuePlan />} />
-              <Route path="/hypoglycemia-rescue" element={<HypoRescuePlan />} />
-              <Route path="/inhaler-counter" element={<InhalerDoseCounter />} />
-              <Route path="/asthma-counter" element={<InhalerDoseCounter />} />
-<Route path="/games" element={<GameCenter />} />
-              <Route
-                path="/open-world"
-                element={
-                  <Suspense fallback={<SimulatorLoadingFallback />}>
-                    <OpenWorldGame />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/medical-simulator"
-                element={
-                  <Suspense fallback={<SimulatorLoadingFallback />}>
-                    <MedicalSimulator />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/nurse-academy"
-                element={
-                  <Suspense fallback={<SimulatorLoadingFallback />}>
-                    <NurseAcademy />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/medical-mystery"
-                element={
-                  <Suspense fallback={<SimulatorLoadingFallback />}>
-                    <MedicalMystery />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/bacteria-lab"
-                element={
-                  <Suspense fallback={<SimulatorLoadingFallback />}>
-                    <BacteriaLab />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/emergency-shift"
-                element={
-                  <Suspense fallback={<SimulatorLoadingFallback />}>
-                    <EmergencyShift />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/escape-the-lab"
-                element={
-                  <Suspense fallback={<SimulatorLoadingFallback />}>
-                    <EscapeTheLab />
-                  </Suspense>
-                }
-              />
-              <Route path="/game" element={<BacteriaHunter />} />
-              <Route path="/admin" element={configured ? <Dashboard /> : <ConfigMissing />} />
-              <Route path="/admin/new" element={configured ? <Editor /> : <ConfigMissing />} />
-              <Route path="/admin/medicine/:id" element={configured ? <Editor /> : <ConfigMissing />} />
-              <Route path="/passport" element={<SmartPassport />} />
-              <Route path="/smart-passport" element={<SmartPassport />} />
-              <Route path="/passport/:uid" element={<PassportView />} />
-              <Route path="*" element={<NotFound />} />
+                <Route path="/" element={<Home />} />
+                <Route path="/patient-dashboard" element={<PatientDashboard />} />
+                <Route path="/dashboard" element={<PatientDashboard />} />
+                <Route path="/medicines" element={<Medicines />} />
+                <Route path="/partners" element={<PartnersDirectoryPage />} />
+                <Route path="/pharmacies" element={<PartnersDirectoryPage />} />
+                <Route
+                  path="/pharmacy-portal"
+                  element={
+                    <ProtectedRoute
+                      requiredMode="pharmacy"
+                      requiredRoles={[
+                        'pharmacy_owner',
+                        'pharmacy_manager',
+                        'pharmacist',
+                        'pharmacy_employee',
+                        'central_admin',
+                        'super_admin',
+                      ]}
+                    >
+                      <PharmacyOwnerDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/pharmacy-dashboard"
+                  element={
+                    <ProtectedRoute
+                      requiredMode="pharmacy"
+                      requiredRoles={[
+                        'pharmacy_owner',
+                        'pharmacy_manager',
+                        'pharmacist',
+                        'pharmacy_employee',
+                        'central_admin',
+                        'super_admin',
+                      ]}
+                    >
+                      <PharmacyOwnerDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/partner/:id" element={<PartnerPublicProfilePage />} />
+                <Route path="/cost-saver" element={<CostSaver />} />
+                <Route path="/cold-shot-warning" element={<ColdShotWarning />} />
+                <Route path="/home-cabinet" element={<HomeMedicineCabinet />} />
+                <Route path="/cabinet" element={<HomeMedicineCabinet />} />
+                <Route path="/ramadan-clock" element={<RamadanFastingClock />} />
+                <Route path="/fasting-clock" element={<RamadanFastingClock />} />
+                <Route path="/travel-kit" element={<TravelMedKit />} />
+                <Route path="/travel" element={<TravelMedKit />} />
+                <Route path="/daily-schedule" element={<DailyScheduleGenerator />} />
+                <Route path="/green-prescription" element={<GreenPrescription />} />
+                <Route path="/awareness-week" element={<AwarenessWeek />} />
+                <Route path="/compare" element={<CompareDrugs />} />
+                <Route path="/complete-checkup" element={<OneClickCheckup />} />
+                <Route path="/prescription-radar" element={<PrescriptionRadar />} />
+                <Route path="/interactions" element={<Interactions />} />
+                <Route path="/safe-disposal" element={<SafeDisposal />} />
+                <Route path="/tracker" element={<Tracker />} />
+                <Route path="/side-effects" element={<SideEffectsGuide />} />
+                <Route path="/listen" element={<ListenLearn />} />
+                <Route path="/health-profile" element={<HealthProfile />} />
+                <Route path="/allergy-checker" element={<AllergyChecker />} />
+                <Route path="/pediatric-helper" element={<PediatricHelper />} />
+                <Route path="/medicine/:id" element={<MedicinePage />} />
+                <Route path="/articles" element={<Articles />} />
+                <Route path="/articles/:id" element={<ArticlePage />} />
+                <Route path="/quiz" element={<Quiz />} />
+                <Route path="/scan" element={<Scan />} />
+                <Route path="/learn" element={<Learn />} />
+                <Route path="/assistant" element={<Assistant />} />
+                <Route path="/myth" element={<MythFact />} />
+                <Route path="/methodology" element={<Methodology />} />
+                <Route path="/research" element={<Research />} />
+                <Route path="/nutrition-clinic" element={<ClinicalNutritionClinic />} />
+                <Route path="/women-clinic" element={<WomensHealthClinic />} />
+                <Route path="/geriatric-clinic" element={<GeriatricCareClinic />} />
+                <Route path="/hair-clinic" element={<HairSkincareClinic />} />
+                <Route path="/chest-clinic" element={<ChestRespiratoryClinic />} />
+                <Route path="/body-map" element={<InteractiveBodyMap />} />
+                <Route path="/food-drug-checker" element={<FoodDrugInteractionChecker />} />
+                <Route path="/lab-photo-scanner" element={<SmartLabAndRxPhotoScanner />} />
+                <Route path="/organ-simulator" element={<VisualBodyDrugSimulator />} />
+                <Route path="/meal-planner" element={<ChronicMealPlanner />} />
+                <Route path="/medical-report" element={<ComprehensiveMedicalReport />} />
+                <Route path="/missed-dose-rescue" element={<MissedDoseRescueSolver />} />
+                <Route path="/missed-dose" element={<MissedDoseRescueSolver />} />
+                <Route path="/doctor-visit-prep" element={<DoctorVisitPrep />} />
+                <Route path="/doctor-prep" element={<DoctorVisitPrep />} />
+                <Route path="/vaccine-tracker" element={<EgyptianVaccineTracker />} />
+                <Route path="/vaccines" element={<EgyptianVaccineTracker />} />
+                <Route path="/symptom-triage" element={<SmartSymptomTriage />} />
+                <Route path="/eye-clinic" element={<OphthalmologyClinic />} />
+                <Route path="/ent-clinic" element={<EntClinic />} />
+                <Route path="/lab-clinic" element={<LabTestDecoderClinic />} />
+                <Route path="/urology-clinic" element={<UrologyRenalClinic />} />
+                <Route path="/neuro-clinic" element={<NeurologyClinic />} />
+                <Route path="/poison-clinic" element={<PoisonFirstAidClinic />} />
+                <Route path="/clinics" element={<SpecialtyClinicsHub />} />
+                <Route path="/specialty-clinics" element={<SpecialtyClinicsHub />} />
+                <Route path="/ortho-clinic" element={<OrthopedicsClinic />} />
+                <Route path="/gastro-clinic" element={<GastroClinic />} />
+                <Route path="/derma-clinic" element={<DermatologyClinic />} />
+                <Route path="/dental-clinic" element={<DentalEmergencyClinic />} />
+                <Route path="/g6pd-clinic" element={<G6pdFavismClinic />} />
+                <Route path="/chronic-clinic" element={<ChronicCareClinic />} />
+                <Route path="/baby-first-year" element={<NewbornFirstYearGuide />} />
+                <Route path="/newborn-guide" element={<NewbornFirstYearGuide />} />
+                <Route path="/infant-care" element={<NewbornFirstYearGuide />} />
+                <Route path="/pregnancy-guide" element={<PregnancySafetyNavigator />} />
+                <Route path="/pregnancy" element={<PregnancySafetyNavigator />} />
+                <Route path="/pregnant" element={<PregnancySafetyNavigator />} />
+                <Route path="/airport-banned-meds" element={<AirportBannedMedsScanner />} />
+                <Route path="/banned-meds" element={<AirportBannedMedsScanner />} />
+                <Route path="/baby-milk" element={<BabyMilkFormulaNavigator />} />
+                <Route path="/milk-formula" element={<BabyMilkFormulaNavigator />} />
+                <Route path="/senior-pills" element={<SeniorPillVisualIdentifier />} />
+                <Route path="/pill-identifier" element={<SeniorPillVisualIdentifier />} />
+                <Route path="/steroid-taper" element={<SteroidTaperingCalendar />} />
+                <Route path="/cortisone-taper" element={<SteroidTaperingCalendar />} />
+                <Route path="/hypo-rescue" element={<HypoRescuePlan />} />
+                <Route path="/hypoglycemia-rescue" element={<HypoRescuePlan />} />
+                <Route path="/inhaler-counter" element={<InhalerDoseCounter />} />
+                <Route path="/asthma-counter" element={<InhalerDoseCounter />} />
+                <Route path="/games" element={<GameCenter />} />
+                <Route
+                  path="/open-world"
+                  element={
+                    <Suspense fallback={<SimulatorLoadingFallback />}>
+                      <OpenWorldGame />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/medical-simulator"
+                  element={
+                    <Suspense fallback={<SimulatorLoadingFallback />}>
+                      <MedicalSimulator />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/nurse-academy"
+                  element={
+                    <Suspense fallback={<SimulatorLoadingFallback />}>
+                      <NurseAcademy />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/medical-mystery"
+                  element={
+                    <Suspense fallback={<SimulatorLoadingFallback />}>
+                      <MedicalMystery />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/bacteria-lab"
+                  element={
+                    <Suspense fallback={<SimulatorLoadingFallback />}>
+                      <BacteriaLab />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/emergency-shift"
+                  element={
+                    <Suspense fallback={<SimulatorLoadingFallback />}>
+                      <EmergencyShift />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/escape-the-lab"
+                  element={
+                    <Suspense fallback={<SimulatorLoadingFallback />}>
+                      <EscapeTheLab />
+                    </Suspense>
+                  }
+                />
+                <Route path="/game" element={<BacteriaHunter />} />
+                <Route
+                  path="/admin"
+                  element={
+                    configured ? (
+                      <ProtectedRoute
+                        requiredMode="admin"
+                        requiredRoles={[
+                          'super_admin',
+                          'central_admin',
+                          'regional_manager',
+                          'content_reviewer',
+                          'content_editor',
+                          'viewer',
+                        ]}
+                      >
+                        <Dashboard />
+                      </ProtectedRoute>
+                    ) : (
+                      <ConfigMissing />
+                    )
+                  }
+                />
+                <Route
+                  path="/admin/new"
+                  element={
+                    configured ? (
+                      <ProtectedRoute
+                        requiredMode="admin"
+                        requiredPermissions={['medications.manage']}
+                      >
+                        <Editor />
+                      </ProtectedRoute>
+                    ) : (
+                      <ConfigMissing />
+                    )
+                  }
+                />
+                <Route
+                  path="/admin/medicine/:id"
+                  element={
+                    configured ? (
+                      <ProtectedRoute
+                        requiredMode="admin"
+                        requiredPermissions={['medications.manage']}
+                      >
+                        <Editor />
+                      </ProtectedRoute>
+                    ) : (
+                      <ConfigMissing />
+                    )
+                  }
+                />
+                <Route path="/passport" element={<SmartPassport />} />
+                <Route path="/smart-passport" element={<SmartPassport />} />
+                <Route path="/passport/:uid" element={<PassportView />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </DawayaErrorBoundary>

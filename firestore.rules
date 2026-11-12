@@ -8,6 +8,16 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid && uid.size() > 0;
     }
 
+    function roleDocPath() {
+      return /databases/$(database)/documents/roles/$(request.auth.uid);
+    }
+
+    function isAccountNotSuspended() {
+      return !exists(roleDocPath())
+          || !('accountStatus' in get(roleDocPath()).data)
+          || get(roleDocPath()).data.accountStatus != 'suspended';
+    }
+
     // Section 3: Share is valid ONLY when not revoked AND expiresAt is strictly in the future (> request.time)
     function isPassportShareDocValid(shareData) {
       return shareData.revoked != true
@@ -23,6 +33,7 @@ service cloud.firestore {
           && isPassportShareDocValid(get(/databases/$(database)/documents/passportShares/$(uid)).data);
     }
 
+    // Section 3 & 10: Users can NEVER assign themselves roles or elevated permissions in their own user doc
     function validUserDocWrite() {
       let d = request.resource.data;
       return (!('schedules' in d) || d.schedules is list)
@@ -40,53 +51,113 @@ service cloud.firestore {
           && (!('aiConversation' in d) || d.aiConversation is list)
           && (!('savedAddresses' in d) || d.savedAddresses is list)
           && (!('notificationPrefs' in d) || d.notificationPrefs is map)
+          && (!('defaultRole' in d) || d.defaultRole == 'patient')
           && !('role' in d)
+          && !('roles' in d)
+          && !('permissions' in d)
           && !('isAdmin' in d);
     }
 
-    function roleDocPath() {
-      return /databases/$(database)/documents/roles/$(request.auth.uid);
-    }
-
+    // Multi-role & canonical/legacy role verification (never trusts client-side activeRole UI preference)
     function userHasRoleIn(allowedRoles) {
       return isSignedIn()
+          && isAccountNotSuspended()
           && (
             (request.auth.token.role is string && request.auth.token.role in allowedRoles)
-            || (exists(roleDocPath()) && (get(roleDocPath()).data.role in allowedRoles))
+            || (
+              exists(roleDocPath())
+              && get(roleDocPath()).data.status != 'revoked'
+              && (
+                (get(roleDocPath()).data.role in allowedRoles)
+                || ('canonicalRole' in get(roleDocPath()).data && get(roleDocPath()).data.canonicalRole in allowedRoles)
+                || ('roles' in get(roleDocPath()).data && get(roleDocPath()).data.roles is list && get(roleDocPath()).data.roles.hasAny(allowedRoles))
+              )
+            )
           );
     }
 
-    // Central Platform Roles
+    // Central Platform & Content Roles (Canonical + Legacy aliases)
     function isViewer() {
-      return userHasRoleIn(['viewer', 'editor', 'reviewer', 'regional_manager', 'admin', 'super_admin', 'owner']);
+      return userHasRoleIn([
+        'viewer',
+        'editor', 'content_editor',
+        'reviewer', 'content_reviewer',
+        'regional_manager',
+        'admin', 'central_admin',
+        'super_admin', 'owner'
+      ]);
     }
     function isEditor() {
-      return userHasRoleIn(['editor', 'reviewer', 'regional_manager', 'admin', 'super_admin', 'owner']);
+      return userHasRoleIn([
+        'editor', 'content_editor',
+        'reviewer', 'content_reviewer',
+        'regional_manager',
+        'admin', 'central_admin',
+        'super_admin', 'owner'
+      ]);
     }
     function isReviewer() {
-      return userHasRoleIn(['reviewer', 'regional_manager', 'admin', 'super_admin', 'owner']);
+      return userHasRoleIn([
+        'reviewer', 'content_reviewer',
+        'regional_manager',
+        'admin', 'central_admin',
+        'super_admin', 'owner'
+      ]);
     }
     function isRegionalManager() {
-      return userHasRoleIn(['regional_manager', 'admin', 'super_admin', 'owner']);
+      return userHasRoleIn([
+        'regional_manager',
+        'admin', 'central_admin',
+        'super_admin', 'owner'
+      ]);
+    }
+    function isScopedRegionalManagerFor(govId) {
+      let regMemPath = /databases/$(database)/documents/regionalMemberships/$(request.auth.uid + '_' + govId);
+      return isAdmin()
+          || (
+            isRegionalManager()
+            && (
+              (exists(regMemPath) && get(regMemPath).data.status == 'active')
+              || (exists(roleDocPath()) && (!('regionId' in get(roleDocPath()).data) || get(roleDocPath()).data.regionId == null || get(roleDocPath()).data.regionId == govId))
+            )
+          );
     }
     function isAdmin() {
-      return userHasRoleIn(['admin', 'super_admin', 'owner']);
+      return userHasRoleIn(['admin', 'central_admin', 'super_admin', 'owner']);
     }
     function isPlatformOwner() {
       return userHasRoleIn(['super_admin', 'owner']);
     }
 
-    // Section 5: Strict Pharmacy Tenant Isolation Helpers
+    // Section 5 & 9: Strict Pharmacy Tenant Isolation & Scoped Membership Helpers
+    function pharmMembershipPath(pharmacyId) {
+      return /databases/$(database)/documents/pharmacyMemberships/$(request.auth.uid + '_' + pharmacyId);
+    }
+
+    function hasActiveScopedPharmacyMembership(pharmacyId, allowedRoles) {
+      let pPath = pharmMembershipPath(pharmacyId);
+      return exists(pPath)
+          && get(pPath).data.status == 'active'
+          && get(pPath).data.pharmacyId == pharmacyId
+          && get(pPath).data.role in allowedRoles;
+    }
+
     function isPharmacyMember(pharmacyId) {
       return isSignedIn()
+          && isAccountNotSuspended()
           && pharmacyId is string
           && pharmacyId.size() > 0
           && (
             isAdmin()
+            || hasActiveScopedPharmacyMembership(pharmacyId, [
+              'pharmacy_owner', 'pharmacy_manager', 'pharmacist', 'pharmacy_employee', 'employee'
+            ])
             || (
               exists(roleDocPath())
               && get(roleDocPath()).data.pharmacyId == pharmacyId
-              && get(roleDocPath()).data.role in ['pharmacy_owner', 'pharmacy_manager', 'pharmacist', 'employee']
+              && get(roleDocPath()).data.role in [
+                'pharmacy_owner', 'pharmacy_manager', 'pharmacist', 'pharmacy_employee', 'employee'
+              ]
             )
             || (
               exists(/databases/$(database)/documents/pharmacies/$(pharmacyId))
@@ -100,11 +171,24 @@ service cloud.firestore {
     }
 
     function isPharmacyPharmacistOrManager(pharmacyId) {
+      let pPath = pharmMembershipPath(pharmacyId);
       return isSignedIn()
+          && isAccountNotSuspended()
           && pharmacyId is string
           && pharmacyId.size() > 0
           && (
             isAdmin()
+            || hasActiveScopedPharmacyMembership(pharmacyId, [
+              'pharmacy_owner', 'pharmacy_manager', 'pharmacist'
+            ])
+            || (
+              exists(pPath)
+              && get(pPath).data.status == 'active'
+              && get(pPath).data.pharmacyId == pharmacyId
+              && ('permissions' in get(pPath).data)
+              && (get(pPath).data.permissions is list)
+              && get(pPath).data.permissions.hasAny(['inventory.manage'])
+            )
             || (
               exists(roleDocPath())
               && get(roleDocPath()).data.pharmacyId == pharmacyId
@@ -123,10 +207,12 @@ service cloud.firestore {
 
     function isPharmacyManagerOrOwner(pharmacyId) {
       return isSignedIn()
+          && isAccountNotSuspended()
           && pharmacyId is string
           && pharmacyId.size() > 0
           && (
             isAdmin()
+            || hasActiveScopedPharmacyMembership(pharmacyId, ['pharmacy_owner', 'pharmacy_manager'])
             || (
               exists(roleDocPath())
               && get(roleDocPath()).data.pharmacyId == pharmacyId
@@ -202,7 +288,7 @@ service cloud.firestore {
 
     // ── 1. Users & Customer Profiles (Protected Personal & Medical Data) ──
     match /users/{uid} {
-      // Section 3 Fix: Private patient records are strictly private to the owner (never editor/reviewer/regional_manager)
+      // Section 3 & 6F Fix: Private patient records are strictly private to the owner (never content_editor/content_reviewer/regional_manager)
       allow read: if isOwner(uid);
       allow create, update: if isOwner(uid) && validUserDocWrite();
       allow delete: if isOwner(uid) || isAdmin();
@@ -217,7 +303,7 @@ service cloud.firestore {
       }
 
       match /medicalDocuments/{docId} {
-        // Section 3 Fix: Only the patient owner can read/write their private medical documents
+        // Section 3 & 6F Fix: Only the patient owner can read/write their private medical documents
         allow read: if isOwner(uid);
         allow create, update: if isOwner(uid)
           && request.resource.data.category in ['prescription', 'lab_report', 'medical_report', 'leaflet', 'other']
@@ -257,12 +343,99 @@ service cloud.firestore {
       }
     }
 
+    // Default Patient Registration Profile (Section 3 & 8)
     match /customerProfiles/{uid} {
       allow read: if isOwner(uid) || isAdmin();
-      allow create, update: if isOwner(uid)
+      allow create: if isOwner(uid)
+        && (!('defaultRole' in request.resource.data) || request.resource.data.defaultRole == 'patient')
+        && (!('accountStatus' in request.resource.data) || request.resource.data.accountStatus == 'active')
         && !('role' in request.resource.data)
+        && !('roles' in request.resource.data)
+        && !('permissions' in request.resource.data)
         && !('isAdmin' in request.resource.data);
+      allow update: if (
+          isOwner(uid)
+          && (!('defaultRole' in request.resource.data) || request.resource.data.defaultRole == 'patient')
+          && (!('accountStatus' in request.resource.data) || request.resource.data.accountStatus == resource.data.accountStatus)
+          && !('role' in request.resource.data)
+          && !('roles' in request.resource.data)
+          && !('permissions' in request.resource.data)
+          && !('isAdmin' in request.resource.data)
+        )
+        || isAdmin();
       allow delete: if isAdmin();
+    }
+
+    // ── 1B. Multi-Role, Scoped Memberships, Role Definitions & Audit Logs (Sections 7, 8, 10, 11) ──
+    match /roles/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      // Privilege escalation prevention: only super_admin/owner can assign super_admin or central_admin
+      allow create, update: if isPlatformOwner()
+        || (
+          isAdmin()
+          && !(request.resource.data.role in ['super_admin', 'owner', 'central_admin', 'admin'])
+          && !('canonicalRole' in request.resource.data && request.resource.data.canonicalRole in ['super_admin', 'central_admin'])
+        );
+      allow delete: if isPlatformOwner() || (isAdmin() && uid != request.auth.uid);
+    }
+
+    match /userRoles/{roleDocId} {
+      allow read: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create, update: if isPlatformOwner()
+        || (
+          isAdmin()
+          && request.resource.data.uid is string
+          && !(request.resource.data.role in ['super_admin', 'owner', 'central_admin', 'admin'])
+        );
+      allow delete: if isPlatformOwner();
+    }
+
+    match /pharmacyMemberships/{memId} {
+      allow read: if isSignedIn() && (
+        resource.data.uid == request.auth.uid
+        || isPharmacyManagerOrOwner(resource.data.pharmacyId)
+        || isAdmin()
+      );
+      allow create: if isAdmin()
+        || (
+          isSignedIn()
+          && request.resource.data.pharmacyId is string
+          && isPharmacyManagerOrOwner(request.resource.data.pharmacyId)
+          && request.resource.data.role in ['pharmacy_manager', 'pharmacist', 'pharmacy_employee', 'employee']
+        );
+      allow update: if isAdmin()
+        || (
+          isSignedIn()
+          && request.resource.data.pharmacyId == resource.data.pharmacyId
+          && isPharmacyManagerOrOwner(resource.data.pharmacyId)
+          && request.resource.data.role in ['pharmacy_manager', 'pharmacist', 'pharmacy_employee', 'employee']
+        );
+      allow delete: if isAdmin()
+        || (isSignedIn() && isPharmacyManagerOrOwner(resource.data.pharmacyId));
+    }
+
+    match /regionalMemberships/{regMemId} {
+      allow read: if isSignedIn() && (
+        resource.data.uid == request.auth.uid
+        || isRegionalManager()
+        || isAdmin()
+      );
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /roleDefinitions/{roleId} {
+      allow read: if isSignedIn();
+      allow write: if isPlatformOwner();
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.targetUid is string
+        && request.resource.data.action is string
+        && request.resource.data.timestamp is string;
+      allow update, delete: if false;
     }
 
     // ── 2. Medication Database & Clinical Catalog ──
@@ -306,12 +479,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /roles/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
-      allow write: if isAdmin() || isPlatformOwner();
-    }
-
-    // Server-only distributed rate limiting store (Cloud Functions Admin SDK only)
+    // Server-only distributed rate limiting store
     match /_rateLimits/{limitId} {
       allow read, write: if false;
     }
@@ -319,7 +487,7 @@ service cloud.firestore {
     // ── 3. Dynamic Geographic Hierarchy (Egypt -> Governorate -> City/Center -> District/Village) ──
     match /governorates/{govId} {
       allow read: if true;
-      allow write: if isAdmin() || isRegionalManager();
+      allow write: if isAdmin() || isScopedRegionalManagerFor(govId);
     }
 
     match /centers/{centerId} {
@@ -343,14 +511,14 @@ service cloud.firestore {
         && request.resource.data.status in ['draft', 'pending_review']
         && !('approvedPharmacyId' in request.resource.data)
         && !('reviewedByUid' in request.resource.data);
-      // Section 3 Fix: Only applicant or license-verifying Regional Manager / Admin can read applications
+      // Section 3 & 6E Fix: Only applicant, scoped Regional Manager for that governorate, or Admin can read applications
       allow read: if isSignedIn() && (
         resource.data.applicantUid == request.auth.uid
-        || isRegionalManager()
+        || isScopedRegionalManagerFor(resource.data.governorateId)
         || isAdmin()
       );
       allow update: if validApplicantApplicationUpdate()
-        || ((isAdmin() || isRegionalManager())
+        || ((isAdmin() || isScopedRegionalManagerFor(resource.data.governorateId))
             && request.resource.data.applicantUid == resource.data.applicantUid);
       allow delete: if isAdmin();
     }
@@ -358,9 +526,9 @@ service cloud.firestore {
     match /pharmacies/{pharmacyId} {
       allow read: if resource.data.status == 'approved'
         || isPharmacyMember(pharmacyId)
-        || isRegionalManager()
+        || isScopedRegionalManagerFor(resource.data.governorateId)
         || isAdmin();
-      allow create: if isAdmin() || isRegionalManager();
+      allow create: if isAdmin() || isScopedRegionalManagerFor(request.resource.data.governorateId);
       // Section 5 Fix: Pharmacy owner can only update operational contact/hours fields, never status, ownerUid, or licenseNumber
       allow update: if (
           isPharmacyManagerOrOwner(pharmacyId)
@@ -379,7 +547,7 @@ service cloud.firestore {
           ])
         )
         || isAdmin()
-        || isRegionalManager();
+        || isScopedRegionalManagerFor(resource.data.governorateId);
       allow delete: if isAdmin();
     }
 
@@ -391,12 +559,12 @@ service cloud.firestore {
       );
       allow create: if isSignedIn()
         && request.resource.data.pharmacyId is string
-        && request.resource.data.role in ['pharmacy_manager', 'pharmacist', 'employee']
+        && request.resource.data.role in ['pharmacy_manager', 'pharmacist', 'pharmacy_employee', 'employee']
         && (isPharmacyManagerOrOwner(request.resource.data.pharmacyId) || isAdmin());
       // Section 5 Fix: pharmacyId is strictly immutable on update to prevent cross-pharmacy employee reassignment
       allow update: if isSignedIn()
         && request.resource.data.pharmacyId == resource.data.pharmacyId
-        && request.resource.data.role in ['pharmacy_manager', 'pharmacist', 'employee']
+        && request.resource.data.role in ['pharmacy_manager', 'pharmacist', 'pharmacy_employee', 'employee']
         && (isPharmacyManagerOrOwner(resource.data.pharmacyId) || isAdmin());
       allow delete: if isSignedIn() && (
         isPharmacyManagerOrOwner(resource.data.pharmacyId)
@@ -430,7 +598,7 @@ service cloud.firestore {
         && isPharmacyManagerOrOwner(resource.data.pharmacyId);
     }
 
-    // Section 5 & 9 Fix: Public availability projection exposing ONLY intentional public catalog/availability fields (never fabricated quantities)
+    // Section 5 & 9 Fix: Public availability projection exposing ONLY intentional public catalog/availability fields
     match /pharmacyPublicInventory/{invId} {
       allow read: if true;
       allow create: if isSignedIn()
