@@ -23,7 +23,9 @@ import { Lang } from './types';
 import { MedicalDocumentCategory } from './allergyData';
 import {
   analyzePrescriptionImageWithVision,
+  callServerAiProxy,
   getApiKey,
+  hasApiKey,
   parsePrescriptionTextDeterministically,
   PrescriptionOcrExtractionResult,
 } from './geminiApi';

@@ -31,7 +31,7 @@ export default function Home() {
   const isAr = lang === 'ar';
   const nav = useNavigate();
   const { isProMode, setProMode } = useClinicalProMode();
-  const { indexItems, totalCount } = useDawayaDrugDatabase();
+  const { indexItems, totalCount } = useDawayaDrugDatabase(false); // Lazy-load 8.2MB index only when searching
 
   const [q, setQ] = useState('');
   const [focused, setFocused] = useState(false);
@@ -1077,7 +1077,7 @@ export default function Home() {
                 type="search"
                 className="hero-search-input"
                 value={q}
-                onFocus={() => setFocused(true)}
+                onFocus={() => { setFocused(true); void import('./dawayaDrugDatabaseService').then((m) => m.ensureDawayaDatabaseLoaded()); }}
                 onChange={(e) => {
                   setQ(e.target.value);
                   setFocused(true);

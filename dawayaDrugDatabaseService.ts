@@ -1428,25 +1428,27 @@ export function searchDawayaIndex(
 /**
  * React Hook for accessing the full 26,562 DAWAYA medicine database anywhere in the platform
  */
-export function useDawayaDrugDatabase() {
+export function useDawayaDrugDatabase(eagerLoad = true) {
   const [indexItems, setIndexItems] = useState<DawayaCompactIndexItem[]>(() => globalIndexItems);
   const [loaded, setLoaded] = useState<boolean>(() => globalIndexLoaded);
   const [importReport, setImportReport] = useState<DawayaImportReport | null>(() => globalImportReport);
 
   useEffect(() => {
     let active = true;
-    ensureDawayaDatabaseLoaded().then((items) => {
-      if (!active) return;
-      setIndexItems([...items]);
-      setLoaded(true);
-    });
-    fetchDawayaImportReport().then((rep) => {
-      if (!active || !rep) return;
-      setImportReport(rep);
-    });
+    if (eagerLoad) {
+      ensureDawayaDatabaseLoaded().then((items) => {
+        if (!active) return;
+        setIndexItems(items);
+        setLoaded(true);
+      });
+      fetchDawayaImportReport().then((rep) => {
+        if (!active || !rep) return;
+        setImportReport(rep);
+      });
+    }
 
     const onUpdate = () => {
-      setIndexItems([...globalIndexItems]);
+      setIndexItems(globalIndexItems);
       setLoaded(globalIndexLoaded);
     };
     window.addEventListener(DAWAYA_DB_UPDATED_EVENT, onUpdate);

@@ -722,24 +722,56 @@ export async function updatePartnerQuickState(
 // ============================================================================
 // FIREBASE STORAGE IMAGE UPLOAD (NEVER STORES BINARIES IN FIRESTORE)
 // ============================================================================
+/**
+ * Firebase Spark (Free Tier) Compatible Image Processor:
+ * Compresses partner logos, covers, and prescription images client-side using HTML5 Canvas
+ * into a compact Data URL (< 60 KB) stored directly in Firestore documents without requiring
+ * a paid Firebase Storage (Blaze) subscription.
+ */
 export async function uploadPartnerAssetToStorage(
   file: File,
-  partnerId: string,
-  assetType: 'logo' | 'cover' | 'prescription'
+  _partnerId: string,
+  _assetType: 'logo' | 'cover' | 'prescription'
 ): Promise<string> {
-  if (!configured || !storage) {
-    throw new Error('STORAGE_NOT_CONFIGURED');
-  }
-  const safeExt = (file.name.split('.').pop() || 'png').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-  const storagePath = `partner_assets/${partnerId}/${assetType}_${Date.now()}.${safeExt}`;
-  const storageRef = ref(storage, storagePath);
-  await uploadBytes(storageRef, file, { contentType: file.type || 'image/png' });
-  try {
-    const downloadUrl = await getDownloadURL(storageRef);
-    return downloadUrl;
-  } catch {
-    return `storage://${storagePath}`;
-  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('FILE_READ_FAILED'));
+    reader.onload = () => {
+      const rawDataUrl = String(reader.result || '');
+      if (!file.type.startsWith('image/')) {
+        resolve(rawDataUrl);
+        return;
+      }
+      const img = new Image();
+      img.onerror = () => resolve(rawDataUrl);
+      img.onload = () => {
+        const maxDim = 720;
+        let w = img.width || 400;
+        let h = img.height || 400;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(rawDataUrl);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
+      };
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 // ============================================================================

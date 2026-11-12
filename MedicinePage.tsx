@@ -25,6 +25,7 @@ import { getClinicalProProfile, useClinicalProMode } from './clinicalProData';
 import {
   DAWAYA_CATEGORY_LABELS,
   DawayaMedicineRecord,
+  dawayaRecordToMedicineMonograph,
   fetchFullDawayaMedicineById,
   findDawayaIndexItemSync,
   getDawayaClassifiedAlternatives,
@@ -143,7 +144,10 @@ export default function MedicinePage() {
 
     fetchFullDawayaMedicineById(id).then((dRec) => {
       if (!active) return;
-      if (dRec) setDawayaRecord(dRec);
+      if (dRec) {
+        setDawayaRecord(dRec);
+        setM((prev) => prev || dawayaRecordToMedicineMonograph(dRec));
+      }
     });
 
     fetchOne(id)
@@ -236,104 +240,33 @@ export default function MedicinePage() {
     [m, dawayaRecord, profile]
   );
 
-  if (m === undefined) return <main className="wrap"><p>{t('loading')}</p>
-        
-        {/* Dynamic Occupational Driving & Work Safety Check */}
-        {med && (() => {
-          const occAlerts = evaluateOccupationalDrugSafety(
-            [pick(med.name, 'ar') || '', pick(med.ingredient, 'ar') || '', med.id || ''],
-            profile.occupation, profile.factoryEnvironmentHazards, profile.workEnvironmentNotes
-          );
-          if (occAlerts.length === 0) return null;
-          const alert = occAlerts[0];
-          return (
-            <div
-              style={{
-                borderRadius: '16px',
-                padding: '14px 18px',
-                background: '#fef2f2',
-                border: '2px solid #ef4444',
-                color: '#991b1b',
-                margin: '12px 0',
-                boxShadow: '0 4px 14px rgba(220, 38, 38, 0.1)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '1.4rem' }}></span>
-                <strong style={{ fontSize: '0.98rem' }}>فحص أمان السواقة وطبيعة العمل مع هذا الدواء:</strong>
-              </div>
-              <p style={{ margin: '4px 0 6px', fontSize: '0.88rem', lineHeight: 1.6, color: '#7f1d1d' }}>
-                {alert.warningAr}
-              </p>
-              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: '8px' }}>
-                <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Proactive Universal Dose Reminder for this specific medicine */}
-        {med && (
-          <SmartMedDoseReminderBadge
-            medicineName={pick(med.name, lang)}
-            defaultTime="09:00"
-            instruction={pick(med.usage, lang) || 'يرجى الالتزام بالموعد المحدد للجرعة'}
-          />
-        )}
-
-    </main>;
-  if (m === null)
+  if (m === undefined && !dawayaRecord) {
     return (
-      <main className="wrap narrow">
-        <p>{t('notFound')}</p>
-        <Link to="/medicines">{t('navMedicines')}</Link>
-      
-        
-        {/* Dynamic Occupational Driving & Work Safety Check */}
-        {med && (() => {
-          const occAlerts = evaluateOccupationalDrugSafety(
-            [pick(med.name, 'ar') || '', pick(med.ingredient, 'ar') || '', med.id || ''],
-            profile.occupation, profile.factoryEnvironmentHazards, profile.workEnvironmentNotes
-          );
-          if (occAlerts.length === 0) return null;
-          const alert = occAlerts[0];
-          return (
-            <div
-              style={{
-                borderRadius: '16px',
-                padding: '14px 18px',
-                background: '#fef2f2',
-                border: '2px solid #ef4444',
-                color: '#991b1b',
-                margin: '12px 0',
-                boxShadow: '0 4px 14px rgba(220, 38, 38, 0.1)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '1.4rem' }}></span>
-                <strong style={{ fontSize: '0.98rem' }}>فحص أمان السواقة وطبيعة العمل مع هذا الدواء:</strong>
-              </div>
-              <p style={{ margin: '4px 0 6px', fontSize: '0.88rem', lineHeight: 1.6, color: '#7f1d1d' }}>
-                {alert.warningAr}
-              </p>
-              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: '8px' }}>
-                <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Proactive Universal Dose Reminder for this specific medicine */}
-        {med && (
-          <SmartMedDoseReminderBadge
-            medicineName={pick(med.name, lang)}
-            defaultTime="09:00"
-            instruction={pick(med.usage, lang) || 'يرجى الالتزام بالموعد المحدد للجرعة'}
-          />
-        )}
-
-    </main>
+      <main className="wrap narrow" dir={isAr ? 'rtl' : 'ltr'}>
+        <div className="card center" style={{ padding: '32px 20px' }}>
+          <b style={{ display: 'block', marginBottom: '6px' }}>
+            {isAr ? 'جارٍ تحميل بيانات الدواء والنشرة العلمية...' : 'Loading medicine details...'}
+          </b>
+          <p className="small muted" style={{ margin: 0 }}>{t('loading')}</p>
+        </div>
+      </main>
     );
+  }
+
+  if (m === null && !dawayaRecord) {
+    return (
+      <main className="wrap narrow" dir={isAr ? 'rtl' : 'ltr'}>
+        <div className="card stack" style={{ padding: '24px' }}>
+          <p>{t('notFound')}</p>
+          <Link to="/medicines" className="btn" style={{ alignSelf: 'flex-start' }}>
+            {t('navMedicines')}
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  if (!m) return null;
 
   const approved = m.status === 'approved';
   const brands = approved ? m.brands.filter((b) => b.verified) : m.brands;
@@ -1424,47 +1357,54 @@ export default function MedicinePage() {
     
         
         {/* Dynamic Occupational Driving & Work Safety Check */}
-        {med && (() => {
-          const occAlerts = evaluateOccupationalDrugSafety(
-            [pick(med.name, 'ar') || '', pick(med.ingredient, 'ar') || '', med.id || ''],
-            profile.occupation, profile.factoryEnvironmentHazards, profile.workEnvironmentNotes
-          );
-          if (occAlerts.length === 0) return null;
-          const alert = occAlerts[0];
-          return (
-            <div
-              style={{
-                borderRadius: '16px',
-                padding: '14px 18px',
-                background: '#fef2f2',
-                border: '2px solid #ef4444',
-                color: '#991b1b',
-                margin: '12px 0',
-                boxShadow: '0 4px 14px rgba(220, 38, 38, 0.1)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '1.4rem' }}></span>
-                <strong style={{ fontSize: '0.98rem' }}>فحص أمان السواقة وطبيعة العمل مع هذا الدواء:</strong>
-              </div>
-              <p style={{ margin: '4px 0 6px', fontSize: '0.88rem', lineHeight: 1.6, color: '#7f1d1d' }}>
-                {alert.warningAr}
-              </p>
-              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: '8px' }}>
-                <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
-              </div>
+      {m && (() => {
+        const occAlerts = evaluateOccupationalDrugSafety(
+          [
+            pick(m.genericName, 'ar') || '',
+            pick(m.activeIngredients, 'ar') || '',
+            dawayaRecord?.brandNameAr || '',
+            dawayaRecord?.genericName || '',
+            m.id || '',
+          ],
+          profile.occupation,
+          profile.factoryEnvironmentHazards,
+          profile.workEnvironmentNotes
+        );
+        if (occAlerts.length === 0) return null;
+        const alert = occAlerts[0];
+        return (
+          <div
+            style={{
+              borderRadius: '16px',
+              padding: '14px 18px',
+              background: '#fef2f2',
+              border: '2px solid #ef4444',
+              color: '#991b1b',
+              margin: '12px 0',
+              boxShadow: '0 4px 14px rgba(220, 38, 38, 0.1)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <strong style={{ fontSize: '0.98rem' }}>فحص أمان السواقة وطبيعة العمل مع هذا الدواء:</strong>
             </div>
-          );
-        })()}
+            <p style={{ margin: '4px 0 6px', fontSize: '0.88rem', lineHeight: 1.6, color: '#7f1d1d' }}>
+              {alert.warningAr}
+            </p>
+            <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: '8px' }}>
+              <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
+            </div>
+          </div>
+        );
+      })()}
 
-        {/* Proactive Universal Dose Reminder for this specific medicine */}
-        {med && (
-          <SmartMedDoseReminderBadge
-            medicineName={pick(med.name, lang)}
-            defaultTime="09:00"
-            instruction={pick(med.usage, lang) || 'يرجى الالتزام بالموعد المحدد للجرعة'}
-          />
-        )}
+      {/* Proactive Universal Dose Reminder for this specific medicine */}
+      {m && (
+        <SmartMedDoseReminderBadge
+          medicineName={dawayaRecord ? (isAr ? dawayaRecord.brandNameAr : dawayaRecord.brandNameEn) : pick(m.genericName, lang)}
+          defaultTime="09:00"
+          instruction={pick(m.dosingReference, lang) || 'يرجى الالتزام بالموعد المحدد للجرعة'}
+        />
+      )}
 
     </main>
   );

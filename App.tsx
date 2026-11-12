@@ -194,38 +194,11 @@ function NotFound() {
 
 export default function App() {
   useEffect(() => {
-    // ⚡ Ultra-Fast 0-Second Startup: Render Home UI instantly, defer heavy database load until idle!
-    const scheduleIdle = typeof window !== 'undefined' && 'requestIdleCallback' in window
-      ? (window as any).requestIdleCallback
-      : (cb: () => void) => window.setTimeout(cb, 2200);
-
-    const idleHandle = scheduleIdle(() => {
-      void ensureDawayaDatabaseLoaded();
+    // Lightweight startup: sync public partners after idle without downloading 8.2MB index until needed
+    const timer = window.setTimeout(() => {
       startPartnerEcosystemSync();
-      try {
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-          navigator.serviceWorker.controller.postMessage({ type: 'WARMUP_OFFLINE_CACHE' });
-        }
-      } catch {
-        /* ignore */
-      }
-    });
-
-    const prewarmTimer = window.setTimeout(() => {
-      void import('./PatientDashboard');
-      void import('./Medicines');
-      void import('./Assistant');
-      void import('./InteractiveBodyMap');
-      void import('./SpecialtyClinicsHub');
-      void import('./ChronicMealPlanner');
-    }, 4500);
-
-    return () => {
-      if (typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
-        (window as any).cancelIdleCallback(idleHandle);
-      }
-      window.clearTimeout(prewarmTimer);
-    };
+    }, 1500);
+    return () => window.clearTimeout(timer);
   }, []);
 
   return (

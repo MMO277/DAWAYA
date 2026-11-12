@@ -6,6 +6,7 @@ import { useSyncedHealthProfile } from './allergyData';
 import {
   calculateScheduleProgress,
   formatFrequencyLabel,
+  formatLocalDateYYYYMMDD,
   formatTime12Hour,
   formatTimestampReadable,
   getDoseStatus,

@@ -6,9 +6,9 @@
    - Google Fonts & Static Media (icons, brand SVGs, images, audio): Cache-First with background refresh. */
 
 const CACHE_PREFIX = 'dawaya-speed-cache-';
-const STATIC_CACHE = CACHE_PREFIX + 'static-v5';
-const SHELL_CACHE = CACHE_PREFIX + 'shell-v5';
-const MEDIA_FONT_CACHE = CACHE_PREFIX + 'media-fonts-v5';
+const STATIC_CACHE = CACHE_PREFIX + 'static-v6';
+const SHELL_CACHE = CACHE_PREFIX + 'shell-v6';
+const MEDIA_FONT_CACHE = CACHE_PREFIX + 'media-fonts-v6';
 const ACTIVE_CACHES = [STATIC_CACHE, SHELL_CACHE, MEDIA_FONT_CACHE];
 
 const OFFLINE_URL = './offline.html';
@@ -29,42 +29,7 @@ const PRECACHE_SHELL_URLS = [
 ];
 
 async function warmupFromPrecacheManifest() {
-  try {
-    const res = await fetch('./precache-manifest.json', { cache: 'no-store' });
-    if (!res || !res.ok) return;
-    const manifest = await res.json();
-    const staticCache = await caches.open(STATIC_CACHE);
-
-    const coreAssets = Array.isArray(manifest.coreAssets) ? manifest.coreAssets : [];
-    await Promise.allSettled(
-      coreAssets.map(async (assetUrl) => {
-        const existing = await staticCache.match(assetUrl);
-        if (!existing) {
-          const assetRes = await fetch(assetUrl, { cache: 'force-cache' });
-          if (assetRes && assetRes.ok) {
-            await staticCache.put(assetUrl, assetRes);
-          }
-        }
-      })
-    );
-
-    const deferred3D = Array.isArray(manifest.deferred3DAssets) ? manifest.deferred3DAssets : [];
-    for (const assetUrl of deferred3D) {
-      try {
-        const existing = await staticCache.match(assetUrl);
-        if (!existing) {
-          const assetRes = await fetch(assetUrl, { cache: 'force-cache' });
-          if (assetRes && assetRes.ok) {
-            await staticCache.put(assetUrl, assetRes);
-          }
-        }
-      } catch {
-        /* ignore offline during background warmup */
-      }
-    }
-  } catch {
-    /* ignore if offline during install */
-  }
+  /* On-demand caching only: prevents saturating mobile 4G bandwidth on initial page load */
 }
 
 self.addEventListener('install', (event) => {

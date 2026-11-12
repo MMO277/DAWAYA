@@ -9,7 +9,7 @@ import {
   PartnerPublicRecord,
   VERIFICATION_STATUS_LABELS,
 } from './partnerTypes';
-import { isPartnerVisiblePublicly, usePartnerEcosystem, useDawayaPharmacyNetwork } from './partnerService';
+import { getDynamicGovernorates, isPartnerVisiblePublicly, usePartnerEcosystem, useDawayaPharmacyNetwork } from './partnerService';
 import { PHARMACY_STOCK_STATUS_LABELS } from './partnerTypes';
 import { PublicPartnerCard } from './PublicPartnerCard';
 import Disclaimer from './Disclaimer';
@@ -746,6 +746,7 @@ export default function PartnersDirectoryPage() {
 // ============================================================================
 export function PartnerPublicProfilePage() {
   const { id = '' } = useParams();
+  const dynamicGovernorates = getDynamicGovernorates();
   const { lang } = useLang();
   const isAr = lang === 'ar';
   const { partners, categories, branches, mappings } = usePartnerEcosystem();
