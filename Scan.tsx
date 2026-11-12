@@ -1,3 +1,4 @@
+import { EdaCounterfeitRadarCard } from './edaCounterfeitRadar';
 import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -1521,6 +1522,16 @@ export default function Scan() {
 
         {/* FULL AUTOMATIC DRUG INFORMATION REPORT */}
         {scanResult && (
+        <EdaCounterfeitRadarCard
+          medicineNameAr={scanResult.matchedTradeName || scanResult.detectedText || 'الدواء الممسوح'}
+          medicineNameEn={scanResult.matchedTradeName || scanResult.detectedText || 'Scanned Medicine'}
+          genericName={scanResult.matchedIngredientId}
+          officialBarcode={scanResult.barcode}
+          isAr={isAr}
+        />
+      )}
+
+      {scanResult && (
           <div
             className="card stack"
             style={{

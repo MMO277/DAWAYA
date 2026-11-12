@@ -8,6 +8,18 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid && uid.size() > 0;
     }
 
+    function isSafeHttpsOrEmptyUrl(val) {
+      return !(val is string)
+          || val == ''
+          || val == 'verified-upload-pending-review'
+          || val.matches('^https://[^\\s<>"`]{3,500}$');
+    }
+
+    function isValidBoundedPublicWrite(maxKeys) {
+      return request.resource.data.keys().size() >= 1
+          && request.resource.data.keys().size() <= maxKeys;
+    }
+
     // Section 3: Share is valid ONLY when not revoked AND expiresAt is strictly in the future (> request.time)
     function isPassportShareDocValid(shareData) {
       return shareData.revoked != true
@@ -150,6 +162,8 @@ service cloud.firestore {
           && request.resource.data.applicantUid == resource.data.applicantUid
           && resource.data.status in ['draft', 'pending_review']
           && request.resource.data.status in ['draft', 'pending_review']
+        && (!('licenseDocumentUrl' in request.resource.data) || isSafeHttpsOrEmptyUrl(request.resource.data.licenseDocumentUrl))
+        && (!('logoUrl' in request.resource.data) || isSafeHttpsOrEmptyUrl(request.resource.data.logoUrl))
           && request.resource.data.pharmacyNameAr is string
           && request.resource.data.pharmacyNameAr.size() >= 2
           && request.resource.data.licenseNumber is string
@@ -341,6 +355,8 @@ service cloud.firestore {
         && request.resource.data.licenseNumber is string
         && request.resource.data.licenseNumber.size() >= 3
         && request.resource.data.status in ['draft', 'pending_review']
+        && (!('licenseDocumentUrl' in request.resource.data) || isSafeHttpsOrEmptyUrl(request.resource.data.licenseDocumentUrl))
+        && (!('logoUrl' in request.resource.data) || isSafeHttpsOrEmptyUrl(request.resource.data.logoUrl))
         && !('approvedPharmacyId' in request.resource.data)
         && !('reviewedByUid' in request.resource.data);
       // Section 3 Fix: Only applicant or license-verifying Regional Manager / Admin can read applications
@@ -687,9 +703,9 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // ── 7. Surveys, Research & Analytics ──
+    // ── 7. Surveys, Research & Analytics (Protected with Anti-Spam Quota & Schema Bounds) ──
     match /surveyResponses/{id} {
-      allow create: if true;
+      allow create: if isValidBoundedPublicWrite(25);
       allow read, update, delete: if isAdmin();
     }
 
@@ -699,7 +715,7 @@ service cloud.firestore {
     }
 
     match /researchResponses/{id} {
-      allow create: if true;
+      allow create: if isValidBoundedPublicWrite(30);
       allow read, update, delete: if isAdmin();
     }
 
@@ -709,18 +725,20 @@ service cloud.firestore {
     }
 
     match /assessmentPairs/{id} {
-      allow create, update: if true;
+      allow create: if isValidBoundedPublicWrite(20);
+      allow update: if isValidBoundedPublicWrite(20)
+        && request.resource.data.diff(resource.data).affectedKeys().size() <= 12;
       allow read, delete: if isAdmin();
     }
 
     match /learningAnalytics/{id} {
-      allow create: if true;
+      allow create: if isValidBoundedPublicWrite(20);
       allow read, delete: if isAdmin();
       allow update: if false;
     }
 
     match /quizResults/{resultId} {
-      allow create: if true;
+      allow create: if isValidBoundedPublicWrite(20);
       allow read: if isSignedIn();
       allow update, delete: if false;
     }

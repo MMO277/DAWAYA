@@ -1808,3 +1808,22 @@ export function useDawayaPharmacyNetwork() {
     lastPersistenceError,
   };
 }
+
+
+/**
+ * Security Guard: Blocks javascript:, vbscript:, data:text/html and enforces https:// on external URLs
+ */
+export function sanitizeExternalHttpsUrl(rawUrl?: string | null): string {
+  const trimmed = (rawUrl || '').trim();
+  if (!trimmed) return '';
+  if (trimmed === 'verified-upload-pending-review') return trimmed;
+  if (/^(javascript|vbscript|data|file):/i.test(trimmed)) {
+    return '';
+  }
+  if (trimmed.startsWith('https://')) return trimmed.slice(0, 500);
+  if (trimmed.startsWith('http://')) return ('https://' + trimmed.slice(7)).slice(0, 500);
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(trimmed)) {
+    return ('https://' + trimmed).slice(0, 500);
+  }
+  return '';
+}

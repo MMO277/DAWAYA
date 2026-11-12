@@ -1,3 +1,4 @@
+import { HealthProfilePrivacyGate } from './profilePrivacyLock';
 import SmartChoiceSelect, { SmartNativeSelect } from './SmartChoiceSelect';
 import { evaluateMedicationSafety } from './medicationSafetyEngine';
 import { useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
@@ -479,6 +480,7 @@ export default function HealthProfile() {
   };
 
   return (
+    <HealthProfilePrivacyGate isAr={isAr}>
     <main className="wrap stack">
       <header className="page-head">
         <h1>👤 {isAr ? 'ملف صحتي وحساسيتي ورحلة علاجي' : 'My Health Profile, Allergy Passport & Treatment Journey'}</h1>
@@ -1670,5 +1672,6 @@ export default function HealthProfile() {
         </div>
       </section>
     </main>
+    </HealthProfilePrivacyGate>
   );
 }

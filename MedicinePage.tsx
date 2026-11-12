@@ -1,3 +1,4 @@
+import { EdaCounterfeitRadarCard } from './edaCounterfeitRadar';
 import SmartMedDoseReminderBadge from './SmartMedDoseReminderBadge';
 import {
   evaluateOccupationalDrugSafety,
@@ -1053,6 +1054,15 @@ export default function MedicinePage() {
           )}
         </div>
       </header>
+
+      {/* EDA Counterfeit & Package Authenticity Radar Card */}
+      <EdaCounterfeitRadarCard
+        medicineNameAr={dawayaRecord?.brandNameAr || name}
+        medicineNameEn={dawayaRecord?.brandNameEn || m.genericName.en || name}
+        genericName={dawayaRecord?.genericName || m.activeIngredients.en}
+        officialBarcode={dawayaRecord?.barcode}
+        isAr={isAr}
+      />
 
       {/* 7-Condition Clinical Warning Matrix (For all 26,562 DAWAYA Records) */}
       {dawayaRecord && (

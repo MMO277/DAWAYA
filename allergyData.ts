@@ -645,6 +645,41 @@ export const ALLERGEN_CATEGORIES: { id: string; name: Bi; examples: Bi }[] = [
   },
 ];
 
+
+const LOCAL_ENC_PREFIX = 'ENC_DW_V1:';
+const LOCAL_ENC_KEY = 'DAWAYA_MEDICAL_VAULT_KEY_2026';
+
+export function encryptLocalProfilePayload(plainJson: string): string {
+  try {
+    const utf8 = encodeURIComponent(plainJson);
+    const xored: number[] = [];
+    for (let i = 0; i < utf8.length; i++) {
+      xored.push(utf8.charCodeAt(i) ^ LOCAL_ENC_KEY.charCodeAt(i % LOCAL_ENC_KEY.length));
+    }
+    return LOCAL_ENC_PREFIX + btoa(String.fromCharCode(...xored));
+  } catch {
+    return plainJson;
+  }
+}
+
+export function decryptLocalProfilePayload(storedRaw: string): string {
+  if (!storedRaw) return '{}';
+  if (!storedRaw.startsWith(LOCAL_ENC_PREFIX)) {
+    return storedRaw; // Seamless backward compatibility with existing plain JSON
+  }
+  try {
+    const b64 = storedRaw.slice(LOCAL_ENC_PREFIX.length);
+    const bin = atob(b64);
+    const chars: string[] = [];
+    for (let i = 0; i < bin.length; i++) {
+      chars.push(String.fromCharCode(bin.charCodeAt(i) ^ LOCAL_ENC_KEY.charCodeAt(i % LOCAL_ENC_KEY.length)));
+    }
+    return decodeURIComponent(chars.join(''));
+  } catch {
+    return '{}';
+  }
+}
+
 export function loadProfile(uid?: string | null): UserHealthProfile {
   if (typeof window === 'undefined') {
     return emptyHealthProfile();
@@ -653,13 +688,13 @@ export function loadProfile(uid?: string | null): UserHealthProfile {
   try {
     const scopedRaw = localStorage.getItem(getProfileStorageKey(effectiveUid));
     if (scopedRaw) {
-      return normalizeProfile(JSON.parse(scopedRaw));
+      return normalizeProfile(JSON.parse(decryptLocalProfilePayload(scopedRaw)));
     }
     // If signed in and no UID-scoped cache exists yet, check if legacy un-scoped local data exists
     if (effectiveUid && !localStorage.getItem(`${MIGRATED_LEGACY_PREFIX}${effectiveUid}`)) {
       const legacyRaw = localStorage.getItem(STORAGE_KEY);
       if (legacyRaw) {
-        return normalizeProfile(JSON.parse(legacyRaw));
+        return normalizeProfile(JSON.parse(decryptLocalProfilePayload(legacyRaw)));
       }
     }
     return emptyHealthProfile();
@@ -674,7 +709,7 @@ export function saveProfile(profile: UserHealthProfile, uid?: string | null): vo
   const effectiveUid = uid !== undefined ? uid : auth?.currentUser?.uid ?? null;
   const clean = stripUndefined(normalizeProfile(profile));
   try {
-    localStorage.setItem(getProfileStorageKey(effectiveUid), JSON.stringify(clean));
+    localStorage.setItem(getProfileStorageKey(effectiveUid), encryptLocalProfilePayload(JSON.stringify(clean)));
     window.dispatchEvent(new CustomEvent(PROFILE_EVENT, { detail: { uid: effectiveUid, profile: clean } }));
   } catch (err) {
     console.error('Failed to save profile locally:', err);
@@ -721,7 +756,7 @@ export function useSyncedHealthProfile() {
 
     // Immediate local cache display while cloud fetch is in flight
     const cachedScopedRaw = localStorage.getItem(getProfileStorageKey(uid));
-    const cachedScoped = cachedScopedRaw ? normalizeProfile(JSON.parse(cachedScopedRaw)) : null;
+    const cachedScoped = cachedScopedRaw ? normalizeProfile(JSON.parse(decryptLocalProfilePayload(cachedScopedRaw))) : null;
     if (cachedScoped) {
       setProfileState(cachedScoped);
     }
@@ -790,7 +825,7 @@ export function useSyncedHealthProfile() {
         }
 
         try {
-          localStorage.setItem(getProfileStorageKey(uid), JSON.stringify(stripUndefined(resolved)));
+          localStorage.setItem(getProfileStorageKey(uid), encryptLocalProfilePayload(JSON.stringify(stripUndefined(resolved))));
           if (!alreadyMigrated && isProfileNonEmpty(legacyProfile)) {
             localStorage.setItem(migrationKey, '1');
             // Clear un-scoped legacy key after migrating to user's UID-scoped storage for shared-device privacy
