@@ -19,7 +19,7 @@ import AppUpdateManager, { triggerUpdateCheckerManually } from "./AppUpdateManag
 import OnboardingTour, { triggerOnboardingTourManually } from "./OnboardingTour";
 import { GlobalPhoneAlarmOverlay } from './SmartDoseAlarmCard';
 import { lazy, Suspense, ReactNode, useRef, useEffect, useState, useMemo } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useLang, SUPPORTED_LANGS } from './i18n';
 import { Lang, localizeFallbackText, tr } from './types';
 import { useAuth } from './authContext';
@@ -435,7 +435,12 @@ export default function Layout({ children }: { children: ReactNode }) {
   const { emergency, countryName } = useEmergencyLocation();
   const isAr = lang === 'ar';
   const pageDir: 'rtl' | 'ltr' = isAr ? 'rtl' : 'ltr';
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const navigate = useNavigate();
+  const routeStackRef = useRef<string[]>(['/']);
+  const isHandlingBackRef = useRef<boolean>(false);
+  const lastExitAttemptRef = useRef<number>(0);
+  const [backExitToast, setBackExitToast] = useState<boolean>(false);
   const { dark, toggle } = useDarkMode();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerClosing, setDrawerClosing] = useState(false);
@@ -1050,6 +1055,146 @@ export default function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
+
+  // Track in-app navigation stack and keep a protective history sentinel so Android back-swipe never exits the app
+  useEffect(() => {
+    const fullPath = `${pathname}${search || ''}`;
+    if (!isHandlingBackRef.current) {
+      const stack = routeStackRef.current;
+      if (stack[stack.length - 1] !== fullPath) {
+        stack.push(fullPath);
+        if (stack.length > 40) stack.shift();
+      }
+    }
+    isHandlingBackRef.current = false;
+
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.pushState({ dawayaSentinel: true, path: fullPath }, '');
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [pathname, search]);
+
+  const handleSmartInAppBack = () => {
+    // 1. If a SmartChoiceSelect modal is open, close it first
+    if (typeof document !== 'undefined') {
+      const openSelectCloseBtn = document.querySelector('.dawaya-smart-select-close') as HTMLButtonElement | null;
+      if (openSelectCloseBtn) {
+        openSelectCloseBtn.click();
+        return;
+      }
+    }
+
+    // 2. If any Layout drawer or modal is open, close it first
+    if (drawerOpen) {
+      closeDrawer(true);
+      return;
+    }
+    if (openRibbonCatId) {
+      setOpenRibbonCatId(null);
+      return;
+    }
+    if (spotlightOpen) {
+      setSpotlightOpen(false);
+      return;
+    }
+    if (langMenuOpen) {
+      setLangMenuOpen(false);
+      return;
+    }
+    if (showLogoutModal || authCtx.logoutModalOpen) {
+      setShowLogoutModal(false);
+      authCtx.closeLogoutModal();
+      return;
+    }
+
+    // 3. If on any sub-page (not Home '/'), navigate back inside the app!
+    if (pathname !== '/') {
+      isHandlingBackRef.current = true;
+      const stack = routeStackRef.current;
+      if (stack.length > 1) {
+        stack.pop(); // remove current
+        const prevTarget = stack[stack.length - 1] || (pathname.startsWith('/medicine/') ? '/medicines' : '/');
+        navigate(prevTarget, { replace: true });
+      } else if (pathname.startsWith('/medicine/')) {
+        routeStackRef.current = ['/', '/medicines'];
+        navigate('/medicines', { replace: true });
+      } else {
+        routeStackRef.current = ['/'];
+        navigate('/', { replace: true });
+      }
+      return;
+    }
+
+    // 4. On Home ('/'): Double-swipe within 2.5s required to exit app
+    const now = Date.now();
+    if (now - lastExitAttemptRef.current < 2500) {
+      const capApp = (window as any)?.Capacitor?.Plugins?.App;
+      if (capApp && typeof capApp.exitApp === 'function') {
+        capApp.exitApp();
+      }
+      return;
+    }
+    lastExitAttemptRef.current = now;
+    setBackExitToast(true);
+    window.setTimeout(() => setBackExitToast(false), 2400);
+    try {
+      window.history.pushState({ dawayaSentinel: true, path: '/' }, '');
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleSmartBackRef = useRef(handleSmartInAppBack);
+  handleSmartBackRef.current = handleSmartInAppBack;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Seed initial sentinel entry on app launch
+    try {
+      window.history.pushState({ dawayaSentinel: true, path: window.location.hash || '/' }, '');
+    } catch {
+      /* ignore */
+    }
+
+    const onPopState = (e: PopStateEvent) => {
+      e.preventDefault?.();
+      handleSmartBackRef.current();
+    };
+
+    const onHardwareBack = (e: Event) => {
+      e.preventDefault?.();
+      e.stopPropagation?.();
+      handleSmartBackRef.current();
+    };
+
+    window.addEventListener('popstate', onPopState);
+    document.addEventListener('backbutton', onHardwareBack, false);
+
+    let capListenerRemove: (() => void) | null = null;
+    try {
+      const capApp = (window as any)?.Capacitor?.Plugins?.App;
+      if (capApp && typeof capApp.addListener === 'function') {
+        const sub = capApp.addListener('backButton', () => {
+          handleSmartBackRef.current();
+        });
+        if (sub && typeof sub.remove === 'function') {
+          capListenerRemove = () => sub.remove();
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      document.removeEventListener('backbutton', onHardwareBack, false);
+      if (capListenerRemove) capListenerRemove();
+    };
+  }, []);
 
   // Dynamically keep browser tab title & apple-mobile-web-app-title synced with t('appName')
   useEffect(() => {
@@ -1881,6 +2026,117 @@ export default function Layout({ children }: { children: ReactNode }) {
       <SmartOfflineStatusBanner lang={lang} />
       <SmartCrossClinicSafetyBanner />
       <SmartWelcomeOnboardingBanner />
+
+      {/* Always-Visible In-App Back & Quick Navigation Bar on Sub-Pages */}
+      {pathname !== '/' && (
+        <div
+          className="wrap"
+          style={{
+            paddingTop: '10px',
+            paddingBottom: '2px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleSmartInAppBack}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '7px 15px',
+                borderRadius: '999px',
+                border: '1.5px solid #10b981',
+                background: 'var(--card-bg, #ffffff)',
+                color: 'var(--navy, #0D1F38)',
+                fontWeight: 800,
+                fontSize: '0.86rem',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.12)',
+              }}
+            >
+              <span aria-hidden="true" style={{ fontSize: '1rem', lineHeight: 1, color: '#059669' }}>
+                {isAr ? '→' : '←'}
+              </span>
+              <span>{tr(lang, 'رجوع للخطوة السابقة', 'Back', 'Retour', 'Volver', 'Zurück')}</span>
+            </button>
+
+            {pathname.startsWith('/medicine/') && (
+              <Link
+                to="/medicines"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 14px',
+                  borderRadius: '999px',
+                  border: '1px solid var(--line, #cbd5e1)',
+                  background: 'var(--tint, #f1f5f9)',
+                  color: 'var(--navy, #0D1F38)',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  textDecoration: 'none',
+                }}
+              >
+                {tr(lang, 'كل الأدوية', 'All Medicines', 'Médicaments', 'Medicamentos', 'Medikamente')}
+              </Link>
+            )}
+          </div>
+
+          <Link
+            to="/"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 14px',
+              borderRadius: '999px',
+              border: '1px solid var(--line, #cbd5e1)',
+              background: 'var(--card-bg, #ffffff)',
+              color: '#059669',
+              fontWeight: 800,
+              fontSize: '0.82rem',
+              textDecoration: 'none',
+            }}
+          >
+            <span>{tr(lang, 'الرئيسية', 'Home', 'Accueil', 'Inicio', 'Startseite')}</span>
+          </Link>
+        </div>
+      )}
+
+      {backExitToast && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            bottom: '84px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 99999,
+            background: '#0D1F38',
+            color: '#ffffff',
+            border: '1.5px solid #10b981',
+            padding: '10px 20px',
+            borderRadius: '999px',
+            fontWeight: 800,
+            fontSize: '0.86rem',
+            boxShadow: '0 10px 28px rgba(0,0,0,0.35)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {tr(
+            lang,
+            'اسحب للرجوع مرة أخرى خلال ثانيتين للخروج من التطبيق',
+            'Swipe back again within 2 seconds to exit the app'
+          )}
+        </div>
+      )}
+
       <div ref={pageRef} className="page-enter">
         {children}
       </div>
