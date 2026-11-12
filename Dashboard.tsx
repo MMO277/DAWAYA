@@ -1,5 +1,6 @@
 import PartnerManagementCenter from './PartnerManagementCenter';
 import PharmacyOwnerDashboard from './PharmacyOwnerDashboard';
+import OwnerVisionHub from './OwnerVisionHub';
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -189,6 +190,7 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
 }
 
 type AdminTab =
+  | 'owner_vision'
   | 'dawaya_db'
   | 'partners'
   | 'pharmacy_portal'
@@ -243,21 +245,14 @@ export default function Dashboard() {
     hasPermission('medications.manage') ||
     hasPermission('content.manage');
 
+  // Default to 'owner_vision' (Design 1) for Platform Owner / Central Admin!
   const [tab, setTab] = useState<AdminTab>(() =>
-    isRegionalManager ? 'partners' : 'dawaya_db'
+    isRegionalManager ? 'partners' : isContentRole ? 'dawaya_db' : 'owner_vision'
   );
-
-  useEffect(() => {
-    if (isRegionalManager && tab === 'dawaya_db') {
-      setTab('partners');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRegionalManager]);
 
   if (loading) return <main className="wrap"><p>{t('loading')}</p></main>;
   if (!user) return <Login />;
 
-  // Section 6 & 12: Reject unauthorized users (e.g. standard Patient or Pharmacy-only accounts) from Central Admin
   if (!isAuthorizedForAdminPanel) {
     const hasPharmacyAccess = authorizedRoles.some((r) =>
       ['pharmacy_owner', 'pharmacy_manager', 'pharmacist', 'pharmacy_employee'].includes(r)
@@ -266,7 +261,7 @@ export default function Dashboard() {
       <main className="wrap narrow stack" dir={isAr ? 'rtl' : 'ltr'}>
         <div className="card stack" style={{ border: '2px solid #f59e0b' }}>
           <h2 style={{ margin: 0, color: '#b45309' }}>
-            🛡️ {tr(lang, 'لوحة الإدارة مخصصة للأدوار الإدارية والعلمية فقط', 'Central Admin Restricted')}
+            {tr(lang, 'لوحة الإدارة مخصصة للأدوار الإدارية والعلمية فقط', 'Central Admin Restricted')}
           </h2>
           <p className="muted" style={{ margin: 0 }}>
             {tr(
@@ -292,7 +287,7 @@ export default function Dashboard() {
                 navigate('/');
               }}
             >
-              👤 {tr(lang, 'العودة لواجهة المريض (Patient Mode)', 'Return to Patient Mode')}
+              {tr(lang, 'العودة لواجهة المريض (Patient Mode)', 'Return to Patient Mode')}
             </button>
             {hasPharmacyAccess && (
               <button
@@ -303,7 +298,7 @@ export default function Dashboard() {
                   navigate('/pharmacy-portal');
                 }}
               >
-                🏥 {tr(lang, 'الانتقال لبوابة الصيدلية (Pharmacy Mode)', 'Open Pharmacy Portal')}
+                {tr(lang, 'الانتقال لبوابة الصيدلية (Pharmacy Mode)', 'Open Pharmacy Portal')}
               </button>
             )}
             <button type="button" className="btn ghost" onClick={logout}>
@@ -319,68 +314,6 @@ export default function Dashboard() {
 
   return (
     <main className="wrap stack">
-      <div className="head" style={{ flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <h1 style={{ margin: 0 }}>
-            {isRegionalManager
-              ? tr(lang, 'لوحة الإدارة الإقليمية للمحافظات — دوايا', 'DAWAYA Regional Governorate Portal')
-              : isContentRole
-              ? tr(lang, 'منصة التحرير والمراجعة العلمية — دوايا', 'DAWAYA Clinical & Content Editorial Studio')
-              : t('adminTitle')}
-          </h1>
-          <div className="small muted">
-            {isRegionalManager
-              ? tr(
-                  lang,
-                  `النطاق الجغرافي المصرح به: ${regionalMemberships.map((m) => m.regionNameAr || m.regionId).join(' ، ') || activeRegionId || 'المحافظات المعينة'} — مع عزل تام للسجلات الطبية الخاصة بالمرضى`,
-                  `Authorized Regional Scope: ${activeRegionId || 'Assigned Governorates'} — Zero access to private patient medical records`
-                )
-              : isContentRole
-              ? tr(
-                  lang,
-                  'إدارة وتدقيق قاعدة الأدوية والمونوجرافات والمقالات العلمية (بدون أي وصول لبيانات أو ملفات المرضى الخاصة)',
-                  'Manage & review medications, monographs, and scientific articles (zero access to private patient records)'
-                )
-              : tr(
-                  lang,
-                  'منصة دوايا | DAWAYA — مركز الإدارة الموحد لقاعدة الأدوية (26,562+) والشركاء والفرنشايز والصلاحيات',
-                  'DAWAYA Admin Control Center — Unified Medicine DB (26,562+), Partners, Franchise & RBAC'
-                )}
-          </div>
-        </div>
-        <div className="row" style={{ gap: '8px', flexWrap: 'wrap' }}>
-          <RoleModeSwitcher />
-          <span className="badge approved">{activeRoleDef.badge}</span>
-          <button className="btn small ghost" onClick={logout}>{t('signOut')}</button>
-        </div>
-      </div>
-
-      {/* Role-Specific Privacy & Scope Assurance Banner (Sections 6E & 6F) */}
-      {(isRegionalManager || isContentRole) && (
-        <div
-          className="subcard"
-          style={{
-            background: 'rgba(13, 148, 136, 0.08)',
-            border: '1px solid rgba(13, 148, 136, 0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '10px',
-          }}
-        >
-          <div className="small">
-            🛡️ <b>{isAr ? activeRoleDef.nameAr : activeRoleDef.nameEn}:</b>{' '}
-            <span className="muted">
-              {isAr ? activeRoleDef.descriptionAr : activeRoleDef.descriptionEn}
-            </span>
-          </div>
-          <span className="badge approved" style={{ fontSize: '0.72rem' }}>
-            {tr(lang, 'حماية خصوصية المرضى مفعّلة ✓', 'Patient Privacy Isolation Active ✓')}
-          </span>
-        </div>
-      )}
-
       <div
         className="tabs"
         role="tablist"
@@ -392,6 +325,27 @@ export default function Dashboard() {
           paddingBottom: '10px',
         }}
       >
+        {isSuperOrCentralAdmin && (
+          <button
+            className={tab === 'owner_vision' ? 'on' : ''}
+            onClick={() => setTab('owner_vision')}
+            style={{
+              borderRadius: '10px',
+              border: tab === 'owner_vision' ? '2px solid #CFD29D' : '1px solid var(--line)',
+              background: tab === 'owner_vision' ? '#0D1F38' : 'var(--card-bg)',
+              color: tab === 'owner_vision' ? '#CFD29D' : 'var(--text)',
+              padding: '8px 16px',
+              fontWeight: 900,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <UnslopIcon name="shield" size={16} color={tab === 'owner_vision' ? '#CFD29D' : '#059669'} />
+            <span>{tr(lang, 'رؤية مالك المنصة (Owner Vision)', 'Platform Owner Vision')}</span>
+          </button>
+        )}
+
         {(hasPermission('medications.view') || hasPermission('medications.manage')) && (
           <button
             className={tab === 'dawaya_db' ? 'on' : ''}
@@ -448,7 +402,7 @@ export default function Dashboard() {
             }}
           >
             <UnslopIcon name="package" size={16} color="#059669" />
-            <span>{tr(lang, 'بوابة الصيدلية والمخزون والطلبات', 'Pharmacy Owner & Inventory Portal')}</span>
+            <span>{tr(lang, 'غرفة عمليات الصيدلية والمخزون', 'Pharmacy Operations Portal')}</span>
           </button>
         )}
 
@@ -468,7 +422,7 @@ export default function Dashboard() {
             }}
           >
             <UnslopIcon name="users" size={16} color="#059669" />
-            <span>{tr(lang, 'إدارة المستخدمين والأدوار (User & Role Management)', 'User & Role Management (RBAC)')}</span>
+            <span>{tr(lang, 'المستخدمون والأدوار التفصيلية (RBAC)', 'Users & Roles (RBAC)')}</span>
           </button>
         )}
 
@@ -506,121 +460,12 @@ export default function Dashboard() {
             }}
           >
             <UnslopIcon name="cpu" size={16} color="#059669" />
-            <span>{tr(lang, 'الإحصائيات والذكاء الاصطناعي وسجل المراجعة', 'Analytics, AI Config & Audit Logs')}</span>
+            <span>{tr(lang, 'الذكاء الاصطناعي وسجل المراجعة', 'AI Config & Audit Logs')}</span>
           </button>
-        )}
-
-        {(isSuperOrCentralAdmin || isContentRole || hasPermission('medications.manage')) && (
-          <>
-            <button
-              className={tab === 'catalog' ? 'on' : ''}
-              onClick={() => setTab('catalog')}
-              style={{
-                borderRadius: '10px',
-                border: tab === 'catalog' ? '2px solid var(--teal)' : '1px solid var(--line)',
-                background: tab === 'catalog' ? 'var(--tint)' : 'var(--card-bg)',
-                padding: '8px 12px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <UnslopIcon name="flask" size={16} color="#059669" />
-              <span>{tr(lang, 'العبوات الدوائية المرجعية (267+)', 'Reference Packages (267+)')}</span>
-            </button>
-
-            <button
-              className={tab === 'meds' ? 'on' : ''}
-              onClick={() => setTab('meds')}
-              style={{
-                borderRadius: '10px',
-                border: tab === 'meds' ? '2px solid var(--teal)' : '1px solid var(--line)',
-                background: tab === 'meds' ? 'var(--tint)' : 'var(--card-bg)',
-                padding: '8px 12px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <UnslopIcon name="fileText" size={16} color="#059669" />
-              <span>{tr(lang, 'المونوجرافات السريرية (32)', 'Clinical Monographs (32)')}</span>
-            </button>
-
-            <button
-              className={tab === 'survey_bank' ? 'on' : ''}
-              onClick={() => setTab('survey_bank')}
-              style={{
-                borderRadius: '10px',
-                border: tab === 'survey_bank' ? '2px solid var(--teal)' : '1px solid var(--line)',
-                background: tab === 'survey_bank' ? 'var(--tint)' : 'var(--card-bg)',
-                padding: '8px 12px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <UnslopIcon name="clipboard" size={16} color="#059669" />
-              <span>{tr(lang, 'تعديل أسئلة الاستبيان والكويز', 'Edit Survey & Quiz Questions')}</span>
-            </button>
-          </>
-        )}
-
-        {(isSuperOrCentralAdmin || hasPermission('reports.view')) && (
-          <>
-            <button
-              className={tab === 'research' ? 'on' : ''}
-              onClick={() => setTab('research')}
-              style={{
-                borderRadius: '10px',
-                border: tab === 'research' ? '2px solid var(--teal)' : '1px solid var(--line)',
-                background: tab === 'research' ? 'var(--tint)' : 'var(--card-bg)',
-                padding: '8px 12px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <UnslopIcon name="chart" size={16} color="#059669" />
-              <span>{t('tabResearch')}</span>
-            </button>
-
-            <button
-              className={tab === 'impact' ? 'on' : ''}
-              onClick={() => setTab('impact')}
-              style={{
-                borderRadius: '10px',
-                border: tab === 'impact' ? '2px solid var(--teal)' : '1px solid var(--line)',
-                background: tab === 'impact' ? 'var(--tint)' : 'var(--card-bg)',
-                padding: '8px 12px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <UnslopIcon name="activity" size={16} color="#059669" />
-              <span>{tr(lang, 'قياس الأثر والتعلم', 'Learning Impact')}</span>
-            </button>
-
-            <button
-              className={tab === 'quiz' ? 'on' : ''}
-              onClick={() => setTab('quiz')}
-              style={{
-                borderRadius: '10px',
-                border: tab === 'quiz' ? '2px solid var(--teal)' : '1px solid var(--line)',
-                background: tab === 'quiz' ? 'var(--tint)' : 'var(--card-bg)',
-                padding: '8px 12px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <UnslopIcon name="award" size={16} color="#059669" />
-              <span>{tr(lang, 'نتائج الكويز', 'Quiz Results')}</span>
-            </button>
-          </>
         )}
       </div>
 
+      {tab === 'owner_vision' && <OwnerVisionHub onOpenFullAdminTab={(tId) => setTab(tId as AdminTab)} />}
       {tab === 'dawaya_db' && <DawayaMedicineAdminManager uid={user.uid} role={(role || 'viewer') as Role} />}
       {tab === 'partners' && <PartnerManagementCenter adminUid={user.uid} adminRole={(role || 'regional_manager') as Role} />}
       {tab === 'pharmacy_portal' && <PharmacyOwnerDashboard />}

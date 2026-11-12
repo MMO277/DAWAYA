@@ -1547,7 +1547,6 @@ export default function Layout({ children }: { children: ReactNode }) {
 
           {/* Unified Glassmorphic Capsule (Design 2) */}
           <div className="header-actions dawaya-glass-capsule">
-            <RoleModeSwitcher compact />
             {/* 1. User Avatar Circle (Logged In) or Sage-Gold Guest User Circle (Logged Out) */}
             {!user ? (
               <div className="header-auth-group">
@@ -1880,8 +1879,8 @@ export default function Layout({ children }: { children: ReactNode }) {
 
             <div className="drawer-links">
               {user && authCtx.availableModes && authCtx.availableModes.length > 1 && (
-                <div style={{ padding: '6px 10px 10px', display: 'flex', justifyContent: 'center' }}>
-                  <RoleModeSwitcher />
+                <div style={{ padding: '4px 6px 10px' }}>
+                  <RoleModeSwitcher fullWidth />
                 </div>
               )}
               {/* Direct Home Item */}

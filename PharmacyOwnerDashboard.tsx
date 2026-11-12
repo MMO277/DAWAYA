@@ -634,58 +634,183 @@ export default function PharmacyOwnerDashboard() {
         </div>
       )}
 
-      {/* TAB 1: OVERVIEW & ALERTS (Section 6B) */}
+      {/* TAB 1: DESIGN 1 OVERVIEW — 2x2 Dark Navy & Gold KPI Grid + Live Orders & Shortage Radar */}
       {isAuthorizedPharmacyUser && activeTab === 'overview' && (
         <div className="stack">
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(185px, 1fr))',
-              gap: '12px',
+              background: 'linear-gradient(145deg, #091526 0%, #0D1F38 100%)',
+              padding: '16px',
+              borderRadius: '24px',
+              boxShadow: '0 16px 38px rgba(13, 31, 56, 0.28)',
+              border: '1px solid rgba(207, 210, 157, 0.25)',
             }}
           >
-            <div className="card" style={{ borderTop: '4px solid #0284c7' }}>
-              <span className="small muted">{isAr ? 'إجمالي الطلبات (Total Orders)' : 'Total Orders'}</span>
-              <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#0284c7', marginTop: '4px' }}>
-                {myOrders.length}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                gap: '14px',
+              }}
+            >
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, #102442 0%, #0D1F38 100%)',
+                  border: '1.5px solid #CFD29D',
+                  borderRadius: '18px',
+                  padding: '16px 18px',
+                  boxShadow: '0 0 18px rgba(16, 185, 129, 0.15)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f8fafc', fontWeight: 700, fontSize: '0.9rem' }}>
+                  <span>{isAr ? 'قيمة المخزون والمبيعات:' : 'Stock & Sales Value:'}</span>
+                  <span style={{ color: '#10b981' }}>▲</span>
+                </div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#CFD29D', marginTop: '6px' }}>
+                  {myInventory.reduce((acc, i) => acc + i.pharmacyPriceEgp * (i.quantityPacks || 1), 0).toLocaleString()} <small style={{ fontSize: '0.9rem' }}>ج.م</small>
+                </div>
               </div>
-              <span className="small muted">
-                {isAr ? `قيد المتابعة: ${pendingOrdersCount}` : `Pending: ${pendingOrdersCount}`}
-              </span>
+
+              <div
+                onClick={() => setActiveTab('orders')}
+                style={{
+                  background: 'linear-gradient(135deg, #102442 0%, #0D1F38 100%)',
+                  border: '1.5px solid #CFD29D',
+                  borderRadius: '18px',
+                  padding: '16px 18px',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.9rem' }}>
+                  {isAr ? 'الطلبات الواردة للصيدلية:' : 'Incoming Orders:'}
+                </div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#CFD29D', marginTop: '6px' }}>
+                  {myOrders.length} <small style={{ fontSize: '0.82rem', color: '#10b981' }}>({isAr ? `جديد: ${pendingOrdersCount}` : `Pending: ${pendingOrdersCount}`})</small>
+                </div>
+              </div>
+
+              <div
+                onClick={() => {
+                  setInvRadarFilter('low_stock');
+                  setActiveTab('inventory');
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #102442 0%, #0D1F38 100%)',
+                  border: '1.5px solid #CFD29D',
+                  borderRadius: '18px',
+                  padding: '16px 18px',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.9rem' }}>
+                  {isAr ? 'عجز ونواقص الرف:' : 'Shelf Shortages:'}
+                </div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#CFD29D', marginTop: '6px' }}>
+                  {lowStockItems.length} <small style={{ fontSize: '0.85rem' }}>{isAr ? 'أصناف' : 'items'}</small>
+                </div>
+              </div>
+
+              <div
+                onClick={() => setActiveTab('inventory')}
+                style={{
+                  background: 'linear-gradient(135deg, #102442 0%, #0D1F38 100%)',
+                  border: '1.5px solid #CFD29D',
+                  borderRadius: '18px',
+                  padding: '16px 18px',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.9rem' }}>
+                  {isAr ? 'أصناف المخزون الموثقة:' : 'Verified Stock Items:'}
+                </div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#CFD29D', marginTop: '6px' }}>
+                  {myInventory.length}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Direct Live Orders & Shortage Preview on Overview (Design 1 Style) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: '14px' }}>
+            <div className="card stack" style={{ borderRadius: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0 }}>{isAr ? 'الطلبات الواردة الآن' : 'Live Incoming Orders'}</h3>
+                <button type="button" className="btn small ghost" onClick={() => setActiveTab('orders')}>
+                  {isAr ? 'كل الطلبات ←' : 'All Orders →'}
+                </button>
+              </div>
+              {myOrders.slice(0, 3).map((ord) => (
+                <div
+                  key={ord.id}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '14px',
+                    border: '1px solid var(--line)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '10px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div>
+                    <b>{ord.medicationNameAr} ({ord.quantity || 1} عبوة)</b>
+                    <div className="small muted">{ord.patientName} • {ord.city}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('orders')}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #b5b37c',
+                      background: 'linear-gradient(135deg, #d4d6a1 0%, #c2c086 100%)',
+                      color: '#0D1F38',
+                      fontWeight: 900,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {isAr ? 'مراجعة وتأكيد الطلب' : 'Review Order'}
+                  </button>
+                </div>
+              ))}
             </div>
 
-            <div className="card" style={{ borderTop: '4px solid #059669' }}>
-              <span className="small muted">{isAr ? 'الطلبات المكتملة (Completed)' : 'Completed Orders'}</span>
-              <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#059669', marginTop: '4px' }}>
-                {completedOrdersCount}
+            <div className="card stack" style={{ borderRadius: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0 }}>{isAr ? 'رادار العجز والنواقص بالصيدلية' : 'Pharmacy Shortage Radar'}</h3>
+                <button
+                  type="button"
+                  className="btn small ghost"
+                  onClick={() => {
+                    setInvRadarFilter('low_stock');
+                    setActiveTab('inventory');
+                  }}
+                >
+                  {isAr ? 'تحديث الرصيد ←' : 'Restock →'}
+                </button>
               </div>
-              <span className="small muted">
-                {isAr ? `الملغاة/المعتذر عنها: ${cancelledOrdersCount}` : `Cancelled/Rejected: ${cancelledOrdersCount}`}
-              </span>
-            </div>
-
-            <div className="card" style={{ borderTop: '4px solid #10b981' }}>
-              <span className="small muted">{isAr ? 'أصناف المخزون الموثقة' : 'Verified Inventory Items'}</span>
-              <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#059669', marginTop: '4px' }}>
-                {myInventory.length}
-              </div>
-              <span className="small muted">{isAr ? 'محدثة بتوقيت الصيدلية الفعلي' : 'Real-time synced'}</span>
-            </div>
-
-            <div className="card" style={{ borderTop: '4px solid #f59e0b' }}>
-              <span className="small muted">{isAr ? 'تنبيهات النواقص (Low Stock)' : 'Low / Out of Stock Alerts'}</span>
-              <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#d97706', marginTop: '4px' }}>
-                {lowStockItems.length}
-              </div>
-              <span className="small muted">{isAr ? 'تحتاج لإعادة طلب من الموزع' : 'Requires restocking'}</span>
-            </div>
-
-            <div className="card" style={{ borderTop: '4px solid #ef4444' }}>
-              <span className="small muted">{isAr ? 'قرب انتهاء الصلاحية (<90 يوم)' : 'Expiring Within 90 Days'}</span>
-              <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#dc2626', marginTop: '4px' }}>
-                {expiringSoonItems.length}
-              </div>
-              <span className="small muted">{isAr ? 'فحص التشغيلات وتواريخ الانتهاء' : 'Batch expiry tracking'}</span>
+              {(lowStockItems.length > 0 ? lowStockItems : myInventory.slice(0, 3)).slice(0, 4).map((item) => (
+                <div key={item.id} style={{ display: 'grid', gap: '5px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem' }}>
+                    <b>{item.tradeNameAr}</b>
+                    <span style={{ fontWeight: 800, color: (item.quantityPacks || 0) <= item.lowStockThreshold ? '#d97706' : '#059669' }}>
+                      {isAr ? `الرصيد: ${item.quantityPacks ?? 0} عبوة` : `Stock: ${item.quantityPacks ?? 0}`}
+                    </span>
+                  </div>
+                  <div style={{ width: '100%', height: '7px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.14)', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${Math.min(100, Math.max(12, ((item.quantityPacks || 1) / 25) * 100))}%`,
+                        height: '100%',
+                        borderRadius: '999px',
+                        background: (item.quantityPacks || 0) <= item.lowStockThreshold ? '#f59e0b' : '#10b981',
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

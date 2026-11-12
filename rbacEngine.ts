@@ -805,6 +805,7 @@ export async function ensureDefaultPatientProfile(firebaseUser: User): Promise<v
           accountStatus: 'active',
           defaultRole: 'patient',
           activeRole: 'patient',
+          lastLoginAt: nowIso,
           createdAt: nowIso,
           updatedAt: nowIso,
         },
@@ -818,6 +819,7 @@ export async function ensureDefaultPatientProfile(firebaseUser: User): Promise<v
           displayName: firebaseUser.displayName || snap.data().displayName || '',
           photoURL: firebaseUser.photoURL || snap.data().photoURL || '',
           defaultRole: 'patient',
+          lastLoginAt: nowIso,
           updatedAt: nowIso,
         },
         { merge: true }

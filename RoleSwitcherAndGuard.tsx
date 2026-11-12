@@ -12,10 +12,10 @@ import {
 import { UnslopIcon } from './UnslopIcons';
 
 /**
- * Header & Drawer "Switch Mode / تغيير الوضع" Control (Section 5)
- * Appears whenever a user has multiple authorized roles or memberships.
+ * Drawer & Dashboard "Switch Mode / تغيير الوضع" Control (Section 5)
+ * Styled strictly in DAWAYA's Navy (#0D1F38), Emerald (#059669), and Sage-Gold (#CFD29D) palette.
  */
-export function RoleModeSwitcher({ compact = false }: { compact?: boolean }) {
+export function RoleModeSwitcher({ fullWidth = false }: { fullWidth?: boolean }) {
   const {
     user,
     activeMode,
@@ -36,18 +36,10 @@ export function RoleModeSwitcher({ compact = false }: { compact?: boolean }) {
 
   if (!user) return null;
 
-  // Show switcher if user has more than 1 role or more than 1 mode
   const hasMultipleRoles = authorizedRoles.length > 1 || availableModes.length > 1;
-  if (!hasMultipleRoles && !compact) return null;
+  if (!hasMultipleRoles) return null;
 
   const currentRoleDef = ROLE_DEFINITIONS[activeRole] || ROLE_DEFINITIONS.patient;
-
-  const modeColor =
-    activeMode === 'admin'
-      ? '#7c3aed'
-      : activeMode === 'pharmacy'
-      ? '#0d9488'
-      : '#059669';
 
   const handleSelectRole = (
     targetRole: CanonicalRole,
@@ -72,34 +64,30 @@ export function RoleModeSwitcher({ compact = false }: { compact?: boolean }) {
           'Switch Mode between Patient, Pharmacy, and Admin interfaces without signing out'
         )}
         style={{
+          width: fullWidth ? '100%' : 'auto',
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '6px',
-          padding: compact ? '5px 10px' : '6px 12px',
-          borderRadius: '999px',
-          border: '1.5px solid rgba(207, 210, 157, 0.55)',
-          background:
-            activeMode === 'admin'
-              ? 'linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%)'
-              : activeMode === 'pharmacy'
-              ? 'linear-gradient(135deg, #065f46 0%, #0f766e 100%)'
-              : 'rgba(15, 118, 110, 0.35)',
+          justifyContent: fullWidth ? 'space-between' : 'center',
+          gap: '8px',
+          padding: fullWidth ? '10px 14px' : '7px 14px',
+          borderRadius: fullWidth ? '14px' : '999px',
+          border: '1.5px solid rgba(207, 210, 157, 0.5)',
+          background: 'linear-gradient(135deg, #0D1F38 0%, #0f5132 100%)',
           color: '#ffffff',
-          fontSize: compact ? '0.74rem' : '0.78rem',
+          fontSize: '0.82rem',
           fontWeight: 800,
           cursor: 'pointer',
-          whiteSpace: 'nowrap',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.22)',
+          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.2)',
         }}
       >
-        <span aria-hidden="true">
-          {activeMode === 'admin' ? '🛡️' : activeMode === 'pharmacy' ? '🏥' : '👤'}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
+          <UnslopIcon name="shield" size={16} color="#CFD29D" />
+          <span>
+            {isAr ? 'تغيير الوضع النشط:' : 'Active Mode:'}{' '}
+            <strong style={{ color: '#CFD29D' }}>{currentRoleDef.badge}</strong>
+          </span>
         </span>
-        <span>
-          {isAr ? 'تغيير الوضع:' : 'Mode:'}{' '}
-          <strong style={{ color: '#CFD29D' }}>{currentRoleDef.badge}</strong>
-        </span>
-        <span aria-hidden="true" style={{ fontSize: '0.7rem', opacity: 0.85 }}>▾</span>
+        <span aria-hidden="true" style={{ fontSize: '0.75rem', color: '#CFD29D' }}>▾</span>
       </button>
 
       {openModal && (
@@ -112,7 +100,7 @@ export function RoleModeSwitcher({ compact = false }: { compact?: boolean }) {
             position: 'fixed',
             inset: 0,
             zIndex: 999990,
-            background: 'rgba(13, 31, 56, 0.72)',
+            background: 'rgba(13, 31, 56, 0.75)',
             backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
@@ -125,22 +113,22 @@ export function RoleModeSwitcher({ compact = false }: { compact?: boolean }) {
             onClick={(e) => e.stopPropagation()}
             style={{
               width: '100%',
-              maxWidth: '520px',
-              maxHeight: '88vh',
+              maxWidth: '500px',
+              maxHeight: '86vh',
               overflowY: 'auto',
               background: 'var(--card-bg, #ffffff)',
               color: 'var(--text, #0f172a)',
               borderRadius: '22px',
-              border: `2px solid ${modeColor}`,
+              border: '2px solid #059669',
               boxShadow: '0 24px 60px rgba(0, 0, 0, 0.45)',
               padding: '20px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <UnslopIcon name="shield" size={24} color="#059669" />
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.12rem' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.08rem' }}>
                     {isAr ? 'تغيير الوضع والواجهة النشطة (Switch Mode)' : 'Switch Active Interface Mode'}
                   </h3>
                   <small className="muted">
@@ -192,10 +180,12 @@ export function RoleModeSwitcher({ compact = false }: { compact?: boolean }) {
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: '0.96rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>
-                          {item.mode === 'admin' ? '🛡️' : item.mode === 'pharmacy' ? '🏥' : '👤'}
-                        </span>
+                      <div style={{ fontWeight: 800, fontSize: '0.94rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <UnslopIcon
+                          name={item.mode === 'admin' ? 'shield' : item.mode === 'pharmacy' ? 'hospital' : 'user'}
+                          size={18}
+                          color="#059669"
+                        />
                         <span>{isAr ? item.labelAr : item.labelEn}</span>
                       </div>
                       <div className="small muted" style={{ marginTop: '4px' }}>
@@ -274,7 +264,7 @@ export function RoleModeSwitcher({ compact = false }: { compact?: boolean }) {
                 }}
               >
                 <div className="small" style={{ fontWeight: 800, marginBottom: '6px', color: '#0f766e' }}>
-                  🏥 {isAr ? 'عضويات الصيدليات المعتمدة لحسابك:' : 'Authorized Pharmacy Memberships:'}
+                  {isAr ? 'عضويات الصيدليات المعتمدة لحسابك:' : 'Authorized Pharmacy Memberships:'}
                 </div>
                 <div style={{ display: 'grid', gap: '6px' }}>
                   {pharmacyMemberships.map((mem) => {
@@ -318,13 +308,13 @@ export function RoleModeSwitcher({ compact = false }: { compact?: boolean }) {
                 style={{
                   padding: '12px',
                   borderRadius: '14px',
-                  background: 'rgba(124, 58, 237, 0.06)',
-                  border: '1px solid rgba(124, 58, 237, 0.25)',
+                  background: 'rgba(16, 185, 129, 0.06)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
                   marginBottom: '12px',
                 }}
               >
-                <div className="small" style={{ fontWeight: 800, marginBottom: '6px', color: '#6d28d9' }}>
-                  🗺️ {isAr ? 'النطاق الجغرافي المعين (Regional Scope):' : 'Assigned Regional Scope:'}
+                <div className="small" style={{ fontWeight: 800, marginBottom: '6px', color: '#059669' }}>
+                  {isAr ? 'النطاق الجغرافي المعين (Regional Scope):' : 'Assigned Regional Scope:'}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                   {regionalMemberships.map((rm) => (
@@ -401,7 +391,7 @@ export function ProtectedRoute({
       <main className="wrap narrow" dir={isAr ? 'rtl' : 'ltr'}>
         <div className="card stack" style={{ border: '2px solid #dc2626' }}>
           <h2 style={{ color: '#dc2626', margin: 0 }}>
-            🚫 {isAr ? 'تم إيقاف الحساب مؤقتاً' : 'Account Suspended'}
+            {isAr ? 'تم إيقاف الحساب مؤقتاً' : 'Account Suspended'}
           </h2>
           <p className="muted">
             {isAr
@@ -421,7 +411,7 @@ export function ProtectedRoute({
       <main className="wrap narrow" dir={isAr ? 'rtl' : 'ltr'}>
         <div className="card stack">
           <h2 style={{ margin: 0 }}>
-            🔒 {isAr ? 'تسجيل الدخول مطلوب للوصول لهذه البوابة' : 'Sign-In Required'}
+            {isAr ? 'تسجيل الدخول مطلوب للوصول لهذه البوابة' : 'Sign-In Required'}
           </h2>
           <p className="muted">
             {isAr
@@ -441,11 +431,9 @@ export function ProtectedRoute({
     );
   }
 
-  // Check if user owns at least one of the requiredRoles
   if (requiredRoles && requiredRoles.length > 0) {
     const ownsAnyRequiredRole = requiredRoles.some((r) => hasRole(r));
     if (!ownsAnyRequiredRole) {
-      // Allow Pharmacy Portal onboarding registration tab ONLY if user is visiting /pharmacy-portal to submit an application
       if (location.pathname === '/pharmacy-portal' || location.pathname === '/pharmacy-dashboard') {
         return <>{children}</>;
       }
@@ -453,7 +441,7 @@ export function ProtectedRoute({
         <main className="wrap narrow" dir={isAr ? 'rtl' : 'ltr'}>
           <div className="card stack" style={{ border: '1.5px solid #f59e0b' }}>
             <h2 style={{ margin: 0, color: '#b45309' }}>
-              🛡️ {isAr ? 'غير مصرح بالوصول لهذه الواجهة' : 'Access Restricted'}
+              {isAr ? 'غير مصرح بالوصول لهذه الواجهة' : 'Access Restricted'}
             </h2>
             <p className="muted">
               {isAr
@@ -478,17 +466,15 @@ export function ProtectedRoute({
     }
   }
 
-  // Check if user has required granular permissions
   if (requiredPermissions && requiredPermissions.length > 0) {
     const missingPerm = requiredPermissions.find((p) => !hasPermission(p));
     if (missingPerm) {
-      // Check if user owns a role that has this permission but is currently in 'patient' mode
       if (requiredMode && activeMode !== requiredMode && authorizedRoles.length > 1) {
         return (
           <main className="wrap narrow" dir={isAr ? 'rtl' : 'ltr'}>
             <div className="card stack" style={{ border: '1.5px solid #0d9488' }}>
               <h2 style={{ margin: 0, color: '#0f766e' }}>
-                🔄 {isAr ? 'تبديل الوضع مطلوب' : 'Mode Switch Required'}
+                {isAr ? 'تبديل الوضع مطلوب' : 'Mode Switch Required'}
               </h2>
               <p className="muted">
                 {isAr
@@ -519,9 +505,6 @@ export function ProtectedRoute({
   return <>{children}</>;
 }
 
-/**
- * Component-Level Permission Guard (Section 12)
- */
 export function PermissionGuard({
   permission,
   pharmacyId,
