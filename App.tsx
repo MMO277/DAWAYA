@@ -1,3 +1,4 @@
+import DawayaErrorBoundary from './ErrorBoundary';
 import { ComponentType, lazy, Suspense, useEffect } from 'react';
 import { Route, Routes, Link } from 'react-router-dom';
 import { configured } from './firebase';
@@ -205,8 +206,9 @@ export default function App() {
     <AuthProvider>
       <EmergencyLocationProvider>
         <Layout>
-          <Suspense fallback={<PageLoadingFallback />}>
-            <Routes>
+          <DawayaErrorBoundary>
+            <Suspense fallback={<PageLoadingFallback />}>
+              <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/patient-dashboard" element={<PatientDashboard />} />
               <Route path="/dashboard" element={<PatientDashboard />} />
@@ -364,8 +366,9 @@ export default function App() {
               <Route path="/smart-passport" element={<SmartPassport />} />
               <Route path="/passport/:uid" element={<PassportView />} />
               <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
+              </Routes>
+            </Suspense>
+          </DawayaErrorBoundary>
         </Layout>
         <AuthModal />
       </EmergencyLocationProvider>

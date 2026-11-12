@@ -420,7 +420,7 @@ export default function MedicinePage() {
           name || '',
           dawayaRecord?.brandNameAr || '',
           dawayaRecord?.brandNameEn || '',
-          dawayaRecord?.activeIngredient || '',
+          dawayaRecord?.genericName || '',
           m.id || '',
         ];
         const hydrationReq = evaluateDrugHydrationRequirement(drugTokens);
@@ -496,7 +496,7 @@ export default function MedicinePage() {
           name || '',
           dawayaRecord?.brandNameAr || '',
           dawayaRecord?.brandNameEn || '',
-          dawayaRecord?.activeIngredient || '',
+          dawayaRecord?.genericName || '',
           m.id || '',
         ];
         const splitMeal = evaluatePillSplittingAndMealProtocol(
@@ -505,7 +505,7 @@ export default function MedicinePage() {
         );
         const reboundAlert = evaluateSuddenStopReboundRisk(
           drugTokens,
-          dawayaRecord?.categoryKey
+          dawayaRecord?.therapeuticClass
         );
 
         const isSplitForbidden =

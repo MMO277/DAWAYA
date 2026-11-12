@@ -437,10 +437,9 @@ export default function Layout({ children }: { children: ReactNode }) {
   const pageDir: 'rtl' | 'ltr' = isAr ? 'rtl' : 'ltr';
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
-  const routeStackRef = useRef<string[]>(['/']);
-  const isHandlingBackRef = useRef<boolean>(false);
   const lastExitAttemptRef = useRef<number>(0);
   const [backExitToast, setBackExitToast] = useState<boolean>(false);
+  const [globalAppToast, setGlobalAppToast] = useState<string>('');
   const { dark, toggle } = useDarkMode();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerClosing, setDrawerClosing] = useState(false);
@@ -1056,119 +1055,145 @@ export default function Layout({ children }: { children: ReactNode }) {
     window.scrollTo(0, 0);
   }, [pathname]);
 
-  // Track in-app navigation stack and keep a protective history sentinel so Android back-swipe never exits the app
+  // Global Native App Toast Interceptor (converts raw browser alert() into sleek in-app toast)
   useEffect(() => {
-    const fullPath = `${pathname}${search || ''}`;
-    if (!isHandlingBackRef.current) {
-      const stack = routeStackRef.current;
-      if (stack[stack.length - 1] !== fullPath) {
-        stack.push(fullPath);
-        if (stack.length > 40) stack.shift();
-      }
-    }
-    isHandlingBackRef.current = false;
+    if (typeof window === 'undefined') return;
+    const origAlert = window.alert;
+    window.alert = (msg?: any) => {
+      const clean = String(msg ?? '').trim();
+      if (!clean) return;
+      setGlobalAppToast(clean);
+      window.setTimeout(() => {
+        setGlobalAppToast((prev) => (prev === clean ? '' : prev));
+      }, 4500);
+    };
+    return () => {
+      window.alert = origAlert;
+    };
+  }, []);
 
-    if (typeof window !== 'undefined') {
-      try {
-        window.history.pushState({ dawayaSentinel: true, path: fullPath }, '');
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [pathname, search]);
-
-  const handleSmartInAppBack = () => {
-    // 1. If a SmartChoiceSelect modal is open, close it first
+  // Pure 1-Swipe Screen-Edge Back Engine for Android WebView, Capacitor & Standalone PWA:
+  // Keeps a permanent bottom airbag entry (#/?_root=1) at history index 0 so WebView.canGoBack()
+  // is ALWAYS true, while letting <HashRouter> pop sub-pages natively in a single swipe!
+  const closeAnyOpenModalOrDrawer = (): boolean => {
     if (typeof document !== 'undefined') {
       const openSelectCloseBtn = document.querySelector('.dawaya-smart-select-close') as HTMLButtonElement | null;
       if (openSelectCloseBtn) {
         openSelectCloseBtn.click();
-        return;
+        return true;
       }
     }
-
-    // 2. If any Layout drawer or modal is open, close it first
     if (drawerOpen) {
       closeDrawer(true);
-      return;
+      return true;
     }
     if (openRibbonCatId) {
       setOpenRibbonCatId(null);
-      return;
+      return true;
     }
     if (spotlightOpen) {
       setSpotlightOpen(false);
-      return;
+      return true;
     }
     if (langMenuOpen) {
       setLangMenuOpen(false);
-      return;
+      return true;
     }
     if (showLogoutModal || authCtx.logoutModalOpen) {
       setShowLogoutModal(false);
       authCtx.closeLogoutModal();
-      return;
+      return true;
     }
-
-    // 3. If on any sub-page (not Home '/'), navigate back inside the app!
-    if (pathname !== '/') {
-      isHandlingBackRef.current = true;
-      const stack = routeStackRef.current;
-      if (stack.length > 1) {
-        stack.pop(); // remove current
-        const prevTarget = stack[stack.length - 1] || (pathname.startsWith('/medicine/') ? '/medicines' : '/');
-        navigate(prevTarget, { replace: true });
-      } else if (pathname.startsWith('/medicine/')) {
-        routeStackRef.current = ['/', '/medicines'];
-        navigate('/medicines', { replace: true });
-      } else {
-        routeStackRef.current = ['/'];
-        navigate('/', { replace: true });
-      }
-      return;
-    }
-
-    // 4. On Home ('/'): Double-swipe within 2.5s required to exit app
-    const now = Date.now();
-    if (now - lastExitAttemptRef.current < 2500) {
-      const capApp = (window as any)?.Capacitor?.Plugins?.App;
-      if (capApp && typeof capApp.exitApp === 'function') {
-        capApp.exitApp();
-      }
-      return;
-    }
-    lastExitAttemptRef.current = now;
-    setBackExitToast(true);
-    window.setTimeout(() => setBackExitToast(false), 2400);
-    try {
-      window.history.pushState({ dawayaSentinel: true, path: '/' }, '');
-    } catch {
-      /* ignore */
-    }
+    return false;
   };
 
-  const handleSmartBackRef = useRef(handleSmartInAppBack);
-  handleSmartBackRef.current = handleSmartInAppBack;
+  const closeOverlayRef = useRef(closeAnyOpenModalOrDrawer);
+  closeOverlayRef.current = closeAnyOpenModalOrDrawer;
+  const currentPathnameRef = useRef(pathname);
+  currentPathnameRef.current = pathname;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Seed initial sentinel entry on app launch
-    try {
-      window.history.pushState({ dawayaSentinel: true, path: window.location.hash || '/' }, '');
-    } catch {
-      /* ignore */
+    // Seed bottom airbag sentinel at index 0 once on launch so Android WebView.canGoBack() is always true
+    const initHash = window.location.hash || '#/';
+    if (!window.history.state?.dawayaAirbagSeeded) {
+      try {
+        window.history.replaceState({ dawayaBottomSentinel: true, dawayaAirbagSeeded: true }, '', '#/?_root=1');
+        window.history.pushState({ dawayaAirbagSeeded: true }, '', initHash === '#/?_root=1' ? '#/' : initHash);
+      } catch {
+        /* ignore */
+      }
     }
 
     const onPopState = (e: PopStateEvent) => {
-      e.preventDefault?.();
-      handleSmartBackRef.current();
+      // 1. If a modal/drawer was open when the user swiped back, close it and restore current URL
+      if (closeOverlayRef.current()) {
+        try {
+          window.history.pushState({ dawayaAirbagSeeded: true }, '', `#${currentPathnameRef.current}`);
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+
+      // 2. Check if the user swiped all the way back to the bottom airbag sentinel (#/?_root=1)
+      const isAtBottomSentinel =
+        Boolean(e.state?.dawayaBottomSentinel) || window.location.hash.includes('_root=1');
+
+      if (isAtBottomSentinel) {
+        // If they were on a sub-page that used replaceState, take them to Home ('/') instead of exiting!
+        if (currentPathnameRef.current !== '/') {
+          try {
+            window.history.pushState({ dawayaAirbagSeeded: true }, '', '#/');
+          } catch {
+            /* ignore */
+          }
+          navigate('/', { replace: true });
+          return;
+        }
+
+        // They are on Home ('/'): require double-swipe within 2.5s to exit app
+        const now = Date.now();
+        if (now - lastExitAttemptRef.current < 2500) {
+          const capApp = (window as any)?.Capacitor?.Plugins?.App;
+          if (capApp && typeof capApp.exitApp === 'function') {
+            capApp.exitApp();
+          }
+          return;
+        }
+
+        lastExitAttemptRef.current = now;
+        setBackExitToast(true);
+        window.setTimeout(() => setBackExitToast(false), 2400);
+        try {
+          window.history.pushState({ dawayaAirbagSeeded: true }, '', '#/');
+        } catch {
+          /* ignore */
+        }
+        navigate('/', { replace: true });
+      }
     };
 
     const onHardwareBack = (e: Event) => {
       e.preventDefault?.();
       e.stopPropagation?.();
-      handleSmartBackRef.current();
+      if (closeOverlayRef.current()) return;
+      if (currentPathnameRef.current !== '/') {
+        window.history.back();
+        return;
+      }
+      const now = Date.now();
+      if (now - lastExitAttemptRef.current < 2500) {
+        const capApp = (window as any)?.Capacitor?.Plugins?.App;
+        if (capApp && typeof capApp.exitApp === 'function') {
+          capApp.exitApp();
+        }
+        return;
+      }
+      lastExitAttemptRef.current = now;
+      setBackExitToast(true);
+      window.setTimeout(() => setBackExitToast(false), 2400);
     };
 
     window.addEventListener('popstate', onPopState);
@@ -1179,7 +1204,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       const capApp = (window as any)?.Capacitor?.Plugins?.App;
       if (capApp && typeof capApp.addListener === 'function') {
         const sub = capApp.addListener('backButton', () => {
-          handleSmartBackRef.current();
+          onHardwareBack(new CustomEvent('backbutton'));
         });
         if (sub && typeof sub.remove === 'function') {
           capListenerRemove = () => sub.remove();
@@ -1194,7 +1219,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       document.removeEventListener('backbutton', onHardwareBack, false);
       if (capListenerRemove) capListenerRemove();
     };
-  }, []);
+  }, [navigate]);
 
   // Dynamically keep browser tab title & apple-mobile-web-app-title synced with t('appName')
   useEffect(() => {
@@ -2027,85 +2052,48 @@ export default function Layout({ children }: { children: ReactNode }) {
       <SmartCrossClinicSafetyBanner />
       <SmartWelcomeOnboardingBanner />
 
-      {/* Always-Visible In-App Back & Quick Navigation Bar on Sub-Pages */}
-      {pathname !== '/' && (
+      {globalAppToast && (
         <div
-          className="wrap"
+          role="alert"
           style={{
-            paddingTop: '10px',
-            paddingBottom: '2px',
+            position: 'fixed',
+            top: '76px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 999999,
+            maxWidth: '92vw',
+            width: '440px',
+            background: '#0D1F38',
+            color: '#ffffff',
+            border: '1.5px solid #10b981',
+            padding: '12px 18px',
+            borderRadius: '16px',
+            fontWeight: 700,
+            fontSize: '0.88rem',
+            boxShadow: '0 14px 34px rgba(0,0,0,0.35)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '8px',
-            flexWrap: 'wrap',
+            gap: '12px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={handleSmartInAppBack}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '7px',
-                padding: '7px 15px',
-                borderRadius: '999px',
-                border: '1.5px solid #10b981',
-                background: 'var(--card-bg, #ffffff)',
-                color: 'var(--navy, #0D1F38)',
-                fontWeight: 800,
-                fontSize: '0.86rem',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.12)',
-              }}
-            >
-              <span aria-hidden="true" style={{ fontSize: '1rem', lineHeight: 1, color: '#059669' }}>
-                {isAr ? '→' : '←'}
-              </span>
-              <span>{tr(lang, 'رجوع للخطوة السابقة', 'Back', 'Retour', 'Volver', 'Zurück')}</span>
-            </button>
-
-            {pathname.startsWith('/medicine/') && (
-              <Link
-                to="/medicines"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '7px 14px',
-                  borderRadius: '999px',
-                  border: '1px solid var(--line, #cbd5e1)',
-                  background: 'var(--tint, #f1f5f9)',
-                  color: 'var(--navy, #0D1F38)',
-                  fontWeight: 700,
-                  fontSize: '0.82rem',
-                  textDecoration: 'none',
-                }}
-              >
-                {tr(lang, 'كل الأدوية', 'All Medicines', 'Médicaments', 'Medicamentos', 'Medikamente')}
-              </Link>
-            )}
-          </div>
-
-          <Link
-            to="/"
+          <span style={{ lineHeight: 1.5 }}>{globalAppToast}</span>
+          <button
+            type="button"
+            onClick={() => setGlobalAppToast('')}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '7px 14px',
-              borderRadius: '999px',
-              border: '1px solid var(--line, #cbd5e1)',
-              background: 'var(--card-bg, #ffffff)',
-              color: '#059669',
-              fontWeight: 800,
-              fontSize: '0.82rem',
-              textDecoration: 'none',
+              background: 'rgba(255,255,255,0.12)',
+              border: 'none',
+              color: '#ffffff',
+              borderRadius: '50%',
+              width: '28px',
+              height: '28px',
+              cursor: 'pointer',
+              flexShrink: 0,
             }}
           >
-            <span>{tr(lang, 'الرئيسية', 'Home', 'Accueil', 'Inicio', 'Startseite')}</span>
-          </Link>
+            ✕
+          </button>
         </div>
       )}
 

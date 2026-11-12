@@ -514,9 +514,45 @@ export default function PharmacyOwnerDashboard() {
                 : 'Listing in DAWAYA catalog does not imply stock; customers only see availability verified here.'}
             </p>
 
-            {/* Quick Autofill from 26,562 Catalog */}
+            {/* Quick Autofill from 26,562 Catalog + 1-Tap Barcode Camera Scanner */}
             <div className="form-group">
-              <label><b>{isAr ? 'ابحث في موسوعة دوايا (26,562 دواء) للملء التلقائي:' : 'Search DAWAYA Catalog to Autofill:'}</b></label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                <label style={{ margin: 0 }}><b>{isAr ? 'ابحث في موسوعة دوايا (26,562 دواء) أو امسح باركود العلبة:' : 'Search DAWAYA Catalog or Scan Carton Barcode:'}</b></label>
+                <label
+                  className="btn small ghost"
+                  style={{ cursor: 'pointer', borderRadius: '999px', margin: 0 }}
+                >
+                  {isAr ? 'مسح باركود العلبة بالكاميرا' : 'Scan Box Barcode via Camera'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+                          const bmp = await createImageBitmap(file);
+                          const detector = new (window as any).BarcodeDetector({
+                            formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'qr_code'],
+                          });
+                          const codes = await detector.detect(bmp);
+                          if (codes && codes.length > 0 && codes[0].rawValue) {
+                            const codeStr = String(codes[0].rawValue).trim();
+                            setInvSearchQ(codeStr);
+                            showToast(isAr ? `تم قراءة الباركود بنجاح: ${codeStr}` : `Barcode detected: ${codeStr}`);
+                            return;
+                          }
+                        }
+                        showToast(isAr ? 'يرجى تقريب الكاميرا من الخطوط السوداء للباركود أو كتابة الرقم بالبحث.' : 'Please focus clearly on the barcode or type the digits.');
+                      } catch {
+                        showToast(isAr ? 'تعذر قراءة الباركود تلقائياً، يمكنك كتابة أول حروف الدواء مباشرة.' : 'Could not read barcode automatically.');
+                      }
+                    }}
+                  />
+                </label>
+              </div>
               <input
                 type="search"
                 value={invSearchQ}
@@ -726,41 +762,94 @@ export default function PharmacyOwnerDashboard() {
                 >
                   <div className="row wrapRow" style={{ justifyContent: 'space-between' }}>
                     <div>
-                      <strong>طلب رقم #{ord.orderNumber}</strong> — <span>{ord.medicationNameAr} ({ord.quantityPacks} عبوة)</span>
+                      <strong>طلب رقم #{ord.orderNumber}</strong> — <span>{ord.medicationNameAr} ({ord.quantity || 1} عبوة)</span>
                       <div className="small muted">
                         العميل: {ord.patientName} • الهاتف: <span dir="ltr">{ord.patientPhone}</span> • العنوان: {ord.city} — {ord.deliveryAddress}
                       </div>
                     </div>
-                    <span className="badge" style={{ fontWeight: 800 }}>
-                      الحالة الحالية: {ord.status}
+                    <span className="badge approved" style={{ fontWeight: 800 }}>
+                      {CUSTOMER_ORDER_STATUS_LABELS[ord.status as CustomerOrderLifecycleStatus]?.ar || ord.status}
                     </span>
                   </div>
+
+                  {/* Smart In-Stock Bioequivalent Alternative Recommender */}
+                  {(() => {
+                    const exactInStock = myInventory.find(
+                      (i) =>
+                        (i.medicationId === ord.medicationId || i.tradeNameAr === ord.medicationNameAr) &&
+                        i.stockStatus === 'available'
+                    );
+                    if (exactInStock) return null;
+                    const bioAlternatives = myInventory.filter(
+                      (i) =>
+                        i.stockStatus === 'available' &&
+                        i.medicationId !== ord.medicationId &&
+                        i.activeIngredient &&
+                        ord.medicationNameEn &&
+                        i.activeIngredient.toLowerCase().includes(ord.medicationNameEn.split(' ')[0].toLowerCase())
+                    );
+                    if (bioAlternatives.length === 0) return null;
+                    return (
+                      <div
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: '12px',
+                          background: 'rgba(16, 185, 129, 0.08)',
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          fontSize: '0.84rem',
+                        }}
+                      >
+                        <b style={{ color: '#047857', display: 'block', marginBottom: '4px' }}>
+                          {isAr
+                            ? 'اقتراح ذكي للصيدلي — متوفر بمخزونك بديل بنفس المادة الفعالة:'
+                            : 'Smart Pharmacist Match — Bioequivalent in your stock:'}
+                        </b>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                          {bioAlternatives.map((alt) => (
+                            <span key={alt.id} className="badge approved">
+                              {alt.tradeNameAr} ({alt.pharmacyPriceEgp} ج.م • متوفر {alt.quantityPacks ?? ''} عبوة)
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="row wrapRow" style={{ gap: '8px', alignItems: 'center' }}>
                     <span className="small"><b>تحديث مرحلة الطلب (8 مراحل):</b></span>
                     {(
                       [
-                        { id: 'confirmed', ar: 'قبول وتأكيد الصيدلية' },
-                        { id: 'preparing', ar: 'جاري التحضير' },
-                        { id: 'out_for_delivery', ar: 'خرج للتوصيل' },
-                        { id: 'delivered', ar: 'تم التسليم' },
-                        { id: 'cancelled', ar: 'اعتذار / رفض الطلب' },
+                        { id: 'pharmacy_confirmation', ar: '1. قبول وتأكيد الصيدلية' },
+                        { id: 'preparing', ar: '2. جاري التحضير' },
+                        { id: 'ready_for_delivery', ar: '3. جاهز للتوصيل' },
+                        { id: 'out_for_delivery', ar: '4. خرج للتوصيل' },
+                        { id: 'delivered', ar: '5. تم التسليم' },
+                        { id: 'rejected', ar: 'اعتذار / غير متوفر' },
                       ] as const
                     ).map((stBtn) => (
                       <button
                         key={stBtn.id}
                         type="button"
                         className="btn small ghost"
-                        onClick={() =>
-                          updatePartnerOrderStatus(
-                            ord.id,
-                            stBtn.id,
-                            `تم تحديث حالة الطلب بواسطة الصيدلية إلى: ${stBtn.ar}`,
-                            `Order updated by pharmacy to: ${stBtn.id}`,
-                            user?.uid || 'pharmacist',
-                            role || 'pharmacy_owner'
-                          )
-                        }
+                        onClick={async () => {
+                          try {
+                            await updatePartnerOrderStatus(
+                              ord.id,
+                              stBtn.id as any,
+                              `تم تحديث حالة الطلب بواسطة الصيدلية إلى: ${stBtn.ar}`,
+                              `Order updated by pharmacy to: ${stBtn.id}`,
+                              user?.uid || 'pharmacist',
+                              role || 'pharmacy_owner'
+                            );
+                            showToast(isAr ? `تم تحديث حالة الطلب إلى: ${stBtn.ar}` : `Order status updated to ${stBtn.id}`);
+                          } catch (err: unknown) {
+                            showToast(
+                              isAr
+                                ? `الانتقال غير مسموح في تسلسل المراحل: ${(err as Error)?.message || ''}`
+                                : `Invalid status transition: ${(err as Error)?.message || ''}`
+                            );
+                          }
+                        }}
                       >
                         {stBtn.ar}
                       </button>
