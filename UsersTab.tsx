@@ -1,15 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore';
 import { db, configured } from './firebase';
-import { Role, ROLES } from './auth';
+import {
+  Role,
+  ROLES,
+  getSavedDeviceGoogleAccounts,
+  resolveGoogleAvatarUrl,
+  formatDisplayNameFromEmail,
+  useAuth,
+} from './authContext';
 import { useLang } from './i18n';
 import { tr } from './types';
 import SmartChoiceSelect, { SmartChoiceOption } from './SmartChoiceSelect';
 import { UnslopIcon } from './UnslopIcons';
 
-interface UserRole {
+interface UserRoleRow {
   uid: string;
   role: Role;
+  email: string;
+  displayName: string;
+  photoURL: string;
+  lastLoginAt: string;
+  hasExplicitRoleDoc: boolean;
 }
 
 interface RoleMetaInfo {
@@ -172,7 +184,9 @@ const ROLE_LABELS: Record<Role, RoleMetaInfo> = {
 
 export default function UsersTab({ myUid }: { myUid: string }) {
   const { t, lang } = useLang();
-  const [users, setUsers] = useState<UserRole[]>([]);
+  const isAr = lang === 'ar';
+  const { user: currentUser, role: myCurrentRole } = useAuth();
+  const [users, setUsers] = useState<UserRoleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [newUid, setNewUid] = useState('');
   const [newRole, setNewRole] = useState<Role>('pharmacy_owner');
@@ -181,45 +195,137 @@ export default function UsersTab({ myUid }: { myUid: string }) {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
 
-  async function loadRoles() {
-    if (!configured || !db) {
-      setLoading(false);
-      return;
-    }
+  async function loadRolesAndLoggedUsers() {
     setLoading(true);
-    try {
-      const snap = await getDocs(collection(db, 'roles'));
-      const list: UserRole[] = [];
-      snap.forEach((d) => {
-        const data = d.data();
-        if (data && data.role) {
-          list.push({ uid: d.id, role: data.role as Role });
-        }
+    const map = new Map<string, UserRoleRow>();
+
+    const upsertRow = (uid: string, partial: Partial<UserRoleRow>) => {
+      if (!uid) return;
+      const prev = map.get(uid) || {
+        uid,
+        role: 'customer' as Role,
+        email: '',
+        displayName: '',
+        photoURL: '',
+        lastLoginAt: '',
+        hasExplicitRoleDoc: false,
+      };
+      const email = (partial.email || prev.email || '').trim().toLowerCase();
+      const displayName =
+        partial.displayName ||
+        prev.displayName ||
+        (email ? formatDisplayNameFromEmail(email) : '');
+      const photoURL =
+        partial.photoURL ||
+        prev.photoURL ||
+        (email ? resolveGoogleAvatarUrl(email) : '');
+
+      map.set(uid, {
+        ...prev,
+        ...partial,
+        uid,
+        email,
+        displayName,
+        photoURL,
       });
-      setUsers(list);
-    } catch {
-      // Roles collection may be empty or unconfigured
-    } finally {
-      setLoading(false);
+    };
+
+    // 1. Seed current logged-in user
+    if (currentUser?.uid) {
+      upsertRow(currentUser.uid, {
+        role: (myCurrentRole || 'customer') as Role,
+        email: currentUser.email || '',
+        displayName: currentUser.displayName || '',
+        photoURL: currentUser.photoURL || '',
+        lastLoginAt: new Date().toISOString(),
+      });
     }
+
+    // 2. Seed saved device accounts so existing accounts appear with photos/names immediately
+    try {
+      const savedAccounts = getSavedDeviceGoogleAccounts();
+      savedAccounts.forEach((acc) => {
+        upsertRow(acc.uid, {
+          email: acc.email,
+          displayName: acc.displayName,
+          photoURL: acc.photoURL || '',
+          lastLoginAt: acc.lastUsedAt ? new Date(acc.lastUsedAt).toISOString() : '',
+        });
+      });
+    } catch {
+      /* ignore */
+    }
+
+    if (configured && db) {
+      // 3. Load all signed-in users from `customerProfiles`
+      try {
+        const profSnap = await getDocs(collection(db, 'customerProfiles'));
+        profSnap.forEach((d) => {
+          const data = d.data();
+          upsertRow(d.id, {
+            email: data.email || '',
+            displayName: data.displayName || '',
+            photoURL: data.photoURL || '',
+            lastLoginAt: data.lastLoginAt || data.updatedAt || data.createdAt || '',
+          });
+        });
+      } catch {
+        /* ignore */
+      }
+
+      // 4. Load assigned roles from `roles`
+      try {
+        const snap = await getDocs(collection(db, 'roles'));
+        snap.forEach((d) => {
+          const data = d.data();
+          if (data && data.role) {
+            upsertRow(d.id, {
+              role: data.role as Role,
+              email: data.email || '',
+              displayName: data.displayName || '',
+              lastLoginAt: data.updatedAt || '',
+              hasExplicitRoleDoc: true,
+            });
+          }
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const sorted = Array.from(map.values()).sort((a, b) => {
+      if (a.uid === myUid) return -1;
+      if (b.uid === myUid) return 1;
+      return (b.lastLoginAt || '').localeCompare(a.lastLoginAt || '');
+    });
+
+    setUsers(sorted);
+    setLoading(false);
   }
 
   useEffect(() => {
-    loadRoles();
+    void loadRolesAndLoggedUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleSaveRole(uid: string, role: Role) {
+  async function handleSaveRole(uid: string, role: Role, targetRow?: UserRoleRow) {
     if (!uid.trim()) return;
     setBusy(true);
     setMsg('');
     try {
-      await setDoc(doc(db, 'roles', uid.trim()), {
-        role,
-        updatedAt: new Date().toISOString(),
-        updatedBy: myUid,
-      }, { merge: true });
-      setMsg(t('saved') || tr(lang, 'تم حفظ وتحديث الرتبة الوظيفية بنجاح', 'Role saved and updated successfully'));
-      await loadRoles();
+      await setDoc(
+        doc(db, 'roles', uid.trim()),
+        {
+          role,
+          email: targetRow?.email || '',
+          displayName: targetRow?.displayName || '',
+          updatedAt: new Date().toISOString(),
+          updatedBy: myUid,
+        },
+        { merge: true }
+      );
+      setMsg(t('saved') || tr(lang, 'تم حفظ وتحديث الرتبة الوظيفية بنجاح ✓', 'Role saved and updated successfully ✓'));
+      await loadRolesAndLoggedUsers();
       setNewUid('');
     } catch (e: unknown) {
       const errObj = e as { message?: string };
@@ -234,11 +340,11 @@ export default function UsersTab({ myUid }: { myUid: string }) {
       alert(tr(lang, 'لا يمكنك حذف صلاحية الأدمن الخاصة بحسابك الحالي.', 'Cannot delete your own admin role.'));
       return;
     }
-    if (!confirm(t('confirmDel') || tr(lang, 'هل أنت متأكد من إزالة هذه الصلاحية؟', 'Remove this role?'))) return;
+    if (!confirm(t('confirmDel') || tr(lang, 'هل أنت متأكد من إزالة هذه الصلاحية وإرجاعه لمستخدم عادي؟', 'Reset this user role to standard customer?'))) return;
     setBusy(true);
     try {
       await deleteDoc(doc(db, 'roles', uid));
-      await loadRoles();
+      await loadRolesAndLoggedUsers();
     } catch (e: unknown) {
       const errObj = e as { message?: string };
       alert(errObj?.message || t('actionFailed'));
@@ -278,12 +384,14 @@ export default function UsersTab({ myUid }: { myUid: string }) {
 
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
-      const meta = ROLE_LABELS[u.role];
+      const meta = ROLE_LABELS[u.role] || ROLE_LABELS.customer;
       if (tierFilter !== 'all' && meta?.tier !== tierFilter) return false;
       const q = searchFilter.trim().toLowerCase();
       if (!q) return true;
       return (
         u.uid.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        u.displayName.toLowerCase().includes(q) ||
         u.role.toLowerCase().includes(q) ||
         (meta?.ar && meta.ar.toLowerCase().includes(q)) ||
         (meta?.en && meta.en.toLowerCase().includes(q))
@@ -301,22 +409,22 @@ export default function UsersTab({ myUid }: { myUid: string }) {
             <UnslopIcon name="shield" size={22} color="#059669" />
             {tr(
               lang,
-              'إدارة المستخدمين والرتب الوظيفية (RBAC Enterprise Matrix)',
-              'Enterprise Roles & Permissions Control (RBAC)'
+              'إدارة المستخدمين المسجلين والرتب الوظيفية (RBAC)',
+              'Registered Users & Roles Management (RBAC)'
             )}
           </h2>
           <p className="small muted" style={{ margin: 0 }}>
             {tr(
               lang,
-              'تحكم كامل في صلاحيات الإدارة العليا، المديرين الإقليميين، أصحاب ومديري الصيدليات، الصيادلة، والمراجعين العلميين.',
-              'Manage platform executives, regional managers, pharmacy owners, pharmacists, and clinical reviewers.'
+              'يظهر هنا تلقائياً كل شخص سجل دخول في الموقع أو التطبيق بصورته واسمه وإيميله، ويمكنك تغيير صلاحيته مباشرة من القائمة بدون نسخ الـ UID.',
+              'Automatically lists everyone who signed in with their photo, name, and email so you can assign roles directly without copying UIDs.'
             )}
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <span className="badge approved" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-            {tr(lang, `إجمالي الحسابات المسجلة: ${users.length}`, `Assigned Accounts: ${users.length}`)}
+            {tr(lang, `إجمالي الحسابات المسجلة: ${users.length}`, `Registered Accounts: ${users.length}`)}
           </span>
         </div>
       </div>
@@ -390,8 +498,8 @@ export default function UsersTab({ myUid }: { myUid: string }) {
           <b>
             {tr(
               lang,
-              'منح أو تحديث صلاحية مستخدم في شبكة دوايا:',
-              'Grant or Update User Role in DAWAYA Network:'
+              'منح أو تحديث صلاحية مستخدم بالـ UID (أو اختره مباشرة من الجدول بالأسفل):',
+              'Grant or Update User Role by UID (or select directly from the table below):'
             )}
           </b>
           <span
@@ -483,11 +591,11 @@ export default function UsersTab({ myUid }: { myUid: string }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           {[
-            { id: 'all', label: tr(lang, 'الكل', 'All Roles') },
+            { id: 'all', label: tr(lang, 'الكل', 'All Users') },
             { id: 'platform', label: tr(lang, 'إدارة المنصة والأقاليم', 'Platform & Regional') },
             { id: 'pharmacy', label: tr(lang, 'شبكة الصيدليات', 'Pharmacy Network') },
             { id: 'clinical', label: tr(lang, 'المراجعة والمحتوى', 'Clinical & Content') },
-            { id: 'public', label: tr(lang, 'العملاء والمرضى', 'Customers') },
+            { id: 'public', label: tr(lang, 'العملاء والمرضى المسجلين', 'Signed-In Customers') },
           ].map((tabItem) => (
             <button
               key={tabItem.id}
@@ -505,9 +613,9 @@ export default function UsersTab({ myUid }: { myUid: string }) {
           type="search"
           value={searchFilter}
           onChange={(e) => setSearchFilter(e.target.value)}
-          placeholder={tr(lang, 'بحث بالـ UID أو اسم الصلاحية...', 'Search by UID or role...')}
+          placeholder={tr(lang, 'بحث بالاسم أو الإيميل أو الـ UID أو الصلاحية...', 'Search by name, email, UID, or role...')}
           style={{
-            minWidth: '220px',
+            minWidth: '240px',
             padding: '8px 14px',
             borderRadius: '999px',
             border: '1px solid var(--line)',
@@ -522,8 +630,8 @@ export default function UsersTab({ myUid }: { myUid: string }) {
         <p className="muted">
           {tr(
             lang,
-            'لا توجد صلاحيات مطابقة مسجلة في Firestore حتى الآن.',
-            'No matching role documents found in Firestore.'
+            'لا توجد حسابات مطابقة للبحث الحالي.',
+            'No matching user accounts found.'
           )}
         </p>
       ) : (
@@ -531,40 +639,99 @@ export default function UsersTab({ myUid }: { myUid: string }) {
           <table className="tbl" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
+                <th>{tr(lang, 'المستخدم (الصورة / الاسم / الإيميل)', 'User (Photo / Name / Email)')}</th>
                 <th>{t('uid')}</th>
                 <th>{t('role')}</th>
-                <th>{tr(lang, 'نطاق الصلاحية', 'Permission Scope')}</th>
+                <th>{tr(lang, 'نطاق الصلاحية وآخر ظهور', 'Scope & Last Seen')}</th>
                 <th>{tr(lang, 'إجراءات', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.map((u) => {
-                const roleMeta = ROLE_LABELS[u.role];
+                const roleMeta = ROLE_LABELS[u.role] || ROLE_LABELS.customer;
                 return (
                   <tr key={u.uid}>
-                    <td dir="ltr" style={{ fontFamily: 'monospace', fontWeight: 700 }}>
-                      {u.uid}{' '}
-                      {u.uid === myUid && (
-                        <span className="badge approved" style={{ marginInlineStart: 6 }}>
-                          {tr(lang, 'أنت (You)', 'You')}
-                        </span>
-                      )}
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div
+                          style={{
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: '50%',
+                            border: '2px solid #10b981',
+                            background: '#0D1F38',
+                            color: '#CFD29D',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 800,
+                            fontSize: '0.9rem',
+                            overflow: 'hidden',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {u.photoURL ? (
+                            <img
+                              src={u.photoURL}
+                              alt={u.displayName || 'User'}
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).style.display = 'none';
+                              }}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <span>{(u.displayName || u.email || u.uid || 'U').slice(0, 1).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>
+                            {u.displayName || (isAr ? 'مستخدم مسجل' : 'Registered User')}{' '}
+                            {u.uid === myUid && (
+                              <span className="badge approved" style={{ marginInlineStart: 6 }}>
+                                {tr(lang, 'أنت (You)', 'You')}
+                              </span>
+                            )}
+                          </div>
+                          {u.email && (
+                            <div className="small muted" dir="ltr" style={{ fontSize: '0.78rem' }}>
+                              {u.email}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td dir="ltr" style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.8rem' }}>
+                      {u.uid}
                     </td>
                     <td style={{ minWidth: '250px' }}>
                       <SmartChoiceSelect
                         value={u.role}
                         disabled={busy || u.uid === myUid}
                         options={roleSelectOptions}
-                        modalTitle={tr(lang, `تعديل صلاحية الحساب (${u.uid})`, `Update Role (${u.uid})`)}
-                        modalSubtitle={tr(lang, 'اختر الصلاحية الجديدة ليتم تحديثها فوراً في قاعدة البيانات', 'Select a new role to update immediately in Firestore')}
-                        onChange={(val) => handleSaveRole(u.uid, val as Role)}
+                        modalTitle={tr(
+                          lang,
+                          `تعديل صلاحية (${u.displayName || u.email || u.uid})`,
+                          `Update Role (${u.displayName || u.email || u.uid})`
+                        )}
+                        modalSubtitle={tr(
+                          lang,
+                          'اختر الصلاحية الجديدة ليتم تحديثها فوراً في قاعدة البيانات',
+                          'Select a new role to update immediately in Firestore'
+                        )}
+                        onChange={(val) => handleSaveRole(u.uid, val as Role, u)}
                       />
                     </td>
                     <td className="small muted" style={{ maxWidth: '280px' }}>
-                      {roleMeta ? (lang === 'ar' ? roleMeta.descAr : roleMeta.descEn) : u.role}
+                      <div>{roleMeta ? (lang === 'ar' ? roleMeta.descAr : roleMeta.descEn) : u.role}</div>
+                      {u.lastLoginAt && (
+                        <div dir="ltr" style={{ fontSize: '0.73rem', color: '#059669', marginTop: '3px', fontWeight: 700 }}>
+                          {isAr ? 'آخر ظهور: ' : 'Last seen: '}
+                          {u.lastLoginAt.slice(0, 16).replace('T', ' ')}
+                        </div>
+                      )}
                     </td>
                     <td>
-                      {u.uid !== myUid && (
+                      {u.uid !== myUid && u.hasExplicitRoleDoc && (
                         <button
                           type="button"
                           className="btn small danger"
@@ -573,7 +740,7 @@ export default function UsersTab({ myUid }: { myUid: string }) {
                           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                         >
                           <UnslopIcon name="trash" size={14} color="currentColor" />
-                          <span>{t('remove') || tr(lang, 'حذف', 'Remove')}</span>
+                          <span>{t('remove') || tr(lang, 'إلغاء الصلاحية', 'Remove Role')}</span>
                         </button>
                       )}
                     </td>

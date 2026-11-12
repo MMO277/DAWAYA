@@ -22,7 +22,7 @@ import {
   GoogleAuthProvider,
   browserPopupRedirectResolver,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, configured } from './firebase';
 
 export type AuthMode = 'login' | 'register' | 'forgot';
@@ -359,6 +359,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       photoURL: googlePhoto,
       lastUsedAt: Date.now(),
     });
+
+    if (configured && db && firebaseUser.uid) {
+      setDoc(
+        doc(db, 'customerProfiles', firebaseUser.uid),
+        {
+          uid: firebaseUser.uid,
+          email,
+          displayName: googleName,
+          photoURL: googlePhoto,
+          lastLoginAt: new Date().toISOString(),
+        },
+        { merge: true }
+      ).catch(() => {});
+    }
 
     return true;
   };

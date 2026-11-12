@@ -1,3 +1,4 @@
+import { extractTextFromBlisterOrBoxImage, findCutBlisterStripCandidates } from './blisterStripOcrMatcher';
 import SmartChoiceSelect, { SmartNativeSelect } from './SmartChoiceSelect';
 import { createPortal } from 'react-dom';
 import { DosageFormVectorBadge, Realistic3DMedicineThumb } from './DawayaVectorIcons';
@@ -454,22 +455,78 @@ export default function Medicines() {
               activeTab === 'dawaya_full_db' || activeTab === 'commercial_registry' ? '14px' : '0',
           }}
         >
-          <input
-            value={q}
-            onChange={(e) => {
-              const nextParams: Record<string, string> = {};
-              if (e.target.value) nextParams.q = e.target.value;
-              if (selectedDawayaCat !== 'all') nextParams.cat = selectedDawayaCat;
-              setSp(nextParams, { replace: true });
-              setPage(1);
-            }}
-            placeholder={tr(
-              lang,
-              'ابحث في 26,562+ دواء بالاسم التجاري (عربي/إنجليزي)، المادة الفعالة، التركيز، الفئة، أو الباركود...',
-              'Search 26,562+ medicines by English/Arabic brand name, active ingredient, strength, category, or barcode...'
-            )}
-            aria-label={t('search')}
-          />
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%', flexWrap: 'wrap' }}>
+            <input
+              value={q}
+              onChange={(e) => {
+                const nextParams: Record<string, string> = {};
+                if (e.target.value) nextParams.q = e.target.value;
+                if (selectedDawayaCat !== 'all') nextParams.cat = selectedDawayaCat;
+                setSp(nextParams, { replace: true });
+                setPage(1);
+              }}
+              placeholder={tr(
+                lang,
+                'ابحث في 26,562+ دواء بالاسم، المادة الفعالة، الباركود، أو الحروف الباقية على شريط مقطوع...',
+                'Search 26,562+ medicines by brand, active ingredient, barcode, or partial strip letters...'
+              )}
+              aria-label={t('search')}
+              style={{ flex: 1, minWidth: '210px' }}
+            />
+            <label
+              className="btn small"
+              style={{
+                background: '#0D1F38',
+                borderColor: '#CFD29D',
+                color: '#CFD29D',
+                fontWeight: 800,
+                borderRadius: '999px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                margin: 0,
+              }}
+              title={isAr ? 'صوّر شريط الدواء المقطوع أو العلبة لقراءة الاسم تلقائياً' : 'Snap a cut blister strip or box to read the name automatically'}
+            >
+              📷 {isAr ? 'صوّر الشريط المقطوع / العلبة' : 'Scan Strip / Box'}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  setProfileToast(isAr ? '🔍 جارٍ قراءة الحروف المطبوعة على الشريط / العلبة...' : '🔍 Reading printed characters on strip/box...');
+                  try {
+                    const res = await extractTextFromBlisterOrBoxImage(file, lang);
+                    if (res.detectedBarcode) {
+                      setSp({ q: res.detectedBarcode }, { replace: true });
+                      setProfileToast(isAr ? `✅ تم التعرف على الباركود: ${res.detectedBarcode}` : `✅ Barcode detected: ${res.detectedBarcode}`);
+                      window.setTimeout(() => setProfileToast(''), 4000);
+                      return;
+                    }
+                    if (res.extractedText) {
+                      const cands = findCutBlisterStripCandidates(res.extractedText, indexItems, 3);
+                      const bestQuery = cands[0]?.item.n.split(' ')[0] || res.extractedText.split(/\s+/)[0] || '';
+                      if (bestQuery) {
+                        setSp({ q: bestQuery }, { replace: true });
+                        setPage(1);
+                        setProfileToast(isAr ? `✅ تم التعرف على الدواء من الشريط: ${cands[0]?.item.a || bestQuery}` : `✅ Matched medicine from strip: ${bestQuery}`);
+                        window.setTimeout(() => setProfileToast(''), 4000);
+                        return;
+                      }
+                    }
+                    setProfileToast(isAr ? 'يرجى تقريب الكاميرا من الحروف المطبوعة على الشريط أو كتابة أول 3 حروف بالبحث.' : 'Please move closer to the printed letters or type the first 3 letters.');
+                    window.setTimeout(() => setProfileToast(''), 4000);
+                  } catch {
+                    setProfileToast(isAr ? 'تعذر قراءة الصورة تلقائياً، يمكنك كتابة الحروف الظاهرة على الشريط في البحث.' : 'Could not read image automatically.');
+                    window.setTimeout(() => setProfileToast(''), 4000);
+                  }
+                }}
+              />
+            </label>
+          </div>
         </div>
 
         {/* Filters for Tab 1 (All 26,562 DAWAYA Medicines) */}

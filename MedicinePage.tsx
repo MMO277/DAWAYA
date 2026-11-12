@@ -20,6 +20,7 @@ import { useAuth } from './authContext';
 import { useLiveDrugCatalog } from './liveCatalogSync';
 import { QuickProductEditorModal } from './CommercialCatalogEditor';
 import { useSyncedHealthProfile } from './allergyData';
+import { useSyncedSchedules } from './trackerData';
 import { evaluateMedicationSafety } from './medicationSafetyEngine';
 import { getClinicalProProfile, useClinicalProMode } from './clinicalProData';
 import {
@@ -72,6 +73,7 @@ export default function MedicinePage() {
   const { t, lang } = useLang();
   const isAr = lang === 'ar';
   const { profile, setProfile } = useSyncedHealthProfile();
+  const { schedules } = useSyncedSchedules();
   const { isProMode, setProMode } = useClinicalProMode();
   const { user } = useAuth();
   const { products: liveCatalogProducts } = useLiveDrugCatalog();
@@ -228,17 +230,58 @@ export default function MedicinePage() {
             medications: [
               {
                 id: m.id,
-                rawName: dawayaRecord?.brandNameEn || m.genericName.en || m.id,
+                rawName: [
+                  dawayaRecord?.brandNameEn,
+                  dawayaRecord?.genericName,
+                  m.genericName.en,
+                  m.activeIngredients.en,
+                  m.id,
+                ]
+                  .filter(Boolean)
+                  .join(' '),
                 name: dawayaRecord?.brandNameAr || m.genericName.ar || m.id,
                 strength: dawayaRecord?.strength,
               },
+              ...(schedules || []).map((s) => ({
+                id: s.antibioticId || undefined,
+                rawName: s.medicineName,
+                name: s.medicineName,
+                strength: s.prescribedDose,
+                sourceType: 'prescription' as const,
+              })),
             ],
             healthProfile: profile,
             includeProfileActiveMedications: true,
           })
         : null,
-    [m, dawayaRecord, profile]
+    [m, dawayaRecord, profile, schedules]
   );
+
+  // Additional direct check against dawayaRecord.warningsFlags & user profile conditions
+  const personalProfileFlagMatches = useMemo(() => {
+    if (!dawayaRecord?.warningsFlags || !profile) return [];
+    const alerts: string[] = [];
+    const conds = (profile.chronicConditions || []).map((c) => c.toLowerCase());
+    if (dawayaRecord.warningsFlags.pregnancy && profile.pregnancyStatus === 'pregnant') {
+      alerts.push(isAr ? 'تحذير خاص أثناء الحمل مسجل لهذا الدواء' : 'Pregnancy caution registered for this medication');
+    }
+    if (dawayaRecord.warningsFlags.lactation && profile.lactationStatus === 'breastfeeding') {
+      alerts.push(isAr ? 'تحذير خاص أثناء الرضاعة الطبيعية مسجل لهذا الدواء' : 'Breastfeeding caution registered for this medication');
+    }
+    if (dawayaRecord.warningsFlags.highBloodPressure && conds.some((c) => c.includes('hypertension') || c.includes('ضغط') || c.includes('blood_pressure'))) {
+      alerts.push(isAr ? 'قد يؤثر على ضغط الدم المرتفع المسجل في ملفك الصحي' : 'May affect High Blood Pressure in your profile');
+    }
+    if (dawayaRecord.warningsFlags.diabetes && conds.some((c) => c.includes('diabetes') || c.includes('سكر'))) {
+      alerts.push(isAr ? 'يتطلب متابعة خاصة مع مرض السكري المسجل في ملفك الصحي' : 'Requires caution with Diabetes in your profile');
+    }
+    if (dawayaRecord.warningsFlags.kidney && (profile.renalStatus !== 'normal' || conds.some((c) => c.includes('kidney') || c.includes('renal') || c.includes('كلى')))) {
+      alerts.push(isAr ? 'يتطلب ضبط الجرعة أو الحذر مع وظائف الكلى المسجلة بملفك' : 'Requires renal caution based on your profile');
+    }
+    if (dawayaRecord.warningsFlags.liver && (profile.hepaticStatus !== 'normal' || conds.some((c) => c.includes('liver') || c.includes('hepatic') || c.includes('كبد')))) {
+      alerts.push(isAr ? 'يتطلب الحذر مع حالة الكبد المسجلة بملفك الصحي' : 'Requires hepatic caution based on your profile');
+    }
+    return alerts;
+  }, [dawayaRecord, profile, isAr]);
 
   if (m === undefined && !dawayaRecord) {
     return (
@@ -376,6 +419,100 @@ export default function MedicinePage() {
           </a>
         </div>
       </div>
+
+      {/* Instant Top Personal Medication Safety & Interaction Card (Feature 2) */}
+      {safetyAssessment && (() => {
+        const hasEngineIssues =
+          safetyAssessment.allergyAlerts.length > 0 ||
+          safetyAssessment.drugInteractions.length > 0 ||
+          safetyAssessment.duplicateIngredients.length > 0 ||
+          safetyAssessment.conditionWarnings.length > 0 ||
+          personalProfileFlagMatches.length > 0;
+
+        const savedMedsCount = (profile.activeMedications?.length || 0) + (schedules?.length || 0);
+        const savedAllergiesCount = profile.allergies?.length || 0;
+
+        const issueLines: string[] = [];
+        safetyAssessment.allergyAlerts.forEach((a) => issueLines.push(pick(a.title, lang) + ' — ' + pick(a.explanation, lang)));
+        safetyAssessment.drugInteractions.forEach((d) => issueLines.push(pick(d.title, lang) + ' — ' + pick(d.clinicalEffect, lang)));
+        safetyAssessment.duplicateIngredients.forEach((dup) => issueLines.push(pick(dup.explanation, lang)));
+        safetyAssessment.conditionWarnings.forEach((cw) => issueLines.push(pick(cw.title, lang) + ' — ' + pick(cw.explanation, lang)));
+        personalProfileFlagMatches.forEach((pf) => issueLines.push(pf));
+
+        return (
+          <section
+            className="card"
+            style={{
+              background: hasEngineIssues
+                ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(245, 158, 11, 0.14) 100%)'
+                : 'linear-gradient(135deg, rgba(16, 185, 129, 0.11) 0%, rgba(13, 148, 136, 0.15) 100%)',
+              border: hasEngineIssues ? '2px solid #dc2626' : '2px solid #10b981',
+              borderRadius: '18px',
+              padding: '15px 18px',
+              display: 'grid',
+              gap: '8px',
+              boxShadow: hasEngineIssues
+                ? '0 8px 22px rgba(220, 38, 38, 0.14)'
+                : '0 8px 22px rgba(16, 185, 129, 0.12)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.45rem' }} aria-hidden="true">
+                  {hasEngineIssues ? '⚠️' : '✅'}
+                </span>
+                <div>
+                  <strong
+                    style={{
+                      fontSize: '1rem',
+                      display: 'block',
+                      color: hasEngineIssues ? '#b91c1c' : '#065f46',
+                    }}
+                  >
+                    {hasEngineIssues
+                      ? isAr
+                        ? 'احذر: تم رصد تعارض أو تحذير مع أدويتك أو ملفك الصحي المسجل!'
+                        : 'Warning: Interaction or safety alert detected with your saved Health Profile!'
+                      : isAr
+                      ? 'فحص الأمان التلقائي: هذا الدواء آمن مع أدويتك وحساسيتك المسجلة'
+                      : 'Automatic Safety Check: Safe with your saved medications and allergies'}
+                  </strong>
+                  <span className="small muted">
+                    {savedMedsCount > 0 || savedAllergiesCount > 0
+                      ? isAr
+                        ? `تمت مراجعة هذا الدواء تلقائياً مع (${savedMedsCount}) أدوية حالية و(${savedAllergiesCount}) حساسية مسجلة في حسابك.`
+                        : `Automatically screened against (${savedMedsCount}) active medications and (${savedAllergiesCount}) allergies in your profile.`
+                      : isAr
+                      ? 'لم تسجل أدويتك أو حساسيتك بعد — أضفها في ملفك الصحي ليتم فحص أي دواء تفتحه تلقائياً.'
+                      : 'Add your active medications and allergies in your Health Profile for automatic screening.'}
+                  </span>
+                </div>
+              </div>
+
+              <Link
+                to="/health-profile"
+                className="btn small ghost"
+                style={{
+                  borderRadius: '999px',
+                  borderColor: hasEngineIssues ? '#dc2626' : '#059669',
+                  color: hasEngineIssues ? '#b91c1c' : '#065f46',
+                  fontWeight: 800,
+                }}
+              >
+                {isAr ? 'تحديث أدويتي وملفي الصحي ←' : 'Update Health Profile →'}
+              </Link>
+            </div>
+
+            {hasEngineIssues && issueLines.length > 0 && (
+              <ul style={{ margin: '4px 0 0', paddingInlineStart: '22px', color: '#991b1b', fontWeight: 700, fontSize: '0.86rem' }}>
+                {issueLines.slice(0, 4).map((line, idx) => (
+                  <li key={idx} style={{ marginBottom: '4px' }}>{line}</li>
+                ))}
+              </ul>
+            )}
+          </section>
+        );
+      })()}
 
       {/* Smart Bioequivalent Generic Savings Banner */}
       {cheapestBioequivalent && (

@@ -4,6 +4,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { useLang } from './i18n';
 import { ALL_LOCAL_MEDICINES, findLocalMedicine, useApproved } from './medicinesApi';
 import { analyzeMedicineImageWithVision } from './geminiApi';
+import { findCutBlisterStripCandidates, BlisterStripMatchCandidate } from './blisterStripOcrMatcher';
 import {
   ACTIVE_INGREDIENTS,
   EGYPTIAN_COMMERCIAL_PRODUCTS,
@@ -448,6 +449,8 @@ export default function Scan() {
   const [manual, setManual] = useState('');
   const [previewImg, setPreviewImg] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<UnifiedScanResult | null>(null);
+  const [stripCandidates, setStripCandidates] = useState<BlisterStripMatchCandidate[]>([]);
+  const [stripFragmentInput, setStripFragmentInput] = useState('');
 
   // Live Autocomplete State
   const [suggestions, setSuggestions] = useState<EgyptianCommercialProduct[]>([]);
@@ -713,10 +716,15 @@ export default function Scan() {
       }
     }
 
-    // 3) Check the 26,562 DAWAYA National Medicine Database
+    // 3) Check Cut Blister Strip Partial Fragments & the 26,562 DAWAYA National Medicine Database
+    const cutStripMatches = findCutBlisterStripCandidates(rawText, indexItems, 6);
+    if (cutStripMatches.length > 0) {
+      setStripCandidates(cutStripMatches);
+    }
     const dawayaHit =
       findDawayaIndexItemSync(rawText) ||
-      searchDawayaIndex(indexItems, { query: clean }, isAr)[0];
+      searchDawayaIndex(indexItems, { query: clean }, isAr)[0] ||
+      cutStripMatches[0]?.item;
     if (dawayaHit) {
       const asProd = dawayaIndexItemToCommercialProduct(dawayaHit);
       return buildResultFromProduct(asProd, method);
@@ -979,6 +987,32 @@ export default function Scan() {
    * Local Browser OCR (English + Arabic) via Tesseract.js CDN
    */
   async function performClientSideOcr(imageDataUrl: string): Promise<string> {
+    // 1) Try instant on-device Chromium/Android TextDetector + High-Contrast Foil Filter for cut blister strips
+    let contrastDataUrl = imageDataUrl;
+    try {
+      const img = new Image();
+      img.src = imageDataUrl;
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+      const cCanvas = document.createElement('canvas');
+      cCanvas.width = img.width || 640;
+      cCanvas.height = img.height || 640;
+      const cCtx = cCanvas.getContext('2d');
+      if (cCtx) {
+        cCtx.filter = 'contrast(175%) grayscale(100%) brightness(105%)';
+        cCtx.drawImage(img, 0, 0, cCanvas.width, cCanvas.height);
+        contrastDataUrl = cCanvas.toDataURL('image/jpeg', 0.88);
+      }
+      if (typeof window !== 'undefined' && 'TextDetector' in window) {
+        const td = new (window as any).TextDetector();
+        const blocks = await td.detect(cCanvas);
+        if (Array.isArray(blocks) && blocks.length > 0) {
+          const detected = blocks.map((b: { rawValue?: string }) => b.rawValue || '').join(' ').trim();
+          if (detected.length >= 3) return detected;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
     try {
       const win = window as any;
       if (!win.Tesseract) {
@@ -993,7 +1027,7 @@ export default function Scan() {
       }
 
       if (win.Tesseract) {
-        const res = await win.Tesseract.recognize(imageDataUrl, 'eng+ara', {
+        const res = await win.Tesseract.recognize(contrastDataUrl, 'eng+ara', {
           logger: () => {},
         });
         return res?.data?.text || '';
@@ -1243,6 +1277,161 @@ export default function Scan() {
           ? '📷 الماسح الذكي الموحد (باركود + قارئ العلبة والشريط عربي / إنجليزي)'
           : '📷 Unified Smart Scanner (Barcode + Arabic/English Box & Blister Reader)'}
       </h1>
+
+      {/* Cut Blister Strip Reader & Partial Letter Matcher Card (Feature 1) */}
+      <section
+        className="card stack"
+        style={{
+          background: 'linear-gradient(135deg, rgba(13, 31, 56, 0.96) 0%, rgba(19, 136, 102, 0.92) 100%)',
+          color: '#ffffff',
+          borderRadius: '20px',
+          padding: '18px 20px',
+          border: '1.5px solid #CFD29D',
+          gap: '12px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <span
+              style={{
+                display: 'inline-block',
+                padding: '3px 10px',
+                borderRadius: '999px',
+                background: 'rgba(207, 210, 157, 0.2)',
+                border: '1px solid #CFD29D',
+                color: '#CFD29D',
+                fontSize: '0.75rem',
+                fontWeight: 800,
+                marginBottom: '6px',
+              }}
+            >
+              ✂️ {isAr ? 'ميزة التعرف على شريط الدواء المقطوع' : 'Cut Blister Strip Identifier'}
+            </span>
+            <h2 style={{ margin: 0, color: '#ffffff', fontSize: '1.18rem' }}>
+              {isAr
+                ? 'معاك شريط دواء مقصوص ومش عارف اسمه؟ صوره أو اكتب الحروف الباقية عليه!'
+                : 'Have a cut blister strip? Snap a photo or type the remaining visible letters!'}
+            </h2>
+            <p className="small" style={{ margin: '4px 0 0', color: '#e2e8f0' }}>
+              {isAr
+                ? 'يعمل بفلتر إزالة لمعة الألومنيوم ومطابقة أجزاء الكلمات (حتى لو فاضل 3 أو 4 حروف بس على الشريط مع رقم التركيز) وسط 26,562 دواء.'
+                : 'Uses anti-glare foil filtering and partial-word matching across 26,562 medicines even if only 3-4 letters remain.'}
+            </p>
+          </div>
+
+          <label
+            className="btn"
+            style={{
+              background: '#CFD29D',
+              color: '#0D1F38',
+              borderColor: '#CFD29D',
+              fontWeight: 900,
+              cursor: 'pointer',
+              borderRadius: '999px',
+            }}
+          >
+            📷 {isAr ? 'صوّر شريط الدواء المقطوع' : 'Snap Cut Blister Strip'}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={onCameraFile}
+              style={{ display: 'none' }}
+            />
+          </label>
+        </div>
+
+        {/* Partial Letters Input for Cut Blister Strips */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <input
+            type="search"
+            value={stripFragmentInput}
+            onChange={(e) => {
+              const val = e.target.value;
+              setStripFragmentInput(val);
+              if (val.trim().length >= 3) {
+                const cands = findCutBlisterStripCandidates(val, indexItems, 6);
+                setStripCandidates(cands);
+              } else {
+                setStripCandidates([]);
+              }
+            }}
+            placeholder={
+              isAr
+                ? 'أو اكتب الحروف الباقية على الشريط المقطوع (مثال: AUGM أو CONC 5 أو كاتاف)...'
+                : 'Or type remaining letters on the cut strip (e.g. AUGM, CONC 5, CATAF)...'
+            }
+            style={{
+              flex: 1,
+              minWidth: '220px',
+              padding: '10px 14px',
+              borderRadius: '999px',
+              border: '1.5px solid #CFD29D',
+              background: '#ffffff',
+              color: '#0D1F38',
+              fontWeight: 700,
+              fontSize: '0.88rem',
+            }}
+          />
+        </div>
+
+        {stripCandidates.length > 0 && (
+          <div
+            style={{
+              background: 'rgba(13, 31, 56, 0.78)',
+              borderRadius: '14px',
+              padding: '12px',
+              border: '1px solid rgba(207, 210, 157, 0.4)',
+              display: 'grid',
+              gap: '8px',
+            }}
+          >
+            <b className="small" style={{ color: '#CFD29D' }}>
+              💊 {isAr ? 'الأدوية المطابقة للحروف الظاهرة على الشريط المقطوع:' : 'Medicines matching the visible letters on the cut strip:'}
+            </b>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '8px' }}>
+              {stripCandidates.map((cand) => (
+                <Link
+                  key={cand.item.i}
+                  to={`/medicine/${cand.item.i}`}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: '#ffffff',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>{cand.item.a || cand.item.n}</div>
+                    <div className="small" style={{ color: '#cbd5e1', fontSize: '0.76rem' }} dir="ltr">
+                      {cand.item.n} • {cand.item.g}
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '999px',
+                      background: '#10b981',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: '0.75rem',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {cand.item.p ? `${cand.item.p} ج.م` : isAr ? 'فتح الدواء' : 'Open'}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* Safety Notice */}
       <div
