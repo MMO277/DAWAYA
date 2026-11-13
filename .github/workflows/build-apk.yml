@@ -1,995 +1,2040 @@
 name: Build Android APK
+
 on:
+
   workflow_dispatch:
+
   push:
+
     branches: [main]
+
     paths:
+
       - 'capacitor.config.ts'
+
       - '.github/workflows/build-apk.yml'
+
       - 'nativeAlarmService.ts'
+
       - 'authContext.tsx'
+
       - 'AuthModal.tsx'
+
       - 'Layout.tsx'
+
       - 'Home.tsx'
+
       - 'i18n.tsx'
+
       - 'index.html'
+
       - 'public/**'
+
       - '*.png'
+
       - '*.svg'
+
       - 'package.json'
 
+
+
 permissions:
+
   contents: write
 
+
+
 jobs:
+
   build-android-apk:
+
     runs-on: ubuntu-latest
+
     steps:
+
       - name: Checkout code
+
         uses: actions/checkout@v4
 
+
+
       - name: Setup Node.js
+
         uses: actions/setup-node@v4
+
         with:
+
           node-version: 20
 
+
+
       - name: Write Hybrid OTA + Offline Bundled Capacitor Config
+
         run: |
+
           cat << 'EOF' > capacitor.config.ts
+
           const config = {
+
             appId: 'com.dawaya.health',
+
             appName: 'DAWAYA',
+
             webDir: 'dist',
+
             bundledWebRuntime: false,
+
             server: {
+
               androidScheme: 'https',
+
               cleartext: true,
+
               allowNavigation: [
+
                 'mmo277.github.io',
+
                 '*.github.io',
+
                 '*.firebaseapp.com',
+
                 '*.google.com',
+
                 '*.googleapis.com',
+
                 '*.gstatic.com'
+
               ]
+
             },
+
             plugins: {
+
               LocalNotifications: {
+
                 smallIcon: 'ic_launcher',
+
                 iconColor: '#0B3C5D',
+
               },
+
             },
+
           };
+
           export default config;
+
           EOF
 
+
+
       - name: Install dependencies
+
         run: |
+
           npm install --legacy-peer-deps
+
           npm install --legacy-peer-deps @capacitor/core@^6.1.2 @capacitor/cli@^6.1.2 @capacitor/android@^6.1.2 @capacitor/local-notifications@^6.0.2
 
+
+
       - name: Sync Website Icon & App Name Automatically Before Web Build
+
         run: |
+
           pip install --quiet Pillow || true
+
           python3 - << 'PYEOF'
+
           import os, re, json
+
           from PIL import Image
 
+
+
           app_name_ar = "دوايا | DAWAYA"
+
           if os.path.exists("i18n.tsx"):
+
               with open("i18n.tsx", "r", encoding="utf-8") as f:
+
                   txt = f.read()
+
               m = re.search(r"appName:\s*['\"]([^'\"]+)['\"]", txt)
+
               if m:
+
                   app_name_ar = m.group(1).strip()
+
+
 
           print("Synced App Name:", app_name_ar)
 
+
+
           manifest_path = "public/manifest.webmanifest"
+
           if os.path.exists(manifest_path):
+
               try:
+
                   with open(manifest_path, "r", encoding="utf-8") as f:
+
                       manifest = json.load(f)
+
                   manifest["name"] = app_name_ar
+
                   manifest["short_name"] = app_name_ar
+
                   with open(manifest_path, "w", encoding="utf-8") as f:
+
                       json.dump(manifest, f, ensure_ascii=False, indent=2)
+
               except Exception as e:
+
                   print("Manifest sync warning:", e)
 
+
+
           if os.path.exists("capacitor.config.ts"):
+
               with open("capacitor.config.ts", "r", encoding="utf-8") as f:
+
                   cap_cfg = f.read()
+
               cap_cfg = re.sub(
+
                   r"appName:\s*['\"][^'\"]*['\"]",
+
                   f"appName: {json.dumps(app_name_ar, ensure_ascii=False)}",
+
                   cap_cfg,
+
               )
+
               with open("capacitor.config.ts", "w", encoding="utf-8") as f:
+
                   f.write(cap_cfg)
 
+
+
           candidates = [
+
               "icon.png",
+
               "logo.png",
+
               "favicon-192.png",
+
               "apple-touch-icon.png",
+
               "public/pwa-512.png",
+
               "public/favicon-192.png",
+
               "public/apple-touch-icon.png",
+
               "public/pwa-192.png",
+
           ]
+
           existing = [p for p in candidates if os.path.exists(p)]
+
           if existing:
+
               existing.sort(key=lambda p: ("512" in p, os.path.getmtime(p)), reverse=True)
+
               src_icon = existing[0]
+
               print("Using source icon:", src_icon)
+
               im = Image.open(src_icon).convert("RGBA")
+
               os.makedirs("public", exist_ok=True)
+
               targets = {
+
                   "public/pwa-512.png": (512, 512),
+
                   "public/pwa-maskable-512.png": (512, 512),
+
                   "public/pwa-192.png": (192, 192),
+
                   "public/favicon-192.png": (192, 192),
+
                   "favicon-192.png": (192, 192),
+
                   "public/apple-touch-icon.png": (180, 180),
+
                   "apple-touch-icon.png": (180, 180),
+
                   "public/favicon-48.png": (48, 48),
+
                   "favicon-48.png": (48, 48),
+
               }
+
               for dest, sz in targets.items():
+
                   im.resize(sz, Image.Resampling.LANCZOS).save(dest, format="PNG")
+
           PYEOF
+
+
 
       - name: Build Lightweight Web Application for Android APK (Prevents 38MB APK Installer Crash)
+
         run: |
+
           mkdir -p /tmp/dawaya_chunks_backup
+
           if [ -d "public/data/chunks" ]; then
+
             mv public/data/chunks/* /tmp/dawaya_chunks_backup/ || true
+
             echo "[]" > public/data/chunks/meds_chunk_0.json
+
           fi
+
           npm run build
+
           if [ -d "/tmp/dawaya_chunks_backup" ]; then
+
             mv /tmp/dawaya_chunks_backup/* public/data/chunks/ || true
+
           fi
+
         env:
+
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
+
+
       - name: Initialize Capacitor Android (Bundles Offline Copy + Enables Live OTA)
+
         run: |
+
           rm -rf android
+
           npx cap add android
+
           npx cap sync android
 
+
+
       - name: Apply Website Icon & Website Name to Android APK Launcher
+
         run: |
+
           python3 - << 'PYEOF'
+
           import os, re, glob
+
           from PIL import Image, ImageDraw
 
+
+
           app_name_ar = "دوايا | DAWAYA"
+
           if os.path.exists("i18n.tsx"):
+
               with open("i18n.tsx", "r", encoding="utf-8") as f:
+
                   txt = f.read()
+
               m = re.search(r"appName:\s*['\"]([^'\"]+)['\"]", txt)
+
               if m:
+
                   app_name_ar = m.group(1).strip()
 
+
+
           strings_path = "android/app/src/main/res/values/strings.xml"
+
           if os.path.exists(strings_path):
+
               with open(strings_path, "r", encoding="utf-8") as f:
+
                   s_xml = f.read()
+
               s_xml = re.sub(r"<string name=\"app_name\">.*?</string>", f"<string name=\"app_name\">{app_name_ar}</string>", s_xml)
+
               s_xml = re.sub(r"<string name=\"title_activity_main\">.*?</string>", f"<string name=\"title_activity_main\">{app_name_ar}</string>", s_xml)
+
               with open(strings_path, "w", encoding="utf-8") as f:
+
                   f.write(s_xml)
+
               print("Updated strings.xml with app_name:", app_name_ar)
 
+
+
           icon_src = "public/pwa-512.png" if os.path.exists("public/pwa-512.png") else "favicon-192.png"
+
           if os.path.exists(icon_src):
+
               base_im = Image.open(icon_src).convert("RGBA")
+
               w, h = base_im.size
+
               sample_px = base_im.getpixel((w // 2, max(2, int(h * 0.04))))
+
               if sample_px[3] < 128:
+
                   bg_rgb = (11, 60, 93)
+
               else:
+
                   bg_rgb = (sample_px[0], sample_px[1], sample_px[2])
+
               bg_hex = "#{:02X}{:02X}{:02X}".format(*bg_rgb)
 
+
+
               bg_xml_path = "android/app/src/main/res/values/ic_launcher_background.xml"
+
               os.makedirs(os.path.dirname(bg_xml_path), exist_ok=True)
+
               with open(bg_xml_path, "w", encoding="utf-8") as f:
+
                   f.write(f"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n    <color name=\"ic_launcher_background\">{bg_hex}</color>\n</resources>\n")
 
+
+
               for webp_file in glob.glob("android/app/src/main/res/mipmap-*/ic_launcher*.webp"):
+
                   try:
+
                       os.remove(webp_file)
+
                   except Exception:
+
                       pass
 
+
+
               densities = {
+
                   "mipmap-mdpi": (48, 108),
+
                   "mipmap-hdpi": (72, 162),
+
                   "mipmap-xhdpi": (96, 216),
+
                   "mipmap-xxhdpi": (144, 324),
+
                   "mipmap-xxxhdpi": (192, 432),
+
               }
+
+
 
               for folder, (legacy_px, fg_px) in densities.items():
+
                   out_dir = os.path.join("android/app/src/main/res", folder)
+
                   os.makedirs(out_dir, exist_ok=True)
 
+
+
                   sq = base_im.resize((legacy_px, legacy_px), Image.Resampling.LANCZOS)
+
                   sq.save(os.path.join(out_dir, "ic_launcher.png"), format="PNG")
 
+
+
                   circle_canvas = Image.new("RGBA", (legacy_px, legacy_px), (*bg_rgb, 255))
+
                   circle_canvas.paste(sq, (0, 0), sq)
+
                   mask = Image.new("L", (legacy_px, legacy_px), 0)
+
                   draw = ImageDraw.Draw(mask)
+
                   draw.ellipse((0, 0, legacy_px - 1, legacy_px - 1), fill=255)
+
                   round_im = Image.new("RGBA", (legacy_px, legacy_px), (0, 0, 0, 0))
+
                   round_im.paste(circle_canvas, (0, 0), mask)
+
                   round_im.save(os.path.join(out_dir, "ic_launcher_round.png"), format="PNG")
 
+
+
                   fg_canvas = Image.new("RGBA", (fg_px, fg_px), (0, 0, 0, 0))
+
                   inner_px = int(round(fg_px * 0.66))
+
                   inner_im = base_im.resize((inner_px, inner_px), Image.Resampling.LANCZOS)
+
                   offset = (fg_px - inner_px) // 2
+
                   fg_canvas.paste(inner_im, (offset, offset), inner_im)
+
                   fg_canvas.save(os.path.join(out_dir, "ic_launcher_foreground.png"), format="PNG")
 
+
+
               print("Successfully generated all Android mipmap launcher icons from website icon!")
+
           PYEOF
 
+
+
       - name: Configure Hybrid Smart Boot, Native Google Account Picker & Alarm Receiver
+
         run: |
+
           python3 -c '
+
           p = "android/app/src/main/AndroidManifest.xml"
+
           with open(p, "r") as f:
+
               xml = f.read()
+
           perms = [
+
               "android.permission.ACCESS_NETWORK_STATE",
+
               "android.permission.POST_NOTIFICATIONS",
+
               "android.permission.SCHEDULE_EXACT_ALARM",
+
               "android.permission.USE_EXACT_ALARM",
+
               "com.android.alarm.permission.SET_ALARM",
+
               "android.permission.USE_FULL_SCREEN_INTENT",
+
               "android.permission.VIBRATE",
+
               "android.permission.WAKE_LOCK",
-              "android.permission.RECEIVE_BOOT_COMPLETED"
+
+              "android.permission.RECEIVE_BOOT_COMPLETED",
+
+              "android.permission.BLUETOOTH_SCAN",
+
+              "android.permission.BLUETOOTH_CONNECT",
+
+              "android.permission.health.READ_HEART_RATE"
+
           ]
+
           inject_perms = "\n".join([f"    <uses-permission android:name=\"{perm}\" />" for perm in perms if perm not in xml])
+
           if inject_perms and "</manifest>" in xml:
+
               xml = xml.replace("</manifest>", inject_perms + "\n</manifest>")
+
           receiver_tag = "        <receiver android:name=\".DoseAlarmReceiver\" android:enabled=\"true\" android:exported=\"true\" />\n    </application>"
+
           if ".DoseAlarmReceiver" not in xml and "</application>" in xml:
+
               xml = xml.replace("</application>", receiver_tag)
+
           with open(p, "w") as f:
+
               f.write(xml)
+
           '
 
+
+
           cat << 'EOF' > android/app/src/main/java/com/dawaya/health/DoseAlarmReceiver.java
+
           package com.dawaya.health;
+
+
 
           import android.app.Notification;
+
           import android.app.NotificationChannel;
+
           import android.app.NotificationManager;
+
           import android.app.PendingIntent;
+
           import android.content.BroadcastReceiver;
+
           import android.content.Context;
+
           import android.content.Intent;
+
           import android.media.AudioAttributes;
+
           import android.media.Ringtone;
+
           import android.media.RingtoneManager;
+
           import android.net.Uri;
+
           import android.os.Build;
+
           import android.os.Handler;
+
           import android.os.Looper;
+
           import android.os.PowerManager;
+
           import android.os.VibrationEffect;
+
           import android.os.Vibrator;
 
+
+
           public class DoseAlarmReceiver extends BroadcastReceiver {
+
               public static final String CHANNEL_ID = "med_alarm_clock_v3";
 
+
+
               @Override
+
               public void onReceive(Context context, Intent intent) {
+
                   try {
+
                       PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+
                       if (pm != null) {
+
                           PowerManager.WakeLock wl = pm.newWakeLock(
+
                               PowerManager.PARTIAL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
+
                               "AntibioticAwareness:DoseAlarmWakeLock"
+
                           );
+
                           wl.acquire(15000L);
+
                       }
+
                   } catch (Throwable ignored) {}
+
+
 
                   String title = intent != null ? intent.getStringExtra("title") : null;
+
                   String body = intent != null ? intent.getStringExtra("body") : null;
+
                   int id = intent != null ? intent.getIntExtra("id", 99999) : 99999;
 
+
+
                   if (title == null || title.isEmpty()) {
+
                       title = "💊 موعد جرعة الدواء الآن!";
+
                   }
+
                   if (body == null || body.isEmpty()) {
+
                       body = "حان الآن موعد أخذ جرعة المضاد الحيوي في ميعادها.";
+
                   }
+
+
 
                   Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+
                   if (alarmUri == null) {
+
                       alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+
                   }
 
+
+
                   try {
+
                       NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+
                       if (nm != null) {
+
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
                               NotificationChannel channel = new NotificationChannel(
+
                                   CHANNEL_ID,
+
                                   "منبه مواعيد الجرعات الدوائية",
+
                                   NotificationManager.IMPORTANCE_HIGH
+
                               );
+
                               channel.setDescription("يرن في مواعيد جرعات الأدوية حتى والتطبيق مغلق");
+
                               channel.enableVibration(true);
+
                               channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+
                               if (alarmUri != null) {
+
                                   AudioAttributes attrs = new AudioAttributes.Builder()
+
                                       .setUsage(AudioAttributes.USAGE_ALARM)
+
                                       .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+
                                       .build();
+
                                   channel.setSound(alarmUri, attrs);
+
                               }
+
                               nm.createNotificationChannel(channel);
+
                           }
+
+
 
                           Intent launchIntent = new Intent(context, MainActivity.class);
+
                           launchIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
                           int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+
                               flags |= PendingIntent.FLAG_IMMUTABLE;
+
                           }
+
                           PendingIntent contentIntent = PendingIntent.getActivity(context, id, launchIntent, flags);
 
+
+
                           Notification.Builder builder = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+
                               ? new Notification.Builder(context, CHANNEL_ID)
+
                               : new Notification.Builder(context);
 
+
+
                           builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+
                               .setContentTitle(title)
+
                               .setContentText(body)
+
                               .setStyle(new Notification.BigTextStyle().bigText(body))
+
                               .setPriority(Notification.PRIORITY_MAX)
+
                               .setCategory(Notification.CATEGORY_ALARM)
+
                               .setVisibility(Notification.VISIBILITY_PUBLIC)
+
                               .setAutoCancel(true)
+
                               .setContentIntent(contentIntent);
 
+
+
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
                               builder.setFullScreenIntent(contentIntent, true);
+
                           }
+
+
 
                           nm.notify(id, builder.build());
+
                       }
+
                   } catch (Throwable ignored) {}
 
+
+
                   try {
+
                       Vibrator vib = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+
                       if (vib != null && vib.hasVibrator()) {
+
                           long[] pattern = new long[]{0, 600, 300, 600, 300, 800, 300, 800};
+
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
                               vib.vibrate(VibrationEffect.createWaveform(pattern, -1));
+
                           } else {
+
                               vib.vibrate(pattern, -1);
+
                           }
+
                       }
+
                   } catch (Throwable ignored) {}
 
+
+
                   try {
+
                       if (alarmUri != null) {
+
                           final Ringtone ringtone = RingtoneManager.getRingtone(context.getApplicationContext(), alarmUri);
+
                           if (ringtone != null) {
+
                               if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+
                                   ringtone.setLooping(false);
+
                               }
+
                               ringtone.play();
+
                               new Handler(Looper.getMainLooper()).postDelayed(() -> {
+
                                   try {
+
                                       if (ringtone.isPlaying()) {
+
                                           ringtone.stop();
+
                                       }
+
                                   } catch (Throwable ignored) {}
+
                               }, 10000L);
+
                           }
+
                       }
+
                   } catch (Throwable ignored) {}
+
               }
+
           }
+
           EOF
 
+
+
           cat << 'EOF' > android/app/src/main/java/com/dawaya/health/MainActivity.java
+
           package com.dawaya.health;
 
+
+
           import android.accounts.AccountManager;
+
           import android.annotation.SuppressLint;
+
           import android.app.Activity;
+
           import android.app.AlarmManager;
+
           import android.app.Dialog;
+
           import android.app.PendingIntent;
+
           import android.content.Context;
+
           import android.content.Intent;
+
           import android.content.pm.PackageManager;
+
           import android.graphics.Color;
+
           import android.net.ConnectivityManager;
+
           import android.net.NetworkInfo;
+
           import android.net.Uri;
+
           import android.os.Build;
+
           import android.os.Bundle;
+
           import android.os.Message;
+
           import android.view.Gravity;
+
           import android.view.ViewGroup;
+
           import android.webkit.CookieManager;
+
           import android.webkit.JavascriptInterface;
+
           import android.webkit.PermissionRequest;
+
           import android.webkit.ValueCallback;
+
           import android.webkit.WebChromeClient;
+
           import android.webkit.WebResourceError;
+
           import android.webkit.WebResourceRequest;
+
           import android.webkit.WebSettings;
+
           import android.webkit.WebView;
+
           import android.webkit.WebViewClient;
+
           import android.widget.FrameLayout;
+
           import android.widget.TextView;
+
           import com.getcapacitor.BridgeActivity;
 
+
+
           public class MainActivity extends BridgeActivity {
+
               private static final String LIVE_OTA_URL = "https://mmo277.github.io/DAWAYA/";
+
               private static final String LOCAL_OFFLINE_URL = "https://localhost";
+
               private static final String CLEAN_CHROME_UA =
+
                   "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36";
+
               private boolean isWebViewConfigured = false;
 
+
+
               private boolean isDeviceOnline() {
+
                   try {
+
                       ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+
                       if (cm == null) return false;
+
                       NetworkInfo info = cm.getActiveNetworkInfo();
+
                       return info != null && info.isConnected();
+
                   } catch (Throwable t) {
+
                       return false;
+
                   }
+
               }
+
+
 
               private void notifyJsGoogleAccountResult(final String email) {
+
                   try {
+
                       runOnUiThread(() -> {
+
                           try {
+
                               if (this.bridge != null && this.bridge.getWebView() != null) {
+
                                   String safe = email == null ? "" : email.replace("'", "").replace("\"", "");
+
                                   this.bridge.getWebView().evaluateJavascript(
+
                                       "if(window.__onAndroidGoogleAccountPicked){window.__onAndroidGoogleAccountPicked('" + safe + "');}",
+
                                       null
+
                                   );
+
                               }
+
                           } catch (Throwable ignored) {}
+
                       });
+
                   } catch (Throwable ignored) {}
+
               }
+
+
 
               private void requestGoogleOAuthTokenForAccount(final String email) {
+
                   try {
+
                       final AccountManager am = AccountManager.get(MainActivity.this);
+
                       final android.accounts.Account account = new android.accounts.Account(email, "com.google");
+
                       final String scope = "oauth2:https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
+
                       am.getAuthToken(
+
                           account,
+
                           scope,
+
                           null,
+
                           MainActivity.this,
+
                           future -> {
+
                               new Thread(() -> {
+
                                   try {
+
                                       android.os.Bundle bundle = future.getResult();
+
                                       String token = bundle.getString(AccountManager.KEY_AUTHTOKEN);
+
                                       if (token != null && !token.isEmpty()) {
+
                                           am.invalidateAuthToken("com.google", token);
+
                                           android.os.Bundle freshBundle = am.getAuthToken(
+
                                               account, scope, null, MainActivity.this, null, null
+
                                           ).getResult();
+
                                           String freshToken = freshBundle.getString(AccountManager.KEY_AUTHTOKEN);
+
                                           if (freshToken != null && !freshToken.isEmpty()) {
+
                                               token = freshToken;
+
                                           }
+
                                           notifyJsGoogleAccountResult(email + "|" + token);
+
                                           return;
+
                                       }
+
                                   } catch (Throwable ignored) {}
+
                                   notifyJsGoogleAccountResult(email);
+
                               }).start();
+
                           },
+
                           null
+
                       );
+
                   } catch (Throwable t) {
+
                       notifyJsGoogleAccountResult(email);
+
                   }
+
               }
 
+
+
               @Override
+
               protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+
                   super.onActivityResult(requestCode, resultCode, data);
+
                   if (requestCode == 9001) {
+
                       if (resultCode == Activity.RESULT_OK && data != null) {
+
                           String accountName = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
+
                           if (accountName != null && !accountName.isEmpty()) {
+
                               requestGoogleOAuthTokenForAccount(accountName);
+
                               return;
+
                           }
+
                       }
+
                       notifyJsGoogleAccountResult("__CANCELLED__");
+
                   }
+
               }
 
+
+
               @Override
+
               public void onResume() {
+
                   super.onResume();
+
                   if (!isWebViewConfigured) {
+
                       isWebViewConfigured = true;
+
                       configureWebViewSafely();
+
                   }
+
               }
+
+
 
               private void requestNotificationPermissionIfNeeded() {
+
                   try {
+
                       if (Build.VERSION.SDK_INT >= 33) {
+
                           if (checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+
                               requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 101);
+
                           }
+
                       }
+
                   } catch (Throwable ignored) {}
+
               }
+
+
 
               public class AndroidAlarmBridge {
+
                   @JavascriptInterface
+
                   public boolean isAvailable() {
+
                       return true;
+
                   }
 
-                  @JavascriptInterface
-                  public void requestPermissions() {
-                      runOnUiThread(() -> requestNotificationPermissionIfNeeded());
-                  }
+
 
                   @JavascriptInterface
-                  public boolean pickGoogleAccount() {
+
+                  public boolean openHealthConnectSettings() {
+
                       try {
+
                           runOnUiThread(() -> {
+
                               try {
-                                  Intent intent = AccountManager.newChooseAccountIntent(
-                                      null,
-                                      null,
-                                      new String[]{"com.google"},
-                                      null,
-                                      null,
-                                      null,
-                                      null
-                                  );
-                                  startActivityForResult(intent, 9001);
-                              } catch (Throwable t) {
-                                  notifyJsGoogleAccountResult("__CANCELLED__");
+
+                                  Intent intent = new Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS");
+
+                                  intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                                  startActivity(intent);
+
+                              } catch (Throwable inner) {
+
+                                  try {
+
+                                      Intent store = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata"));
+
+                                      store.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                                      startActivity(store);
+
+                                  } catch (Throwable ignored) {}
+
                               }
+
                           });
+
                           return true;
+
                       } catch (Throwable t) {
+
                           return false;
+
                       }
+
                   }
 
+
+
                   @JavascriptInterface
+
+                  public void requestPermissions() {
+
+                      runOnUiThread(() -> requestNotificationPermissionIfNeeded());
+
+                  }
+
+
+
+                  @JavascriptInterface
+
+                  public boolean pickGoogleAccount() {
+
+                      try {
+
+                          runOnUiThread(() -> {
+
+                              try {
+
+                                  Intent intent = AccountManager.newChooseAccountIntent(
+
+                                      null,
+
+                                      null,
+
+                                      new String[]{"com.google"},
+
+                                      null,
+
+                                      null,
+
+                                      null,
+
+                                      null
+
+                                  );
+
+                                  startActivityForResult(intent, 9001);
+
+                              } catch (Throwable t) {
+
+                                  notifyJsGoogleAccountResult("__CANCELLED__");
+
+                              }
+
+                          });
+
+                          return true;
+
+                      } catch (Throwable t) {
+
+                          return false;
+
+                      }
+
+                  }
+
+
+
+                  @JavascriptInterface
+
                   public boolean getGoogleTokenForEmail(final String email) {
+
                       if (email == null || email.trim().isEmpty()) return false;
+
                       try {
+
                           runOnUiThread(() -> requestGoogleOAuthTokenForAccount(email.trim()));
+
                           return true;
+
                       } catch (Throwable t) {
+
                           return false;
+
                       }
+
                   }
 
+
+
                   @JavascriptInterface
+
                   public boolean scheduleExactAlarm(int id, double triggerAtMillisDouble, String title, String body) {
+
                       try {
+
                           runOnUiThread(() -> requestNotificationPermissionIfNeeded());
+
                           long triggerAtMillis = (long) triggerAtMillisDouble;
+
                           if (triggerAtMillis <= System.currentTimeMillis()) {
+
                               triggerAtMillis = System.currentTimeMillis() + 3000L;
+
                           }
+
                           Context ctx = getApplicationContext();
+
                           AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+
                           if (am == null) return false;
 
+
+
                           Intent intent = new Intent(ctx, DoseAlarmReceiver.class);
+
                           intent.setAction("com.dawaya.health.DOSE_ALARM_" + id);
+
                           intent.putExtra("id", id);
+
                           intent.putExtra("title", title);
+
                           intent.putExtra("body", body);
 
+
+
                           int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+
                               flags |= PendingIntent.FLAG_IMMUTABLE;
+
                           }
+
                           PendingIntent pi = PendingIntent.getBroadcast(ctx, id, intent, flags);
+
+
 
                           Intent showIntent = new Intent(ctx, MainActivity.class);
+
                           PendingIntent showPi = PendingIntent.getActivity(ctx, id, showIntent, flags);
 
+
+
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+
                               AlarmManager.AlarmClockInfo clockInfo = new AlarmManager.AlarmClockInfo(triggerAtMillis, showPi);
+
                               am.setAlarmClock(clockInfo, pi);
+
                           } else {
+
                               am.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi);
+
                           }
+
                           return true;
+
                       } catch (Throwable t) {
+
                           return false;
+
                       }
+
                   }
 
+
+
                   @JavascriptInterface
+
                   public boolean openSystemClockAlarm(final int hour, final int minute, final String label) {
+
                       try {
+
                           runOnUiThread(() -> {
+
                               try {
+
                                   Intent intent = new Intent(android.provider.AlarmClock.ACTION_SET_ALARM);
+
                                   intent.putExtra(android.provider.AlarmClock.EXTRA_HOUR, hour);
+
                                   intent.putExtra(android.provider.AlarmClock.EXTRA_MINUTES, minute);
+
                                   intent.putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, label != null ? label : "جرعة الدواء");
+
                                   intent.putExtra(android.provider.AlarmClock.EXTRA_SKIP_UI, false);
+
                                   intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
                                   startActivity(intent);
+
                               } catch (Throwable inner) {
+
                                   try {
+
                                       Intent fallback = new Intent(android.provider.AlarmClock.ACTION_SHOW_ALARMS);
+
                                       fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
                                       startActivity(fallback);
+
                                   } catch (Throwable ignored) {}
+
                               }
+
                           });
+
                           return true;
+
                       } catch (Throwable t) {
+
                           return false;
+
                       }
+
                   }
 
+
+
                   @JavascriptInterface
+
                   public boolean cancelAlarm(int id) {
+
                       try {
+
                           Context ctx = getApplicationContext();
+
                           AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+
                           if (am == null) return false;
+
                           Intent intent = new Intent(ctx, DoseAlarmReceiver.class);
+
                           intent.setAction("com.dawaya.health.DOSE_ALARM_" + id);
+
                           int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+
                               flags |= PendingIntent.FLAG_IMMUTABLE;
+
                           }
+
                           PendingIntent pi = PendingIntent.getBroadcast(ctx, id, intent, flags);
+
                           am.cancel(pi);
+
                           return true;
+
                       } catch (Throwable t) {
+
                           return false;
+
                       }
+
                   }
+
               }
 
+
+
               @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
+
               private void configureWebViewSafely() {
+
                   try {
+
                       requestNotificationPermissionIfNeeded();
+
                       if (this.bridge == null || this.bridge.getWebView() == null) {
+
                           return;
+
                       }
+
                       final WebView webView = this.bridge.getWebView();
+
                       WebSettings settings = webView.getSettings();
+
                       settings.setJavaScriptEnabled(true);
+
                       settings.setDomStorageEnabled(true);
+
                       settings.setDatabaseEnabled(true);
+
                       settings.setJavaScriptCanOpenWindowsAutomatically(true);
+
                       settings.setSupportMultipleWindows(true);
+
                       settings.setUserAgentString(CLEAN_CHROME_UA);
+
+
 
                       webView.addJavascriptInterface(new AndroidAlarmBridge(), "AndroidAlarmBridge");
 
+
+
                       CookieManager cookieManager = CookieManager.getInstance();
+
                       cookieManager.setAcceptCookie(true);
+
                       cookieManager.setAcceptThirdPartyCookies(webView, true);
 
+
+
                       final WebViewClient capacitorWebViewClient =
+
                           (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? webView.getWebViewClient() : null;
 
+
+
                       webView.setWebViewClient(new WebViewClient() {
+
                           @Override
+
                           public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+
                               if (capacitorWebViewClient != null) {
+
                                   return capacitorWebViewClient.shouldInterceptRequest(view, request);
+
                               }
+
                               return super.shouldInterceptRequest(view, request);
+
                           }
+
+
 
                           private boolean handleCustomSchemeUrl(String url) {
+
                               if (url == null) return false;
+
                               if (url.startsWith("http://") || url.startsWith("https://")) {
+
                                   return false;
+
                               }
+
                               try {
+
                                   Intent intent;
+
                                   if (url.startsWith("intent:")) {
+
                                       intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+
                                   } else {
+
                                       intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+
                                   }
+
                                   intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
                                   startActivity(intent);
+
                                   return true;
+
                               } catch (Throwable ignored) {
+
                                   return true; // Consume custom scheme so WebView never triggers onReceivedError
+
                               }
+
                           }
 
+
+
                           @Override
+
                           public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+
                               if (request != null && request.getUrl() != null) {
+
                                   if (handleCustomSchemeUrl(request.getUrl().toString())) {
+
                                       return true;
+
                                   }
+
                               }
+
                               return false;
+
                           }
 
+
+
                           @Override
+
                           public boolean shouldOverrideUrlLoading(WebView view, String url) {
+
                               if (handleCustomSchemeUrl(url)) {
+
                                   return true;
+
                               }
+
                               return false;
+
                           }
 
+
+
                           @Override
+
                           public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+
                               try {
+
                                   if (request != null && request.isForMainFrame() && request.getUrl() != null) {
+
                                       String failedUrl = request.getUrl().toString();
+
                                       if ((failedUrl.startsWith("http://") || failedUrl.startsWith("https://")) && !isDeviceOnline()) {
+
                                           view.loadUrl(LOCAL_OFFLINE_URL);
+
                                           return;
+
                                       }
+
                                   }
+
                               } catch (Throwable ignored) {}
+
                               super.onReceivedError(view, request, error);
+
                           }
+
                       });
+
+
 
                       if (isDeviceOnline()) {
+
                           settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+
                           webView.loadUrl(LIVE_OTA_URL);
+
                       } else {
+
                           settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
+
                       }
 
+
+
                       final WebChromeClient defaultClient =
+
                           (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? webView.getWebChromeClient() : null;
 
+
+
                       webView.setWebChromeClient(new WebChromeClient() {
+
                           @Override
+
                           public boolean onShowFileChooser(
+
                               WebView wv,
+
                               ValueCallback<Uri[]> filePathCallback,
+
                               FileChooserParams fileChooserParams
+
                           ) {
+
                               if (defaultClient != null) {
+
                                   return defaultClient.onShowFileChooser(wv, filePathCallback, fileChooserParams);
+
                               }
+
                               return super.onShowFileChooser(wv, filePathCallback, fileChooserParams);
+
                           }
 
+
+
                           @Override
+
                           public void onPermissionRequest(PermissionRequest request) {
+
                               if (defaultClient != null) {
+
                                   defaultClient.onPermissionRequest(request);
+
                               } else {
+
                                   super.onPermissionRequest(request);
+
                               }
+
                           }
 
+
+
                           @Override
+
                           public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+
                               try {
+
                                   final Dialog dialog = new Dialog(MainActivity.this, android.R.style.Theme_DeviceDefault_NoActionBar);
+
                                   FrameLayout container = new FrameLayout(MainActivity.this);
+
                                   container.setBackgroundColor(Color.WHITE);
 
+
+
                                   final WebView popupWebView = new WebView(MainActivity.this);
+
                                   WebSettings popupSettings = popupWebView.getSettings();
+
                                   popupSettings.setJavaScriptEnabled(true);
+
                                   popupSettings.setDomStorageEnabled(true);
+
                                   popupSettings.setDatabaseEnabled(true);
+
                                   popupSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+
                                   popupSettings.setSupportMultipleWindows(true);
+
                                   popupSettings.setUserAgentString(CLEAN_CHROME_UA);
 
+
+
                                   CookieManager cm = CookieManager.getInstance();
+
                                   cm.setAcceptCookie(true);
+
                                   cm.setAcceptThirdPartyCookies(popupWebView, true);
 
+
+
                                   popupWebView.setWebViewClient(new WebViewClient() {
-                                      @Override
-                                      public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
-                                          return false;
-                                      }
 
                                       @Override
-                                      public boolean shouldOverrideUrlLoading(WebView v, String url) {
+
+                                      public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
+
                                           return false;
+
                                       }
+
+
+
+                                      @Override
+
+                                      public boolean shouldOverrideUrlLoading(WebView v, String url) {
+
+                                          return false;
+
+                                      }
+
                                   });
+
+
 
                                   popupWebView.setWebChromeClient(new WebChromeClient() {
+
                                       @Override
+
                                       public void onCloseWindow(WebView window) {
+
                                           try {
+
                                               if (dialog.isShowing()) {
+
                                                   dialog.dismiss();
+
                                               }
+
                                               window.destroy();
+
                                           } catch (Throwable ignored) {}
+
                                       }
+
                                   });
+
+
 
                                   FrameLayout.LayoutParams webParams = new FrameLayout.LayoutParams(
+
                                       ViewGroup.LayoutParams.MATCH_PARENT,
+
                                       ViewGroup.LayoutParams.MATCH_PARENT
+
                                   );
+
                                   container.addView(popupWebView, webParams);
 
+
+
                                   TextView closeBtn = new TextView(MainActivity.this);
+
                                   closeBtn.setText("✕ إغلاق");
+
                                   closeBtn.setTextColor(Color.WHITE);
+
                                   closeBtn.setBackgroundColor(Color.parseColor("#0B3C5D"));
+
                                   closeBtn.setPadding(32, 16, 32, 16);
+
                                   closeBtn.setTextSize(14f);
+
                                   FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(
+
                                       ViewGroup.LayoutParams.WRAP_CONTENT,
+
                                       ViewGroup.LayoutParams.WRAP_CONTENT,
+
                                       Gravity.TOP | Gravity.END
+
                                   );
+
                                   closeParams.setMargins(24, 36, 24, 24);
+
                                   closeBtn.setOnClickListener(v -> {
+
                                       try {
+
                                           dialog.dismiss();
+
                                           popupWebView.destroy();
+
                                       } catch (Throwable ignored) {}
+
                                   });
+
                                   container.addView(closeBtn, closeParams);
 
+
+
                                   dialog.setContentView(container, new ViewGroup.LayoutParams(
+
                                       ViewGroup.LayoutParams.MATCH_PARENT,
+
                                       ViewGroup.LayoutParams.MATCH_PARENT
+
                                   ));
+
                                   dialog.setOnDismissListener(d -> {
+
                                       try {
+
                                           popupWebView.destroy();
+
                                       } catch (Throwable ignored) {}
+
                                   });
+
                                   dialog.show();
 
+
+
                                   WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+
                                   transport.setWebView(popupWebView);
+
                                   resultMsg.sendToTarget();
+
                                   return true;
+
                               } catch (Throwable t) {
+
                                   return false;
+
                               }
+
                           }
+
                       });
+
                   } catch (Throwable ignored) {
+
                       // Safe fallback: never crash the Activity
+
                   }
+
               }
+
           }
+
           EOF
 
+
+
       - name: Set up Java JDK 21
+
         uses: actions/setup-java@v4
+
         with:
+
           distribution: 'temurin'
+
           java-version: '17'
 
+
+
       - name: Configure Gradle Release Signing (V1 + V2) & Build Signed Release APK
+
         run: |
+
           cd android
+
           chmod +x gradlew
+
           rm -f app/dawaya-release.keystore
+
           keytool -genkeypair -v \
+
             -keystore app/dawaya-release.keystore \
+
             -alias dawaya_key \
+
             -keyalg RSA \
+
             -keysize 2048 \
+
             -validity 10000 \
+
             -storepass dawaya2026 \
+
             -keypass dawaya2026 \
+
             -dname "CN=DAWAYA Health, OU=Medical, O=DAWAYA, L=Cairo, S=Cairo, C=EG"
 
+
+
           python3 - << 'PYGRADLE'
+
           import glob
+
           # Normalize any VERSION_21 references in generated capacitor gradle files to VERSION_17
+
           for gf in glob.glob("**/*.gradle", recursive=True) + glob.glob("../node_modules/@capacitor/**/*.gradle", recursive=True):
+
               try:
+
                   with open(gf, "r", encoding="utf-8") as f:
+
                       txt = f.read()
+
                   if "VERSION_21" in txt:
+
                       with open(gf, "w", encoding="utf-8") as f:
+
                           f.write(txt.replace("VERSION_21", "VERSION_17"))
+
               except Exception:
+
                   pass
 
+
+
           p = "app/build.gradle"
+
           with open(p, "r", encoding="utf-8") as f:
+
               g = f.read()
+
           signing_block = '''
+
               signingConfigs {
+
                   release {
+
                       storeFile file("dawaya-release.keystore")
+
                       storePassword "dawaya2026"
+
                       keyAlias "dawaya_key"
+
                       keyPassword "dawaya2026"
+
                       v1SigningEnabled true
+
                       v2SigningEnabled true
+
                   }
+
               }
+
               lintOptions {
+
                   checkReleaseBuilds false
+
                   abortOnError false
+
               }
+
           '''
+
           if "signingConfigs" not in g:
+
               # IMPORTANT: Replace "release {" inside buildTypes FIRST before inserting signingConfigs!
+
               g = g.replace("release {", "release {\n            signingConfig signingConfigs.release", 1)
+
               g = g.replace("buildTypes {", signing_block + "\n    buildTypes {", 1)
+
           with open(p, "w", encoding="utf-8") as f:
+
               f.write(g)
+
           PYGRADLE
 
+
+
           if ./gradlew assembleRelease --no-daemon; then
+
             cp app/build/outputs/apk/release/app-release.apk ../DAWAYA.apk
+
           else
+
             echo "Fallback to assembleDebug..."
+
             ./gradlew assembleDebug --no-daemon
+
             cp app/build/outputs/apk/debug/app-debug.apk ../DAWAYA.apk
+
           fi
+
           cp ../DAWAYA.apk ../Antibiotic-Awareness.apk
+
           ls -lh ../DAWAYA.apk
 
+
+
       - name: Upload Android APK Artifact
+
         uses: actions/upload-artifact@v4
+
         with:
+
           name: DAWAYA-Android-App
+
           path: DAWAYA.apk
 
+
+
       - name: Publish APK to GitHub Releases
+
         continue-on-error: true
+
         env:
+
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
         run: |
+
           if gh release view v1.0.0 --repo "${{ github.repository }}" >/dev/null 2>&1; then
+
             gh release upload v1.0.0 DAWAYA.apk Antibiotic-Awareness.apk --repo "${{ github.repository }}" --clobber
+
           else
+
             gh release create v1.0.0 DAWAYA.apk Antibiotic-Awareness.apk \
+
               --repo "${{ github.repository }}" \
+
               --target "${{ github.sha }}" \
+
               --title "تطبيق دوايا | DAWAYA الرسمي للأندرويد (Official Android APK)" \
+
               --notes "النسخة الرسمية الهجينة لتطبيق التوعية بالمضادات الحيوية (.APK): تسجيل جوجل بضغطة واحدة من حسابات الهاتف، وجولة تعريفية، وتشغيل أوفلاين من الصفر." \
+
               --latest
+
           fi
+
