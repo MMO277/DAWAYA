@@ -937,7 +937,12 @@ jobs:
           cd android
           chmod +x gradlew
           rm -f app/dawaya-release.keystore
-          keytool -genkeypair -v -keystore app/dawaya-release.keystore -alias dawaya_key -keyalg RSA -keysize 2048 -validity 10000 -storepass dawaya2026 -keypass dawaya2026 -dname "CN=DAWAYA Health, OU=Medical, O=DAWAYA, L=Cairo, S=Cairo, C=EG"
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | tr -d "\n\r " | base64 -d > app/dawaya-release.keystore
+            echo "Loaded fixed release keystore from GitHub Secrets."
+          else
+            keytool -genkeypair -v -keystore app/dawaya-release.keystore -alias dawaya_key -keyalg RSA -keysize 2048 -validity 10000 -storepass dawaya2026 -keypass dawaya2026 -dname "CN=DAWAYA Health, OU=Medical, O=DAWAYA, L=Cairo, S=Cairo, C=EG"
+          fi
 
           python3 - << 'PYGRADLE'
           import glob
