@@ -7,7 +7,7 @@ import {
 import { useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
 import SmartDoseAlarmCard from './SmartDoseAlarmCard';
 import { createPortal } from 'react-dom';
-import { ChangeEvent, FormEvent, lazy, Suspense, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
 import { useAuth } from './authContext';
@@ -851,10 +851,6 @@ export default function Tracker() {
 
       {/* Live Smart Dose Alarm & Voice Reminder */}
       <SmartDoseAlarmCard />
-
-      <Suspense fallback={null}>
-        <SmartwatchHealthCenter isAr={isAr} schedules={schedules} profile={profile} />
-      </Suspense>
 
       {/* Active Due Dose Alert Banner (if triggered while open) */}
       {activeDueBanner && (

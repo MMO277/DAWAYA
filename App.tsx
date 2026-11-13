@@ -8,6 +8,7 @@ import { AuthProvider } from './authContext';
 import { EmergencyLocationProvider } from './emergencyLocation';
 import AuthModal from './AuthModal';
 import Home from './Home';
+import { startPartnerEcosystemSync } from './partnerService';
 
 /**
  * Offline-safe & OTA-safe lazy loader.
@@ -193,27 +194,9 @@ function NotFound() {
 
 export default function App() {
   useEffect(() => {
-    if (typeof window === 'undefined' || navigator.onLine === false) return;
-    const t = window.setTimeout(() => {
-      const loaders = [
-        () => import('./PatientDashboard'),
-        () => import('./PrescriptionRadar'),
-        () => import('./Medicines'),
-        () => import('./Scan'),
-        () => import('./SpecialtyClinicsHub'),
-      ];
-      loaders.forEach((load, idx) => {
-        window.setTimeout(() => {
-          load().catch(() => {});
-        }, idx * 900);
-      });
-    }, 2500);
-    return () => window.clearTimeout(t);
-  }, []);
-  useEffect(() => {
     // Lightweight startup: sync public partners after idle without downloading 8.2MB index until needed
     const timer = window.setTimeout(() => {
-      import('./partnerService').then((m) => m.startPartnerEcosystemSync()).catch(() => {});
+      startPartnerEcosystemSync();
     }, 1500);
     return () => window.clearTimeout(timer);
   }, []);

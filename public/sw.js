@@ -1,14 +1,9 @@
-/* DAWAYA | دوايا — Ultra-Fast Network-First Shell & Full Offline Service Worker (v5).
-   - App Shell & Navigations (index.html): Network-First when online so every deployment
-     appears IMMEDIATELY on first open, with instant 0ms fallback to SHELL_CACHE when offline.
-   - Hashed Build Assets (/assets/*): Cache-First Immutable (0ms disk load).
-   - Medicine Database Chunks & Search Index (/data/*): Stale-While-Revalidate for offline lookup.
-   - Google Fonts & Static Media (icons, brand SVGs, images, audio): Cache-First with background refresh. */
+/* DAWAYA | دوايا — Ultra-Fast Network-First Shell & Full Offline Service Worker (v9). */
 
 const CACHE_PREFIX = 'dawaya-speed-cache-';
-const STATIC_CACHE = CACHE_PREFIX + 'static-v8';
-const SHELL_CACHE = CACHE_PREFIX + 'shell-v8';
-const MEDIA_FONT_CACHE = CACHE_PREFIX + 'media-fonts-v8';
+const STATIC_CACHE = CACHE_PREFIX + 'static-v9';
+const SHELL_CACHE = CACHE_PREFIX + 'shell-v9';
+const MEDIA_FONT_CACHE = CACHE_PREFIX + 'media-fonts-v9';
 const ACTIVE_CACHES = [STATIC_CACHE, SHELL_CACHE, MEDIA_FONT_CACHE];
 
 const OFFLINE_URL = './offline.html';
@@ -29,7 +24,7 @@ const PRECACHE_SHELL_URLS = [
 ];
 
 async function warmupFromPrecacheManifest() {
-  /* On-demand caching only: prevents saturating mobile 4G bandwidth on initial page load */
+  /* On-demand caching only */
 }
 
 self.addEventListener('install', (event) => {
@@ -41,7 +36,6 @@ self.addEventListener('install', (event) => {
           PRECACHE_SHELL_URLS.map((u) => cache.add(new Request(u, { cache: 'reload' })))
         )
       )
-      .then(() => warmupFromPrecacheManifest())
       .then(() => self.skipWaiting())
   );
 });
@@ -62,7 +56,6 @@ self.addEventListener('activate', (event) => {
         )
       )
       .then(() => self.clients.claim())
-      .then(() => warmupFromPrecacheManifest())
   );
 });
 
@@ -103,25 +96,21 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate') {
     event.respondWith(
       caches.open(SHELL_CACHE).then(async (cache) => {
-        const cachedShell =
+        try {
+          const freshRes = await fetch(req, { cache: 'no-cache' });
+          if (freshRes && freshRes.status === 200 && freshRes.type === 'basic') {
+            cache.put('./index.html', freshRes.clone());
+            return freshRes;
+          }
+        } catch {
+          /* Offline — serve cached shell immediately below */
+        }
+        return (
           (await cache.match('./index.html')) ||
           (await cache.match('./')) ||
-          (await caches.match('./index.html'));
-
-        const networkRefresh = fetch(req, { cache: 'no-cache' })
-          .then((freshRes) => {
-            if (freshRes && freshRes.status === 200 && freshRes.type === 'basic') {
-              cache.put('./index.html', freshRes.clone());
-            }
-            return freshRes;
-          })
-          .catch(() => null);
-
-        const timeoutFallback = new Promise((resolve) =>
-          setTimeout(() => resolve(cachedShell), 1200)
+          (await caches.match('./index.html')) ||
+          (await cache.match(OFFLINE_URL))
         );
-        const winner = await Promise.race([networkRefresh, timeoutFallback]);
-        return winner || cachedShell || (await cache.match(OFFLINE_URL));
       })
     );
     return;

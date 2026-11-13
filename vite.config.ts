@@ -112,14 +112,7 @@ export default defineConfig({
             if (id.includes('react-router')) return 'vendor-router';
             if (id.includes('react')) return 'vendor-react';
           }
-          if (
-            id.includes('seedData') ||
-            id.includes('seedMore') ||
-            id.includes('seedExtra') ||
-            id.includes('egyptianDrugDatabase')
-          ) {
-            return 'dawaya-drug-db';
-          }
+
 
         },
       },

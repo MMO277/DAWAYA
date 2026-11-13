@@ -1,5 +1,4 @@
-import { FormEvent, lazy, Suspense, useMemo, useState } from 'react';
-const SmartwatchHealthCenter = lazy(() => import('./SmartwatchHealthCenter'));
+import { FormEvent, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLang } from './i18n';
 import { useAuth } from './authContext';
@@ -338,11 +337,6 @@ export default function PatientDashboard() {
           )}
         </div>
       </section>
-
-      {/* 2.4 Smartwatch, Heart Rate & Hydration Center */}
-      <Suspense fallback={null}>
-        <SmartwatchHealthCenter isAr={isAr} schedules={schedules} profile={profile} />
-      </Suspense>
 
       {/* 2.5 Daily Medication Hydration Guard Strip */}
       <section

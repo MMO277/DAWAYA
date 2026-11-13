@@ -112,6 +112,25 @@
         <p dir="ltr" style="text-align:left"><strong>DAWAYA | Your Health. Smarter.</strong> Comprehensive healthcare and medication safety platform. JavaScript is required for the full interactive experience.</p>
       </div>
     </noscript>
+    <script>
+      (function () {
+        window.addEventListener('error', function (e) {
+          var t = e && e.target;
+          if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+            if (!sessionStorage.getItem('dw_sw_healed')) {
+              sessionStorage.setItem('dw_sw_healed', '1');
+              if ('caches' in window) {
+                caches.keys().then(function (ks) {
+                  return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+                }).finally(function () { location.reload(); });
+              } else {
+                location.reload();
+              }
+            }
+          }
+        }, true);
+      })();
+    </script>
     <script type="module" src="/main.tsx"></script>
   </body>
 </html>
