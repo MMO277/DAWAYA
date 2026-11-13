@@ -6,9 +6,9 @@
    - Google Fonts & Static Media (icons, brand SVGs, images, audio): Cache-First with background refresh. */
 
 const CACHE_PREFIX = 'dawaya-speed-cache-';
-const STATIC_CACHE = CACHE_PREFIX + 'static-v7';
-const SHELL_CACHE = CACHE_PREFIX + 'shell-v7';
-const MEDIA_FONT_CACHE = CACHE_PREFIX + 'media-fonts-v7';
+const STATIC_CACHE = CACHE_PREFIX + 'static-v8';
+const SHELL_CACHE = CACHE_PREFIX + 'shell-v8';
+const MEDIA_FONT_CACHE = CACHE_PREFIX + 'media-fonts-v8';
 const ACTIVE_CACHES = [STATIC_CACHE, SHELL_CACHE, MEDIA_FONT_CACHE];
 
 const OFFLINE_URL = './offline.html';
@@ -117,13 +117,11 @@ self.addEventListener('fetch', (event) => {
           })
           .catch(() => null);
 
-        if (cachedShell) {
-          event.waitUntil(networkRefresh);
-          return cachedShell;
-        }
-
-        const fresh = await networkRefresh;
-        return fresh || (await cache.match(OFFLINE_URL));
+        const timeoutFallback = new Promise((resolve) =>
+          setTimeout(() => resolve(cachedShell), 1200)
+        );
+        const winner = await Promise.race([networkRefresh, timeoutFallback]);
+        return winner || cachedShell || (await cache.match(OFFLINE_URL));
       })
     );
     return;

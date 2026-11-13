@@ -1,5 +1,5 @@
-import { HealthProfile } from './allergyData';
-import { scheduleNativeDoseAlarm } from './nativeAlarmService';
+import { UserHealthProfile } from './allergyData';
+import { scheduleSingleNativeDoseAlarm } from './nativeAlarmService';
 import { TreatmentSchedule } from './trackerData';
 
 export interface HeartRateReading {
@@ -33,7 +33,6 @@ export interface SmartwatchHealthStorage {
 }
 
 const STORAGE_KEY = 'dawaya_smartwatch_health_v1';
-const HYDRATION_ALARM_BASE_ID = 88100;
 
 function getTodayKey(): string {
   return new Date().toISOString().slice(0, 10);
@@ -85,8 +84,8 @@ export function saveSmartwatchHealthState(state: SmartwatchHealthStorage): void 
 }
 
 export function computeSmartHydrationTarget(
-  schedules: TreatmentSchedule[],
-  profile?: HealthProfile | null
+  schedules: TreatmentSchedule[] = [],
+  profile?: UserHealthProfile | null
 ): {
   targetMl: number;
   baseMl: number;
@@ -99,10 +98,8 @@ export function computeSmartHydrationTarget(
   const reasonsAr: string[] = [];
   const reasonsEn: string[] = [];
 
-  const activeSchedules = schedules.filter((s) => {
-    const hasPending = s.doses?.some((d) => d.status === 'pending');
-    return hasPending || (s.doses?.length ?? 0) > 0;
-  });
+  const safeSchedules = Array.isArray(schedules) ? schedules : [];
+  const activeSchedules = safeSchedules.filter((s) => (s?.doses?.length ?? 0) > 0);
 
   if (activeSchedules.length > 0) {
     extraMl += Math.min(activeSchedules.length * 300, 600);
@@ -110,17 +107,27 @@ export function computeSmartHydrationTarget(
     reasonsEn.push(`${activeSchedules.length} active medication(s) requiring extra renal & gastric hydration`);
   }
 
-  const extraText = activeSchedules.map((s) => `${s.tradeNameEn} ${s.tradeNameAr} ${s.activeIngredient}`).join(' ').toLowerCase();
+  const extraText = activeSchedules
+    .map((s) => `${s?.medicineName || ''} ${s?.prescribedDose || ''} ${s?.notes || ''}`)
+    .join(' ')
+    .toLowerCase();
+
   if (/effervescent|فوار|cipro|ليفو|levo|sulfa|metformin|جلوكوفاج|nsaid|ibuprofen|cataflam|voltaren|بروفين|كتافلام/i.test(extraText)) {
     extraMl += 250;
     reasonsAr.push('أدوية تتطلب شرب كوب ماء كبير مع كل جرعة لحماية الكلى');
     reasonsEn.push('Medications requiring a full glass of water per dose to protect kidneys');
   }
 
-  if (profile?.chronicConditions?.some((c) => /diabet|kidney|renal|gout|سكر|كلى|نقرس/i.test(c))) {
+  const chronicList = Array.isArray(profile?.chronicConditions) ? profile!.chronicConditions : [];
+  const hasRenalOrMetabolic = chronicList.some((c) => {
+    const label = typeof c === 'string' ? c : `${c?.conditionName || ''} ${c?.notes || ''}`;
+    return /diabet|kidney|renal|gout|سكر|كلى|نقرس/i.test(label);
+  });
+
+  if (hasRenalOrMetabolic || profile?.renalStatus === 'impaired') {
     extraMl += 250;
-    reasonsAr.push('حالة صحية مزمنة تستفيد من انتظام شرب المياه');
-    reasonsEn.push('Chronic condition benefiting from regular hydration');
+    reasonsAr.push('حالة صحية تستفيد من انتظام شرب المياه على مدار اليوم');
+    reasonsEn.push('Health condition benefiting from regular hydration');
   }
 
   return {
@@ -147,17 +154,24 @@ const RATE_RAISING_PATTERNS = [
   'theophylline', 'ثيوفيللين', 'amaryl', 'panadol extra', 'بنادول اكسترا', 'caffeine',
 ];
 
-function collectPatientMedicationNames(schedules: TreatmentSchedule[], profile?: HealthProfile | null): string[] {
+function collectPatientMedicationNames(
+  schedules: TreatmentSchedule[] = [],
+  profile?: UserHealthProfile | null
+): string[] {
   const names = new Set<string>();
-  for (const s of schedules) {
-    if (s.tradeNameAr) names.add(s.tradeNameAr);
-    if (s.tradeNameEn) names.add(s.tradeNameEn);
-    if (s.activeIngredient) names.add(s.activeIngredient);
-  }
-  if (profile?.currentMedications) {
-    for (const m of profile.currentMedications) {
-      if (m.trim()) names.add(m.trim());
+  const safeSchedules = Array.isArray(schedules) ? schedules : [];
+  for (const s of safeSchedules) {
+    if (s?.medicineName) names.add(s.medicineName);
+    if (Array.isArray(s?.coMedications)) {
+      for (const cm of s.coMedications) {
+        if (cm) names.add(cm);
+      }
     }
+  }
+  const medList = Array.isArray(profile?.medications) ? profile!.medications : [];
+  for (const m of medList) {
+    if (m?.drugName) names.add(m.drugName);
+    if (m?.activeIngredients) names.add(m.activeIngredients);
   }
   return Array.from(names);
 }
@@ -165,8 +179,8 @@ function collectPatientMedicationNames(schedules: TreatmentSchedule[], profile?:
 export function evaluateHeartRateWithMedications(
   bpm: number,
   state: 'resting' | 'active',
-  schedules: TreatmentSchedule[],
-  profile?: HealthProfile | null
+  schedules: TreatmentSchedule[] = [],
+  profile?: UserHealthProfile | null
 ): Omit<HeartRateReading, 'id' | 'source' | 'deviceName' | 'timestamp'> {
   const medNames = collectPatientMedicationNames(schedules, profile);
   const medHaystack = medNames.join(' | ').toLowerCase();
@@ -265,7 +279,6 @@ export async function sendSmartwatchTestPing(isAr: boolean): Promise<{ ok: boole
     ? 'ممتاز! هذا تنبيه تجريبي للساعة الذكية: موعد الدواء وشرب المياه سيصلانك هنا بوضوح.'
     : 'Success! Dose & hydration alerts will appear cleanly on your smartwatch.';
 
-  // 1. Native Android APK bridge (shows immediately on Android + paired Oraimo/Xiaomi/Samsung watch)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bridge = typeof window !== 'undefined' ? (window as any).AndroidAlarmBridge : null;
   if (bridge && typeof bridge.scheduleExactAlarm === 'function') {
@@ -278,7 +291,6 @@ export async function sendSmartwatchTestPing(isAr: boolean): Promise<{ ok: boole
     }
   }
 
-  // 2. Web / PWA Notification via Service Worker
   if (typeof window !== 'undefined' && 'Notification' in window) {
     let perm = Notification.permission;
     if (perm === 'default') {
@@ -293,8 +305,7 @@ export async function sendSmartwatchTestPing(isAr: boolean): Promise<{ ok: boole
             icon: './favicon-192.png',
             badge: './favicon-48.png',
             tag: 'dawaya-smartwatch-test',
-            vibrate: [200, 100, 200],
-          } as NotificationOptions);
+          });
           return { ok: true, via: 'sw_notification' };
         }
         new Notification(title, { body, icon: './favicon-192.png' });
@@ -310,14 +321,15 @@ export async function sendSmartwatchTestPing(isAr: boolean): Promise<{ ok: boole
 
 export async function scheduleSmartwatchHydrationAlarms(
   hydration: HydrationState,
-  schedules: TreatmentSchedule[],
+  schedules: TreatmentSchedule[] = [],
   isAr: boolean
 ): Promise<number> {
   if (!hydration.enabled) return 0;
 
-  const activeNames = schedules
-    .filter((s) => s.doses?.some((d) => d.status === 'pending'))
-    .map((s) => (isAr ? s.tradeNameAr || s.tradeNameEn : s.tradeNameEn))
+  const safeSchedules = Array.isArray(schedules) ? schedules : [];
+  const activeNames = safeSchedules
+    .map((s) => s?.medicineName)
+    .filter(Boolean)
     .slice(0, 2);
 
   const medNote = activeNames.length
@@ -328,27 +340,13 @@ export async function scheduleSmartwatchHydrationAlarms(
       ? 'للحفاظ على ترطيب جسمك وامتصاص الدواء'
       : 'to keep your body hydrated for optimal recovery';
 
-  const now = new Date();
   let scheduled = 0;
 
   for (let h = hydration.wakeHour; h <= hydration.sleepHour && scheduled < 6; h += hydration.intervalHours) {
-    const slot = new Date(now);
-    slot.setHours(h, 0, 0, 0);
-    if (slot.getTime() <= now.getTime() + 60_000) {
-      slot.setDate(slot.getDate() + 1);
-    }
-    const alarmId = HYDRATION_ALARM_BASE_ID + scheduled;
-    const title = isAr ? '⌚💧 وقت شرب كوب ماء الآن' : '⌚💧 Time for a Glass of Water';
-    const body = isAr ? `اشرب 250 مل ماء ${medNote}.` : `Drink 250 ml water ${medNote}.`;
-
-    const ok = await scheduleNativeDoseAlarm({
-      id: alarmId,
-      title,
-      body,
-      triggerAtMillis: slot.getTime(),
-      isAr,
-    });
-    if (ok) scheduled += 1;
+    const hhmm = `${String(h).padStart(2, '0')}:00`;
+    const label = isAr ? '⌚💧 شرب كوب ماء (250 مل)' : '⌚💧 Drink 250 ml Water';
+    const res = await scheduleSingleNativeDoseAlarm(label, medNote, hhmm, isAr);
+    if (res.success) scheduled += 1;
   }
 
   return scheduled;

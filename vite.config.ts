@@ -120,14 +120,7 @@ export default defineConfig({
           ) {
             return 'dawaya-drug-db';
           }
-          if (
-            id.includes('medicationSafetyEngine') ||
-            id.includes('interactionsData') ||
-            id.includes('trackerData') ||
-            id.includes('allergyData')
-          ) {
-            return 'dawaya-clinical-data';
-          }
+
         },
       },
     },

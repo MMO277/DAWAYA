@@ -151,6 +151,18 @@ export default function Home() {
   // Concise Bento Grid Clinical Tools (Exact original icon & card structure, upgraded for all 26,562 medicines)
   const clinicalTools = [
     {
+      to: '/patient-dashboard',
+      icon: '⌚',
+      badge: tr(lang, 'ربط الساعة الذكية', 'Smartwatch Sync'),
+      title: tr(lang, 'مركز الساعة الذكية ونبضات القلب وشرب المياه (Smartwatch Hub)', 'Smartwatch, Heart Rate & Hydration Center'),
+      desc: tr(
+        lang,
+        'استقبل مواعيد الدواء وشرب المياه على ساعتك الذكية (أورايمو وجميع الساعات) مع فحص نبضات القلب والتحذيرات الدوائية الفورية',
+        'Receive medication and hydration alerts on your smartwatch with instant heart-rate vs. medication safety screening'
+      ),
+      color: '#0284c7',
+    },
+    {
       to: '/missed-dose-rescue',
       icon: '🚨',
       badge: tr(lang, 'إنقاذ الجرعة', 'Missed Dose'),

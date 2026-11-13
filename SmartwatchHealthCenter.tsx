@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { HealthProfile } from './allergyData';
+import { UserHealthProfile } from './allergyData';
 import { TreatmentSchedule } from './trackerData';
 import {
   computeSmartHydrationTarget,
@@ -18,7 +18,7 @@ import {
 interface SmartwatchHealthCenterProps {
   isAr: boolean;
   schedules: TreatmentSchedule[];
-  profile?: HealthProfile | null;
+  profile?: UserHealthProfile | null;
   compact?: boolean;
 }
 
