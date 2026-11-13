@@ -1,3 +1,4 @@
+import { SafeInjectionSyringeGuardCard } from './egyptianClinicalInnovations';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -93,6 +94,8 @@ export default function Interactions() {
             : `Screen for drug-drug interactions, food interactions, and duplicate active ingredients across all ${totalCount.toLocaleString()}+ DAWAYA medicines.`}
         </p>
       </header>
+
+      <SafeInjectionSyringeGuardCard isAr={isAr} />
 
       {/* NEW: Multi-Medicine Duplicate Ingredient & Interaction Analyzer (All 26,562+ Medicines) */}
       <section className="card highlight-card stack">

@@ -1,3 +1,4 @@
+import { SmartPharmacyBillOptimizerCard } from './egyptianClinicalInnovations';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import SmartMedDoseReminderBadge from './SmartMedDoseReminderBadge';
 import { useEffect, useMemo, useState } from 'react';
@@ -196,6 +197,7 @@ export default function CostSaver() {
 
   return (
     <main className="wrap stack cost-saver-main">
+      <SmartPharmacyBillOptimizerCard isAr={isAr} />
       {/* Hero Banner with Mode Switcher */}
       <section className="card cost-saver-hero" style={{ borderTop: '4px solid #138866' }}>
         <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: '14px' }}>

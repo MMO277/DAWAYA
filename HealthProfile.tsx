@@ -1,3 +1,4 @@
+import { DriverDrugTestShieldCard } from './egyptianClinicalInnovations';
 import { HealthProfilePrivacyGate } from './profilePrivacyLock';
 import SmartChoiceSelect, { SmartNativeSelect } from './SmartChoiceSelect';
 import { evaluateMedicationSafety } from './medicationSafetyEngine';
@@ -520,6 +521,8 @@ export default function HealthProfile() {
           </div>
         </div>
       </section>
+
+      <DriverDrugTestShieldCard isAr={isAr} />
 
       {/* Live Central Medication Safety Engine Assessment inside Health Profile */}
       <section className="card stack" style={{ borderInlineStart: '5px solid #138866' }}>

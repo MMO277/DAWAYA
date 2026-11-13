@@ -1,3 +1,4 @@
+import { PostOpeningExpiryTrackerCard } from './egyptianClinicalInnovations';
 import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -198,6 +199,7 @@ export default function HomeMedicineCabinet() {
 
   return (
     <main className="wrap stack" style={{ paddingTop: '10px' }}>
+      <PostOpeningExpiryTrackerCard isAr={isAr} />
       {/* Hero Header */}
       <section
         className="card"

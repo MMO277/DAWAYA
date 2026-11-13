@@ -1,3 +1,4 @@
+import { MedicineDriverAndInjectionBanner } from './egyptianClinicalInnovations';
 import { EdaCounterfeitRadarCard } from './edaCounterfeitRadar';
 import SmartMedDoseReminderBadge from './SmartMedDoseReminderBadge';
 import {
@@ -1061,6 +1062,14 @@ export default function MedicinePage() {
         medicineNameEn={dawayaRecord?.brandNameEn || m.genericName.en || name}
         genericName={dawayaRecord?.genericName || m.activeIngredients.en}
         officialBarcode={dawayaRecord?.barcode}
+        isAr={isAr}
+      />
+
+      <MedicineDriverAndInjectionBanner
+        medicineNameAr={dawayaRecord?.brandNameAr || name}
+        medicineNameEn={dawayaRecord?.brandNameEn || m.genericName.en || name}
+        genericName={dawayaRecord?.genericName || m.activeIngredients.en}
+        dosageForm={dawayaRecord?.dosageForm}
         isAr={isAr}
       />
 

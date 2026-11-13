@@ -1,3 +1,4 @@
+import { TeaCoffeeTimingMatrixCard } from './egyptianClinicalInnovations';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -194,6 +195,7 @@ export default function FoodDrugInteractionChecker() {
 
   return (
     <main className="wrap" style={{ maxWidth: '1160px', margin: '0 auto', padding: '16px' }}>
+      <div style={{ marginBottom: '16px' }}><TeaCoffeeTimingMatrixCard isAr={lang === 'ar'} /></div>
       {/* Hero Banner */}
       <section
         className="card"

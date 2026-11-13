@@ -1,3 +1,4 @@
+import { DriverDrugTestShieldCard } from './egyptianClinicalInnovations';
 import { FormEvent, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -337,6 +338,8 @@ export default function PatientDashboard() {
           )}
         </div>
       </section>
+
+      <DriverDrugTestShieldCard isAr={isAr} />
 
       {/* 2.5 Daily Medication Hydration Guard Strip */}
       <section
