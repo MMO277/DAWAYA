@@ -6,9 +6,9 @@
    - Google Fonts & Static Media (icons, brand SVGs, images, audio): Cache-First with background refresh. */
 
 const CACHE_PREFIX = 'dawaya-speed-cache-';
-const STATIC_CACHE = CACHE_PREFIX + 'static-v6';
-const SHELL_CACHE = CACHE_PREFIX + 'shell-v6';
-const MEDIA_FONT_CACHE = CACHE_PREFIX + 'media-fonts-v6';
+const STATIC_CACHE = CACHE_PREFIX + 'static-v7';
+const SHELL_CACHE = CACHE_PREFIX + 'shell-v7';
+const MEDIA_FONT_CACHE = CACHE_PREFIX + 'media-fonts-v7';
 const ACTIVE_CACHES = [STATIC_CACHE, SHELL_CACHE, MEDIA_FONT_CACHE];
 
 const OFFLINE_URL = './offline.html';
@@ -103,21 +103,27 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate') {
     event.respondWith(
       caches.open(SHELL_CACHE).then(async (cache) => {
-        try {
-          const freshRes = await fetch(req, { cache: 'no-cache' });
-          if (freshRes && freshRes.status === 200 && freshRes.type === 'basic') {
-            cache.put('./index.html', freshRes.clone());
-            return freshRes;
-          }
-        } catch {
-          /* Offline — serve cached shell immediately below */
-        }
-        return (
+        const cachedShell =
           (await cache.match('./index.html')) ||
           (await cache.match('./')) ||
-          (await caches.match('./index.html')) ||
-          (await cache.match(OFFLINE_URL))
-        );
+          (await caches.match('./index.html'));
+
+        const networkRefresh = fetch(req, { cache: 'no-cache' })
+          .then((freshRes) => {
+            if (freshRes && freshRes.status === 200 && freshRes.type === 'basic') {
+              cache.put('./index.html', freshRes.clone());
+            }
+            return freshRes;
+          })
+          .catch(() => null);
+
+        if (cachedShell) {
+          event.waitUntil(networkRefresh);
+          return cachedShell;
+        }
+
+        const fresh = await networkRefresh;
+        return fresh || (await cache.match(OFFLINE_URL));
       })
     );
     return;
