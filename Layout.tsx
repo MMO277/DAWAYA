@@ -15,9 +15,11 @@ import {
   NavRadarVectorIcon,
   NavShieldSafetyVectorIcon,
 } from './DawayaVectorIcons';
-import AppUpdateManager, { triggerUpdateCheckerManually } from "./AppUpdateManager";
-import OnboardingTour, { triggerOnboardingTourManually } from "./OnboardingTour";
-import { GlobalPhoneAlarmOverlay } from './SmartDoseAlarmCard';
+const AppUpdateManager = lazy(() => import("./AppUpdateManager"));
+const OnboardingTour = lazy(() => import("./OnboardingTour"));
+const GlobalPhoneAlarmOverlay = lazy(() =>
+  import('./SmartDoseAlarmCard').then((m) => ({ default: m.GlobalPhoneAlarmOverlay }))
+);
 import { lazy, Suspense, ReactNode, useRef, useEffect, useState, useMemo } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useLang, SUPPORTED_LANGS } from './i18n';
@@ -431,6 +433,11 @@ function SmartCrossClinicSafetyBanner() {
 }
 
 export default function Layout({ children }: { children: ReactNode }) {
+  const [deferredOverlaysReady, setDeferredOverlaysReady] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDeferredOverlaysReady(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
   const { t, lang, setLang } = useLang();
   const { emergency, countryName } = useEmergencyLocation();
   const isAr = lang === 'ar';
@@ -1972,7 +1979,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 className="drawer-item"
                 onClick={() => {
                   closeDrawer(false);
-                  triggerOnboardingTourManually();
+                  import('./OnboardingTour').then((m) => m.triggerOnboardingTourManually());
                 }}
               >
                 <span className="item-icon" aria-hidden="true">🧭</span>
@@ -1986,7 +1993,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 className="drawer-item"
                 onClick={() => {
                   closeDrawer(false);
-                  triggerUpdateCheckerManually();
+                  import('./AppUpdateManager').then((m) => m.triggerUpdateCheckerManually());
                 }}
               >
                 <span className="item-icon" aria-hidden="true">🔄</span>
@@ -2129,9 +2136,13 @@ export default function Layout({ children }: { children: ReactNode }) {
         {children}
       </div>
 
-      <GlobalPhoneAlarmOverlay />
-      <OnboardingTour />
-      <AppUpdateManager />
+      {deferredOverlaysReady && (
+        <Suspense fallback={null}>
+          <GlobalPhoneAlarmOverlay />
+          <OnboardingTour />
+          <AppUpdateManager />
+        </Suspense>
+      )}
 
       {spotlightOpen && (
         <Suspense fallback={null}>

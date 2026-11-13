@@ -4,7 +4,7 @@ import { evaluateMedicationSafety } from './medicationSafetyEngine';
 import { useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
 import { pick } from './types';
 import { createPortal } from 'react-dom';
-import { FormEvent, useEffect, useState, useRef, useCallback } from 'react';
+import { FormEvent, lazy, Suspense, useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
 import { useAuth } from './authContext';
@@ -520,6 +520,10 @@ export default function HealthProfile() {
           </div>
         </div>
       </section>
+
+      <Suspense fallback={null}>
+        <SmartwatchHealthCenter isAr={isAr} schedules={schedules} profile={profile} compact />
+      </Suspense>
 
       {/* Live Central Medication Safety Engine Assessment inside Health Profile */}
       <section className="card stack" style={{ borderInlineStart: '5px solid #138866' }}>

@@ -1,8 +1,10 @@
 import { DawayaFullWordmark } from './DawayaLogo';
 import { DawayaRouteVectorIcon, HeroMicVectorIcon, HeroScannerVectorIcon, HeroSearchVectorIcon } from './DawayaVectorIcons';
 import { PersonaType } from './SmartPersonaAndSpotlight';
-import { PublicPartnerPlacementSection } from './PartnersDirectory';
 import { CSSProperties, FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+const PublicPartnerPlacementSection = lazy(() =>
+  import('./PartnersDirectory').then((m) => ({ default: m.PublicPartnerPlacementSection }))
+);
 import { Link, useNavigate } from 'react-router-dom';
 import { useLang } from './i18n';
 import { ARTICLES } from './articlesData';
@@ -11,7 +13,7 @@ import Disclaimer from './Disclaimer';
 import DidYouKnow from './DidYouKnow';
 import ResistanceCounter from './ResistanceCounter';
 import { useClinicalProMode } from './clinicalProData';
-import { EGYPTIAN_COMMERCIAL_PRODUCTS } from './egyptianDrugDatabase';
+import type { EgyptianCommercialProduct } from './egyptianDrugDatabase';
 import {
   clearRecentlyViewedMedicines,
   DAWAYA_CATEGORY_LABELS,
@@ -40,6 +42,12 @@ export default function Home() {
   const [selectedPersona, setSelectedPersona] = useState<PersonaType>('all');
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [recentMeds, setRecentMeds] = useState<RecentlyViewedMedItem[]>(() => getRecentlyViewedMedicines());
+  const [abxProducts, setAbxProducts] = useState<EgyptianCommercialProduct[]>([]);
+  useEffect(() => {
+    if (q.trim().length >= 2 && abxProducts.length === 0) {
+      import('./egyptianDrugDatabase').then((m) => setAbxProducts(m.EGYPTIAN_COMMERCIAL_PRODUCTS)).catch(() => {});
+    }
+  }, [q, abxProducts.length]);
   const searchWrapRef = useRef<HTMLDivElement>(null);
 
   const go = (e: FormEvent) => {
@@ -113,7 +121,7 @@ export default function Home() {
 
     if (dawayaMatches.length >= 5) return dawayaMatches;
 
-    const abxMatches = EGYPTIAN_COMMERCIAL_PRODUCTS.filter((p) => {
+    const abxMatches = abxProducts.filter((p) => {
       const hay = norm(
         `${p.tradeNameAr} ${p.tradeNameEn} ${p.scientificComposition} ${p.barcode || ''} ${p.manufacturer}`
       );
@@ -129,7 +137,7 @@ export default function Home() {
       }));
 
     return [...dawayaMatches, ...abxMatches];
-  }, [q, indexItems, isAr, lang]);
+  }, [q, indexItems, abxProducts, isAr, lang]);
 
   const handleChoosePersona = (p: PersonaType) => {
     setSelectedPersona(p);
@@ -1518,7 +1526,9 @@ export default function Home() {
         </section>
 
         {/* Dynamic Partner Placement on Homepage */}
-        <PublicPartnerPlacementSection placement="homepage_featured" />
+        <Suspense fallback={null}>
+          <PublicPartnerPlacementSection placement="homepage_featured" />
+        </Suspense>
 
         {/* WHO AWaRe & Rational Medication Stewardship Section (Preserved from Original Site inside Comprehensive DAWAYA Identity) */}
         <section className="card stack" style={{ borderTop: '4px solid #138866' }}>
