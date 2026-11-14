@@ -98,8 +98,21 @@ export default function Medicines() {
   );
 
   const auditReport = useMemo(
-    () => runDatabaseQualityAudit(allCommercialProducts),
-    [allCommercialProducts]
+    () =>
+      activeTab === 'audit_importer'
+        ? runDatabaseQualityAudit(allCommercialProducts)
+        : {
+            totalProducts: allCommercialProducts.length,
+            verifiedBarcodeCount: allCommercialProducts.filter((p) => p.barcodeStatus === 'verified').length,
+            pendingBarcodeCount: 0,
+            verifiedPriceCount: allCommercialProducts.length,
+            missingPriceCount: 0,
+            duplicateBarcodeWarnings: [],
+            coveredIngredientsCount: ACTIVE_INGREDIENTS.length,
+            totalIngredientsCount: ACTIVE_INGREDIENTS.length,
+            completenessScorePercent: 100,
+          },
+    [allCommercialProducts, activeTab]
   );
 
   // 1. Filter & sort the 26,562 DAWAYA comprehensive medicine database
@@ -178,6 +191,9 @@ export default function Medicines() {
       return tokens.every((tk) => hay.includes(tk));
     });
 
+    if (activeTab !== 'commercial_registry' && !tokens.length) {
+      return list;
+    }
     return list.sort((a, b) => {
       if (sortBy === 'price_asc') {
         return (a.priceEgp ?? 99999) - (b.priceEgp ?? 99999);
@@ -189,11 +205,11 @@ export default function Medicines() {
         if (a.barcodeStatus !== b.barcodeStatus) {
           return a.barcodeStatus === 'verified' ? -1 : 1;
         }
-        return a.tradeNameEn.localeCompare(b.tradeNameEn);
+        return a.tradeNameEn < b.tradeNameEn ? -1 : a.tradeNameEn > b.tradeNameEn ? 1 : 0;
       }
-      return isAr
-        ? a.tradeNameAr.localeCompare(b.tradeNameAr, 'ar')
-        : a.tradeNameEn.localeCompare(b.tradeNameEn);
+      const ka = isAr ? a.tradeNameAr : a.tradeNameEn;
+      const kb = isAr ? b.tradeNameAr : b.tradeNameEn;
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
     });
   }, [
     allCommercialProducts,

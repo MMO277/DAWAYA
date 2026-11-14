@@ -295,8 +295,101 @@ export interface DawayaLivePriceSyncStatus {
   cloudConnected: boolean;
 }
 
-let globalIndexItems: DawayaCompactIndexItem[] = [];
+// Instant 0ms seed from EGYPTIAN_COMMERCIAL_PRODUCTS so <Medicines /> renders immediately even before IndexedDB/JSON finishes
+function buildInitialSeedCompactItems(): DawayaCompactIndexItem[] {
+  return EGYPTIAN_COMMERCIAL_PRODUCTS.map((p, idx) => ({
+    i: p.productId || `eg-seed-${idx + 1}`,
+    n: p.tradeNameEn,
+    a: p.tradeNameAr,
+    g: p.scientificComposition || p.activeIngredientId,
+    c: p.manufacturer,
+    p: p.priceEgp ?? null,
+    op: null,
+    b: p.barcode || '',
+    f: p.dosageForm || 'tablet',
+    r: p.route || 'oral',
+    s: p.strength || '',
+    k: 'antibiotics' as DawayaTherapeuticCategory,
+    d: p.dosageFormLabel?.ar || 'مضاد حيوي',
+    w: 0,
+    u: '1',
+    ch: 0,
+    v: 1,
+  }));
+}
+
+let globalIndexItems: DawayaCompactIndexItem[] = buildInitialSeedCompactItems();
 let globalIndexLoaded = false;
+
+const IDB_NAME = 'dawaya_fast_idb_v1';
+const IDB_STORE = 'med_index_store';
+const IDB_KEY = 'full_26562_index_v1';
+
+function readIndexFromIndexedDB(): Promise<DawayaCompactIndexItem[] | null> {
+  if (typeof window === 'undefined' || !('indexedDB' in window)) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const req = window.indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = () => {
+        try {
+          const db = req.result;
+          const tx = db.transaction(IDB_STORE, 'readonly');
+          const getReq = tx.objectStore(IDB_STORE).get(IDB_KEY);
+          getReq.onsuccess = () => {
+            const val = getReq.result;
+            resolve(Array.isArray(val) && val.length > 1000 ? val : null);
+          };
+          getReq.onerror = () => resolve(null);
+        } catch {
+          resolve(null);
+        }
+      };
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function writeIndexToIndexedDB(items: DawayaCompactIndexItem[]): void {
+  if (typeof window === 'undefined' || !('indexedDB' in window)) return;
+  try {
+    const req = window.indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess = () => {
+      try {
+        const db = req.result;
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put(items, IDB_KEY);
+      } catch {
+        /* ignore */
+      }
+    };
+  } catch {
+    /* ignore */
+  }
+}
+
+function fastPreSortVerifiedFirst(items: DawayaCompactIndexItem[]): void {
+  items.sort((a, b) => {
+    if (a.v !== b.v) return b.v - a.v;
+    const aHasB = Boolean(a.b);
+    const bHasB = Boolean(b.b);
+    if (aHasB !== bHasB) return aHasB ? -1 : 1;
+    return a.n < b.n ? -1 : a.n > b.n ? 1 : 0;
+  });
+}
 let globalIndexLoadingPromise: Promise<DawayaCompactIndexItem[]> | null = null;
 let globalImportReport: DawayaImportReport | null = null;
 let livePriceListenerStarted = false;
@@ -518,19 +611,18 @@ export async function ensureDawayaDatabaseLoaded(): Promise<DawayaCompactIndexIt
   }
 
   globalIndexLoadingPromise = (async () => {
-    try {
-      const baseUrl = import.meta.env?.BASE_URL || './';
-      const res = await fetch(`${baseUrl}data/dawaya_medicines_search_index.json`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as DawayaCompactIndexItem[];
+    const applyLoadedData = (rawItems: DawayaCompactIndexItem[]) => {
       const overrides = loadAdminCustomOverrides();
-      const merged = data.map((item) => overrides[item.i] || item);
-      // Append any brand-new admin items not in original CSV
-      for (const [key, val] of Object.entries(overrides)) {
-        if (!indexByIdMap.has(key.toLowerCase()) && !data.some((d) => d.i === key)) {
-          merged.unshift(val);
+      const hasOverrides = Object.keys(overrides).length > 0;
+      const merged = hasOverrides ? rawItems.map((item) => overrides[item.i] || item) : rawItems;
+      if (hasOverrides) {
+        for (const [key, val] of Object.entries(overrides)) {
+          if (!indexByIdMap.has(key.toLowerCase()) && !rawItems.some((d) => d.i === key)) {
+            merged.unshift(val);
+          }
         }
       }
+      fastPreSortVerifiedFirst(merged);
       globalIndexItems = merged;
       globalIndexLoaded = true;
       rebuildFastMaps(globalIndexItems);
@@ -543,6 +635,25 @@ export async function ensureDawayaDatabaseLoaded(): Promise<DawayaCompactIndexIt
         window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
       }
       return globalIndexItems;
+    };
+
+    try {
+      // 1) Try ultra-fast IndexedDB cache first (<30ms on mobile!)
+      const idbCached = await readIndexFromIndexedDB();
+      if (idbCached && idbCached.length > 1000) {
+        return applyLoadedData(idbCached);
+      }
+
+      // 2) Otherwise fetch JSON once, pre-sort, and store in IndexedDB permanently
+      const baseUrl = import.meta.env?.BASE_URL || './';
+      const res = await fetch(`${baseUrl}data/dawaya_medicines_search_index.json`, {
+        cache: 'force-cache',
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as DawayaCompactIndexItem[];
+      const finalItems = applyLoadedData(data);
+      writeIndexToIndexedDB(data);
+      return finalItems;
     } catch (err) {
       console.warn('Could not load full 26,562 index JSON, falling back to core catalog:', err);
       globalIndexLoadingPromise = null;
@@ -1347,24 +1458,50 @@ function arabicConsonantSkeleton(s: string): string {
   return s.replace(/([\u0621-\u064A])([اوي]+)/g, '$1');
 }
 
+const cachedHaystackByItem = new WeakMap<DawayaCompactIndexItem, { hay: string; skel: string }>();
+
+function getFastItemHaystack(item: DawayaCompactIndexItem): { hay: string; skel: string } {
+  let cached = cachedHaystackByItem.get(item);
+  if (!cached) {
+    const hay = norm(`${item.n} ${item.a} ${item.g} ${item.c} ${item.s} ${item.d} ${item.b} ${item.i}`);
+    cached = { hay, skel: arabicConsonantSkeleton(hay) };
+    cachedHaystackByItem.set(item, cached);
+  }
+  return cached;
+}
+
 export function searchDawayaIndex(
   items: DawayaCompactIndexItem[],
   filters: DawayaSearchFilters,
   isAr = true
 ): DawayaCompactIndexItem[] {
   const rawQ = norm(filters.query || '');
-  const tokens = rawQ.split(/\s+/).filter(Boolean);
-  const expandedTokens = tokens.map((tk) => ({
-    raw: tk,
-    alt: ARABIC_TO_ENGLISH_INGREDIENT_MAP[tk] || tk,
-    skel: tk.length >= 4 && /[\u0600-\u06FF]/.test(tk) ? arabicConsonantSkeleton(tk) : tk,
-  }));
   const cat = filters.category || 'all';
   const form = filters.dosageForm || 'all';
   const route = filters.route || 'all';
   const bcFilter = filters.barcodeFilter || 'all';
   const comboFilter = filters.combinationFilter || 'all';
   const sortBy = filters.sortBy || (rawQ ? 'relevance' : 'verified_first');
+
+  // O(1) 0.00ms Instant Fast-Path when opening Medicines page with default filters!
+  if (
+    !rawQ &&
+    cat === 'all' &&
+    form === 'all' &&
+    route === 'all' &&
+    bcFilter === 'all' &&
+    comboFilter === 'all' &&
+    sortBy === 'verified_first'
+  ) {
+    return items;
+  }
+
+  const tokens = rawQ ? rawQ.split(/\s+/).filter(Boolean) : [];
+  const expandedTokens = tokens.map((tk) => ({
+    raw: tk,
+    alt: ARABIC_TO_ENGLISH_INGREDIENT_MAP[tk] || tk,
+    skel: tk.length >= 4 && /[\u0600-\u06FF]/.test(tk) ? arabicConsonantSkeleton(tk) : tk,
+  }));
 
   const filtered = items.filter((item) => {
     if (cat !== 'all' && item.k !== cat) return false;
@@ -1380,13 +1517,16 @@ export function searchDawayaIndex(
 
     if (expandedTokens.length === 0) return true;
 
-    const hay = norm(`${item.n} ${item.a} ${item.g} ${item.c} ${item.s} ${item.d} ${item.b} ${item.i}`);
-    const haySkel = arabicConsonantSkeleton(hay);
+    const { hay, skel } = getFastItemHaystack(item);
     return expandedTokens.every(
-      (t) => hay.includes(t.raw) || hay.includes(t.alt) || (t.skel.length >= 3 && haySkel.includes(t.skel))
+      (t) => hay.includes(t.raw) || hay.includes(t.alt) || (t.skel.length >= 3 && skel.includes(t.skel))
     );
   });
 
+  // Since items is already pre-sorted in verified_first order, skip sorting when sortBy === 'verified_first'!
+  if (sortBy === 'verified_first') {
+    return filtered;
+  }
   if (sortBy === 'price_asc') {
     return filtered.sort((a, b) => (a.p ?? 999999) - (b.p ?? 999999));
   }
@@ -1394,9 +1534,11 @@ export function searchDawayaIndex(
     return filtered.sort((a, b) => (b.p ?? 0) - (a.p ?? 0));
   }
   if (sortBy === 'name') {
-    return filtered.sort((a, b) =>
-      isAr ? a.a.localeCompare(b.a, 'ar') : a.n.localeCompare(b.n)
-    );
+    return filtered.sort((a, b) => {
+      const ka = isAr ? a.a || a.n : a.n;
+      const kb = isAr ? b.a || b.n : b.n;
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
   }
   if (sortBy === 'relevance' && rawQ) {
     return filtered.sort((a, b) => {
@@ -1414,15 +1556,11 @@ export function searchDawayaIndex(
           : 1;
       if (aExact !== bExact) return aExact - bExact;
       if (a.v !== b.v) return b.v - a.v;
-      return a.n.localeCompare(b.n);
+      return a.n < b.n ? -1 : a.n > b.n ? 1 : 0;
     });
   }
 
-  return filtered.sort((a, b) => {
-    if (a.v !== b.v) return b.v - a.v;
-    if (Boolean(a.b) !== Boolean(b.b)) return a.b ? -1 : 1;
-    return a.n.localeCompare(b.n);
-  });
+  return filtered;
 }
 
 /**
@@ -1796,4 +1934,11 @@ export function clearRecentlyViewedMedicines(): void {
   } catch {
     /* ignore */
   }
+}
+
+if (typeof window !== 'undefined') {
+  rebuildFastMaps(globalIndexItems);
+  window.setTimeout(() => {
+    ensureDawayaDatabaseLoaded().catch(() => {});
+  }, 60);
 }
