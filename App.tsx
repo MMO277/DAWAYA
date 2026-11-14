@@ -1,3 +1,4 @@
+import { DawayaIconMark } from './DawayaLogo';
 import DawayaErrorBoundary from './ErrorBoundary';
 import { ComponentType, lazy, Suspense, useEffect } from 'react';
 import { Route, Routes, Link } from 'react-router-dom';
@@ -152,11 +153,50 @@ function PageLoadingFallback() {
   const isAr = lang === 'ar';
   return (
     <main className="wrap narrow" dir={isAr ? 'rtl' : 'ltr'}>
-      <div className="card center" style={{ padding: '32px 20px', opacity: 0.9 }}>
-        <div style={{ fontSize: '1.9rem', marginBottom: '8px' }} aria-hidden="true">⚡</div>
-        <b style={{ display: 'block', marginBottom: '4px' }}>
-          {isAr ? 'جارٍ فتح الصفحة في دوايا...' : 'Loading DAWAYA page...'}
-        </b>
+      <div
+        className="card center stack"
+        style={{
+          padding: '32px 22px',
+          background: 'radial-gradient(circle at 50% 25%, #132B4C 0%, #0D1F38 70%)',
+          border: '2px solid rgba(36, 200, 184, 0.45)',
+          borderRadius: '26px',
+          color: '#ffffff',
+          alignItems: 'center',
+          gap: '14px',
+          boxShadow: '0 18px 40px rgba(13, 31, 56, 0.32)',
+        }}
+      >
+        <div
+          style={{
+            padding: '7px',
+            borderRadius: '50%',
+            background: 'rgba(19, 136, 102, 0.22)',
+            border: '2px solid rgba(36, 200, 184, 0.65)',
+            boxShadow: '0 0 28px rgba(0, 191, 208, 0.35)',
+          }}
+        >
+          <DawayaIconMark size={76} />
+        </div>
+        <div style={{ fontWeight: 800, fontSize: '1.3rem', letterSpacing: '0.02em', direction: 'ltr' }}>
+          DAWAYA | دوايا
+        </div>
+        <div
+          style={{
+            padding: '12px 20px',
+            borderRadius: '999px',
+            background: 'rgba(255, 255, 255, 0.10)',
+            border: '1.8px solid #D2D1A3',
+            boxShadow: '0 0 20px rgba(210, 209, 163, 0.2)',
+            fontWeight: 700,
+            fontSize: '1.08rem',
+            color: '#ffffff',
+          }}
+        >
+          اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّد ﷺ
+        </div>
+        <span style={{ fontSize: '0.88rem', color: '#CBD5E1' }}>
+          {isAr ? 'صحتك.. بذكاء أكتر' : 'Your Health. Smarter.'}
+        </span>
       </div>
     </main>
   );

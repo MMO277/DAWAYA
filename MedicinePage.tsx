@@ -2,6 +2,7 @@ import { MedicineDriverAndInjectionBanner } from './egyptianClinicalInnovations'
 import { EdaCounterfeitRadarCard } from './edaCounterfeitRadar';
 import SmartMedDoseReminderBadge from './SmartMedDoseReminderBadge';
 import {
+  evaluateMedicationSafety,
   evaluateOccupationalDrugSafety,
   evaluateDrugHydrationRequirement,
   evaluatePillSplittingAndMealProtocol,
@@ -23,7 +24,6 @@ import { useLiveDrugCatalog } from './liveCatalogSync';
 import { QuickProductEditorModal } from './CommercialCatalogEditor';
 import { useSyncedHealthProfile } from './allergyData';
 import { useSyncedSchedules } from './trackerData';
-import { evaluateMedicationSafety } from './medicationSafetyEngine';
 import { getClinicalProProfile, useClinicalProMode } from './clinicalProData';
 import {
   DAWAYA_CATEGORY_LABELS,

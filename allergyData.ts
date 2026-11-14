@@ -652,11 +652,11 @@ const LOCAL_ENC_KEY = 'DAWAYA_MEDICAL_VAULT_KEY_2026';
 export function encryptLocalProfilePayload(plainJson: string): string {
   try {
     const utf8 = encodeURIComponent(plainJson);
-    const xored: number[] = [];
+    let bin = '';
     for (let i = 0; i < utf8.length; i++) {
-      xored.push(utf8.charCodeAt(i) ^ LOCAL_ENC_KEY.charCodeAt(i % LOCAL_ENC_KEY.length));
+      bin += String.fromCharCode(utf8.charCodeAt(i) ^ LOCAL_ENC_KEY.charCodeAt(i % LOCAL_ENC_KEY.length));
     }
-    return LOCAL_ENC_PREFIX + btoa(String.fromCharCode(...xored));
+    return LOCAL_ENC_PREFIX + btoa(bin);
   } catch {
     return plainJson;
   }
