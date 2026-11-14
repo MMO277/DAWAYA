@@ -22,26 +22,41 @@ const BCP47_MAP: Record<Lang, string> = {
   es: 'es-ES',
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getAndroidVoiceBridge(): any | null {
+  if (typeof window === 'undefined') return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const b = (window as any).AndroidAlarmBridge;
+  return b || null;
+}
+
 export function isSpeechSupported(): boolean {
+  const b = getAndroidVoiceBridge();
+  if (b && typeof b.speakNativeText === 'function') return true;
   return typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
 }
 
 export function isVoiceRecognitionSupported(): boolean {
   if (typeof window === 'undefined') return false;
+  const b = getAndroidVoiceBridge();
+  if (b && typeof b.startNativeVoiceRecognition === 'function') return true;
   return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
 }
 
-/**
- * Requests explicit microphone permission using getUserMedia so mobile browsers
- * (Chrome/Android WebView/PWA) prompt the user and grant microphone access.
- */
 export async function requestMicrophonePermission(): Promise<boolean> {
+  const b = getAndroidVoiceBridge();
+  if (b && typeof b.requestMicPermission === 'function') {
+    try {
+      b.requestMicPermission();
+    } catch {
+      /* ignore */
+    }
+  }
   if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    return false;
+    return Boolean(b && typeof b.startNativeVoiceRecognition === 'function');
   }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    // Stop tracks immediately to avoid keeping mic light active until recognition starts
     stream.getTracks().forEach((track) => {
       try {
         track.stop();
@@ -52,7 +67,7 @@ export async function requestMicrophonePermission(): Promise<boolean> {
     return true;
   } catch (err) {
     console.warn('Microphone permission request error:', err);
-    return false;
+    return Boolean(b && typeof b.startNativeVoiceRecognition === 'function');
   }
 }
 
@@ -63,14 +78,54 @@ export function startVoiceRecognition(
   onEnd?: () => void,
   options?: { interim?: boolean; continuous?: boolean }
 ): VoiceRecognitionHandle | null {
+  const bcp47 = BCP47_MAP[lang] || 'ar-EG';
+  const bridge = getAndroidVoiceBridge();
+
+  // Helper to launch Native Android Speech Recognizer when running inside APK
+  const launchAndroidNativeRecognizer = (): VoiceRecognitionHandle | null => {
+    if (!bridge || typeof bridge.startNativeVoiceRecognition !== 'function') return null;
+    let cancelled = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__onAndroidVoiceResult = (resText: string) => {
+      if (cancelled) return;
+      if (!resText || resText === '__CANCELLED__' || resText === '__ERROR__') {
+        onEnd?.();
+        return;
+      }
+      onResult(resText.trim(), true);
+      onEnd?.();
+    };
+    try {
+      const ok = bridge.startNativeVoiceRecognition(bcp47);
+      if (!ok) {
+        onError?.('not-allowed');
+        onEnd?.();
+        return null;
+      }
+      return {
+        stop: () => {
+          cancelled = true;
+        },
+        abort: () => {
+          cancelled = true;
+        },
+      };
+    } catch {
+      onError?.('start-failed');
+      onEnd?.();
+      return null;
+    }
+  };
+
+  // Prefer Native Android Speech Recognizer directly inside the APK if available
+  if (bridge && typeof bridge.startNativeVoiceRecognition === 'function') {
+    return launchAndroidNativeRecognizer();
+  }
+
   if (!isVoiceRecognitionSupported()) {
     const errMsg =
       lang === 'ar'
         ? 'المتصفح لا يدعم الإدخال الصوتي المباشر.'
-        : lang === 'fr'
-        ? 'La reconnaissance vocale n’est pas prise en charge par ce navigateur.'
-        : lang === 'es'
-        ? 'El reconocimiento de voz no es compatible con este navegador.'
         : 'Voice recognition not supported in this browser.';
     onError?.(errMsg);
     return null;
@@ -80,7 +135,7 @@ export function startVoiceRecognition(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRec();
-    recognition.lang = BCP47_MAP[lang] || 'ar-EG';
+    recognition.lang = bcp47;
     recognition.interimResults = Boolean(options?.interim);
     recognition.continuous = Boolean(options?.continuous);
     recognition.maxAlternatives = 1;
@@ -117,8 +172,12 @@ export function startVoiceRecognition(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (event: any) => {
       const errType = event?.error || 'voice-error';
-      // If user stopped it or already got results on no-speech, don't treat as critical
       if (errType === 'no-speech' && hasReceivedResult) {
+        return;
+      }
+      // If WebView blocks Web Speech API, try native Android bridge automatically
+      if ((errType === 'not-allowed' || errType === 'service-not-allowed') && bridge && typeof bridge.startNativeVoiceRecognition === 'function') {
+        launchAndroidNativeRecognizer();
         return;
       }
       onError?.(errType);
@@ -159,7 +218,7 @@ export function startVoiceRecognition(
 }
 
 export function getVoices(): Promise<SpeechSynthesisVoice[]> {
-  if (!isSpeechSupported()) return Promise.resolve([]);
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return Promise.resolve([]);
   return new Promise((resolve) => {
     let voices = window.speechSynthesis.getVoices();
     if (voices.length > 0) {
@@ -218,7 +277,7 @@ export class SpeechPlayer {
   public onError?: (err: any) => void;
 
   constructor() {
-    if (isSpeechSupported()) {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       getVoices().then((v) => {
         this.voices = v;
       });
@@ -226,32 +285,43 @@ export class SpeechPlayer {
   }
 
   public stop(): void {
-    if (!isSpeechSupported()) return;
-    try {
-      window.speechSynthesis.cancel();
-    } catch {
-      /* ignore */
+    const bridge = getAndroidVoiceBridge();
+    if (bridge && typeof bridge.stopNativeSpeech === 'function') {
+      try {
+        bridge.stopNativeSpeech();
+      } catch {
+        /* ignore */
+      }
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        /* ignore */
+      }
     }
     this.utterance = null;
     this.onStateChange?.({ playing: false, paused: false });
   }
 
   public pause(): void {
-    if (!isSpeechSupported()) return;
-    try {
-      window.speechSynthesis.pause();
-    } catch {
-      /* ignore */
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.pause();
+      } catch {
+        /* ignore */
+      }
     }
     this.onStateChange?.({ playing: false, paused: true });
   }
 
   public resume(): void {
-    if (!isSpeechSupported()) return;
-    try {
-      window.speechSynthesis.resume();
-    } catch {
-      /* ignore */
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.resume();
+      } catch {
+        /* ignore */
+      }
     }
     this.onStateChange?.({ playing: true, paused: false });
   }
@@ -271,12 +341,37 @@ export class SpeechPlayer {
     rate = 1.0,
     onEnd?: () => void
   ): Promise<boolean> {
-    if (!isSpeechSupported() || !text.trim()) {
+    if (!text.trim()) {
       onEnd?.();
       return false;
     }
 
     this.stop();
+
+    const bridge = getAndroidVoiceBridge();
+    const estimatedSafetyMs = Math.min(20000, Math.max(3000, Math.ceil(text.length / 11) * 1000));
+
+    // If running inside Android APK with native TTS bridge, use Android native TTS
+    if (bridge && typeof bridge.speakNativeText === 'function') {
+      try {
+        const started = bridge.speakNativeText(text, BCP47_MAP[lang] || 'ar-EG');
+        if (started) {
+          this.onStateChange?.({ playing: true, paused: false });
+          setTimeout(() => {
+            this.onStateChange?.({ playing: false, paused: false });
+            onEnd?.();
+          }, estimatedSafetyMs);
+          return true;
+        }
+      } catch {
+        /* fallback to web speechSynthesis below */
+      }
+    }
+
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
+      onEnd?.();
+      return false;
+    }
 
     if (this.voices.length === 0) {
       this.voices = await getVoices();
@@ -309,8 +404,6 @@ export class SpeechPlayer {
       }
     };
 
-    // Calculate maximum duration to avoid getting stuck if Android Chrome drops onend event
-    const estimatedSafetyMs = Math.min(22000, Math.max(3000, Math.ceil(text.length / 10) * 1000));
     safetyTimer = setTimeout(() => {
       finalize();
     }, estimatedSafetyMs);

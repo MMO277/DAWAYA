@@ -848,6 +848,19 @@ export default function Scan() {
   async function start() {
     setMsg('');
     setScanResult(null);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bridge = (window as any).AndroidAlarmBridge;
+      if (bridge && typeof bridge.requestCameraPermission === 'function') {
+        bridge.requestCameraPermission();
+      }
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        stream.getTracks().forEach((tr) => tr.stop());
+      }
+    } catch {
+      /* Html5Qrcode will handle or report camera state below */
+    }
     const config = {
       fps: 10,
       qrbox: (vw: number, vh: number) => ({

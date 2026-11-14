@@ -9,7 +9,7 @@ import {
   VoiceRecognitionHandle,
 } from './speechService';
 import { askGemini } from './geminiApi';
-import { generateContextualSiteReply, getSeedMedicinesFallback } from './aiConversationContext';
+import { buildOpenEgyptianOfflineFallback, generateContextualSiteReply, getSeedMedicinesFallback } from './aiConversationContext';
 import { useSyncedHealthProfile } from './allergyData';
 import { respond, buildPassages } from './assistantLogic';
 
@@ -318,10 +318,8 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
         startListeningCycle();
       });
     } catch (err) {
-      console.warn('Call handling error:', err);
-      const fallbackMsg = isAr
-        ? 'تمام يا فندم، أنا سامعك بوضوح. أنصحك بالراحة وشرب ماء دافئ، وقولي لو بتشتكي من أي عرض تاني أو بتاخد أي دواء حالياً.'
-        : 'I hear you clearly. Please stay hydrated, rest, and let me know if you have any other symptoms.';
+      console.warn('Call handling fallback to smart local engine:', err);
+      const fallbackMsg = buildOpenEgyptianOfflineFallback(cleanText, lang);
       setLastDoctorReply(fallbackMsg);
       setCallState('speaking');
       speakText(fallbackMsg, lang, 1.0, () => {
@@ -710,22 +708,48 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
             }}
           >
             <span>⚠️ {micError}</span>
-            <button
-              type="button"
-              onClick={startListeningCycle}
-              style={{
-                background: '#ef4444',
-                color: '#fff',
-                border: 'none',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                fontWeight: 800,
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-              }}
-            >
-              {isAr ? 'إعادة المحاولة 🔄' : 'Retry 🔄'}
-            </button>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={startListeningCycle}
+                style={{
+                  background: '#ef4444',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  fontWeight: 800,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                }}
+              >
+                {isAr ? 'إعادة المحاولة 🔄' : 'Retry 🔄'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const b = (window as any).AndroidAlarmBridge;
+                  if (b && typeof b.openAppPermissionSettings === 'function') {
+                    b.openAppPermissionSettings();
+                  } else {
+                    requestMicrophonePermission().then(() => startListeningCycle());
+                  }
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.16)',
+                  color: '#fff',
+                  border: '1px solid rgba(255,255,255,0.35)',
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  fontWeight: 800,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                }}
+              >
+                ⚙️ {isAr ? 'فتح أذونات التطبيق' : 'App Permissions'}
+              </button>
+            </div>
           </div>
         )}
       </div>
