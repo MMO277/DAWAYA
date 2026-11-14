@@ -1196,7 +1196,7 @@ export function matchGeneralHealthTopic(x: string): GeneralHealthTopicKey | null
   if (/(?:^|\s)(ارق|مش عارف انام|قله نوم|ميلاتونين|ماغنسيوم للنوم)(?=$|\s)|\b(insomnia|sleep aid)\b/.test(cleaned)) {
     return 'sleep_anxiety';
   }
-  if (/(?:^|\s)(مغص كلوي|حصوه|حصوات|املاح الكلي|رمل على الكلي|جنبي بيوجعني|كعب رجلي|نقرس|حمض اليوريك|يوريفين|يوروسولفين|ابيماج|بروكسيمول|رواتينكس|كلاجون|زيلوريك|فيبورييك)(?=$|\s)|\b(kidney stone|gout|uric acid)\b/.test(cleaned)) {
+  if (/(?:^|\s)(مغص كلوي|حصوه|حصوات|املاح الكلي|رمل على الكلي|جنبي بيوجعني|جنب الشمال|جنبي الشمال|الجنب الشمال|جنب اليمين|جنبي اليمين|الجنب اليمين|وجع في الجنب|وجع في جنبي|الم في الجنب|الجنب بيوجعني|كليتي|الكلي|كعب رجلي|نقرس|حمض اليوريك|يوريفين|يوروسولفين|ابيماج|بروكسيمول|رواتينكس|كلاجون|زيلوريك|فيبورييك)(?=$|\s)|\b(kidney stone|flank pain|gout|uric acid)\b/.test(cleaned)) {
     return 'kidney_stones_gout';
   }
   if (/(?:^|\s)(الدوره الشهريه|البيريود|مغص الدوره|وجع الدوره|تاخر الدوره|تكيس مبايض|بونستان|دوفاستون|عسر الطمث)(?=$|\s)|\b(period pain|menstrual|dysmenorrhea)\b/.test(cleaned)) {
@@ -1401,6 +1401,336 @@ function formatEgyptianBrandsForMed(medId: string): string {
  * 4) Any follow-up question across conversation turns ("طب إيه أحسن؟", "بكام؟", "جرعته إيه؟", "إيه البديل؟", "ليه أضرار؟")
  * While leaving open non-medical questions free to go to `askGemini` (without EVER dumping canned antibiotic articles!).
  */
+
+export interface SymptomClinicTriageResult {
+  matched: boolean;
+  replyText: string;
+  links: ReplyLink[];
+  mappedGeneralTopic: GeneralHealthTopicKey | null;
+}
+
+/**
+ * Universal Egyptian Symptom, Pain & Specialty Clinic Triage Engine:
+ * Understands any natural spoken or written Egyptian Arabic complaint about pain, aches,
+ * or symptoms in any part of the body ("انا حاسس بوجع في جنب الشمال", "جنبي اليمين بيوجعني",
+ * "عندي نغزة في صدري", "بطني بتوجعني", "ضهري قافش", "رجلي وارمة", "صداع ودوخة", etc.),
+ * explains the medical possibilities clearly WITHOUT dumping random medication lists,
+ * and routes the patient directly to the matching Specialty Clinic(s).
+ */
+export function evaluateComprehensiveSymptomAndClinicTriage(
+  rawUserText: string,
+  lang: Lang
+): SymptomClinicTriageResult | null {
+  const q = norm(rawUserText);
+  if (!q || q.length < 3) return null;
+
+  // If the user is explicitly asking about a specific medicine price/brand/alternative or non-symptom action, let drug lookup handle it
+  const isExplicitDrugOrPriceQuery =
+    /(سعر|بكام|بديل|مثيل|شريط|علبه|علبة|تركيز|شركه|شركة|صلاحيه|صلاحية|مطار|جمارك|خلط حقن|تحليل مخدرات)/.test(q) &&
+    !/(وجع|الم|ألم|بيوجعني|بتوجعني|بيوجع|بتوجع|حاسس|عندي|تعبان|وارم|وارمه|حرقان|نغزه|نغزة|مغص|صداع|دوخه|دوخة)/.test(q);
+  if (isExplicitDrugOrPriceQuery) return null;
+
+  const isAskingForMedicationExplicitly =
+    /(اخد ايه|آخد إيه|ايه العلاج|إيه العلاج|ايه الدوا|إيه الدواء|اسم دوا|اسم برشام|رشحلي دوا|اكتبلي دوا|عايز مسكن|عايز علاج)/.test(q);
+
+  // If asking explicitly for medication on a follow-up turn, allow the standard drug guide / follow-up handler to run
+  if (isAskingForMedicationExplicitly && !/(جنب الشمال|جنبي الشمال|الجنب الشمال|جنب اليمين|جنبي اليمين|الجنب اليمين)/.test(q)) {
+    return null;
+  }
+
+  // 1) Left Flank / Left Side Pain ("وجع في الجنب الشمال / جنبي الشمال / الجنب الأيسر")
+  if (/(جنب الشمال|جنبي الشمال|الجنب الشمال|الجانب الايسر|الجنب الايسر|خاصرتي الشمال|شمال بطني|جنب شمال|الناحيه الشمال|ناحيه الشمال)/.test(q)) {
+    const replyAr =
+      'ألف سلامة عليك يا فندم! وجع الجنب الشمال ليه 3 أسباب طبية أساسية بنفرق بينهم حسب طبيعة الوجع:\n\n' +
+      '1. الكلى والحالب الأيسر (أملاح أو حصوة أو مغص كلوي): لو الوجع شادد في الجنب من ورا وبيسمّع لتحت ناحية الحوض أو المثانة، أو معاه حرقان في البول أو تغير في لونه أو تكرار دخول الحمام.\n' +
+      '2. القولون الهابط والغازات: لأن القولون نازل في الجنب الشمال بالظبط؛ لو الوجع معاه انتفاخ وغازات أو بيزيد مع التوتر والأكل وبيرتاح لما تدخل الحمام أو تخرج غازات.\n' +
+      '3. عضلات الجنب أو الضلوع السفلية: لو الوجع بيزيد لما تلف جسمك أو تاخد نفس عميق أو تضغط بإيدك على المكان.\n\n' +
+      '• تعمل إيه دلوقتي؟ اشرب مية دافية كفاية، وحط كمادات دافية على جنبك الشمال، ويفضل عمل تحليل بول كامل (Urine Analysis) وسونار على البطن والحوض للاطمئنان، وتجنب المسكنات التقيلة على الكلى قبل الفحص.\n' +
+      '• 🏥 العيادة المختصة لحالتك: اضغط فوراً على زر «عيادة الكلى والمسالك والحصوات» أو «عيادة الجهاز الهضمي والقولون» بالأسفل عشان تحدد السبب بدقة وتتابع البروتوكول الكامل!';
+    const replyEn =
+      'Left flank/side pain typically stems from 3 main causes:\n' +
+      '1. Left Kidney or Ureter (renal colic, stones, or salts) if radiating to the back/groin or paired with urinary burning.\n' +
+      '2. Descending Colon & Gas (IBS spasm) if linked to meals, bloating, or relieved by bowel movement.\n' +
+      '3. Muscular strain of the flank/lower ribs if worse with movement.\n' +
+      '🏥 Tap the Urology & Kidney Clinic or Gastro & IBS Clinic button below to open your specialized care guide.';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : replyEn,
+      links: [
+        { to: '/urology-clinic', label: { ar: '🧪 افتح عيادة الكلى والمسالك والحصوات', en: 'Open Urology & Kidney Clinic' } },
+        { to: '/gastro-clinic', label: { ar: '🦠 افتح عيادة الجهاز الهضمي والقولون', en: 'Open Gastro & IBS Clinic' } },
+        { to: '/symptom-triage', label: { ar: '🩺 افتح مشخص الأعراض الذكي', en: 'Open Smart Symptom Triage' } },
+        { to: '/body-map', label: { ar: '🧍‍♂️ خريطة الجسم التفاعلية', en: 'Interactive Body Map' } },
+      ],
+      mappedGeneralTopic: 'kidney_stones_gout',
+    };
+  }
+
+  // 2) Right Flank / Right Side Pain ("وجع في الجنب اليمين / جنبي اليمين / الجنب الأيمن")
+  if (/(جنب اليمين|جنبي اليمين|الجنب اليمين|الجانب الايمن|الجنب الايمن|خاصرتي اليمين|يمين بطني|جنب يمين|الناحيه اليمين|ناحيه اليمين)/.test(q)) {
+    const replyAr =
+      'ألف سلامة عليك يا فندم! وجع الجنب اليمين بيتحدد سببه حسب مكانه بالظبط:\n\n' +
+      '1. الكلى والحالب الأيمن (أملاح أو حصوة): لو الوجع في نص الجنب اليمين وماسك الضهر ونازل للحوض، أو معاه حرقان وتغير في البول.\n' +
+      '2. المرارة والكبد (لو في الجنب اليمين من فوق تحت الضلوع): لو الوجع بيزيد بعد الأكلات الدسمة أو المقليات وبيسمّع في الكتف اليمين أو الضهر.\n' +
+      '3. 🚨 الزائدة الدودية (لو في الجنب اليمين من تحت خالص أسفل البطن): لو الوجع حاد وبيزيد مع المشي أو الكحة ومعاه سخونة أو غثيان وفقدان شهية — وده بيحتاج فحص جراحة/طوارئ فوراً.\n\n' +
+      '• 🏥 العيادة المختصة لحالتك: اضغط مباشرة على زر «عيادة الكلى والمسالك البولية» أو «عيادة الجهاز الهضمي والبطن» بالأسفل لفحص حالتك خطوة بخطوة!';
+    const replyEn =
+      'Right side/flank pain depends on exact location: 1) Right Kidney/Ureter (stones/salts radiating to groin), 2) Gallbladder/Liver (upper right under ribs after fatty meals), or 3) Appendicitis (sharp lower-right abdominal pain with fever/nausea). Tap the clinic buttons below.';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : replyEn,
+      links: [
+        { to: '/urology-clinic', label: { ar: '🧪 افتح عيادة الكلى والمسالك والحصوات', en: 'Open Urology & Kidney Clinic' } },
+        { to: '/gastro-clinic', label: { ar: '🦠 افتح عيادة الجهاز الهضمي والمرارة والبطن', en: 'Open Gastro & Abdominal Clinic' } },
+        { to: '/symptom-triage', label: { ar: '🩺 افتح مشخص الأعراض الذكي', en: 'Open Smart Symptom Triage' } },
+        { to: '/body-map', label: { ar: '🧍‍♂️ حدد مكان الوجع على خريطة الجسم', en: 'Interactive Body Map' } },
+      ],
+      mappedGeneralTopic: 'kidney_stones_gout',
+    };
+  }
+
+  // 3) General Flank / Kidney / Urinary Burning Pain ("وجع في الجنب / جنبي بيوجعني / مغص كلوي / حرقان بول")
+  if (/(جنبي|الجنب|وجع في جنب|الم في جنب|مغص كلوي|كليتي|الكلي بتوجعني|حرقان في البول|حرقان بول|تقطيع في البول|دم في البول|احتباس بول|صديد في البول|المثانه|الحالب|البروستاتا|وجع في الحوض)/.test(q)) {
+    const replyAr =
+      'ألف سلامة عليك! وجع الجنب أو مشاكل البول غالباً بتشير لواحد من الأسباب دي:\n\n' +
+      '1. أملاح أو رمل أو حصوات في الكلى والحالب: لو الوجع على شكل نوبات مغص في الجنب والضهر ونازل للحوض.\n' +
+      '2. التهاب في المسالك البولية أو المثانة: لو فيه حرقان شديد أثناء التبول أو دخول الحمام كل شوية بكميات قليلة.\n' +
+      '3. تقلصات القولون أو عضلات الجنب: لو الوجع مرتبط بالانتفاخ أو الحركة ومفيش أي أعراض في البول.\n\n' +
+      '• نصيحة فورية: اشرب مية كتير على مدار اليوم، وادفّي منطقة الجنب، ومهم نعمل تحليل بول كامل (Urine Analysis) قبل أخذ أي مضاد حيوي أو مسكن تقيل على الكلى.\n' +
+      '• 🏥 العيادة المختصة لحالتك: ادخل فوراً على «عيادة الكلى والمسالك البولية والحصوات» من الزر بالأسفل!';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : 'Flank pain or urinary burning points to kidney stones/salts, urinary tract infection, or colon spasm. Open the Urology & Kidney Clinic below.',
+      links: [
+        { to: '/urology-clinic', label: { ar: '🧪 افتح عيادة الكلى والمسالك والحصوات', en: 'Open Urology & Kidney Clinic' } },
+        { to: '/lab-clinic', label: { ar: '🔬 افتح عيادة قراءة تحليل البول والتحاليل', en: 'Open Lab Test Decoder' } },
+        { to: '/gastro-clinic', label: { ar: '🦠 افتح عيادة الجهاز الهضمي والقولون', en: 'Open Gastro & IBS Clinic' } },
+      ],
+      mappedGeneralTopic: 'kidney_stones_gout',
+    };
+  }
+
+  // 4) Chest Pain / Heart Twinge / Shortness of Breath ("وجع في صدري / نغزة في الصدر / قلبي بيوجعني / كتمة نفس / نهجان")
+  if (/(وجع في الصدر|وجع في صدري|صدري بيوجعني|الم في الصدر|نغزه في الصدر|نغزه في صدري|نغزه في قلبي|قلبي بيوجعني|ثقل في الصدر|عصره في الصدر|كتمه في الصدر|كتمه نفس|ضيق تنفس|مش قادر اخد نفسي|نهجان شديد|كرشه نفس)/.test(q)) {
+    const replyAr =
+      'ألف سلامة عليك! وجع أو نغزة الصدر بنفرّق فيها طبياً بين حاجتين مهمين جداً:\n\n' +
+      '1. 🚨 علامات طوارئ القلب (تحتاج طوارئ فوراً): لو الوجع عبارة عن ثقل أو عصرة أو بلاطة في نص الصدر بتزيد مع المشي أو المجهود، وبتسمّع في الكتف أو الذراع الشمال أو الرقبة ومعاها عرق بارد أو نهجان — هنا لازم تتوجه لأقرب مستشفى طوارئ أو تتصل بالإسعاف (123) فوراً لعمل رسم قلب.\n' +
+      '2. أسباب غير قلبية شائعة ومطمئنة: لو نغزة سريعة تقدر تشاور عليها بصباع واحد وبتزيد لما تاخد نفس عميق أو تحرك ضهرك (شد عضلات القفص الصدري)، أو لو معاها حرقان بيطلع للزور بعد الأكل والنوم (ارتجاع المريء)، أو لو معاها كحة وبلغم وتزييق (حساسية الصدر والشعب الهوائية).\n\n' +
+      '• 🏥 العيادة المختصة لحالتك: اضغط بالأسفل على «عيادة الباطنة والقلب والضغط» أو «عيادة الصدر والتنفس» أو «مشخص الأعراض الذكي»!';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : 'Chest pain requires distinguishing urgent cardiac pressure (central tightness radiating to left arm/jaw with sweating — call 123) from chest wall muscle twinges, acid reflux, or bronchial asthma. Open the clinics below.',
+      links: [
+        { to: '/chronic-clinic', label: { ar: '🫀 افتح عيادة الباطنة والقلب والضغط', en: 'Open Heart & Internal Medicine Clinic' } },
+        { to: '/chest-clinic', label: { ar: '🫁 افتح عيادة الصدر والربو والتنفس', en: 'Open Chest & Respiratory Clinic' } },
+        { to: '/symptom-triage', label: { ar: '🩺 افتح مشخص الأعراض الذكي', en: 'Open Smart Symptom Triage' } },
+      ],
+      mappedGeneralTopic: 'cough_bronchitis',
+    };
+  }
+
+  // 5) Stomach / Abdomen / Epigastric / Colon Pain ("بطني بتوجعني / وجع في البطن / معدتي / فم المعدة / قولون / مغص")
+  if (/(بطني|البطن|معدتي|المعده|فم المعده|تحت الضلوع|المراره|الكبد|السره|اسفل البطن|قولون|القولون|مغص|انتفاخ|غازات|حموضه|ارتجاع|غثيان|ترجيع|بستفرغ|برجع|اسهال|امساك)/.test(q) && /(وجع|الم|ألم|بيوجع|بتوجع|واجع|تاعب|شديد|عندي|حاسس|حرقان|مغص|انتفاخ|غازات|حموضه|ارتجاع|غثيان|ترجيع|بستفرغ|برجع|اسهال|امساك)/.test(q)) {
+    const replyAr =
+      'ألف سلامة على بطنك ومعدتك! سبب وجع البطن بيتعرف من مكانه وطبيعته:\n\n' +
+      '1. لو في فم المعدة من فوق (تحت القفص الصدري في النص): غالباً التهاب في جدار المعدة، حموضة وارتجاع مريء، أو جرثومة المعدة (خصوصاً لو فيه حرقان بيزيد على معدة فاضية أو بعد القهوة والأكل المسبك).\n' +
+      '2. لو حوالين السرة أو ماسك البطن كلها مع انتفاخ وغازات: ده غالباً تقلصات القولون العصبي أو عسر هضم وبيرتاح مع دخول الحمام والمشروبات الدافية (نعناع وينسون).\n' +
+      '3. لو معاه إسهال وسخونة أو ترجيع: دي غالباً نزلة معوية وأهم حاجة فيها تعويض السوائل ومحلول الجفاف.\n' +
+      '4. 🚨 انتبه: لو الوجع حاد ومتركز في الجنب اليمين أسفل البطن وبيزيد مع الحركة والكحة، لازم فحص جراحة للاطمئنان من الزائدة الدودية.\n\n' +
+      '• 🏥 العيادة المختصة لحالتك: اضغط فوراً على زر «عيادة الجهاز الهضمي والقولون والمعدة» بالأسفل!';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : 'Abdominal pain depends on region: upper epigastric (gastritis, reflux, H. pylori), generalized/periumbilical with bloating (IBS/colon spasms), or acute lower-right (appendicitis). Open the Gastro & IBS Clinic below.',
+      links: [
+        { to: '/gastro-clinic', label: { ar: '🦠 افتح عيادة الجهاز الهضمي والقولون والمعدة', en: 'Open Gastro, Stomach & IBS Clinic' } },
+        { to: '/body-map', label: { ar: '🧍‍♂️ اضغط على مكان وجع البطن في خريطة الجسم', en: 'Tap Pain Area on Body Map' } },
+        { to: '/symptom-triage', label: { ar: '🩺 افتح مشخص الأعراض الذكي', en: 'Open Smart Symptom Triage' } },
+      ],
+      mappedGeneralTopic: 'gi_pain',
+    };
+  }
+
+  // 6) Back / Neck / Shoulder / Spine / Sciatica Pain ("ضهري بيوجعني / وجع في الضهر / رقبتي / كتفي / عرق النسا / غضروف")
+  if (/(ضهر|ضهري|ظهر|ظهري|الضهر|الظهر|رقبه|رقبتي|الرقبه|كتف|كتفي|الكتف|دراع|دراعي|ذراعي|ايدي|فقرات|العمود الفقري|عرق النسا|انزلاق غضروفي|غضروف)/.test(q) && /(وجع|الم|ألم|بيوجع|بتوجع|واجع|تاعب|قافش|قفشه|شد|تنميل|عندي|حاسس|عرق النسا|غضروف)/.test(q)) {
+    const replyAr =
+      'ألف سلامة على ضهرك وعظامك! وجع الظهر أو الرقبة والكتف بينقسم لنوعين:\n\n' +
+      '1. شد عضلي وإجهاد فقرات: بيحصل بسبب القعدة الطويلة، الموبايل، نومة غلط، أو شيل حاجة تقيلة؛ الوجع بيكون موضعي وبيرتاح بالكمادات الدافية، الراحة النسبية، وفرد الضهر.\n' +
+      '2. ضغط على العصب أو غضروف (مثل عرق النسا): لو وجع أسفل الظهر نازل زي الكهرباء أو الشد في الفخذ والسمانة لحد القدم، أو وجع الرقبة نازل بتنميل في الذراع والصوابع.\n\n' +
+      '• نصيحة سريعة: تجنب توطية الضهر المفاجئة، نام على مرتبة متوسطة الصلابة مع مخدة مريحة للرقبة، وحط كمادات دافية 15 دقيقة.\n' +
+      '• 🏥 العيادة المختصة لحالتك: اضغط بالأسفل على زر «عيادة العظام والمفاصل والعمود الفقري» أو «عيادة المخ والأعصاب»!';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : 'Back, neck, or shoulder pain is either mechanical muscle spasm or nerve/disc compression (sciatica/radiculopathy if shooting with numbness). Open the Orthopedics or Neurology Clinic below.',
+      links: [
+        { to: '/ortho-clinic', label: { ar: '🦴 افتح عيادة العظام والعمود الفقري والغضروف', en: 'Open Orthopedics & Spine Clinic' } },
+        { to: '/neuro-clinic', label: { ar: '🧠 افتح عيادة المخ والأعصاب وعرق النسا', en: 'Open Neurology & Sciatica Clinic' } },
+        { to: '/body-map', label: { ar: '🧍‍♂️ خريطة الجسم التفاعلية', en: 'Interactive Body Map' } },
+      ],
+      mappedGeneralTopic: 'muscle_joint',
+    };
+  }
+
+  // 7) Leg / Knee / Heel / Joints / Gout / Foot Pain ("رجلي بتوجعني / ركبتي / كعب رجلي / مفاصلي / نقرس / رجلي وارمة")
+  if (/(رجلي|الرجل|ركبه|ركبتي|الركبه|خشونه|كعب|الكعب|صباع رجلي|مفاصل|مفاصلي|المفاصل|القدم|فخدي|الفخذ|سمانه|السمانه|عضمي|العظام|نقرس)/.test(q) && /(وجع|الم|ألم|بيوجع|بتوجع|واجع|تاعب|وارم|وارمه|ورم|تورم|شد|خشونه|نقرس|طقطقه|عندي|حاسس)/.test(q)) {
+    const replyAr =
+      'ألف سلامة على رجلك ومفاصلك! سبب وجع الرجل بيتحدد حسب مكانه:\n\n' +
+      '1. لو في الركبة (خصوصاً مع طلوع ونزول السلم أو القعدة الطويلة): غالباً خشونة في مفصل الركبة أو إجهاد في الأربطة والغضروف.\n' +
+      '2. لو في كعب الرجل أول ما تصحى وتدوس على الأرض، أو ورم واحمرار في صباع الرجل الكبير: غالباً التهاب اللفافة الأخمصية (شوكة الكعب) أو ارتفاع حمض اليوريك والنقرس.\n' +
+      '3. لو شد في سمانة الرجل بالليل: غالباً نقص ماغنسيوم وكالسيوم أو قلة شرب مية.\n' +
+      '4. 🚨 تنبيه مهم: لو فيه ورم وسخونة وألم في سمانة رجل واحدة فقط، لازم فحص أوعية دموية وعمل دوبلر فوراً للاطمئنان على الأوردة.\n\n' +
+      '• 🏥 العيادة المختصة لحالتك: اضغط بالأسفل على زر «عيادة العظام والمفاصل والنقرس»!';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : 'Leg, knee, heel, or joint pain may indicate knee osteoarthritis, plantar fasciitis/gout (uric acid), electrolyte cramps, or venous issues if one calf is swollen. Open the Orthopedics & Gout Clinic below.',
+      links: [
+        { to: '/ortho-clinic', label: { ar: '🦴 افتح عيادة العظام والمفاصل والركبة والنقرس', en: 'Open Orthopedics, Knee & Gout Clinic' } },
+        { to: '/urology-clinic', label: { ar: '🧪 عيادة الأملاح واليوريك أسيد', en: 'Salts & Uric Acid Clinic' } },
+        { to: '/body-map', label: { ar: '🧍‍♂️ خريطة الجسم التفاعلية', en: 'Interactive Body Map' } },
+      ],
+      mappedGeneralTopic: 'muscle_joint',
+    };
+  }
+
+  // 8) Headache / Dizziness / Vertigo / Numbness ("صداع / دماغي بتوجعني / دايخ / دوخة / زغللة / تنميل")
+  if (/(صداع|مصدع|دماغي بتوجعني|راسي بتوجعني|وجع في الراس|وجع في دماغي|صداع نصفي|شقيقه|دوخه|دايخ|دوار|حاسس بدوخه|الدنيا بتلف|زغلله|تنميل في ايدي|تنميل في رجلي|تنميل في الجسم|رعشه في الايد)/.test(q)) {
+    const replyAr =
+      'ألف سلامة عليك من الصداع والدوخة! عشان نعرف السبب الصح:\n\n' +
+      '1. لو صداع نابض في نص الرأس ووراء العين وبيزيد مع النور والصوت: ده صداع نصفي (شقيقة) وبيرتاح في أوضة هادية وضلمة.\n' +
+      '2. لو صداع في الجبهة وبين العينين وبيزيد لما توطي أو تسجد: ده صداع الجيوب الأنفية.\n' +
+      '3. لو صداع في مؤخرة الرأس والرقبة أو معاه دوخة وزغللة: أول خطوة لازم تقيس ضغط الدم فوراً، وتطمن على صورة الدم ومخزون الحديد (الأنيميا) والسكر.\n' +
+      '4. لو دوخة والدنيا بتلف بيك ثواني لما تتقلب في السرير: ده غالباً التهاب أو كريستالات في الأذن الداخلية.\n\n' +
+      '• 🏥 العيادة المختصة لحالتك: اضغط بالأسفل على «عيادة المخ والأعصاب والصداع» أو «عيادة الأنف والأذن والدوار» أو «عيادة الباطنة والضغط»!';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : 'Headache and dizziness can stem from migraine, sinus inflammation, blood pressure/anemia, or inner ear vertigo. Check blood pressure and open the Neurology or ENT Clinic below.',
+      links: [
+        { to: '/neuro-clinic', label: { ar: '🧠 افتح عيادة المخ والأعصاب والصداع', en: 'Open Neurology & Headache Clinic' } },
+        { to: '/ent-clinic', label: { ar: '👂 افتح عيادة الأنف والأذن والدوار (الاتزان)', en: 'Open ENT & Vertigo Clinic' } },
+        { to: '/chronic-clinic', label: { ar: '🫀 افتح عيادة الضغط والباطنة', en: 'Open Blood Pressure & Internal Clinic' } },
+      ],
+      mappedGeneralTopic: 'headache',
+    };
+  }
+
+  // 9) Toothache / Gums / Mouth Ulcers ("ضرسي بيوجعني / وجع اسنان / اللثة وارمة / خراج ضرس")
+  if (/(ضرسي|ضروسي|وجع الضرس|وجع اسنان|اسناني بتوجعني|سنتي بتوجعني|اللثه بتوجعني|اللثه وارمه|نزيف اللثه|خراج في الضرس|خراج اسنان|عصب الضرس|قرحه في بوقي|قرح الفم)/.test(q)) {
+    const replyAr =
+      'ألف سلامة على أسنانك! وجع الضرس واللثة بيتقسم لحالتين:\n\n' +
+      '1. وجع نابض شديد بيزيد بالليل ومع المشروبات السخنة أو الساقعة: ده التهاب في عصب الضرس ومحتاج تنظيف أو حشو عصب عند طبيب الأسنان (والمضاد الحيوي لوحده مش بيسكّن عصب الضرس).\n' +
+      '2. ورم في اللثة أو الخد جنب الضرس أو خروج صديد: ده خراج بكتيري ومحتاج فحص طبيب الأسنان فوراً مع علاج مضاد للبكتيريا.\n\n' +
+      '• إسعاف سريع يريحك دلوقتي: اتـمضمض بمية دافية وملح، وحط كمادات باردة على خدك من برة، ونم ومخدتك مرفوعة شوية، وأوعى تحط أسبرين أو قرنفل خام مباشر على اللثة عشان ما يحرقهاش.\n' +
+      '• 🏥 العيادة المختصة لحالتك: اضغط بالأسفل على زر «عيادة طوارئ الأسنان واللثة»!';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : 'Toothache is either pulpitis (throbbing pain worse at night/with hot or cold) or a dental abscess (gum/cheek swelling). Rinse with warm salt water and open the Dental Emergency Clinic below.',
+      links: [
+        { to: '/dental-clinic', label: { ar: '🦷 افتح عيادة طوارئ الأسنان واللثة', en: 'Open Dental Emergency Clinic' } },
+        { to: '/symptom-triage', label: { ar: '🩺 افتح مشخص الأعراض الذكي', en: 'Open Smart Symptom Triage' } },
+      ],
+      mappedGeneralTopic: 'mouth_ulcer',
+    };
+  }
+
+  // 10) Eye Pain / Redness / Burning / Dryness ("عيني بتحرقني / عيني بتوجعني / احمرار العين / رمد")
+  if (/(عيني بتوجعني|عينيا بتوجعني|وجع في العين|عيني بتحرقني|حرقان في العين|عيني حمرا|احمرار العين|عماص|رمد|جفاف العين|عيني بدمع|كيس دهني في العين|تورم الجفن)/.test(q)) {
+    const replyAr =
+      'ألف سلامة على عينك! أعراض العين بتتراوح بين:\n\n' +
+      '1. حرقان وشكشكة وإحساس برمل مع التركيز في الموبايل والكمبيوتر: ده جفاف وإجهاد للعين وبيرتاح بقطرات الترطيب (الدموع الصناعية) وتقليل الشاشات.\n' +
+      '2. احمرار مع إفرازات (عماص) أو هرش: ده التهاب ملتحمة أو حساسية عين؛ اغسل عينك بمية فاترة أو كمادات باردة، وأوعى تستخدم أي قطرة فيها كورتيزون من غير فحص قرنية العين.\n' +
+      '3. 🚨 لو فيه ألم شديد جوه العين أو زغللة مفاجئة في النظر أو دخل فيها جسم غريب: لازم كشف رمد فوراً.\n\n' +
+      '• 🏥 العيادة المختصة لحالتك: اضغط بالأسفل على زر «عيادة العيون وطوارئ القرنية»!';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : 'Eye burning, redness, or pain can be dry eye strain, allergic/bacterial conjunctivitis, or corneal irritation. Never use steroid eye drops without an exam. Open the Eye Clinic below.',
+      links: [
+        { to: '/eye-clinic', label: { ar: '👁️ افتح عيادة العيون وطوارئ القرنية', en: 'Open Eye & Cornea Clinic' } },
+        { to: '/symptom-triage', label: { ar: '🩺 افتح مشخص الأعراض الذكي', en: 'Open Smart Symptom Triage' } },
+      ],
+      mappedGeneralTopic: 'eye_care',
+    };
+  }
+
+  // 11) Ear / Throat / Tonsils / Sinus / Cold ("ودني بتوجعني / ودني مسدودة / زوري بيوجعني / اللوز / جيوب أنفية")
+  if (/(ودني بتوجعني|وداني بتوجعني|وجع في الودن|وجع في الاذن|ودني مسدوده|طنين في الودن|وش في ودني|زوري بيوجعني|حلقي بيوجعني|وجع في الزور|احتقان في الزور|مش قادر ابلع|اللوز عندي|مناخيري مسدوده|جيوب انفيه)/.test(q)) {
+    const replyAr =
+      'ألف سلامة عليك! بالنسبة لأعراض الأذن والأنف والحنجرة:\n\n' +
+      '1. لو وجع أو انسداد في الأذن: ممكن يكون تراكم شمع أو التهاب في الأذن الوسطى أو الخارجية؛ أوعى تدخل ودانة قطن أو تحط أي نقط في ودنك قبل الاطمئنان إن طبلة الأذن سليمة.\n' +
+      '2. لو وجع في الزور وصعوبة بلع: لو معاه رشح وعطس بيكون دور برد فيروسي بيرتاح بالسوائل الدافية والغرغرة بمية وملح (ومش بيحتاج مضاد حيوي)، أما لو معاه سخونية عالية وصديد أبيض على اللوز بدون رشح فيحتاج فحص طبيب أنف وأذن.\n' +
+      '3. لو انسداد أنف وصداع في الجبهة: غسل الأنف بمحلول ملحي واستنشاق بخار مية دافي بيفك الاحتقان بأمان.\n\n' +
+      '• 🏥 العيادة المختصة لحالتك: اضغط بالأسفل على زر «عيادة الأنف والأذن والحنجرة»!';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : 'Ear, nose, and throat complaints require careful evaluation without inserting cotton swabs or unprescribed drops. Open the ENT Clinic below.',
+      links: [
+        { to: '/ent-clinic', label: { ar: '👂 افتح عيادة الأنف والأذن والحنجرة', en: 'Open ENT & Sinus Clinic' } },
+        { to: '/chest-clinic', label: { ar: '🫁 افتح عيادة الصدر والجهاز التنفسي', en: 'Open Chest & Respiratory Clinic' } },
+      ],
+      mappedGeneralTopic: 'cold_flu',
+    };
+  }
+
+  // 12) Skin / Rash / Itching / Burn / Wound ("جلدي بيهرشني / طفح جلدي / حرق / جرح")
+  if (/(جلدي بيهرشني|عندي هرش|حكه في الجلد|حساسيه جلد|ارتكاريا|طفح جلدي|حبوب في جسمي|حبوب في وشي|اتحرقت|لسعه نار|ميه مغليه|اتعورت|جرح مفتوح)/.test(q)) {
+    const replyAr =
+      'ألف سلامة عليك! التعامل الصح مع مشاكل الجلد والطوارئ الجلدية:\n\n' +
+      '1. لو هرش أو حساسية جلد أو ارتكاريا: اغسل المكان بمية فاترة أو باردة، والبس قطن واسع، وتجنب الهرش والمية السخنة.\n' +
+      '2. لو حرق سطحي بمية سخنة أو زيت: حط المكان تحت مية جارية فاترة من الحنفية 10 لـ 15 دقيقة فوراً (وممنوع تماماً معجون الأسنان أو الدقيق أو الثلج المباشر!).\n' +
+      '3. لو جرح سطحي: اضغط عليه بشاش معقم لوقف الدم، واغسله بمحلول ملح وطهره ببيتادين.\n\n' +
+      '• 🏥 العيادة المختصة لحالتك: اضغط بالأسفل على زر «عيادة الجلدية والحروق والجروح» أو «عيادة الشعر والبشرة»!';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : 'For skin rashes, burns, or wounds, use cool running water for burns (never toothpaste/ice) and sterile saline for wounds. Open the Dermatology & Burns Clinic below.',
+      links: [
+        { to: '/derma-clinic', label: { ar: '🩹 افتح عيادة الجلدية والحروق والجروح', en: 'Open Dermatology & Burns Clinic' } },
+        { to: '/hair-clinic', label: { ar: '💇‍♀️ افتح عيادة الشعر والبشرة', en: 'Open Hair & Skincare Clinic' } },
+      ],
+      mappedGeneralTopic: 'allergy_skin',
+    };
+  }
+
+  // 12.5) Fever / Chills / Cold & Flu Body Aches ("عندي سخونية / حرارتي عالية / جسمي سخن ومكسر / دور برد")
+  if (/(سخونيه|سخونه|حرارتي عاليه|حراره عاليه|جسمي سخن|عندي حراره|رعشه في جسمي|تكسير في الجسم|دور برد شديد|انفلونزا)/.test(q)) {
+    const replyAr =
+      'ألف سلامة عليك من السخونية والتعب! التعامل الطبي السليم مع ارتفاع الحرارة:\n\n' +
+      '1. قيس الحرارة بالترمومتر؛ لو فوق 38 درجة اعمل كمادات مية فاترة من الحنفية على الجبهة وجانبي الرقبة وتحت الإبط وبين الفخذين (وممنوع الكحول أو المية المثلجة).\n' +
+      '2. اشرب سوائل دافية ومية كتير جداً لمنع الجفاف، وارتاح في أوضة متهوية.\n' +
+      '3. مسكن وخافض الحرارة الآمن على المعدة والكلى هو «الباراسيتامول» (وممنوع أخذ مضاد حيوي من نفسك لمجرد السخونية أو البرد بدون فحص طبيب).\n' +
+      '4. 🚨 لو السخونية استمرت أكتر من 3 أيام أو معاها كحة ببلغم ملون أو نهجان أو حرقان بول أو وجع جنب، لازم فحص وتحليل صورة دم (CBC) و(CRP).\n\n' +
+      '• 🏥 العيادة المختصة لحالتك: اضغط بالأسفل على «عيادة الصدر والتنفس» أو «عيادة الأطفال وحاسبة الجرعات» أو «مشخص الأعراض الذكي»!';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : 'For fever and chills, monitor temperature, use lukewarm compresses, stay hydrated, and use paracetamol safely. Open the clinics below.',
+      links: [
+        { to: '/symptom-triage', label: { ar: '🩺 افتح مشخص الأعراض الذكي', en: 'Open Smart Symptom Triage' } },
+        { to: '/chest-clinic', label: { ar: '🫁 افتح عيادة الصدر والجهاز التنفسي', en: 'Open Chest & Respiratory Clinic' } },
+        { to: '/pediatric-helper', label: { ar: '👶 حاسبة جرعات خافض الحرارة للأطفال', en: 'Pediatric Fever Dose Calculator' } },
+      ],
+      mappedGeneralTopic: 'fever',
+    };
+  }
+
+  // 13) Combinatory Catch-All for ANY other pain, ache, or symptom phrase ("حاسس بوجع...", "عندي ألم...", "...بيوجعني", "...واجعني", "...تاعبني")
+  if (/(وجع|الم|ألم|بيوجعني|بتوجعني|بيوجعوني|واجعني|واجعاني|تاعبني|تاعباني|بيحرقني|بتحرقني|نغزه|نغزة|حرقان|تعبان|مرهق|همدان|جسمي مكسر|اكشف عند مين|اكشف تخصص ايه|اروح عياده ايه|اروح لدكتور ايه|مشخص الاعراض)/.test(q)) {
+    const replyAr =
+      'ألف سلامة عليك يا فندم وما تشوفش شر أبداً! عشان أشخص معاك السبب بدقة وأوجهك للعيادة التخصصية الصح:\n\n' +
+      '• قولي الوجع أو التعب متركز فين بالظبط؟ (مثلاً: في الجنب الشمال أو اليمين، في البطن والمعدة، في الصدر، في الظهر والرقبة، في الرأس، ولا في المفاصل والركبة؟)\n' +
+      '• وهل معاه سخونية أو دوخة أو حرقان في البول أو أي أعراض تانية؟\n\n' +
+      '🏥 تقدر كمان تضغط مباشرة على الأزرار بالأسفل لتحديد مكان الوجع على «خريطة جسم الإنسان التفاعلية» أو فتح «مشخص الأعراض الذكي» و«مجمع الـ 20 عيادة تخصصية» فوراً!';
+    return {
+      matched: true,
+      replyText: lang === 'ar' ? replyAr : 'Tell me exactly where the pain is located (flank, abdomen, chest, back, head, or joints) and any accompanying symptoms, or tap the Interactive Body Map and Smart Symptom Triage buttons below!',
+      links: [
+        { to: '/body-map', label: { ar: '🧍‍♂️ اضغط على مكان الوجع في خريطة جسم الإنسان', en: 'Tap Where It Hurts on Body Map' } },
+        { to: '/symptom-triage', label: { ar: '🩺 افتح مشخص الأعراض الذكي (اكشف عند مين؟)', en: 'Open Smart Symptom Triage' } },
+        { to: '/clinics', label: { ar: '🏥 تصفح مجمع العيادات التخصصية (20 عيادة)', en: 'Browse All 20 Specialty Clinics' } },
+      ],
+      mappedGeneralTopic: 'vitamins_fatigue',
+    };
+  }
+
+  return null;
+}
+
 export function generateContextualSiteReply(params: {
   userText: string;
   msgs: EnhancedChatUiMessage[];
@@ -1455,6 +1785,20 @@ export function generateContextualSiteReply(params: {
         topicMemory,
       };
     }
+  }
+
+  // 0.2) Check Universal Symptom, Pain & Specialty Clinic Triage Engine FIRST for any pain/symptom query
+  const symptomTriage = evaluateComprehensiveSymptomAndClinicTriage(userText, lang);
+  if (symptomTriage && symptomTriage.matched) {
+    return {
+      handledFast: true,
+      replyText: symptomTriage.replyText,
+      links: symptomTriage.links,
+      topicMemory: {
+        ...topicMemory,
+        lastGeneralTopic: symptomTriage.mappedGeneralTopic || topicMemory.lastGeneralTopic,
+      },
+    };
   }
 
   // 0.5) Check Specific Popular Egyptian Drugs (Alphintern, Cataflam, Brufen, Panadol, Congestal, Antinal, Omez, Coloverin, Milga, Concor, Glucophage, etc.)
@@ -1565,9 +1909,11 @@ export function generateContextualSiteReply(params: {
   // ── CASE B: Initial Question on a General Health Topic (Headache, Stomach, Cold, Fever, Vitamins, etc.) ──
   if (currentGeneralTopic && lang === 'ar') {
     const guide = GENERAL_HEALTH_GUIDES[currentGeneralTopic];
+    const clinicLinks = matchSpecialtyClinicLinks(userText);
     return {
       handledFast: true,
       replyText: guide.initialReplyAr,
+      links: clinicLinks.length > 0 ? clinicLinks : undefined,
       topicMemory: {
         ...topicMemory,
         lastGeneralTopic: currentGeneralTopic,
@@ -1886,6 +2232,17 @@ if (typeof window !== 'undefined') {
 export function buildOpenEgyptianOfflineFallback(userText: string, lang: Lang): string {
   const clean = userText.trim();
 
+  // 0) Symptom, Pain & Specialty Clinic Triage check first!
+  const symptomTriage = evaluateComprehensiveSymptomAndClinicTriage(clean, lang);
+  if (symptomTriage && symptomTriage.matched) {
+    return symptomTriage.replyText;
+  }
+
+  const genTopic = matchGeneralHealthTopic(norm(clean));
+  if (genTopic && lang === 'ar') {
+    return GENERAL_HEALTH_GUIDES[genTopic].initialReplyAr;
+  }
+
   // Math & Arithmetic Evaluator
   const mathExprMatch = clean
     .replace(/[×xX]/g, '*')
@@ -1991,9 +2348,9 @@ export function buildOpenEgyptianOfflineFallback(userText: string, lang: Lang): 
   }
 
   return (
-    `🩺 أهلاً بك! أنا مساعد «دوايا» الصيدلاني الذكي.\n` +
-    `• اكتب **اسم أي دواء** (زي: كونكور، أوجمنتين، بنادول، كونجستال) وهجيبلك مادته الفعالة وسعره الرسمي وبديله الأرخص فوراً.\n` +
-    `• أو اسألني عن **السفر والمطارات**، **أمان الحقن والخلط**، **تحاليل المخدرات والقيادة**، **توقيت الشاي والقهوة مع الدواء**، أو **صلاحية القطرة والشراب بعد الفتح**.`
+    `🩺 أهلاً بك يا فندم! أنا طبيبك ومساعدك الصيدلاني الذكي في «دوايا».\n` +
+    `• قولي بتشتكي من إيه أو حاسس بوجع فين (زي: وجع في الجنب الشمال أو اليمين، وجع البطن والقولون، الصدر، الظهر، الصداع والدوخة، الأسنان، العيون، أو الأطفال) وهشخص معاك الأعراض وأوجهك للعيادة التخصصية المناسبة فوراً.\n` +
+    `• أو اكتب اسم أي دواء لمعرفة مادته الفعالة وسعره الرسمي وبديله الأرخص وتداخلاته.`
   );
 }
 
@@ -2202,8 +2559,11 @@ export function matchSpecialtyClinicLinks(userText: string): ReplyLink[] {
   }
 
   // 3. Urology, Flank Pain & Kidney Stones
-  if (/(جنبي|الجنب|مغص كلوي|حصوه|حصوة|كلي|كلية|الكلي|البول|حرقان بول|صديد بول|بروستاتا|زلال|كرياتينين|املاح)/.test(q)) {
+  if (/(جنب|جنبي|الجنب|خاصره|خاصرتي|مغص كلوي|حصوه|حصوة|حصوات|كلي|كلية|كليتي|الكلي|البول|حرقان بول|حرقان في البول|تقطيع بول|احتباس بول|صديد بول|بروستاتا|زلال|كرياتينين|املاح|أملاح|حالب|مثانه|مثانة)/.test(q)) {
     addLink('/urology-clinic', '🧪 افتح عيادة الكلى والمسالك والحصوات', 'Open Urology & Kidney Clinic');
+  }
+  if (/(جنب الشمال|جنبي الشمال|الجنب الشمال|جنب اليمين|جنبي اليمين|الجنب اليمين|وجع في الجنب|وجع في جنبي)/.test(q)) {
+    addLink('/gastro-clinic', '🦠 افتح عيادة الجهاز الهضمي والقولون والبطن', 'Open Gastro & IBS Clinic');
   }
 
   // 4. Orthopedics, Spine, Sciatica & Gout

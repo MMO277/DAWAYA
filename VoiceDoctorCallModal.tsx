@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLang } from './i18n';
+import type { ReplyLink } from './types';
 import {
   isVoiceRecognitionSupported,
   requestMicrophonePermission,
@@ -8,8 +10,15 @@ import {
   stopSpeech,
   VoiceRecognitionHandle,
 } from './speechService';
-import { askGemini } from './geminiApi';
-import { buildOpenEgyptianOfflineFallback, generateContextualSiteReply, getSeedMedicinesFallback } from './aiConversationContext';
+import { askGemini, cleanAssistantMarkdown } from './geminiApi';
+import {
+  buildOpenEgyptianOfflineFallback,
+  generateContextualSiteReply,
+  getSeedMedicinesFallback,
+  matchSpecialtyClinicLinks,
+  matchInteractiveTriagePrompts,
+  InteractiveTriagePrompt,
+} from './aiConversationContext';
 import { useSyncedHealthProfile } from './allergyData';
 import { respond, buildPassages } from './assistantLogic';
 
@@ -72,6 +81,7 @@ function playCallAudioTone(type: 'ring' | 'listen' | 'send') {
 export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCallModalProps) {
   const { lang } = useLang();
   const isAr = lang === 'ar';
+  const navigate = useNavigate();
   const { profile } = useSyncedHealthProfile();
 
   const [callState, setCallState] = useState<CallState>('connecting');
@@ -79,6 +89,8 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
   const [transcript, setTranscript] = useState<string>('');
   const [interimText, setInterimText] = useState<string>('');
   const [lastDoctorReply, setLastDoctorReply] = useState<string>('');
+  const [recommendedLinks, setRecommendedLinks] = useState<ReplyLink[]>([]);
+  const [followUpPrompts, setFollowUpPrompts] = useState<InteractiveTriagePrompt[]>([]);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [micError, setMicError] = useState<string | null>(null);
   const [manualText, setManualText] = useState<string>('');
@@ -114,6 +126,8 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
     setCallDuration(0);
     setTranscript('');
     setInterimText('');
+    setRecommendedLinks([]);
+    setFollowUpPrompts([]);
     setMicError(null);
     setManualText('');
     setCallState('connecting');
@@ -280,6 +294,18 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
         localReply,
       });
 
+      const clinicLinks = matchSpecialtyClinicLinks(cleanText);
+      const seenPaths = new Set<string>();
+      const mergedLinks: ReplyLink[] = [];
+      for (const l of [...(contextual.links || []), ...clinicLinks]) {
+        if (l && l.to && !seenPaths.has(l.to)) {
+          seenPaths.add(l.to);
+          mergedLinks.push(l);
+        }
+      }
+      setRecommendedLinks(mergedLinks.slice(0, 4));
+      setFollowUpPrompts(matchInteractiveTriagePrompts(cleanText).slice(0, 3));
+
       let reply = contextual.handledFast ? contextual.replyText : '';
 
       // 2. Fallback to Gemini with clinical consultation instruction
@@ -304,22 +330,23 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
           `أنت دكتور صيدلاني استشاري في مكالمة هاتفية صوتية مباشرة مع مريض مصري.\n` +
           `${occNotice} ${medsNotice} ${allergyNotice}\n` +
           `المريض قال لك بصوته في المكالمة: "${cleanText}".\n` +
-          `أجب عليه باللهجة المصرية الدافئة والمطمئنة والمهنية (في 2 إلى 3 جمل قصيرة وسريعة وواضحة جداً يسهل سماعها هاتفياً).\n` +
+          `أجب عليه باللهجة المصرية الدافئة والمطمئنة والمهنية (في 2 إلى 3 جمل قصيرة وسريعة وواضحة جداً يسهل سماعها هاتفياً) ووجهه للعيادة المختصة.\n` +
           `لو كان سؤاله عن دواء يؤثر على القيادة أو العمل (خاصة لو وظيفته سائق أو عامل)، نبهه بوضوح للأمان مع شغله.`;
 
         reply = await askGemini(voicePrompt, [], cleanText);
       }
 
-      setLastDoctorReply(reply);
+      const cleanedReply = cleanAssistantMarkdown(reply);
+      setLastDoctorReply(cleanedReply);
       setCallState('speaking');
 
       // Speak reply and loop back to listen
-      speakText(reply, lang, 1.0, () => {
+      speakText(cleanedReply, lang, 1.0, () => {
         startListeningCycle();
       });
     } catch (err) {
       console.warn('Call handling fallback to smart local engine:', err);
-      const fallbackMsg = buildOpenEgyptianOfflineFallback(cleanText, lang);
+      const fallbackMsg = cleanAssistantMarkdown(buildOpenEgyptianOfflineFallback(cleanText, lang));
       setLastDoctorReply(fallbackMsg);
       setCallState('speaking');
       speakText(fallbackMsg, lang, 1.0, () => {
@@ -378,10 +405,11 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
 
   const quickQuestions = isAr
     ? [
-        'عندي صداع وسخونية',
-        'هل الدواء ده آمن مع السواقة والشغل؟',
-        'مغص ووجع شديد في المعدة',
-        'جرعة المضاد الحيوي المناسبة',
+        'انا حاسس بوجع في جنب الشمال',
+        'عندي نغزة في الصدر ونهجان',
+        'مغص ووجع شديد في البطن والمعدة',
+        'عندي صداع ودوخة وزغللة',
+        'ضهري ورقبتي بيوجعوني',
       ]
     : [
         'I have headache and fever',
@@ -683,9 +711,113 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
           )}
 
           {/* Doctor spoken response */}
-          <div style={{ fontSize: '1rem', lineHeight: 1.6, color: '#f8fafc', fontWeight: 700 }}>
+          <div
+            style={{
+              fontSize: '0.95rem',
+              lineHeight: 1.65,
+              color: '#f8fafc',
+              fontWeight: 700,
+              whiteSpace: 'pre-line',
+              textAlign: isAr ? 'right' : 'left',
+              maxHeight: '220px',
+              overflowY: 'auto',
+              padding: '4px 2px',
+            }}
+          >
             {lastDoctorReply || (isAr ? 'تحدث الآن وسيجيبك الطبيب فوراً...' : 'Speak now and the doctor will reply instantly...')}
           </div>
+
+          {/* Direct Specialty Clinic Navigation Buttons inside Voice Call */}
+          {recommendedLinks.length > 0 && (
+            <div
+              style={{
+                marginTop: '12px',
+                paddingTop: '10px',
+                borderTop: '1px solid rgba(255,255,255,0.18)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                textAlign: isAr ? 'right' : 'left',
+              }}
+            >
+              <div style={{ fontSize: '0.82rem', color: '#fde68a', fontWeight: 800 }}>
+                🏥 {isAr ? 'العيادة المختصة لحالتك (اضغط للانتقال فوراً):' : 'Recommended Specialty Clinic (Tap to open):'}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {recommendedLinks.map((lnk, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      cleanupAll();
+                      onClose();
+                      navigate(lnk.to);
+                    }}
+                    style={{
+                      background:
+                        idx === 0
+                          ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
+                          : 'rgba(255,255,255,0.14)',
+                      color: '#ffffff',
+                      border:
+                        idx === 0
+                          ? '1px solid #34d399'
+                          : '1px solid rgba(255,255,255,0.28)',
+                      borderRadius: '12px',
+                      padding: '8px 14px',
+                      fontSize: '0.84rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      boxShadow: idx === 0 ? '0 4px 12px rgba(16, 185, 129, 0.35)' : 'none',
+                    }}
+                  >
+                    {isAr ? lnk.label.ar : lnk.label.en} ⬅️
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Interactive Symptom Triage Follow-up Buttons inside Voice Call */}
+          {followUpPrompts.length > 0 && (
+            <div
+              style={{
+                marginTop: '10px',
+                paddingTop: '8px',
+                borderTop: '1px dashed rgba(255,255,255,0.14)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                textAlign: isAr ? 'right' : 'left',
+              }}
+            >
+              <div style={{ fontSize: '0.78rem', color: '#93c5fd', fontWeight: 800 }}>
+                🩺 {isAr ? 'حدد وصف الوجع بدقة أكتر:' : 'Refine your symptom:'}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {followUpPrompts.map((fp, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handlePatientSpeech(isAr ? fp.queryAr : fp.queryEn)}
+                    style={{
+                      background: 'rgba(14, 165, 233, 0.16)',
+                      color: '#e0f2fe',
+                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      borderRadius: '10px',
+                      padding: '7px 11px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      textAlign: isAr ? 'right' : 'left',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {isAr ? fp.labelAr : fp.labelEn}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Microphone Error / Warning Banner */}
