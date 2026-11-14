@@ -108,6 +108,9 @@ export interface UserHealthProfile {
   customOccupationTitle?: string;
   factoryEnvironmentHazards?: string[];
   workEnvironmentNotes?: string;
+  governorateId?: string;
+  cityCenter?: string;
+  districtVillage?: string;
   displayName: string;
   age: string;
   weightKg?: string;

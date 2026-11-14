@@ -461,6 +461,7 @@ export default function FindMedicationPanel({
   );
   const [selectedGovId, setSelectedGovId] = useState<string>('all');
   const [selectedCity, setSelectedCity] = useState<string>('all');
+  const [selectedVillage, setSelectedVillage] = useState<string>('all');
   const [showAlternativesReview, setShowAlternativesReview] = useState<boolean>(false);
   const [orderModalPartner, setOrderModalPartner] = useState<PartnerPublicRecord | null>(null);
 
@@ -584,26 +585,69 @@ export default function FindMedicationPanel({
           </div>
         </div>
 
-        {/* Geographic Filter (Governorate) */}
+        {/* 3-Level Geographic Filter (Governorate -> Markaz -> Village) */}
         <div>
           <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
-            5⃣ {isAr ?'حدد محافظتك لعرض الصيدليات المتاحة:':'5. Filter by Your Governorate:'}
+            5️⃣ {isAr ? 'حدد المحافظة والمركز والقرية:' : '5. Governorate, Markaz & Village:'}
           </label>
-          <SmartNativeSelect
-            className="input"
-            value={selectedGovId}
-            onChange={(e) => {
-              setSelectedGovId(e.target.value);
-              setSelectedCity('all');
-            }}
-          >
-            <option value="all">{isAr ? 'جميع المحافظات المصرية' : 'All Egyptian Governorates'}</option>
-            {EGYPTIAN_GOVERNORATES.map((g) => (
-              <option key={g.id} value={g.id}>
-                {isAr ? g.nameAr : g.nameEn}
-              </option>
-            ))}
-          </SmartNativeSelect>
+          <div className="stack" style={{ gap: '6px' }}>
+            <SmartNativeSelect
+              className="input"
+              value={selectedGovId}
+              onChange={(e) => {
+                setSelectedGovId(e.target.value);
+                setSelectedCity('all');
+                setSelectedVillage('all');
+              }}
+            >
+              <option value="all">{isAr ? 'جميع المحافظات المصرية (27 محافظة)' : 'All Egyptian Governorates'}</option>
+              {EGYPTIAN_GOVERNORATES.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {isAr ? g.nameAr : g.nameEn}
+                </option>
+              ))}
+            </SmartNativeSelect>
+
+            {selectedGovId !== 'all' && (() => {
+              const gObj = EGYPTIAN_GOVERNORATES.find((g) => g.id === selectedGovId);
+              if (!gObj) return null;
+              const cObj = gObj.majorCities.find((mc) => mc.ar === selectedCity || mc.en === selectedCity);
+              return (
+                <>
+                  <SmartNativeSelect
+                    className="input"
+                    value={selectedCity}
+                    onChange={(e) => {
+                      setSelectedCity(e.target.value);
+                      setSelectedVillage('all');
+                    }}
+                  >
+                    <option value="all">{isAr ? 'كل مراكز ومدن المحافظة' : 'All Centers & Cities'}</option>
+                    {gObj.majorCities.map((mc) => (
+                      <option key={mc.id} value={isAr ? mc.ar : mc.en}>
+                        {isAr ? mc.ar : mc.en}
+                      </option>
+                    ))}
+                  </SmartNativeSelect>
+
+                  {cObj && (
+                    <SmartNativeSelect
+                      className="input"
+                      value={selectedVillage}
+                      onChange={(e) => setSelectedVillage(e.target.value)}
+                    >
+                      <option value="all">{isAr ? 'كل قرى وأحياء المركز' : 'All Villages & Districts'}</option>
+                      {cObj.districts.map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </SmartNativeSelect>
+                  )}
+                </>
+              );
+            })()}
+          </div>
         </div>
       </div>
 

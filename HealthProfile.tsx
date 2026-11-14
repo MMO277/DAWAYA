@@ -1,3 +1,4 @@
+import { EGYPTIAN_GOVERNORATES } from './partnerTypes';
 import { DriverDrugTestShieldCard } from './egyptianClinicalInnovations';
 import { HealthProfilePrivacyGate } from './profilePrivacyLock';
 import SmartChoiceSelect, { SmartNativeSelect } from './SmartChoiceSelect';
@@ -319,6 +320,10 @@ export default function HealthProfile() {
   const [customOccupationInput, setCustomOccupationInput] = useState<string>(profile.customOccupationTitle || '');
   const [factoryHazardsInput, setFactoryHazardsInput] = useState<string[]>(profile.factoryEnvironmentHazards || []);
   const [workEnvironmentNotesInput, setWorkEnvironmentNotesInput] = useState<string>(profile.workEnvironmentNotes || '');
+  const [govInput, setGovInput] = useState<string>(profile.governorateId || 'dakahlia');
+  const [cityInput, setCityInput] = useState<string>(profile.cityCenter || 'مركز ومدينة أجا');
+  const [villageInput, setVillageInput] = useState<string>(profile.districtVillage || 'نوسا البحر');
+  const [customVillageMode, setCustomVillageMode] = useState<boolean>(false);
 
   // Modal states
   const [showAllergyModal, setShowAllergyModal] = useState(false);
@@ -351,8 +356,11 @@ export default function HealthProfile() {
       setCustomOccupationInput(profile.customOccupationTitle || '');
       setFactoryHazardsInput(profile.factoryEnvironmentHazards || []);
       setWorkEnvironmentNotesInput(profile.workEnvironmentNotes || '');
+      if (profile.governorateId) setGovInput(profile.governorateId);
+      if (profile.cityCenter) setCityInput(profile.cityCenter);
+      if (profile.districtVillage) setVillageInput(profile.districtVillage);
     }
-  }, [profile.displayName, profile.age, profile.weightKg, profile.bloodType, profile.emergencyContact, profile.gender, profile.occupation, profile.customOccupationTitle, profile.factoryEnvironmentHazards, profile.workEnvironmentNotes, editingPersonal]);
+  }, [profile.displayName, profile.age, profile.weightKg, profile.bloodType, profile.emergencyContact, profile.gender, profile.occupation, profile.customOccupationTitle, profile.factoryEnvironmentHazards, profile.workEnvironmentNotes, profile.governorateId, profile.cityCenter, profile.districtVillage, editingPersonal]);
 
   const savePersonalInfo = (e: FormEvent) => {
     e.preventDefault();
@@ -368,6 +376,9 @@ export default function HealthProfile() {
       customOccupationTitle: customOccupationInput.trim(),
       factoryEnvironmentHazards: factoryHazardsInput,
       workEnvironmentNotes: workEnvironmentNotesInput.trim(),
+      governorateId: govInput,
+      cityCenter: cityInput.trim(),
+      districtVillage: villageInput.trim(),
     }));
     setEditingPersonal(false);
 
@@ -667,6 +678,137 @@ export default function HealthProfile() {
                 <input value={contactInput} onChange={(e) => setContactInput(e.target.value)} placeholder="01xxxxxxxxx" />
               </div>
 
+              {/* 3-Level Egyptian Administrative Location Selector: Governorate -> Markaz -> Village */}
+              <div
+                className="form-group form-group-full"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%)',
+                  padding: '14px 16px',
+                  borderRadius: '16px',
+                  border: '1.5px solid #0284c7',
+                  marginTop: '6px',
+                }}
+              >
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#0369a1' }}>
+                  <span style={{ fontSize: '1.25rem' }}>📍</span>
+                  <strong style={{ fontSize: '0.96rem' }}>
+                    {isAr
+                      ? 'عنوان الإقامة التفصيلي (المحافظة ← المركز / المدينة ← القرية / الحي):'
+                      : 'Detailed Residence (Governorate → Markaz/City → Village/District):'}
+                  </strong>
+                </label>
+                {(() => {
+                  const gMeta = EGYPTIAN_GOVERNORATES.find((g) => g.id === govInput) || EGYPTIAN_GOVERNORATES[0];
+                  const cMeta =
+                    gMeta.majorCities.find((mc) => mc.ar === cityInput || mc.en === cityInput || mc.id === cityInput) ||
+                    gMeta.majorCities[0];
+                  const villagesList = cMeta ? cMeta.districts : [];
+                  return (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                        gap: '10px',
+                      }}
+                    >
+                      <div>
+                        <label className="small muted" style={{ display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                          1️⃣ {isAr ? 'المحافظة (27 محافظة):' : '1. Governorate:'}
+                        </label>
+                        <SmartNativeSelect
+                          className="input"
+                          value={gMeta.id}
+                          onChange={(e) => {
+                            const nextG = EGYPTIAN_GOVERNORATES.find((x) => x.id === e.target.value) || EGYPTIAN_GOVERNORATES[0];
+                            setGovInput(nextG.id);
+                            const firstC = nextG.majorCities[0];
+                            setCityInput(firstC ? firstC.ar : '');
+                            setVillageInput(firstC && firstC.districts[0] ? firstC.districts[0] : '');
+                            setCustomVillageMode(false);
+                          }}
+                        >
+                          {EGYPTIAN_GOVERNORATES.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {isAr ? g.nameAr : g.nameEn}
+                            </option>
+                          ))}
+                        </SmartNativeSelect>
+                      </div>
+
+                      <div>
+                        <label className="small muted" style={{ display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                          2️⃣ {isAr ? 'المركز / القسم / المدينة:' : '2. Markaz / City:'}
+                        </label>
+                        <SmartNativeSelect
+                          className="input"
+                          value={cMeta ? cMeta.ar : ''}
+                          onChange={(e) => {
+                            const nextC = gMeta.majorCities.find((mc) => mc.ar === e.target.value) || gMeta.majorCities[0];
+                            setCityInput(nextC ? nextC.ar : e.target.value);
+                            setVillageInput(nextC && nextC.districts[0] ? nextC.districts[0] : '');
+                            setCustomVillageMode(false);
+                          }}
+                        >
+                          {gMeta.majorCities.map((mc) => (
+                            <option key={mc.id} value={mc.ar}>
+                              {isAr ? mc.ar : mc.en}
+                            </option>
+                          ))}
+                        </SmartNativeSelect>
+                      </div>
+
+                      <div>
+                        <label className="small muted" style={{ display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+                          3️⃣ {isAr ? 'القرية / الحي / العزبة:' : '3. Village / District:'}
+                        </label>
+                        {!customVillageMode ? (
+                          <SmartNativeSelect
+                            className="input"
+                            value={villagesList.includes(villageInput) ? villageInput : villagesList[0] || ''}
+                            onChange={(e) => {
+                              if (e.target.value === '__CUSTOM_VILLAGE__') {
+                                setCustomVillageMode(true);
+                                setVillageInput('');
+                              } else {
+                                setVillageInput(e.target.value);
+                              }
+                            }}
+                          >
+                            {villagesList.map((v) => (
+                              <option key={v} value={v}>
+                                {v}
+                              </option>
+                            ))}
+                            <option value="__CUSTOM_VILLAGE__">
+                              ✍️ {isAr ? 'قريتي أو عزبتي غير موجودة بالقائمة (اكتبها يدوياً)' : 'Type custom village/area...'}
+                            </option>
+                          </SmartNativeSelect>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <input
+                              className="input"
+                              value={villageInput}
+                              onChange={(e) => setVillageInput(e.target.value)}
+                              placeholder={isAr ? 'اكتب اسم قريتك أو عزبتك أو حيك...' : 'Enter village or neighborhood...'}
+                            />
+                            <button
+                              type="button"
+                              className="btn ghost small"
+                              onClick={() => {
+                                setCustomVillageMode(false);
+                                setVillageInput(villagesList[0] || '');
+                              }}
+                            >
+                              ↩️
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
               <div
                 className="form-group form-group-full"
                 style={{
@@ -872,6 +1014,18 @@ export default function HealthProfile() {
             <div><b>{isAr ? 'فصيلة الدم:' : 'Blood Type:'}</b> {profile.bloodType || '—'}</div>
             <div><b>{isAr ? 'النوع:' : 'Gender:'}</b> {profile.gender === 'male' ? (isAr ? 'ذكر' : 'Male') : profile.gender === 'female' ? (isAr ? 'أنثى' : 'Female') : '—'}</div>
             <div className="profile-detail-full"><b>{isAr ? 'هاتف الطوارئ:' : 'Emergency Phone:'}</b> {profile.emergencyContact || '—'}</div>
+            <div className="profile-detail-full" style={{ background: '#f0f9ff', padding: '10px 14px', borderRadius: '12px', border: '1.5px solid #bae6fd' }}>
+              <b style={{ color: '#0369a1' }}>📍 {isAr ? 'المحافظة والمركز والقرية:' : 'Location (Governorate / Markaz / Village):'}</b>{' '}
+              <strong style={{ color: '#0f172a' }}>
+                {(() => {
+                  const g = EGYPTIAN_GOVERNORATES.find((x) => x.id === (profile.governorateId || 'dakahlia'));
+                  const gName = g ? (isAr ? g.nameAr : g.nameEn) : profile.governorateId || (isAr ? 'الدقهلية' : 'Dakahlia');
+                  const cName = profile.cityCenter || (isAr ? 'مركز ومدينة أجا' : 'Aga Markaz');
+                  const vName = profile.districtVillage || (isAr ? 'نوسا البحر' : 'Noussa El Bahr');
+                  return `${gName} ← ${cName} ← ${vName}`;
+                })()}
+              </strong>
+            </div>
             <div className="profile-detail-full" style={{ background: '#f0fdf4', padding: '10px 14px', borderRadius: '12px', border: '1.5px solid #86efac' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                 <div>

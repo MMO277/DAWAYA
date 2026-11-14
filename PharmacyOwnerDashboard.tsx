@@ -992,26 +992,70 @@ export default function PharmacyOwnerDashboard() {
             </div>
 
             <div className="form-row">
-              <div className="form-group">
-                <label><b>{isAr ? 'المحافظة:' : 'Governorate:'} *</b></label>
-                <SmartChoiceSelect
-                  value={regGovId}
-                  onChange={(v) => setRegGovId(v)}
-                  modalTitle={isAr ? 'اختر المحافظة' : 'Select Governorate'}
-                  options={dynamicGovernorates.map((g) => ({
-                    value: g.id,
-                    label: isAr ? g.nameAr : g.nameEn,
-                  }))}
-                />
-              </div>
-              <div className="form-group">
-                <label><b>{isAr ? 'المدينة / المركز:' : 'City / Center:'} *</b></label>
-                <input value={regCity} onChange={(e) => setRegCity(e.target.value)} required />
-              </div>
-              <div className="form-group">
-                <label><b>{isAr ? 'الحي / القرية:' : 'District / Village:'} *</b></label>
-                <input value={regDistrict} onChange={(e) => setRegDistrict(e.target.value)} required />
-              </div>
+              {(() => {
+                const gObj = dynamicGovernorates.find((g) => g.id === regGovId) || dynamicGovernorates[0];
+                const cObj =
+                  gObj?.majorCities.find((mc) => mc.ar === regCity || mc.en === regCity) ||
+                  gObj?.majorCities[0];
+                const villages = cObj ? cObj.districts : [];
+                return (
+                  <>
+                    <div className="form-group">
+                      <label><b>{isAr ? '1️⃣ المحافظة:' : '1. Governorate:'} *</b></label>
+                      <SmartChoiceSelect
+                        value={regGovId}
+                        onChange={(v) => {
+                          setRegGovId(v);
+                          const nextG = dynamicGovernorates.find((x) => x.id === v);
+                          const firstC = nextG?.majorCities[0];
+                          setRegCity(firstC ? firstC.ar : '');
+                          setRegDistrict(firstC?.districts[0] || '');
+                        }}
+                        modalTitle={isAr ? 'اختر المحافظة' : 'Select Governorate'}
+                        options={dynamicGovernorates.map((g) => ({
+                          value: g.id,
+                          label: isAr ? g.nameAr : g.nameEn,
+                        }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label><b>{isAr ? '2️⃣ المركز / القسم / المدينة:' : '2. Markaz / City:'} *</b></label>
+                      <SmartChoiceSelect
+                        value={cObj ? cObj.ar : regCity}
+                        onChange={(v) => {
+                          setRegCity(v);
+                          const nextC = gObj?.majorCities.find((mc) => mc.ar === v);
+                          if (nextC?.districts[0]) setRegDistrict(nextC.districts[0]);
+                        }}
+                        modalTitle={isAr ? 'اختر المركز أو المدينة' : 'Select Markaz or City'}
+                        options={(gObj?.majorCities || []).map((mc) => ({
+                          value: mc.ar,
+                          label: isAr ? mc.ar : mc.en,
+                        }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label><b>{isAr ? '3️⃣ القرية / الحي / الشياخة:' : '3. Village / District:'} *</b></label>
+                      <SmartChoiceSelect
+                        value={villages.includes(regDistrict) ? regDistrict : villages[0] || regDistrict}
+                        onChange={(v) => setRegDistrict(v)}
+                        modalTitle={isAr ? 'اختر القرية أو الحي' : 'Select Village or District'}
+                        options={villages.map((vil) => ({
+                          value: vil,
+                          label: vil,
+                        }))}
+                      />
+                      <input
+                        style={{ marginTop: '6px' }}
+                        value={regDistrict}
+                        onChange={(e) => setRegDistrict(e.target.value)}
+                        placeholder={isAr ? 'أو اكتب اسم القرية / العزبة / الحي يدوياً...' : 'Or type village/district manually...'}
+                        required
+                      />
+                    </div>
+                  </>
+                );
+              })()}
               <div className="form-group">
                 <label><b>{isAr ? 'هاتف الصيدلية والطوارئ:' : 'Pharmacy Phone:'} *</b></label>
                 <input value={regPhone} onChange={(e) => setRegPhone(e.target.value)} required />

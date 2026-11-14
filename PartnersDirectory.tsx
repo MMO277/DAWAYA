@@ -50,6 +50,8 @@ export default function PartnersDirectoryPage() {
   const [selectedCatId, setSelectedCatId] = useState<string>('all');
   const [selectedGovId, setSelectedGovId] = useState<string>('all');
   const [selectedCity, setSelectedCity] = useState<string>('all');
+  const [selectedVillage, setSelectedVillage] = useState<string>('all');
+  const [customVillageFilter, setCustomVillageFilter] = useState<string>('');
   const [onlyDelivery, setOnlyDelivery] = useState<boolean>(false);
   const [only24h, setOnly24h] = useState<boolean>(false);
 
@@ -311,7 +313,7 @@ export default function PartnersDirectoryPage() {
 
             <div>
               <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
-                 {isAr ?'المحافظة:':'Governorate:'}
+                 {isAr ? '1️⃣ المحافظة (27 محافظة):' : '1. Governorate:'}
               </label>
               <SmartNativeSelect
                 className="input"
@@ -319,6 +321,8 @@ export default function PartnersDirectoryPage() {
                 onChange={(e) => {
                   setSelectedGovId(e.target.value);
                   setSelectedCity('all');
+                  setSelectedVillage('all');
+                  setCustomVillageFilter('');
                 }}
               >
                 <option value="all">{isAr ? 'كل المحافظات المصرية' : 'All Egyptian Governorates'}</option>
@@ -333,14 +337,18 @@ export default function PartnersDirectoryPage() {
             {selectedGovMeta && (
               <div>
                 <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
-                   {isAr ?'المدينة / المنطقة:':'City / Area:'}
+                   {isAr ? '2️⃣ المركز / القسم / المدينة:' : '2. Markaz / City:'}
                 </label>
                 <SmartNativeSelect
                   className="input"
                   value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedCity(e.target.value);
+                    setSelectedVillage('all');
+                    setCustomVillageFilter('');
+                  }}
                 >
-                  <option value="all">{isAr ? 'كل مدن المحافظة' : 'All Cities'}</option>
+                  <option value="all">{isAr ? 'كل مراكز ومدن المحافظة' : 'All Centers & Cities'}</option>
                   {selectedGovMeta.majorCities.map((mc) => (
                     <option key={mc.id} value={isAr ? mc.ar : mc.en}>
                       {isAr ? mc.ar : mc.en}
@@ -349,6 +357,48 @@ export default function PartnersDirectoryPage() {
                 </SmartNativeSelect>
               </div>
             )}
+
+            {selectedGovMeta && selectedCity !== 'all' && (() => {
+              const markazMeta = selectedGovMeta.majorCities.find(
+                (mc) => mc.ar === selectedCity || mc.en === selectedCity
+              );
+              const villages = markazMeta ? markazMeta.districts : [];
+              return (
+                <div>
+                  <label className="small muted" style={{ display: 'block', marginBottom: '4px' }}>
+                    {isAr ? '3️⃣ القرية / الحي / الشياخة:' : '3. Village / District:'}
+                  </label>
+                  <SmartNativeSelect
+                    className="input"
+                    value={selectedVillage}
+                    onChange={(e) => {
+                      setSelectedVillage(e.target.value);
+                      if (e.target.value !== '__CUSTOM__') setCustomVillageFilter('');
+                    }}
+                  >
+                    <option value="all">{isAr ? 'كل قرى وأحياء المركز' : 'All Villages & Districts'}</option>
+                    {villages.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                    <option value="__CUSTOM__">
+                      ✍️ {isAr ? 'قريتي أو عزبتي غير موجودة بالقائمة (اكتبها يدوياً)' : 'Type custom village...'}
+                    </option>
+                  </SmartNativeSelect>
+                  {selectedVillage === '__CUSTOM__' && (
+                    <input
+                      type="text"
+                      className="input"
+                      style={{ marginTop: '6px' }}
+                      value={customVillageFilter}
+                      onChange={(e) => setCustomVillageFilter(e.target.value)}
+                      placeholder={isAr ? 'اكتب اسم قريتك أو عزبتك...' : 'Enter your village name...'}
+                    />
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           <div
