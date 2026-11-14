@@ -1,3 +1,4 @@
+const SituationCompassModal = lazy(() => import('./SituationCompassModal'));
 import { DawayaFullWordmark } from './DawayaLogo';
 import { DawayaRouteVectorIcon, HeroMicVectorIcon, HeroScannerVectorIcon, HeroSearchVectorIcon } from './DawayaVectorIcons';
 import { PersonaType } from './SmartPersonaAndSpotlight';
@@ -39,6 +40,7 @@ export default function Home() {
   const [showAllClinicalTools, setShowAllClinicalTools] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<PersonaType>('all');
   const [spotlightOpen, setSpotlightOpen] = useState(false);
+  const [situationCompassOpen, setSituationCompassOpen] = useState(false);
   const [recentMeds, setRecentMeds] = useState<RecentlyViewedMedItem[]>(() => getRecentlyViewedMedicines());
   const searchWrapRef = useRef<HTMLDivElement>(null);
 
@@ -1262,6 +1264,23 @@ export default function Home() {
                 <DawayaRouteVectorIcon route="/green-prescription" size={16} color="#CFD29D" />
                 <span>{tr(lang, 'الروشتة الخضراء', 'Green Rx')}</span>
               </Link>
+              <button
+                type="button"
+                onClick={() => setSituationCompassOpen(true)}
+                className="hero-quick-tag"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(19, 136, 102, 0.42), rgba(207, 210, 157, 0.28))',
+                  borderColor: '#CFD29D',
+                  borderWidth: '1.5px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                }}
+              >
+                <span>🧭</span>
+                <span>{tr(lang, 'دليلك حسب موقفك (مسافر • صيدلية • طوارئ)', 'Situation Compass (Travel • Pharmacy • Urgent)')}</span>
+              </button>
             </div>
           </div>
 
@@ -1683,6 +1702,12 @@ export default function Home() {
       {spotlightOpen && (
         <Suspense fallback={null}>
           <GlobalSpotlightModal isOpen={spotlightOpen} onClose={() => setSpotlightOpen(false)} />
+        </Suspense>
+      )}
+
+      {situationCompassOpen && (
+        <Suspense fallback={null}>
+          <SituationCompassModal isOpen={situationCompassOpen} onClose={() => setSituationCompassOpen(false)} lang={lang} />
         </Suspense>
       )}
     </main>

@@ -1,3 +1,4 @@
+import { matchDriverDrugScreen, matchInjectionSafety } from './egyptianClinicalInnovations';
 
 /**
  * Comprehensive Medical Input Sanitizer & Prompt Injection Shield:
@@ -1878,6 +1879,10 @@ export function generateContextualSiteReply(params: {
  * Smart open-domain fallback when all external cloud AI endpoints are unreachable (e.g. offline),
  * ensuring the assistant NEVER falls back to the old "المضادات الحيوية صممت حصرياً..." message!
  */
+if (typeof window !== 'undefined') {
+  window.setTimeout(() => { ensureDawayaDatabaseLoaded().catch(() => {}); }, 2000);
+}
+
 export function buildOpenEgyptianOfflineFallback(userText: string, lang: Lang): string {
   const clean = userText.trim();
 
@@ -1902,13 +1907,93 @@ export function buildOpenEgyptianOfflineFallback(userText: string, lang: Lang): 
     }
   }
 
+  const lower = clean.toLowerCase();
+
+  // 1) Driver & Drug-Test Shield check
+  const driverMatch = matchDriverDrugScreen(clean);
+  if (driverMatch && /(سواق|سائق|سواقة|قيادة|تحليل|مخدرات|نعاس|ينيم|بينايم|طريق|شغل|عمل|مرور)/i.test(clean)) {
+    if (lang === 'ar') {
+      return (
+        `🚓 **درع السائقين وتحليل المخدرات (${driverMatch.namesAr[0]}):**\n` +
+        `• **نتيجة الفحص:** ${driverMatch.drugTestStatus === 'false_positive_risk' ? driverMatch.falsePositiveClassAr : 'آمن ولا يظهر في التحليل'}\n` +
+        `• **تأثير القيادة:** ${driverMatch.drivingAdviceAr}\n` +
+        `• **✅ البديل المصري الآمن 100%:** ${driverMatch.safeAlternativeAr}`
+      );
+    }
+    return `🚓 **Driver Shield (${driverMatch.namesEn[0]}):** ${driverMatch.drivingAdviceEn} Safe alternative: ${driverMatch.safeAlternativeEn}`;
+  }
+
+  // 2) Safe Injection & Syringe Mix check
+  const injMatch = matchInjectionSafety(clean);
+  if (injMatch && /(حقن|حقنة|امبول|أمبول|فيال|سرنجة|خلط|اخلط|أخلط|ليدوكايين|وريد|عضل)/i.test(clean)) {
+    if (lang === 'ar') {
+      return (
+        `💉 **دليل الحقن الآمن (${injMatch.titleAr}):**\n` +
+        `• **طريقة الإعطاء:** ${injMatch.routeRuleAr}\n` +
+        `• **المذيب الصح:** ${injMatch.solventRuleAr}\n` +
+        `• **⛔ تحذير الخلط في سرنجة واحدة:** ${injMatch.neverMixWithAr}`
+      );
+    }
+    return `💉 **Safe Injection (${injMatch.titleEn}):** ${injMatch.routeRuleEn} ${injMatch.neverMixWithEn}`;
+  }
+
+  // 3) Instant lookup across all 26,562 DAWAYA medicines
+  const stopwords = /(ما هو|ماهو|ايه هو|إيه هو|سعر|بديل|مثيل|دواء|دوا|برشام|كبسول|شراب|حقنة|حقن|قطرة|كريم|مرهم|بيستخدم|استخدام|فوائد|اضرار|أضرار|تأثير|جرعة|عايز|اعرف|معلومات|عن|لو سمحت|يا دكتور|في مصر)/gi;
+  const searchCandidate = clean.replace(stopwords, ' ').replace(/\s+/g, ' ').trim();
+  const lookupToken = searchCandidate.length >= 2 ? searchCandidate : clean;
+  const directMed = findDawayaIndexItemSync(lookupToken);
+  if (directMed) {
+    const alts = getDawayaClassifiedAlternatives(directMed, 5);
+    const cheaperEq = alts.exactEquivalents.find((e) => e.p && directMed.p && e.p < directMed.p - 0.5);
+    if (lang === 'ar') {
+      const lines = [
+        `💊 **بيانات «${directMed.a || directMed.n}» من موسوعة دوايا المصرية:**`,
+        `• **المادة الفعالة:** ${directMed.g || 'راجع النشرة الداخلية للدواء'}`,
+        `• **الشكل الصيدلي:** ${directMed.d || 'عبوة دوائية'}`,
+        `• **السعر الرسمي المسجل:** ${directMed.p ? `${directMed.p.toFixed(2)} ج.م` : 'غير محدد بالسجل'}`,
+      ];
+      if (cheaperEq) {
+        lines.push(`• **💡 بديل مصري أرخص مطابق 100% في المادة الفعالة:** ${cheaperEq.a || cheaperEq.n} بسعر **${cheaperEq.p?.toFixed(2)} ج.م**`);
+      }
+      lines.push(`• تقدر تفتح صفحة الدواء الكاملة من دليل الأدوية لمعرفة التحذيرات الـ 7 والتداخلات بالتفصيل.`);
+      return lines.join('\n');
+    }
+    return (
+      `💊 **${directMed.n}** — Active Ingredient: ${directMed.g || 'N/A'} | Form: ${directMed.d || 'N/A'} | Official Price: ${directMed.p ? directMed.p + ' EGP' : 'N/A'}` +
+      (cheaperEq ? ` | Cheaper Bioequivalent: ${cheaperEq.n} (${cheaperEq.p} EGP)` : '')
+    );
+  }
+
+  // 4) Contextual Situational Guidance (Travel, Tea/Coffee, Post-opening Expiry, Pharmacy Bill)
+  if (/(سفر|مسافر|مطار|جمرك|طيران|سعودية|عمرة|حج)/i.test(lower)) {
+    return lang === 'ar'
+      ? `✈️ **دليل المسافر الطبي في دوايا:**\n• للأدوية الممنوعة في المطارات والجمارك (مثل المهدئات أو مسكنات الترامادول أو بعض أدوية البرد المحتوية على سودوإيفيدرين)، افتح **كاشف أدوية المطارات (/airport-banned-meds)**.\n• احتفظ بصورة الروشتة مختومة ومعاك **الكارت الطبي الذكي QR (/passport)**، وجهّز شنطتك من **شنطة أدوية السفر (/travel-kit)**.`
+      : '✈️ Open the **Airport Banned Meds Scanner** (/airport-banned-meds) and **Travel Med Kit** (/travel-kit) to verify customs rules and safe substitutes.';
+  }
+  if (/(شاي|قهوة|نسكافيه|فطار|لبن|جبنة|حديد|غدة|إلتروكسين|التروكسين)/i.test(lower)) {
+    return lang === 'ar'
+      ? `☕ **قاعدة الشاي والقهوة والأكل مع الأدوية:**\n• **دواء الغدة (إلتروكسين):** على الريق بالماء فقط قبل الفطار والقهوة بـ 60 دقيقة.\n• **أقراص الحديد:** افصلها عن الشاي والقهوة واللبن بساعتين على الأقل (الأفضل مع عصير برتقال).\n• **المضادات الحيوية (سيبرو وتافانيك ودوكسيسيكلين):** افصلها عن اللبن والجبنة بساعتين.\n• تقدر ترتب يومك بالساعة من **مُنسّق مواعيد الشاي والأكل (/food-interactions)**.`
+      : '☕ Separate Thyroid pills by 60 min before breakfast/coffee, and Iron or Quinolone/Tetracycline antibiotics by 2 hours from tea, coffee, and dairy. Check **Tea & Food Timing Matrix** (/food-interactions).';
+  }
+  if (/(قطرة|شراب|مفتوح|فتح|صلاحية|ثلاجة|تلاجة|أنسولين|انسولين|حر|صيف)/i.test(lower)) {
+    return lang === 'ar'
+      ? `⏳ **قاعدة صلاحية الدواء بعد الفتح:**\n• **شراب المضاد الحيوي المحلول بالماء:** صالح **7–10 أيام فقط** في باب الثلاجة.\n• **قطرة العين والأذن وأقلام الأنسولين المفتوحة:** صالحة **28 يوماً فقط** من الفتح.\n• احسب تاريخ الإعدام الفعلي من **عداد صلاحية الدواء بعد الفتح (/home-cabinet)**.`
+      : '⏳ Reconstituted antibiotic syrups expire in 7–10 days (fridge door), and opened eye drops/insulin pens expire in 28 days. Track exact dates in **Home Medicine Cabinet** (/home-cabinet).';
+  }
+  if (/(غالي|سعر|فاتورة|توفير|روشتة|مثيل|بديل)/i.test(lower)) {
+    return lang === 'ar'
+      ? `💰 **تخفيض فاتورة الصيدلية الذكي:**\nافتح أداة **مُفكّك ومُخفّض فاتورة الصيدلية (/cost-saver)** واكتب اسم الدواء أو أصناف الروشتة لتظهر لك المثائل المصرية المطابقة 100% في المادة الفعالة والتركيز بأقل سعر رسمي مسجل.`
+      : '💰 Open **Smart Cost Saver & Bill Optimizer** (/cost-saver) to compare official EGP prices and find identical Egyptian bioequivalents.';
+  }
+
   if (lang !== 'ar') {
-    return `⚠️ Connection to the live AI server timed out. Please check your internet connection and try asking "${clean.slice(0, 80)}" again.`;
+    return `🩺 I'm your DAWAYA clinical assistant! Ask me about any Egyptian medicine name for its active ingredient, official EGP price, and cheaper generics, or use **Situation Compass** on the homepage for travel, pharmacy, and emergency tools.`;
   }
 
   return (
-    `⚠️ يبدو أن الاتصال بالإنترنت ضعيف في هذه اللحظة فلم يتمكن المساعد من جلب الإجابة الحية لسؤالك: «${clean.slice(0, 80)}».\n` +
-    `تأكد من اتصالك بالإنترنت وجرب إرسال السؤال مرة أخرى وهيرد عليك فوراً!`
+    `🩺 أهلاً بك! أنا مساعد «دوايا» الصيدلاني الذكي.\n` +
+    `• اكتب **اسم أي دواء** (زي: كونكور، أوجمنتين، بنادول، كونجستال) وهجيبلك مادته الفعالة وسعره الرسمي وبديله الأرخص فوراً.\n` +
+    `• أو اسألني عن **السفر والمطارات**، **أمان الحقن والخلط**، **تحاليل المخدرات والقيادة**، **توقيت الشاي والقهوة مع الدواء**، أو **صلاحية القطرة والشراب بعد الفتح**.`
   );
 }
 
