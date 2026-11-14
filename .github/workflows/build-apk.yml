@@ -247,7 +247,7 @@ jobs:
 
       - name: Configure Hybrid Smart Boot, Native Google Account Picker & Alarm Receiver
         run: |
-          python3 -c '
+          python3 - << 'PYMANIFEST'
           p = "android/app/src/main/AndroidManifest.xml"
           with open(p, "r") as f:
               xml = f.read()
@@ -286,7 +286,7 @@ jobs:
               xml = xml.replace("</application>", receiver_tag)
           with open(p, "w") as f:
               f.write(xml)
-          '
+          PYMANIFEST
 
           cat << 'EOF' > android/app/src/main/java/com/dawaya/health/DoseAlarmReceiver.java
           package com.dawaya.health;
