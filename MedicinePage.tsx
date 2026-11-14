@@ -263,11 +263,11 @@ export default function MedicinePage() {
   const personalProfileFlagMatches = useMemo(() => {
     if (!dawayaRecord?.warningsFlags || !profile) return [];
     const alerts: string[] = [];
-    const conds = (profile.chronicConditions || []).map((c) => c.toLowerCase());
+    const conds = (profile.chronicConditions || []).map((c) => (typeof c === 'string' ? c : c?.conditionName || '').toLowerCase());
     if (dawayaRecord.warningsFlags.pregnancy && profile.pregnancyStatus === 'pregnant') {
       alerts.push(isAr ? 'تحذير خاص أثناء الحمل مسجل لهذا الدواء' : 'Pregnancy caution registered for this medication');
     }
-    if (dawayaRecord.warningsFlags.lactation && profile.lactationStatus === 'breastfeeding') {
+    if (dawayaRecord.warningsFlags.lactation && profile.pregnancyStatus === 'breastfeeding') {
       alerts.push(isAr ? 'تحذير خاص أثناء الرضاعة الطبيعية مسجل لهذا الدواء' : 'Breastfeeding caution registered for this medication');
     }
     if (dawayaRecord.warningsFlags.highBloodPressure && conds.some((c) => c.includes('hypertension') || c.includes('ضغط') || c.includes('blood_pressure'))) {
@@ -326,21 +326,22 @@ export default function MedicinePage() {
         : dawayaRecord.brandNameEn
       : name;
     setProfile((prev) => {
-      const existing = prev.activeMedications || [];
-      if (existing.some((x) => x.resolvedDrugId === m.id || x.drugName === medTitle)) {
+      const existing = prev.medications || [];
+      if (existing.some((x) => x.drugName === medTitle)) {
         return prev;
       }
       return {
         ...prev,
-        activeMedications: [
+        medications: [
           {
             id: `med-${Date.now()}`,
             drugName: medTitle,
-            resolvedDrugId: m.id,
-            doseOrStrength: dawayaRecord?.strength || undefined,
-            evidenceStatus: 'patient_reported',
+            activeIngredients: dawayaRecord?.genericName || m.activeIngredients.en || '',
+            dosageAndFrequency: dawayaRecord?.strength || '',
+            indicationOrReason: '',
+            isOngoing: true,
             source: 'manual_entry',
-            addedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
           },
           ...existing,
         ],
@@ -424,21 +425,18 @@ export default function MedicinePage() {
 
       {/* Instant Top Personal Medication Safety & Interaction Card (Feature 2) */}
       {safetyAssessment && (() => {
+        const findingsList = Array.isArray(safetyAssessment.findings) ? safetyAssessment.findings : [];
         const hasEngineIssues =
-          safetyAssessment.allergyAlerts.length > 0 ||
-          safetyAssessment.drugInteractions.length > 0 ||
-          safetyAssessment.duplicateIngredients.length > 0 ||
-          safetyAssessment.conditionWarnings.length > 0 ||
+          findingsList.length > 0 ||
           personalProfileFlagMatches.length > 0;
 
-        const savedMedsCount = (profile.activeMedications?.length || 0) + (schedules?.length || 0);
+        const savedMedsCount = (profile.medications?.length || 0) + (schedules?.length || 0);
         const savedAllergiesCount = profile.allergies?.length || 0;
 
         const issueLines: string[] = [];
-        safetyAssessment.allergyAlerts.forEach((a) => issueLines.push(pick(a.title, lang) + ' — ' + pick(a.explanation, lang)));
-        safetyAssessment.drugInteractions.forEach((d) => issueLines.push(pick(d.title, lang) + ' — ' + pick(d.clinicalEffect, lang)));
-        safetyAssessment.duplicateIngredients.forEach((dup) => issueLines.push(pick(dup.explanation, lang)));
-        safetyAssessment.conditionWarnings.forEach((cw) => issueLines.push(pick(cw.title, lang) + ' — ' + pick(cw.explanation, lang)));
+        findingsList.forEach((f) => {
+          issueLines.push(pick(f.title, lang) + ' — ' + pick(f.reason, lang));
+        });
         personalProfileFlagMatches.forEach((pf) => issueLines.push(pf));
 
         return (

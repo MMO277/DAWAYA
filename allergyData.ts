@@ -123,6 +123,11 @@ export interface UserHealthProfile {
   pregnancyStatus?: PregnancyLactationStatus;
   renalStatus?: OrganFunctionStatus;
   hepaticStatus?: OrganFunctionStatus;
+  fullName?: string;
+  ageYears?: string;
+  breastfeedingStatus?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  activeMedications?: any[];
 }
 
 export const STORAGE_KEY = 'antibiotic_awareness_health_profile';
@@ -420,15 +425,14 @@ export function normalizeProfile(raw: any): UserHealthProfile {
             createdAt: typeof a.createdAt === 'string' ? a.createdAt : new Date().toISOString(),
           }))
       : [],
-    medications: Array.isArray(raw.medications)
-      ? raw.medications
+    medications: (Array.isArray(raw.medications) ? raw.medications : Array.isArray(raw.activeMedications) ? raw.activeMedications : [])
           .filter((m: unknown) => m !== null && typeof m === 'object')
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((m: any) => ({
             id: typeof m.id === 'string' && m.id ? m.id : `med-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
             drugName: typeof m.drugName === 'string' ? m.drugName : '',
             activeIngredients: typeof m.activeIngredients === 'string' ? m.activeIngredients : '',
-            prescribedDose: typeof m.prescribedDose === 'string' ? m.prescribedDose : '',
+            prescribedDose: typeof m.prescribedDose === 'string' ? m.prescribedDose : typeof m.doseOrStrength === 'string' ? m.doseOrStrength : '',
             route: typeof m.route === 'string' ? m.route : 'oral',
             frequency: typeof m.frequency === 'string' ? m.frequency : 'twice_daily',
             startDate: typeof m.startDate === 'string' ? m.startDate : new Date().toISOString().split('T')[0],
@@ -446,8 +450,19 @@ export function normalizeProfile(raw: any): UserHealthProfile {
               : {}),
             ...(typeof m.linkedDocumentId === 'string' ? { linkedDocumentId: m.linkedDocumentId } : {}),
             ...(typeof m.notes === 'string' ? { notes: m.notes } : {}),
-          }))
-      : [],
+          })),
+    activeMedications: (Array.isArray(raw.activeMedications) ? raw.activeMedications : Array.isArray(raw.medications) ? raw.medications : [])
+          .filter((m: unknown) => m !== null && typeof m === 'object')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((m: any) => ({
+            id: typeof m.id === 'string' && m.id ? m.id : `med-${Date.now()}`,
+            drugName: typeof m.drugName === 'string' ? m.drugName : '',
+            resolvedDrugId: typeof m.resolvedDrugId === 'string' ? m.resolvedDrugId : undefined,
+            doseOrStrength: typeof m.doseOrStrength === 'string' ? m.doseOrStrength : typeof m.prescribedDose === 'string' ? m.prescribedDose : undefined,
+          })),
+    fullName: typeof raw.displayName === 'string' && raw.displayName ? raw.displayName : typeof raw.fullName === 'string' ? raw.fullName : '',
+    ageYears: typeof raw.age === 'string' && raw.age ? raw.age : typeof raw.ageYears === 'string' || typeof raw.ageYears === 'number' ? String(raw.ageYears) : '',
+    breastfeedingStatus: pregnancyStatus === 'breastfeeding' ? 'breastfeeding' : 'none',
   };
 }
 

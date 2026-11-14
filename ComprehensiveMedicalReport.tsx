@@ -33,10 +33,14 @@ export default function ComprehensiveMedicalReport() {
   // Safety evaluation of current medications
   const safetyReport = useMemo(() => {
     const rawMeds = (profile.medications || []).map((m) => ({
-      id: m.drugId,
+      id: m.id,
       rawName: m.drugName,
     }));
-    return evaluateMedicationSafety(rawMeds, profile);
+    return evaluateMedicationSafety({
+      medications: rawMeds,
+      healthProfile: profile,
+      includeProfileActiveMedications: true,
+    });
   }, [profile]);
 
   return (
@@ -312,9 +316,9 @@ export default function ComprehensiveMedicalReport() {
             <strong style={{ color: '#0D1F38', fontSize: '0.88rem', display: 'block' }}>
               🛡️ فحص الأمان الدوائي التلقائي (DAWAYA Safety Engine):
             </strong>
-            <span style={{ fontSize: '0.82rem', color: safetyReport.hasIssues ? '#b91c1c' : '#166534', fontWeight: 700 }}>
-              {safetyReport.hasIssues
-                ? `⚠️ تم رصد ${safetyReport.issues.length} تنبيهات تداخل أو تكرار؛ يرجى مراجعة الصيدلي`
+            <span style={{ fontSize: '0.82rem', color: safetyReport.findings.length > 0 ? '#b91c1c' : '#166534', fontWeight: 700 }}>
+              {safetyReport.findings.length > 0
+                ? `⚠️ تم رصد ${safetyReport.findings.length} تنبيهات تداخل أو تكرار؛ يرجى مراجعة الصيدلي`
                 : '🟢 تم التحقق: لا توجد تداخلات دوائية خطيرة مسجلة بين هذه الأدوية'}
             </span>
           </div>

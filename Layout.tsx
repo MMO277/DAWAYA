@@ -369,22 +369,25 @@ function SmartCrossClinicSafetyBanner() {
   const safetyResult = useMemo(() => {
     try {
       const rawMeds = [
-        ...(profile?.medications || []).map((m: any) => ({ id: m.drugId, rawName: m.drugName })),
-        ...(schedules || []).map((s: any) => ({ id: s.medicineId, rawName: s.medicineName })),
+        ...(profile?.medications || []).map((m: any) => ({ id: m.id, rawName: m.drugName })),
+        ...(schedules || []).map((s: any) => ({ id: s.antibioticId || undefined, rawName: s.medicineName })),
       ];
       if (rawMeds.length < 2) return null;
-      return evaluateMedicationSafety(rawMeds, profile);
+      return evaluateMedicationSafety({
+        medications: rawMeds,
+        healthProfile: profile,
+      });
     } catch (err) {
       console.warn('Cross-clinic safety check silent fallback:', err);
       return null;
     }
   }, [profile, schedules]);
 
-  if (!safetyResult || !safetyResult.hasIssues || !safetyResult.issues || safetyResult.issues.length === 0) {
+  if (!safetyResult || !Array.isArray(safetyResult.findings) || safetyResult.findings.length === 0) {
     return null;
   }
 
-  const topIssue = safetyResult.issues[0];
+  const topFinding = safetyResult.findings[0];
   return (
     <div
       className="no-print"
@@ -408,8 +411,8 @@ function SmartCrossClinicSafetyBanner() {
         <span style={{ fontSize: '1.4rem' }}>🚨</span>
         <div style={{ fontSize: '0.88rem', fontWeight: 800 }}>
           {isAr
-            ? `تنبيه تعارض دوائي ذكي بين أدويتك الحالية: ${topIssue.titleAr || topIssue.titleEn || 'يرجى مراجعة الصيدلي'}`
-            : `Cross-Medication Interaction Alert: ${topIssue.titleEn || 'Consult Pharmacist'}`}
+            ? `تنبيه تعارض دوائي ذكي بين أدويتك الحالية: ${topFinding?.title?.ar || topFinding?.title?.en || 'يرجى مراجعة الصيدلي'}`
+            : `Cross-Medication Interaction Alert: ${topFinding?.title?.en || 'Consult Pharmacist'}`}
         </div>
       </div>
       <Link

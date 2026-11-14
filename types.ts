@@ -435,8 +435,9 @@ export function registerEmergencyTextTransform(
   emergencyTextTransform = fn;
 }
 
-export const pick = (b: Bi | undefined, lang: Lang): string => {
+export const pick = (b: Bi | string | undefined | null, lang: Lang): string => {
   if (!b) return '';
+  if (typeof b === 'string') return b;
   let out: string;
   if (b[lang]) {
     out = b[lang] as string;
