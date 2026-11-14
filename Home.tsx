@@ -1306,7 +1306,9 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="wrap stack" style={{ marginTop: '22px' }}>
+      <div className="wrap stack" style={{ marginTop: '18px' }}>
+        <DidYouKnow />
+
         {/* Quick Symptom & Condition Finder Strip */}
         <section className="card" style={{ padding: '14px 16px', borderTop: '3px solid #138866' }}>
           <div className="row wrapRow" style={{ justifyContent: 'space-between', marginBottom: '10px', gap: '8px' }}>
@@ -1621,7 +1623,6 @@ export default function Home() {
         </section>
 
         {/* Did you know? */}
-        <DidYouKnow />
 
         {/* Real-World AMR Numbers Counter */}
         <ResistanceCounter />
