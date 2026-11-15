@@ -244,7 +244,7 @@ export default function TravelMedKit() {
             isAr
               ? `🧳 قائمة حقيبة أدوية السفر والمصيف من منصة دوايا:\n` +
                 TRAVEL_CATEGORIES.map((c) => `• ${c.titleAr}:\n  ${c.items.map((it) => `${checkedItems[it.nameAr] ? '✅' : '☐'} ${it.nameAr} (${it.exampleDrugs})`).join('\n  ')}`).join('\n\n') +
-                `\n🔗 جهز حقيبتك على دوايا: https://mmo277.github.io/DAWAYA/#/travel-kit`
+                `\n🔗 جهز حقيبتك على دوايا: https://dawaya.pages.dev/#/travel-kit`
               : `🧳 Travel Med Kit Checklist via DAWAYA`
           )}`}
           target="_blank"

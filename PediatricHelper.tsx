@@ -321,8 +321,8 @@ export default function PediatricHelper() {
             <a
               href={`https://wa.me/?text=${encodeURIComponent(
                 isAr
-                  ? `🍼 جرعة ${pick(selectedMed.tradeName, lang)} للطفل (وزن ${weightInput} كجم):\n• الجرعة بالسيرنجة: ${singleDoseMl} مل (سنتي) كل ${selectedMed.frequencyHours} ساعات عند اللزوم.\n• التركيز: ${selectedMed.concentrationMgPer5ml} مجم/5مل (${pick(selectedMed.genericName, lang)}).\n• نصيحة: ${pick(selectedMed.specialNursingTip, lang)}\n🔗 منصة دوايا: https://mmo277.github.io/DAWAYA/#/pediatric-helper`
-                  : `🍼 Dose for ${pick(selectedMed.tradeName, lang)} (Weight: ${weightInput} kg):\n• Syringe Dose: ${singleDoseMl} mL every ${selectedMed.frequencyHours}h as needed.\n• Strength: ${selectedMed.concentrationMgPer5ml} mg/5mL.\n• Tip: ${pick(selectedMed.specialNursingTip, lang)}\n🔗 DAWAYA: https://mmo277.github.io/DAWAYA/#/pediatric-helper`
+                  ? `🍼 جرعة ${pick(selectedMed.tradeName, lang)} للطفل (وزن ${weightInput} كجم):\n• الجرعة بالسيرنجة: ${singleDoseMl} مل (سنتي) كل ${selectedMed.frequencyHours} ساعات عند اللزوم.\n• التركيز: ${selectedMed.concentrationMgPer5ml} مجم/5مل (${pick(selectedMed.genericName, lang)}).\n• نصيحة: ${pick(selectedMed.specialNursingTip, lang)}\n🔗 منصة دوايا: https://dawaya.pages.dev/#/pediatric-helper`
+                  : `🍼 Dose for ${pick(selectedMed.tradeName, lang)} (Weight: ${weightInput} kg):\n• Syringe Dose: ${singleDoseMl} mL every ${selectedMed.frequencyHours}h as needed.\n• Strength: ${selectedMed.concentrationMgPer5ml} mg/5mL.\n• Tip: ${pick(selectedMed.specialNursingTip, lang)}\n🔗 DAWAYA: https://dawaya.pages.dev/#/pediatric-helper`
               )}`}
               target="_blank"
               rel="noopener noreferrer"

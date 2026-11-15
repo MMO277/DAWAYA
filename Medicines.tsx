@@ -876,8 +876,8 @@ export default function Medicines() {
                       <a
                         href={`https://wa.me/?text=${encodeURIComponent(
                           isAr
-                            ? `💊 دواء: ${item.a || item.n} (${item.n})\n🧪 المادة الفعالة: ${item.g || 'راجع النشرة'}\n💰 السعر الرسمي: ${item.p ? item.p.toFixed(2) + ' ج.م' : 'غير محدد'}\n🔗 التفاصيل والبدائل على منصة دوايا: https://mmo277.github.io/DAWAYA/#/medicine/${item.i}`
-                            : `💊 Medicine: ${item.n} (${item.a})\n🧪 Active Ingredient: ${item.g || 'See leaflet'}\n💰 Official Price: ${item.p ? item.p.toFixed(2) + ' EGP' : 'N/A'}\n🔗 Details & Generics on DAWAYA: https://mmo277.github.io/DAWAYA/#/medicine/${item.i}`
+                            ? `💊 دواء: ${item.a || item.n} (${item.n})\n🧪 المادة الفعالة: ${item.g || 'راجع النشرة'}\n💰 السعر الرسمي: ${item.p ? item.p.toFixed(2) + ' ج.م' : 'غير محدد'}\n🔗 التفاصيل والبدائل على منصة دوايا: https://dawaya.pages.dev/#/medicine/${item.i}`
+                            : `💊 Medicine: ${item.n} (${item.a})\n🧪 Active Ingredient: ${item.g || 'See leaflet'}\n💰 Official Price: ${item.p ? item.p.toFixed(2) + ' EGP' : 'N/A'}\n🔗 Details & Generics on DAWAYA: https://dawaya.pages.dev/#/medicine/${item.i}`
                         )}`}
                         target="_blank"
                         rel="noopener noreferrer"

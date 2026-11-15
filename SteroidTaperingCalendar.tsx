@@ -168,7 +168,7 @@ export default function SteroidTaperingCalendar() {
               isAr
                 ? `🗓️ جدول إيقاف الكورتيزون التدريجي الآمن من منصة دوايا:\n` +
                   taperingPlan.map((s) => `• ${s.dayRange}: جرعة ${s.doseMg} مجم (${s.tabletsDescriptionAr})`).join('\n') +
-                  `\n⚠️ تنبيه: التزم بالجدول ولا توقف الدواء فجأة لتفادي خمول الغدة الكظرية.\n🔗 منصة دوايا: https://mmo277.github.io/DAWAYA/#/steroid-taper`
+                  `\n⚠️ تنبيه: التزم بالجدول ولا توقف الدواء فجأة لتفادي خمول الغدة الكظرية.\n🔗 منصة دوايا: https://dawaya.pages.dev/#/steroid-taper`
                 : `Steroid Tapering Plan via DAWAYA`
             )}`}
             target="_blank"

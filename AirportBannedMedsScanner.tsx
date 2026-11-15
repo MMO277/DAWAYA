@@ -298,7 +298,7 @@ export default function AirportBannedMedsScanner() {
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(
                     isAr
-                      ? `⚠️ تنبيه للمسافرين لمطار (${selectedDestination === 'saudi' ? 'السعودية' : 'الخليج'}):\n• الدواء: ${r.nameAr}\n• المستحضرات: ${r.commonBrandsAr}\n• الموقف الجمركي: ${r.restrictionNoticeAr}\n🔗 فحص أدوية السفر على منصة دوايا: https://mmo277.github.io/DAWAYA/#/airport-banned-meds`
+                      ? `⚠️ تنبيه للمسافرين لمطار (${selectedDestination === 'saudi' ? 'السعودية' : 'الخليج'}):\n• الدواء: ${r.nameAr}\n• المستحضرات: ${r.commonBrandsAr}\n• الموقف الجمركي: ${r.restrictionNoticeAr}\n🔗 فحص أدوية السفر على منصة دوايا: https://dawaya.pages.dev/#/airport-banned-meds`
                       : `Airport customs alert: ${r.nameEn}`
                   )}`}
                   target="_blank"

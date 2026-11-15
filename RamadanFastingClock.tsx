@@ -311,7 +311,7 @@ export default function RamadanFastingClock() {
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(
                     isAr
-                      ? `🕌 إرشادات صيام رمضان لدواء (${med.name}):\n• الموعد الموصى به: ${med.ramadanTiming === 'iftar' ? 'مع وجبة الإفطار' : med.ramadanTiming === 'suhur' ? 'مع وجبة السحور' : 'مقسم بين الإفطار والسحور'}\n• التعليمات: ${med.ramadanInstructionsAr}\n🔗 منصة دوايا: https://mmo277.github.io/DAWAYA/#/ramadan-clock`
+                      ? `🕌 إرشادات صيام رمضان لدواء (${med.name}):\n• الموعد الموصى به: ${med.ramadanTiming === 'iftar' ? 'مع وجبة الإفطار' : med.ramadanTiming === 'suhur' ? 'مع وجبة السحور' : 'مقسم بين الإفطار والسحور'}\n• التعليمات: ${med.ramadanInstructionsAr}\n🔗 منصة دوايا: https://dawaya.pages.dev/#/ramadan-clock`
                       : `🕌 Fasting guidance for (${med.name}): ${med.ramadanInstructionsEn}`
                   )}`}
                   target="_blank"

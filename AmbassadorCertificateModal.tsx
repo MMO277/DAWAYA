@@ -60,7 +60,7 @@ export default function AmbassadorCertificateModal({ cert, onClose, onUpdateName
   const siteUrl =
     typeof window !== 'undefined'
       ? `${window.location.origin}${window.location.pathname}#/quiz`
-      : 'https://mmo277.github.io/DAWAYA/#/quiz';
+      : 'https://dawaya.pages.dev/#/quiz';
 
   // Draw High-Resolution Certificate on HTML5 Canvas (1600 x 1120)
   useEffect(() => {

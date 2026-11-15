@@ -312,7 +312,7 @@ export default function BabyMilkFormulaNavigator() {
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(
                     isAr
-                      ? `🍼 بدائل حليب (${f.brandAr}):\n• السعر الرسمي: ${f.priceEgp} ج.م\n• النوع: ${f.typeLabelAr}\n• البدائل المتطابقة تماماً عند النقص: ${f.exactEquivalents.join('، ')}\n🔗 دليل ألبان الأطفال على منصة دوايا: https://mmo277.github.io/DAWAYA/#/baby-milk`
+                      ? `🍼 بدائل حليب (${f.brandAr}):\n• السعر الرسمي: ${f.priceEgp} ج.م\n• النوع: ${f.typeLabelAr}\n• البدائل المتطابقة تماماً عند النقص: ${f.exactEquivalents.join('، ')}\n🔗 دليل ألبان الأطفال على منصة دوايا: https://dawaya.pages.dev/#/baby-milk`
                       : `Baby milk formula generics for ${f.brandEn}`
                   )}`}
                   target="_blank"

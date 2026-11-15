@@ -555,7 +555,7 @@ export default function ChronicMealPlanner() {
         `• العشاء: ${plan.dinner.nameAr}\n` +
         `• السناك: ${plan.snack.nameAr}\n` +
         `💡 القاعدة الذهبية: ${plan.goldenRuleAr}\n` +
-        `تصفح التفاصيل عبر: https://mmo277.github.io/DAWAYA/#/meal-planner`
+        `تصفح التفاصيل عبر: https://dawaya.pages.dev/#/meal-planner`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };

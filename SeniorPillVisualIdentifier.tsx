@@ -275,7 +275,7 @@ export default function SeniorPillVisualIdentifier() {
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(
                     isAr
-                      ? `💊 بيانات دواء (${p.nameAr}):\n• الشكل واللون: ${p.colorNameAr} - ${p.shapeLabelAr}\n• الاستخدام: ${p.indicationAr}\n🔗 منصة دوايا: https://mmo277.github.io/DAWAYA/#/senior-pills`
+                      ? `💊 بيانات دواء (${p.nameAr}):\n• الشكل واللون: ${p.colorNameAr} - ${p.shapeLabelAr}\n• الاستخدام: ${p.indicationAr}\n🔗 منصة دوايا: https://dawaya.pages.dev/#/senior-pills`
                       : `Pill info: ${p.nameEn}`
                   )}`}
                   target="_blank"

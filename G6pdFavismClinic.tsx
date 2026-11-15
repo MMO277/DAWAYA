@@ -263,7 +263,7 @@ export default function G6pdFavismClinic() {
           </div>
           <a
             href={`https://wa.me/?text=${encodeURIComponent(
-              `⚠️ كارت تنبيه طبي للمدرسة والحضانة:\nالطفل (${childName}) مصاب بأنيميا الفول (G6PD Deficiency).\n• ممنوع تقديم الفول أو الطعمية أو البقوليات أو الفول السوداني.\n• ممنوع إعطاؤه أي أدوية بدون الرجوع لولي الأمر.\n🔗 دليل أنيميا الفول على منصة دوايا: https://mmo277.github.io/DAWAYA/#/g6pd-clinic`
+              `⚠️ كارت تنبيه طبي للمدرسة والحضانة:\nالطفل (${childName}) مصاب بأنيميا الفول (G6PD Deficiency).\n• ممنوع تقديم الفول أو الطعمية أو البقوليات أو الفول السوداني.\n• ممنوع إعطاؤه أي أدوية بدون الرجوع لولي الأمر.\n🔗 دليل أنيميا الفول على منصة دوايا: https://dawaya.pages.dev/#/g6pd-clinic`
             )}`}
             target="_blank"
             rel="noopener noreferrer"

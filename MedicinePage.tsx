@@ -410,8 +410,8 @@ export default function MedicinePage() {
           <a
             href={`https://wa.me/?text=${encodeURIComponent(
               isAr
-                ? `💊 النشرة الدوائية والبدائل لـ (${name}) على منصة دوايا | DAWAYA:\nhttps://mmo277.github.io/DAWAYA/#/medicine/${m.id}`
-                : `💊 Drug monograph & bioequivalent generics for (${name}) on DAWAYA:\nhttps://mmo277.github.io/DAWAYA/#/medicine/${m.id}`
+                ? `💊 النشرة الدوائية والبدائل لـ (${name}) على منصة دوايا | DAWAYA:\nhttps://dawaya.pages.dev/#/medicine/${m.id}`
+                : `💊 Drug monograph & bioequivalent generics for (${name}) on DAWAYA:\nhttps://dawaya.pages.dev/#/medicine/${m.id}`
             )}`}
             target="_blank"
             rel="noopener noreferrer"

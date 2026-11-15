@@ -154,7 +154,7 @@ export function buildPassportUrl(
   const base =
     typeof window !== 'undefined'
       ? `${window.location.origin}${window.location.pathname}#/passport/${encodeURIComponent(uid)}`
-      : `https://mmo277.github.io/DAWAYA/#/passport/${encodeURIComponent(uid)}`;
+      : `https://dawaya.pages.dev/#/passport/${encodeURIComponent(uid)}`;
   if (profile) {
     const snap = encodeEmergencyQrSnapshot(profile, pin);
     if (snap) {

@@ -422,7 +422,7 @@ export default function CostSaver() {
                         `💰 سعر الروشتة الأصلي: ${basketTotalOriginal.toFixed(2)} ج.م\n` +
                         `🟢 سعر البدائل المتطابقة: ${basketTotalGeneric.toFixed(2)} ج.م\n` +
                         `🎉 إجمالي التوفير: ${basketTotalSaved.toFixed(2)} ج.م (${basketSavedPercent}%)\n` +
-                        `🔗 فحص بدائل الأدوية: https://mmo277.github.io/DAWAYA/#/cost-saver`
+                        `🔗 فحص بدائل الأدوية: https://dawaya.pages.dev/#/cost-saver`
                       : `🛒 Smart Prescription Savings via DAWAYA:\n` +
                         basketResults
                           .map(
@@ -436,7 +436,7 @@ export default function CostSaver() {
                         `💰 Original Rx Total: ${basketTotalOriginal.toFixed(2)} EGP\n` +
                         `🟢 Bioequivalent Generics Total: ${basketTotalGeneric.toFixed(2)} EGP\n` +
                         `🎉 Total Savings: ${basketTotalSaved.toFixed(2)} EGP (${basketSavedPercent}%)\n` +
-                        `🔗 Compare drugs on DAWAYA: https://mmo277.github.io/DAWAYA/#/cost-saver`
+                        `🔗 Compare drugs on DAWAYA: https://dawaya.pages.dev/#/cost-saver`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"

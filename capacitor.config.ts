@@ -26,6 +26,8 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     cleartext: true,
     allowNavigation: [
+      'dawaya.pages.dev',
+      '*.pages.dev',
       'mmo277.github.io',
       '*.github.io',
       '*.firebaseapp.com',
