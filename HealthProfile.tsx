@@ -320,9 +320,9 @@ export default function HealthProfile() {
   const [customOccupationInput, setCustomOccupationInput] = useState<string>(profile.customOccupationTitle || '');
   const [factoryHazardsInput, setFactoryHazardsInput] = useState<string[]>(profile.factoryEnvironmentHazards || []);
   const [workEnvironmentNotesInput, setWorkEnvironmentNotesInput] = useState<string>(profile.workEnvironmentNotes || '');
-  const [govInput, setGovInput] = useState<string>(profile.governorateId || 'dakahlia');
-  const [cityInput, setCityInput] = useState<string>(profile.cityCenter || 'مركز ومدينة أجا');
-  const [villageInput, setVillageInput] = useState<string>(profile.districtVillage || 'نوسا البحر');
+  const [govInput, setGovInput] = useState<string>(profile.governorateId || '');
+  const [cityInput, setCityInput] = useState<string>(profile.cityCenter || '');
+  const [villageInput, setVillageInput] = useState<string>(profile.districtVillage || '');
   const [customVillageMode, setCustomVillageMode] = useState<boolean>(false);
 
   // Modal states
@@ -708,10 +708,10 @@ export default function HealthProfile() {
                   </strong>
                 </label>
                 {(() => {
-                  const gMeta = EGYPTIAN_GOVERNORATES.find((g) => g.id === govInput) || EGYPTIAN_GOVERNORATES[0];
-                  const cMeta =
-                    gMeta.majorCities.find((mc) => mc.ar === cityInput || mc.en === cityInput || mc.id === cityInput) ||
-                    gMeta.majorCities[0];
+                  const gMeta = EGYPTIAN_GOVERNORATES.find((g) => g.id === govInput) || null;
+                  const cMeta = gMeta
+                    ? gMeta.majorCities.find((mc) => mc.ar === cityInput || mc.en === cityInput || mc.id === cityInput) || null
+                    : null;
                   const villagesList = cMeta ? cMeta.districts : [];
                   return (
                     <div
@@ -727,16 +727,16 @@ export default function HealthProfile() {
                         </label>
                         <SmartNativeSelect
                           className="input"
-                          value={gMeta.id}
+                          value={govInput}
                           onChange={(e) => {
-                            const nextG = EGYPTIAN_GOVERNORATES.find((x) => x.id === e.target.value) || EGYPTIAN_GOVERNORATES[0];
-                            setGovInput(nextG.id);
-                            const firstC = nextG.majorCities[0];
-                            setCityInput(firstC ? firstC.ar : '');
-                            setVillageInput(firstC && firstC.districts[0] ? firstC.districts[0] : '');
+                            const nextId = e.target.value;
+                            setGovInput(nextId);
+                            setCityInput('');
+                            setVillageInput('');
                             setCustomVillageMode(false);
                           }}
                         >
+                          <option value="">{isAr ? '— اختر محافظتك —' : '— Select Governorate —'}</option>
                           {EGYPTIAN_GOVERNORATES.map((g) => (
                             <option key={g.id} value={g.id}>
                               {isAr ? g.nameAr : g.nameEn}
@@ -752,14 +752,16 @@ export default function HealthProfile() {
                         <SmartNativeSelect
                           className="input"
                           value={cMeta ? cMeta.ar : ''}
+                          disabled={!gMeta}
                           onChange={(e) => {
-                            const nextC = gMeta.majorCities.find((mc) => mc.ar === e.target.value) || gMeta.majorCities[0];
-                            setCityInput(nextC ? nextC.ar : e.target.value);
-                            setVillageInput(nextC && nextC.districts[0] ? nextC.districts[0] : '');
+                            const val = e.target.value;
+                            setCityInput(val);
+                            setVillageInput('');
                             setCustomVillageMode(false);
                           }}
                         >
-                          {gMeta.majorCities.map((mc) => (
+                          <option value="">{isAr ? '— اختر المركز أو المدينة —' : '— Select Markaz / City —'}</option>
+                          {(gMeta?.majorCities || []).map((mc) => (
                             <option key={mc.id} value={mc.ar}>
                               {isAr ? mc.ar : mc.en}
                             </option>
@@ -774,7 +776,8 @@ export default function HealthProfile() {
                         {!customVillageMode ? (
                           <SmartNativeSelect
                             className="input"
-                            value={villagesList.includes(villageInput) ? villageInput : villagesList[0] || ''}
+                            value={villagesList.includes(villageInput) ? villageInput : ''}
+                            disabled={!cMeta}
                             onChange={(e) => {
                               if (e.target.value === '__CUSTOM_VILLAGE__') {
                                 setCustomVillageMode(true);
@@ -784,6 +787,7 @@ export default function HealthProfile() {
                               }
                             }}
                           >
+                            <option value="">{isAr ? '— اختر قريتك أو حيك —' : '— Select Village / District —'}</option>
                             {villagesList.map((v) => (
                               <option key={v} value={v}>
                                 {v}
@@ -1028,11 +1032,14 @@ export default function HealthProfile() {
               <b style={{ color: '#0369a1' }}>📍 {isAr ? 'المحافظة والمركز والقرية:' : 'Location (Governorate / Markaz / Village):'}</b>{' '}
               <strong style={{ color: '#0f172a' }}>
                 {(() => {
-                  const g = EGYPTIAN_GOVERNORATES.find((x) => x.id === (profile.governorateId || 'dakahlia'));
-                  const gName = g ? (isAr ? g.nameAr : g.nameEn) : profile.governorateId || (isAr ? 'الدقهلية' : 'Dakahlia');
-                  const cName = profile.cityCenter || (isAr ? 'مركز ومدينة أجا' : 'Aga Markaz');
-                  const vName = profile.districtVillage || (isAr ? 'نوسا البحر' : 'Noussa El Bahr');
-                  return `${gName} ← ${cName} ← ${vName}`;
+                  if (!profile.governorateId && !profile.cityCenter && !profile.districtVillage) {
+                    return isAr
+                      ? 'لم يتم تحديد منطقتك بعد (اضغط «تعديل البيانات» لاختيار محافظتك وقريتك)'
+                      : 'Not set yet (Click Edit to choose your location)';
+                  }
+                  const g = EGYPTIAN_GOVERNORATES.find((x) => x.id === profile.governorateId);
+                  const gName = g ? (isAr ? g.nameAr : g.nameEn) : profile.governorateId || '';
+                  return [gName, profile.cityCenter, profile.districtVillage].filter(Boolean).join(' ← ');
                 })()}
               </strong>
             </div>
