@@ -1,3 +1,5 @@
+import { SeasonalAwarenessBasketCard, SeasonalHeroDecorLayer } from './SeasonalDecorBanner';
+import { useWhoCampaignAndVisibility } from './whoHealthCampaigns';
 const SituationCompassModal = lazy(() => import('./SituationCompassModal'));
 import { DawayaFullWordmark } from './DawayaLogo';
 import { DawayaRouteVectorIcon, HeroMicVectorIcon, HeroScannerVectorIcon, HeroSearchVectorIcon } from './DawayaVectorIcons';
@@ -32,6 +34,7 @@ export default function Home() {
   const isAr = lang === 'ar';
   const nav = useNavigate();
   const { isProMode, setProMode } = useClinicalProMode();
+  const { config: siteVisibility, activeCampaign, secondaryWhoCampaign } = useWhoCampaignAndVisibility();
   const { indexItems, totalCount } = useDawayaDrugDatabase(false); // Lazy-load 8.2MB index only when searching
 
   const [q, setQ] = useState('');
@@ -1397,7 +1400,8 @@ export default function Home() {
       `}</style>
 
       {/* Clean, Actionable DAWAYA Hero Section with Signature Stethoscope-D Wordmark & Search Layout */}
-      <section className="modern-hero">
+      <section className="modern-hero" style={activeCampaign ? { background: activeCampaign.heroGradient } : undefined}>
+        {activeCampaign && <SeasonalHeroDecorLayer visualKind={activeCampaign.visualKind} />}
         <div className="wrap modern-hero-inner">
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
             <DawayaFullWordmark
@@ -1409,7 +1413,43 @@ export default function Home() {
               }}
             />
           </div>
-          <div className="modern-hero-kicker">
+          {activeCampaign && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  background: 'rgba(255, 255, 255, 0.16)',
+                  border: '1.5px solid rgba(255, 255, 255, 0.45)',
+                  borderRadius: '14px',
+                  padding: '8px 14px',
+                  marginBottom: '12px',
+                  fontSize: '0.84rem',
+                  fontWeight: 800,
+                  color: '#ffffff',
+                }}
+              >
+                <span>{activeCampaign.icon}</span>
+                <span>{isAr ? activeCampaign.titleAr : activeCampaign.titleEn}</span>
+                <Link
+                  to={activeCampaign.targetRoute}
+                  style={{
+                    background: '#ffffff',
+                    color: activeCampaign.accentColor,
+                    padding: '3px 10px',
+                    borderRadius: '999px',
+                    fontSize: '0.78rem',
+                    fontWeight: 900,
+                    textDecoration: 'none',
+                  }}
+                >
+                  {isAr ? activeCampaign.ctaAr : activeCampaign.ctaEn}
+                </Link>
+              </div>
+            )}
+            <div className="modern-hero-kicker">
             <span>💊</span>
             <span>
               {tr(
@@ -1739,6 +1779,8 @@ export default function Home() {
 
       <div className="wrap stack" style={{ marginTop: '18px' }}>
         <DidYouKnow />
+        {activeCampaign && <SeasonalAwarenessBasketCard campaign={activeCampaign} isAr={isAr} />}
+        {secondaryWhoCampaign && <SeasonalAwarenessBasketCard campaign={secondaryWhoCampaign} isAr={isAr} />}
 
 
 
@@ -2062,6 +2104,7 @@ export default function Home() {
 
         {/* Interactive Quiz, Ambassador Certificate & Audio Education Strip */}
         <div className="grid">
+          {siteVisibility.showSurveySection && (
           <section className="card stack" style={{ justifyContent: 'space-between' }}>
             <div>
               <h3 style={{ margin: '0 0 6px' }}>
@@ -2084,6 +2127,7 @@ export default function Home() {
               </Link>
             </div>
           </section>
+          )}
 
           <section className="card stack" style={{ justifyContent: 'space-between' }}>
             <div>

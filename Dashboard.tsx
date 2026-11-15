@@ -1,3 +1,4 @@
+import { saveVisibilityConfig, useWhoCampaignAndVisibility, WHO_HEALTH_CAMPAIGNS } from './whoHealthCampaigns';
 import PartnerManagementCenter from './PartnerManagementCenter';
 import PharmacyOwnerDashboard from './PharmacyOwnerDashboard';
 import { FormEvent, useEffect, useState } from 'react';
@@ -27,6 +28,87 @@ import {
 import { EGYPTIAN_GOVERNORATES } from './partnerTypes';
 import { evaluateComprehensiveSymptomAndClinicTriage } from './aiConversationContext';
 import { searchDawayaIndex, useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
+
+
+function WhoCampaignAndVisibilityAdminCard({ isAr }: { isAr: boolean }) {
+  const { config, activeCampaign } = useWhoCampaignAndVisibility();
+  const [saving, setSaving] = useState(false);
+
+  const updateCfg = async (patch: Partial<typeof config>) => {
+    setSaving(true);
+    await saveVisibilityConfig({ ...config, ...patch });
+    setSaving(false);
+  };
+
+  return (
+    <section
+      className="card stack"
+      style={{
+        border: `2px solid ${activeCampaign ? activeCampaign.accentColor : '#0284c7'}`,
+        background: 'linear-gradient(135deg, rgba(248, 250, 252, 1) 0%, rgba(240, 249, 255, 1) 100%)',
+        marginBottom: '16px',
+      }}
+    >
+      <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '1.08rem', color: '#0f172a' }}>
+            🌍 {isAr ? 'حملات منظمة الصحة العالمية التلقائية + إظهار وإخفاء الأقسام القديمة' : 'WHO Global Campaigns Theme & Legacy Section Controls'}
+          </h2>
+          <p className="small muted" style={{ margin: '2px 0 0' }}>
+            {isAr
+              ? 'يتلون الموقع تلقائياً بألوان كل حملة صحية عالمية في موعدها (مثل أكتوبر الوردي لسرطان الثدي، يوم السكري، يوم القلب)، أو يمكنك تجربتها الآن!'
+              : 'Automatically switches site theme & banner for WHO health days, or preview any campaign now.'}
+          </p>
+        </div>
+        {saving && <span className="badge">{isAr ? 'جاري الحفظ...' : 'Saving...'}</span>}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+        <div>
+          <label className="small" style={{ fontWeight: 800, display: 'block', marginBottom: '4px' }}>
+            🎨 {isAr ? 'ثيم وحملة منظمة الصحة العالمية الحالية:' : 'Active WHO Campaign Theme:'}
+          </label>
+          <select
+            className="input"
+            value={config.campaignMode}
+            onChange={(e) => void updateCfg({ campaignMode: e.target.value })}
+          >
+            <option value="auto">
+              🔄 {isAr ? 'تلقائي حسب تاريخ اليوم (Auto WHO Calendar)' : 'Automatic by Date'}
+            </option>
+            <option value="none">
+              ⬜ {isAr ? 'إيقاف شريط الحملات (الألوان الافتراضية لدوايا)' : 'Disable Campaign Theme'}
+            </option>
+            {WHO_HEALTH_CAMPAIGNS.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.icon} {isAr ? c.titleAr : c.titleEn}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
+          <label className="check" style={{ fontWeight: 700 }}>
+            <input
+              type="checkbox"
+              checked={config.showAntibioticLegacySections}
+              onChange={(e) => void updateCfg({ showAntibioticLegacySections: e.target.checked })}
+            />
+            🦠 {isAr ? 'إظهار أقسام المضادات القديمة في الرئيسية (الأرقام + تصنيف WHO)' : 'Show Legacy Antibiotic Sections on Home'}
+          </label>
+          <label className="check" style={{ fontWeight: 700 }}>
+            <input
+              type="checkbox"
+              checked={config.showSurveySection}
+              onChange={(e) => void updateCfg({ showSurveySection: e.target.checked })}
+            />
+            📋 {isAr ? 'إظهار رابط الاستبيان والكويز في القائمة العامة' : 'Show Public Survey/Quiz Link in Menu'}
+          </label>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function PreLaunchStressAndHostingPanel({ isAr }: { isAr: boolean }) {
   const { indexItems } = useDawayaDrugDatabase();
@@ -608,6 +690,7 @@ export default function Dashboard() {
         )}
       </div>
 
+      <WhoCampaignAndVisibilityAdminCard isAr={lang === 'ar'} />
       <PreLaunchStressAndHostingPanel isAr={lang === 'ar'} />
       {tab === 'dawaya_db' && <DawayaMedicineAdminManager uid={user.uid} role={role} />}
       {tab === 'partners' && <PartnerManagementCenter adminUid={user.uid} adminRole={role} />}

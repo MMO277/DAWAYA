@@ -1,3 +1,4 @@
+import { useWhoCampaignAndVisibility } from './whoHealthCampaigns';
 import { DawayaIconMark } from './DawayaLogo';
 import {
   CapsuleGlobeLangIcon,
@@ -249,6 +250,7 @@ import { useSyncedSchedules } from './trackerData';
 
 function SmartWelcomeOnboardingBanner() {
   const { lang } = useLang();
+  const { config: siteVisibility, activeCampaign } = useWhoCampaignAndVisibility();
   const isAr = lang === 'ar';
   const { user } = useAuth();
   const { profile } = useSyncedHealthProfile();
