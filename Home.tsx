@@ -1309,6 +1309,112 @@ export default function Home() {
       <div className="wrap stack" style={{ marginTop: '18px' }}>
         <DidYouKnow />
 
+        {/* Simple Guided Entry Card for First-Time / Everyday Users ("أنت داخل تعمل إيه النهاردة؟") */}
+        <section
+          className="card stack"
+          aria-label={isAr ? 'دليل البداية السريع' : 'Quick Start Guide'}
+          style={{
+            background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)',
+            border: '2px solid #10b981',
+            borderRadius: '20px',
+            padding: '16px 18px',
+            boxShadow: '0 8px 24px rgba(16, 185, 129, 0.1)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.12rem', color: '#065f46', fontWeight: 900 }}>
+                👋 {isAr ? 'أهلاً بيك في دوايا! داخل تعمل إيه النهاردة؟' : 'Welcome to DAWAYA! What would you like to do today?'}
+              </h2>
+              <p className="small muted" style={{ margin: '2px 0 0' }}>
+                {isAr ? 'اختار خطوة واحدة بس من هنا بدل ما تدور في الموقع كله:' : 'Pick one clear option below without getting lost:'}
+              </p>
+            </div>
+            <Link
+              to="/assistant"
+              className="btn small"
+              style={{ background: '#059669', borderColor: '#059669', color: '#ffffff', fontWeight: 800, borderRadius: '999px' }}
+            >
+              📞 {isAr ? 'اسأل الدكتور الذكي بالصوت' : 'Talk to AI Doctor'}
+            </Link>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+              gap: '10px',
+              marginTop: '4px',
+            }}
+          >
+            {[
+              {
+                to: '/assistant',
+                icon: '📸',
+                title: isAr ? 'أصوّر روشتة أو شريط دواء وأسعّره' : 'Scan & Price Rx / Strip',
+                sub: isAr ? 'قراءة وتسعير الروشتة بالبديل الأرخص' : 'Extract meds, prices & cheaper generics',
+                bg: '#ecfdf5',
+                border: '#6ee7b7',
+              },
+              {
+                to: '/cost-saver',
+                icon: '💊',
+                title: isAr ? 'أعرف سعر دواء أو بديله الأرخص' : 'Check Drug Price & Cheaper Generic',
+                sub: isAr ? 'مقارنة 26,572+ دواء بالسعر الرسمي' : 'Compare 26,572+ official EGP prices',
+                bg: '#eff6ff',
+                border: '#93c5fd',
+              },
+              {
+                to: '/symptom-triage',
+                icon: '🩺',
+                title: isAr ? 'حاسس بوجع وعايز أعرف العيادة' : 'I Have Pain — Which Clinic?',
+                sub: isAr ? 'تشخيص مبدئي وتحويل للعيادة المختصة' : 'Guided triage & 20 specialty clinics',
+                bg: '#fef2f2',
+                border: '#fca5a5',
+              },
+              {
+                to: '/partners',
+                icon: '🏥',
+                title: isAr ? 'ألاقي صيدلية بتوصل لقريتي' : 'Find Pharmacy Delivering to My Village',
+                sub: isAr ? 'بحث بالمحافظة والمركز والقرية' : 'Search by Governorate, Markaz & Village',
+                bg: '#f5f3ff',
+                border: '#c4b5fd',
+              },
+              {
+                to: '/tracker',
+                icon: '⏰',
+                title: isAr ? 'أظبط منبه جرعاتي وكارتي الطبي' : 'Set Pill Alarms & Medical ID',
+                sub: isAr ? 'تنبيهات أندرويد يومية + كارت الطوارئ' : 'Daily reminders & QR Medical ID',
+                bg: '#fffbeb',
+                border: '#fcd34d',
+              },
+            ].map((item) => (
+              <Link
+                key={item.to + item.icon}
+                to={item.to}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '11px 13px',
+                  borderRadius: '14px',
+                  background: item.bg,
+                  border: `1.5px solid ${item.border}`,
+                  textDecoration: 'none',
+                  color: '#0f172a',
+                  transition: 'transform 0.15s ease',
+                }}
+              >
+                <span style={{ fontSize: '1.6rem', flexShrink: 0 }}>{item.icon}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 900, fontSize: '0.88rem', lineHeight: 1.3 }}>{item.title}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '2px' }}>{item.sub}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         {/* Quick Symptom & Condition Finder Strip */}
         <section className="card" style={{ padding: '14px 16px', borderTop: '3px solid #138866' }}>
           <div className="row wrapRow" style={{ justifyContent: 'space-between', marginBottom: '10px', gap: '8px' }}>
