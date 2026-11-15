@@ -1,3 +1,4 @@
+import { EgyptGovernorateRamadanCountdown } from './ramadanPrayerTimes';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -173,6 +174,8 @@ export default function RamadanFastingClock() {
           </div>
         </div>
       </section>
+
+      <EgyptGovernorateRamadanCountdown isAr={isAr} />
 
       {/* Add Medicine to Ramadan Schedule */}
       <section className="card" style={{ position: 'relative' }}>

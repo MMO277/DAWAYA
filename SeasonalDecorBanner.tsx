@@ -1,3 +1,4 @@
+import { EgyptGovernorateRamadanCountdown } from './ramadanPrayerTimes';
 import { Link } from 'react-router-dom';
 import type { CampaignVisualKind, WhoHealthCampaign } from './whoHealthCampaigns';
 
@@ -302,19 +303,43 @@ export function SeasonalAwarenessBasketCard({
         ))}
       </div>
 
-      <Link
-        to={campaign.targetRoute}
-        className="btn small"
-        style={{
-          alignSelf: 'flex-start',
-          background: campaign.accentColor,
-          borderColor: campaign.accentColor,
-          color: '#ffffff',
-          fontWeight: 900,
-        }}
-      >
-        {isAr ? campaign.ctaAr : campaign.ctaEn}
-      </Link>
+      {campaign.visualKind === 'ramadan' && (
+        <EgyptGovernorateRamadanCountdown isAr={isAr} compact={true} />
+      )}
+
+      <div className="row wrapRow" style={{ gap: '8px', alignItems: 'center' }}>
+        <Link
+          to={campaign.targetRoute}
+          className="btn small"
+          style={{
+            background: campaign.accentColor,
+            borderColor: campaign.accentColor,
+            color: '#ffffff',
+            fontWeight: 900,
+          }}
+        >
+          {isAr ? campaign.ctaAr : campaign.ctaEn}
+        </Link>
+
+        <a
+          href={`https://wa.me/?text=${encodeURIComponent(
+            isAr
+              ? `${campaign.icon} *${campaign.titleAr}*\n\n💡 *${campaign.basketTitleAr}:*\n${campaign.tipsAr.map((t) => `• ${t}`).join('\n')}\n\n💊 فحص الأدوية والبدائل الأرخص وتوقيت الصيام على منصة دوايا:\nhttps://dawaya.pages.dev`
+              : `${campaign.icon} *${campaign.titleEn}*\n\n💡 *${campaign.basketTitleEn}:*\n${campaign.tipsEn.map((t) => `• ${t}`).join('\n')}\n\n💊 DAWAYA Platform:\nhttps://dawaya.pages.dev`
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn small ghost"
+          style={{
+            borderColor: '#16a34a',
+            color: '#15803d',
+            background: 'rgba(22, 163, 74, 0.08)',
+            fontWeight: 800,
+          }}
+        >
+          📲 {isAr ? 'مشاركة التهنئة والنصيحة عبر واتساب' : 'Share Greeting & Tip on WhatsApp'}
+        </a>
+      </div>
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useEffect, useMemo, useState } from 'react';
 
 // ============================================================================
@@ -620,14 +621,14 @@ export function SmartPharmacyBillOptimizerCard({ isAr }: { isAr: boolean }) {
           placeholder={isAr ? 'سعر المثيل (اختياري)' : 'Alt price'}
           style={{ width: '140px' }}
         />
-        <select
+        <SmartNativeSelect
           value={customTier}
           onChange={(e) => setCustomTier(e.target.value as 'essential_core' | 'supportive_optional')}
           style={{ width: '160px' }}
         >
           <option value="essential_core">{isAr ? 'علاج أساسي' : 'Essential Core'}</option>
           <option value="supportive_optional">{isAr ? 'مكمل تكميلي' : 'Supplement'}</option>
-        </select>
+        </SmartNativeSelect>
         <button type="submit" className="btn small">
           + {isAr ? 'إضافة للفاتورة' : 'Add Item'}
         </button>
@@ -762,7 +763,7 @@ export function PostOpeningExpiryTrackerCard({ isAr }: { isAr: boolean }) {
       </div>
 
       <div className="row wrapRow" style={{ gap: '8px' }}>
-        <select
+        <SmartNativeSelect
           value={selectedRuleId}
           onChange={(e) => setSelectedRuleId(e.target.value)}
           style={{ flex: '1 1 260px' }}
@@ -772,7 +773,7 @@ export function PostOpeningExpiryTrackerCard({ isAr }: { isAr: boolean }) {
               {isAr ? r.labelAr : r.labelEn}
             </option>
           ))}
-        </select>
+        </SmartNativeSelect>
         <input
           type="date"
           value={openedDate}

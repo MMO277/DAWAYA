@@ -359,29 +359,34 @@ export function PublicPartnerCard({
           </Link>
         )}
 
-        {/* Only show ordering button if valid ordering destination or authorized flow exists */}
-        {disp.showExternalOrderingButton && hasValidOrderingUrl && (
+        {(partner.hotline || partner.phone) && (
           <a
-            href={partner.externalOrderingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={`tel:${(partner.hotline || partner.phone).replace(/\s+/g, '')}`}
             className="btn small"
-            style={{ flex: '1 1 auto', textAlign: 'center', background: '#0d9488' }}
+            style={{ flex: '1 1 130px', textAlign: 'center', background: '#0D1F38', borderColor: '#0D1F38', color: '#CFD29D', fontWeight: 900 }}
           >
-             {ctaText} ↗
+            📞 {isAr ? `اتصل (${partner.hotline || partner.phone})` : `Call (${partner.hotline || partner.phone})`}
           </a>
         )}
 
-        {disp.showExternalOrderingButton && !hasValidOrderingUrl && partner.supportsOnlineOrdering && onOrderOrInquire && (
-          <button
-            type="button"
-            className="btn small"
-            style={{ flex: '1 1 auto', background: '#0d9488' }}
-            onClick={() => onOrderOrInquire(partner)}
-          >
-             {ctaText}
-          </button>
-        )}
+        {(partner.socialLinks?.whatsapp || partner.phone || partner.hotline) && (() => {
+          const rawWa = (partner.socialLinks?.whatsapp || partner.phone || partner.hotline || '').replace(/[^0-9]/g, '');
+          const waNum = rawWa.startsWith('01') ? `2${rawWa}` : rawWa;
+          const msg = isAr
+            ? `السلام عليكم، أستفسر عن توفر دواء أو روشتة طبية من خلال منصة دوايا لدى (${displayName}).`
+            : `Hello, inquiring about medication availability via DAWAYA at (${displayName}).`;
+          return (
+            <a
+              href={`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn small"
+              style={{ flex: '1 1 130px', textAlign: 'center', background: '#16a34a', borderColor: '#16a34a', color: '#ffffff', fontWeight: 900 }}
+            >
+              💬 {isAr ? 'اطلب عبر واتساب' : 'WhatsApp'}
+            </a>
+          );
+        })()}
 
         {disp.showWebsiteButton && hasValidWebsiteUrl && (
           <a
@@ -391,15 +396,6 @@ export function PublicPartnerCard({
             className="btn ghost small"
           >
              {isAr ?'الموقع الرسمي':'Website'} ↗
-          </a>
-        )}
-
-        {disp.showPhoneButton && (partner.hotline || partner.phone) && (
-          <a
-            href={`tel:${(partner.hotline || partner.phone).replace(/\s+/g, '')}`}
-            className="btn ghost small"
-          >
-             {isAr ?'اتصال':'Call'}
           </a>
         )}
       </div>

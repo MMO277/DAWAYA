@@ -607,23 +607,35 @@ export default function PartnersDirectoryPage() {
 
                     <div className="row wrapRow" style={{ gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--line)' }}>
                       {b.phone && (
-                        <a href={`tel:${b.phone.replace(/\s+/g, '')}`} className="btn small" style={{ flex: 1, textAlign: 'center' }}>
-                           {b.phone}
-                        </a>
-                      )}
-                      {b.branchOrderingUrl && b.branchOrderingUrl.startsWith('http') && (
                         <a
-                          href={b.branchOrderingUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn ghost small"
+                          href={`tel:${b.phone.replace(/\s+/g, '')}`}
+                          className="btn small"
+                          style={{ flex: '1 1 125px', textAlign: 'center', background: '#0D1F38', borderColor: '#0D1F38', color: '#CFD29D', fontWeight: 900 }}
                         >
-                           {isAr ?'طلب أونلاين ↗':'Order ↗'}
+                          📞 {b.phone}
                         </a>
                       )}
+                      {(b.whatsapp || b.phone) && (() => {
+                        const rawWa = (b.whatsapp || b.phone || '').replace(/[^0-9]/g, '');
+                        const waNum = rawWa.startsWith('01') ? `2${rawWa}` : rawWa;
+                        const msg = isAr
+                          ? `السلام عليكم، أستفسر عن توفر دواء أو روشتة طبية من خلال منصة دوايا لدى فرع (${b.nameAr} - ${b.city}).`
+                          : `Hello, inquiring about medication availability via DAWAYA at (${b.nameEn}).`;
+                        return (
+                          <a
+                            href={`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn small"
+                            style={{ flex: '1 1 125px', textAlign: 'center', background: '#16a34a', borderColor: '#16a34a', color: '#ffffff', fontWeight: 900 }}
+                          >
+                            💬 {isAr ? 'واتساب الفرع' : 'WhatsApp'}
+                          </a>
+                        );
+                      })()}
                       {parentPartner && (
                         <Link to={`/partner/${parentPartner.id}`} className="btn ghost small">
-                           {isAr ?'ملف الصيدلية':'Profile'}
+                          📍 {isAr ? 'ملف الصيدلية' : 'Profile'}
                         </Link>
                       )}
                     </div>

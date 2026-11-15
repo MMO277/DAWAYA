@@ -898,45 +898,42 @@ export default function FindMedicationPanel({
                     </div>
                   </div>
 
-                  {/* Ordering / Contact Actions */}
+                  {/* Direct Call & WhatsApp Primary Actions (Fast Patient-to-Pharmacy Flow) */}
                   <div className="row wrapRow" style={{ gap: '6px', paddingTop: '8px', borderTop: '1px solid var(--line)' }}>
-                    {evalResult.orderingMode === 'external_redirect' &&
-                      evalResult.orderingDestinationUrl && (
-                        <a
-                          href={evalResult.orderingDestinationUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn small"
-                          style={{ flex: 1, textAlign: 'center', background: '#0d9488' }}
-                        >
-                           {isAr ?'اطلب من موقع الصيدلية ↗':'Order via Partner ↗'}
-                        </a>
-                      )}
-
-                    {partner.supportsOnlineOrdering && (
-                      <button
-                        type="button"
-                        className="btn small ghost"
-                        style={{ flex: 1 }}
-                        onClick={() => setOrderModalPartner(partner)}
-                      >
-                         {isAr ?'طلب صرف بالروشتة':'Rx Order Request'}
-                      </button>
-                    )}
-
-                    {partner.visibility.publishPartnerProfile && (
-                      <Link to={`/partner/${partner.id}`} className="btn ghost small">
-                         {isAr ?'الفروع':'Branches'}
-                      </Link>
-                    )}
-
                     {(partner.hotline || partner.phone) && (
                       <a
                         href={`tel:${(partner.hotline || partner.phone).replace(/\s+/g, '')}`}
-                        className="btn ghost small"
+                        className="btn small"
+                        style={{ flex: '1 1 135px', textAlign: 'center', background: '#0D1F38', borderColor: '#0D1F38', color: '#CFD29D', fontWeight: 900 }}
                       >
-                         {partner.hotline || partner.phone}
+                        📞 {isAr ? `اتصل الآن (${partner.hotline || partner.phone})` : `Call (${partner.hotline || partner.phone})`}
                       </a>
+                    )}
+
+                    {(partner.socialLinks?.whatsapp || partner.phone || partner.hotline) && (() => {
+                      const rawWa = (partner.socialLinks?.whatsapp || partner.phone || partner.hotline || '').replace(/[^0-9]/g, '');
+                      const waNum = rawWa.startsWith('01') ? `2${rawWa}` : rawWa;
+                      const areaTxt = [selectedVillage !== 'all' ? selectedVillage : '', selectedCity !== 'all' ? selectedCity : ''].filter(Boolean).join(' - ');
+                      const msg = isAr
+                        ? `السلام عليكم، أستفسر عبر منصة دوايا عن توفر دواء: ${selectedProduct.tradeNameAr} (${selectedProduct.strength})${areaTxt ? ` — العنوان/المنطقة: ${areaTxt}` : ''}`
+                        : `Hello, inquiring via DAWAYA about availability of: ${selectedProduct.tradeNameEn} (${selectedProduct.strength})`;
+                      return (
+                        <a
+                          href={`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn small"
+                          style={{ flex: '1 1 135px', textAlign: 'center', background: '#16a34a', borderColor: '#16a34a', color: '#ffffff', fontWeight: 900 }}
+                        >
+                          💬 {isAr ? 'اطلب عبر واتساب' : 'WhatsApp Order'}
+                        </a>
+                      );
+                    })()}
+
+                    {partner.visibility.publishPartnerProfile && (
+                      <Link to={`/partner/${partner.id}`} className="btn ghost small">
+                        📍 {isAr ? 'الفروع والعنوان' : 'Branches'}
+                      </Link>
                     )}
                   </div>
                 </div>
