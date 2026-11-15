@@ -1074,6 +1074,8 @@ export default function Home() {
           max-width: 780px;
           margin: 0 auto;
           text-align: center;
+          position: relative;
+          z-index: 5;
         }
         .modern-hero-kicker {
           display: inline-flex;
