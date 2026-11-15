@@ -469,6 +469,7 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
 
 type AdminTab =
   | 'dawaya_db'
+  | 'campaigns_themes'
   | 'partners'
   | 'pharmacy_portal'
   | 'users'
@@ -628,6 +629,24 @@ export default function Dashboard() {
         </button>
 
         <button
+          className={tab === 'campaigns_themes' ? 'on' : ''}
+          onClick={() => setTab('campaigns_themes')}
+          style={{
+            borderRadius: '10px',
+            border: tab === 'campaigns_themes' ? '2px solid var(--teal)' : '1px solid var(--line)',
+            background: tab === 'campaigns_themes' ? 'var(--tint)' : 'var(--card-bg)',
+            padding: '8px 12px',
+            fontWeight: 800,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <span>🎨</span>
+          <span>{tr(lang, 'المواسم والزينة وإظهار الأقسام', 'Themes, Campaigns & Visibility')}</span>
+        </button>
+
+        <button
           className={tab === 'system_ai_audit' ? 'on' : ''}
           onClick={() => setTab('system_ai_audit')}
           style={{
@@ -753,14 +772,18 @@ export default function Dashboard() {
         )}
       </div>
 
-      <WhoCampaignAndVisibilityAdminCard isAr={lang === 'ar'} />
-      <PreLaunchStressAndHostingPanel isAr={lang === 'ar'} />
       {tab === 'dawaya_db' && <DawayaMedicineAdminManager uid={user.uid} role={role} />}
+      {tab === 'campaigns_themes' && <WhoCampaignAndVisibilityAdminCard isAr={lang === 'ar'} />}
       {tab === 'partners' && <PartnerManagementCenter adminUid={user.uid} adminRole={role} />}
       {tab === 'pharmacy_portal' && <PharmacyOwnerDashboard />}
       {tab === 'users' && isSuperOrAdmin && <UsersTab myUid={user.uid} />}
       {tab === 'content_articles' && <DawayaContentAndArticlesAdmin uid={user.uid} role={role} />}
-      {tab === 'system_ai_audit' && <DawayaSystemAiDataSourcesAndAuditAdmin uid={user.uid} role={role} />}
+      {tab === 'system_ai_audit' && (
+        <>
+          <PreLaunchStressAndHostingPanel isAr={lang === 'ar'} />
+          <DawayaSystemAiDataSourcesAndAuditAdmin uid={user.uid} role={role} />
+        </>
+      )}
       {tab === 'catalog' && <CommercialCatalogTab uid={user.uid} />}
       {tab === 'meds' && <MedsTab role={role} uid={user.uid} />}
       {tab === 'survey_bank' && <SurveyQuizManagerTab uid={user.uid} />}
