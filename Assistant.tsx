@@ -1,7 +1,7 @@
 import VoiceDoctorCallModal from './VoiceDoctorCallModal';
 import { pick } from './types';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
 import { useAuth } from './authContext';
 import { useApproved } from './medicinesApi';
@@ -234,6 +234,18 @@ export default function Assistant() {
   const stopListenRef = useRef<VoiceRecognitionHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const end = useRef<HTMLDivElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoQueryRanRef = useRef<string>('');
+
+  useEffect(() => {
+    const urlQ = (searchParams.get('q') || '').trim();
+    if (urlQ && autoQueryRanRef.current !== urlQ && !loading) {
+      autoQueryRanRef.current = urlQ;
+      setSearchParams({}, { replace: true });
+      void ask(urlQ, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const smartActionChips = useMemo(() => getSmartAssistantActionChips(lang), [lang]);
 

@@ -41,6 +41,20 @@ export default function Home() {
   const [selectedPersona, setSelectedPersona] = useState<PersonaType>('all');
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [situationCompassOpen, setSituationCompassOpen] = useState(false);
+  const [welcomeModalOpen, setWelcomeModalOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return sessionStorage.getItem('dawaya_welcome_dismissed_v1') !== '1';
+    } catch {
+      return false;
+    }
+  });
+  const dismissWelcomeModal = () => {
+    setWelcomeModalOpen(false);
+    try {
+      sessionStorage.setItem('dawaya_welcome_dismissed_v1', '1');
+    } catch { /* ignore */ }
+  };
   const [recentMeds, setRecentMeds] = useState<RecentlyViewedMedItem[]>(() => getRecentlyViewedMedicines());
   const searchWrapRef = useRef<HTMLDivElement>(null);
 
@@ -95,6 +109,356 @@ export default function Home() {
       setIsListening(false);
     }
   };
+
+
+  // Universal Instant Site Search: Symptoms (Triage vs Treatment), All 20 Clinics, and Every Platform Tool in Egyptian Arabic
+  const universalSiteMatches = useMemo(() => {
+    const clean = norm(q);
+    if (clean.length < 2) return [];
+
+    interface SiteSearchHit {
+      to: string;
+      icon: string;
+      badgeAr: string;
+      badgeEn: string;
+      titleAr: string;
+      titleEn: string;
+      subAr: string;
+      subEn: string;
+      color: string;
+      keywords: string[];
+    }
+
+    const entries: SiteSearchHit[] = [
+      // Symptoms: Headache (Triage vs Treatment + Clinic)
+      {
+        to: '/assistant?q=' + encodeURIComponent('عندي صداع عايز اشخص السبب والعيادة'),
+        icon: '🩺',
+        badgeAr: 'تشخيص أولي',
+        badgeEn: 'Triage',
+        titleAr: 'أنا عندي صداع — تشخيص السبب وتحديد العيادة',
+        titleEn: 'I have a headache — Diagnose cause & clinic',
+        subAr: 'الدكتور الذكي يسألك عن مكان الصداع (جيوب أنفية، ضغط، نصفي) قبل أي دواء',
+        subEn: 'AI Doctor asks clarifying questions before recommending treatment',
+        color: '#0284c7',
+        keywords: ['صداع', 'مصدع', 'راسي', 'دماغي', 'شقيقه', 'نصفي', 'وجع راس', 'headache', 'migraine'],
+      },
+      {
+        to: '/assistant?q=' + encodeURIComponent('عندي صداع وعايز علاج آمن'),
+        icon: '💊',
+        badgeAr: 'طلب علاج',
+        badgeEn: 'Treatment',
+        titleAr: 'أنا عندي صداع وعايز علاج آمن',
+        titleEn: 'I have a headache and need safe treatment',
+        subAr: 'أفضل مسكن آمن لحالتك والجرعة الصحيحة والبدائل في مصر',
+        subEn: 'Safe painkiller options, dosage & Egyptian brands',
+        color: '#059669',
+        keywords: ['صداع', 'علاج صداع', 'دوا صداع', 'برشام صداع', 'عايز علاج', 'مصدع'],
+      },
+      {
+        to: '/neuro-clinic',
+        icon: '🧠',
+        badgeAr: 'عيادة تخصصية',
+        badgeEn: 'Clinic',
+        titleAr: 'عيادة المخ والأعصاب والصداع والأرق',
+        titleEn: 'Neurology, Headache & Sleep Clinic',
+        subAr: 'الصداع النصفي، التنميل، عرق النسا، وتنظيم النوم',
+        subEn: 'Migraine, numbness, sciatica & sleep care',
+        color: '#4f46e5',
+        keywords: ['صداع', 'مخ', 'اعصاب', 'تنميل', 'ارق', 'نوم', 'عصب سابع', 'دوخه', 'شقيقه'],
+      },
+      // Symptoms: Flank / Kidney Pain
+      {
+        to: '/assistant?q=' + encodeURIComponent('جنبي بيوجعني عايز اعرف السبب والعيادة'),
+        icon: '🩺',
+        badgeAr: 'تشخيص وعيادة',
+        badgeEn: 'Triage',
+        titleAr: 'جنبي بيوجعني (شمال أو يمين) — تشخيص السبب',
+        titleEn: 'Flank / Side pain — Diagnose cause & clinic',
+        subAr: 'الفرق بين وجع الكلى والحالب والقولون والعضلات وتوجيهك للعيادة',
+        subEn: 'Distinguish kidney vs colon vs muscle pain',
+        color: '#0284c7',
+        keywords: ['جنب', 'جنبي', 'الجنب', 'الشمال', 'اليمين', 'مغص كلوي', 'حصوه', 'كلي', 'املاح', 'حرقان بول'],
+      },
+      {
+        to: '/urology-clinic',
+        icon: '🧪',
+        badgeAr: 'عيادة تخصصية',
+        badgeEn: 'Clinic',
+        titleAr: 'عيادة الكلى والمسالك البولية والحصوات',
+        titleEn: 'Urology, Kidney & Stones Clinic',
+        subAr: 'وجع الجنب، الأملاح، الحصوات، وحاسبة كفاءة الكلى eGFR',
+        subEn: 'Flank pain, salts, kidney stones & eGFR calculator',
+        color: '#0d9488',
+        keywords: ['جنب', 'جنبي', 'كلي', 'الكلي', 'مسالك', 'بول', 'حرقان', 'حصوه', 'املاح', 'بروستاتا'],
+      },
+      // Symptoms: Stomach / Colon / Acidity
+      {
+        to: '/assistant?q=' + encodeURIComponent('بطني بتوجعني عايز اشخص السبب والعيادة'),
+        icon: '🩺',
+        badgeAr: 'تشخيص أولي',
+        badgeEn: 'Triage',
+        titleAr: 'بطني ومعدتي بتوجعني — تشخيص السبب',
+        titleEn: 'Stomach / Abdominal pain — Triage',
+        subAr: 'حموضة، قولون، جرثومة معدة، أو زائدة وتوجيهك للعيادة',
+        subEn: 'Reflux, IBS, H. pylori, or acute abdomen check',
+        color: '#0284c7',
+        keywords: ['بطن', 'بطني', 'معده', 'معدتي', 'مغص', 'قولون', 'حموضه', 'ارتجاع', 'انتفاخ', 'غازات', 'اسهال', 'امساك'],
+      },
+      {
+        to: '/gastro-clinic',
+        icon: '🦠',
+        badgeAr: 'عيادة تخصصية',
+        badgeEn: 'Clinic',
+        titleAr: 'عيادة الجهاز الهضمي والقولون والجرثومة',
+        titleEn: 'Gastroenterology & IBS Clinic',
+        subAr: 'جرثومة المعدة، القولون العصبي، الحموضة، والبواسير',
+        subEn: 'H. pylori, IBS, acidity & hemorrhoids',
+        color: '#059669',
+        keywords: ['معده', 'بطن', 'قولون', 'جرثومه', 'حموضه', 'ارتجاع', 'بواسير', 'شرخ', 'مراره'],
+      },
+      // Symptoms: Chest / Heart / Breathing
+      {
+        to: '/chest-clinic',
+        icon: '🫁',
+        badgeAr: 'عيادة تخصصية',
+        badgeEn: 'Clinic',
+        titleAr: 'عيادة الصدر والكحة والربو وجلسات البخار',
+        titleEn: 'Chest, Cough & Nebulizer Clinic',
+        subAr: 'الكحة ببلغم والناشفة، حساسية الصدر، وجرعات البخار',
+        subEn: 'Cough, asthma, nebulizer & inhalers',
+        color: '#0284c7',
+        keywords: ['صدر', 'صدري', 'كحه', 'بلغم', 'ربو', 'نهجان', 'نفس', 'بخار', 'حساسيه صدر', 'نغزه'],
+      },
+      {
+        to: '/chronic-clinic',
+        icon: '🫀',
+        badgeAr: 'عيادة تخصصية',
+        badgeEn: 'Clinic',
+        titleAr: 'عيادة الباطنة والقلب والضغط والسكر والغدة',
+        titleEn: 'Heart, BP, Diabetes & Thyroid Clinic',
+        subAr: 'متابعة الضغط والسكر التراكمي وأدوية السيولة والغدة الدرقية',
+        subEn: 'BP, diabetes, anticoagulants & thyroid management',
+        color: '#dc2626',
+        keywords: ['قلب', 'ضغط', 'سكر', 'غده', 'كوليسترول', 'باطنه', 'صدر', 'نغزه', 'سيوله'],
+      },
+      // Symptoms: Bones / Back / Joints / Gout
+      {
+        to: '/ortho-clinic',
+        icon: '🦴',
+        badgeAr: 'عيادة تخصصية',
+        badgeEn: 'Clinic',
+        titleAr: 'عيادة العظام والعمود الفقري والركبة والنقرس',
+        titleEn: 'Orthopedics, Spine & Gout Clinic',
+        subAr: 'وجع الضهر، الرقبة، خشونة الركبة، عرق النسا، وأملاح النقرس',
+        subEn: 'Back pain, neck, knee osteoarthritis, sciatica & gout',
+        color: '#d97706',
+        keywords: ['ضهر', 'ظهري', 'رقبه', 'ركبه', 'رجل', 'مفاصل', 'عظام', 'غضروف', 'عرق النسا', 'نقرس', 'كعب', 'كتف'],
+      },
+      // Symptoms: Dental, Eye, ENT, Derma, Women, Baby
+      {
+        to: '/dental-clinic',
+        icon: '🦷',
+        badgeAr: 'عيادة تخصصية',
+        badgeEn: 'Clinic',
+        titleAr: 'عيادة طوارئ الأسنان واللثة وعصب الضرس',
+        titleEn: 'Dental & Gum Emergency Clinic',
+        subAr: 'وجع الضرس، الخراج، تورم الخد، وقرح الفم',
+        subEn: 'Toothache, abscess & gum care',
+        color: '#0d9488',
+        keywords: ['ضرس', 'ضرسي', 'سنان', 'اسنان', 'لثه', 'خراج', 'عصب', 'فم', 'بق'],
+      },
+      {
+        to: '/eye-clinic',
+        icon: '👁️',
+        badgeAr: 'عيادة تخصصية',
+        badgeEn: 'Clinic',
+        titleAr: 'عيادة العيون والرمد وجفاف العين',
+        titleEn: 'Ophthalmology & Eye Care Clinic',
+        subAr: 'احمرار وحرقان العين، القطرات المرطبة، وطوارئ القرنية',
+        subEn: 'Red eye, dry eye drops & cornea emergencies',
+        color: '#0284c7',
+        keywords: ['عين', 'عيني', 'رمد', 'جفاف', 'قطره', 'نظر', 'جفن', 'عماص'],
+      },
+      {
+        to: '/ent-clinic',
+        icon: '👂',
+        badgeAr: 'عيادة تخصصية',
+        badgeEn: 'Clinic',
+        titleAr: 'عيادة الأنف والأذن والحنجرة والدوخة',
+        titleEn: 'ENT, Sinus & Vertigo Clinic',
+        subAr: 'وجع الودن، الجيوب الأنفية، اللوز، واحتقان الزور',
+        subEn: 'Earache, sinusitis, tonsils & dizziness',
+        color: '#7c3aed',
+        keywords: ['ودن', 'ودني', 'اذن', 'انف', 'زور', 'حلق', 'لوز', 'جيوب', 'دوخه', 'دوار', 'رعاف'],
+      },
+      {
+        to: '/derma-clinic',
+        icon: '🩹',
+        badgeAr: 'عيادة تخصصية',
+        badgeEn: 'Clinic',
+        titleAr: 'عيادة الجلدية والحروق والجروح والحساسية',
+        titleEn: 'Dermatology, Burns & Wounds Clinic',
+        subAr: 'الهرش، الارتكاريا، إسعاف الحروق، والجروح',
+        subEn: 'Rash, itching, burns & wound care',
+        color: '#e11d48',
+        keywords: ['جلد', 'هرش', 'حكه', 'حساسيه', 'ارتكاريا', 'حرق', 'جرح', 'طفح', 'اكزيما'],
+      },
+      {
+        to: '/women-clinic',
+        icon: '🌸',
+        badgeAr: 'عيادة تخصصية',
+        badgeEn: 'Clinic',
+        titleAr: 'عيادة صحة المرأة والحمل والرضاعة ومنع الحمل',
+        titleEn: 'Women’s Health, Pregnancy & Contraception',
+        subAr: 'أمان الأدوية في الحمل والرضاعة، حاسبة الحبة المنسية، والدورة',
+        subEn: 'Pregnancy meds, missed pill & period care',
+        color: '#db2777',
+        keywords: ['حامل', 'حمل', 'رضاعه', 'دوره', 'منع حمل', 'تكيس', 'نساء', 'بيريود'],
+      },
+      {
+        to: '/baby-first-year',
+        icon: '👶',
+        badgeAr: 'عيادة الأطفال',
+        badgeEn: 'Pediatrics',
+        titleAr: 'عيادة الأطفال وأول سنة + حاسبة الجرعات بالوزن',
+        titleEn: 'Newborn, 1st Year & Pediatric Dose Calculator',
+        subAr: 'التطعيمات، المغص، السخونية، وبدائل حليب الأطفال',
+        subEn: 'Vaccines, colic, fever & baby milk',
+        color: '#0284c7',
+        keywords: ['طفل', 'طفلي', 'رضيع', 'بيبي', 'ابني', 'بنتي', 'تطعيم', 'لبن اطفال', 'حليب', 'سخونيه طفل'],
+      },
+      // Every Key Platform Feature / Tool by Everyday Keywords
+      {
+        to: '/tracker',
+        icon: '⏰',
+        badgeAr: 'أداة ذكية',
+        badgeEn: 'Tool',
+        titleAr: 'منبه الجرعات ومواعيد الدواء اليومية',
+        titleEn: 'Medication Alarm & Dose Schedule Tracker',
+        subAr: 'تنبيهات أندرويد بمواعيد أدويتك ومتابعة التزامك بالكورس',
+        subEn: 'Daily Android pill alarms & adherence tracker',
+        color: '#059669',
+        keywords: ['منبه', 'المنبه', 'مواعيد', 'تذكير', 'فكرني', 'جرعه', 'جرعات', 'alarm', 'reminder'],
+      },
+      {
+        to: '/partners',
+        icon: '🏥',
+        badgeAr: 'صيدليات قريتك',
+        badgeEn: 'Pharmacies',
+        titleAr: 'دليل الصيدليات القريبة والتوصيل لمحافظتك وقريتك',
+        titleEn: 'Nearby Pharmacies by Governorate, Markaz & Village',
+        subAr: 'ابحث عن الصيدليات التي تغطي قريتك أو مركزك بالتوصيل',
+        subEn: 'Find pharmacies covering your village & city',
+        color: '#0d9488',
+        keywords: ['صيدليه', 'صيدليات', 'قريب', 'قريتي', 'مركز', 'محافظه', 'توصيل', 'دليفري', 'pharmacy'],
+      },
+      {
+        to: '/cost-saver',
+        icon: '💰',
+        badgeAr: 'توفير الفاتورة',
+        badgeEn: 'Cost Saver',
+        titleAr: 'مُخفّض فاتورة الصيدلية والبديل المصري الأرخص',
+        titleEn: 'Pharmacy Bill Optimizer & Cheaper Generics',
+        subAr: 'هات أرخص مثيل مصري مطابق 100% في المادة الفعالة والتركيز',
+        subEn: 'Find identical active ingredient generics at lower EGP prices',
+        color: '#16a34a',
+        keywords: ['بديل', 'ارخص', 'أرخص', 'سعر', 'توفير', 'غالي', 'فاتوره', 'مثيل', 'cost', 'cheap'],
+      },
+      {
+        to: '/prescription-radar',
+        icon: '📸',
+        badgeAr: 'كاميرا وروشتة',
+        badgeEn: 'Rx Scanner',
+        titleAr: 'قارئ الروشتات والشرائط المقطوعة + تسعير الروشتة',
+        titleEn: 'Prescription & Cut-Strip Camera Scanner + Pricing',
+        subAr: 'صوّر الروشتة أو الشريط المقطوع لتعرف اسمه وسعره وتعارضاته',
+        subEn: 'Scan Rx or cut blister strip for name, price & interactions',
+        color: '#2563eb',
+        keywords: ['روشته', 'شريط', 'مقطوع', 'تصوير', 'كاميرا', 'ماسح', 'صوره', 'scan', 'prescription'],
+      },
+      {
+        to: '/lab-photo-scanner',
+        icon: '🔬',
+        badgeAr: 'قراءة التحاليل',
+        badgeEn: 'Lab Scanner',
+        titleAr: 'الماسح الذكي لورق التحاليل الطبية والمزارع',
+        titleEn: 'Smart Lab Report & Culture S/R Scanner',
+        subAr: 'صوّر التحليل أو أدخل الأرقام لترى تفسيرها بالعربي البسيط',
+        subEn: 'Interpret CBC, CRP, kidney/liver tests & cultures',
+        color: '#7c3aed',
+        keywords: ['تحليل', 'تحاليل', 'معمل', 'صوره دم', 'مزرعه', 'هيموجلوبين', 'كرياتينين', 'lab'],
+      },
+      {
+        to: '/passport',
+        icon: '🪪',
+        badgeAr: 'كارت الطوارئ',
+        badgeEn: 'Medical ID',
+        titleAr: 'الكارت الطبي الذكي (QR) والملف الصحي',
+        titleEn: 'Smart Medical ID Passport (QR) & Health Profile',
+        subAr: 'احفظ حساسياتك وأدويتك ومحافظتك وقريتك في كارت طوارئ ذكي',
+        subEn: 'Save allergies, meds & location in an emergency QR ID',
+        color: '#0f172a',
+        keywords: ['كارت', 'ملفي', 'جواز', 'طوارئ', 'حساسيه', 'فصيله', 'qr', 'passport', 'profile'],
+      },
+      {
+        to: '/food-drug-checker',
+        icon: '☕',
+        badgeAr: 'تداخلات الأكل',
+        badgeEn: 'Food & Meds',
+        titleAr: 'فاحص الشاي والقهوة واللبن والأكل مع الأدوية',
+        titleEn: 'Tea, Coffee, Dairy & Food Interaction Matrix',
+        subAr: 'اعرف تفصل الشاي والقهوة واللبن عن دواك بكام ساعة',
+        subEn: 'Check exact hour spacing from tea, coffee & milk',
+        color: '#d97706',
+        keywords: ['شاي', 'قهوه', 'لبن', 'حليب', 'جبنه', 'اكل', 'شرب', 'صيام', 'عرقسوس'],
+      },
+      {
+        to: '/airport-banned-meds',
+        icon: '✈️',
+        badgeAr: 'السفر والمطار',
+        badgeEn: 'Travel',
+        titleAr: 'كاشف الأدوية الممنوعة في المطارات والجمارك',
+        titleEn: 'Airport & Customs Banned Meds Scanner',
+        subAr: 'افحص أدويتك قبل السفر للسعودية والخليج وأوروبا',
+        subEn: 'Check restricted medications before flights',
+        color: '#e11d48',
+        keywords: ['سفر', 'مطار', 'جمارك', 'سعوديه', 'خليج', 'طيران', 'عمره', 'حج', 'airport'],
+      },
+      {
+        to: '/body-map',
+        icon: '🧍‍♂️',
+        badgeAr: 'خريطة الجسم',
+        badgeEn: 'Body Map',
+        titleAr: 'خريطة جسم الإنسان التفاعلية لتحديد مكان الوجع',
+        titleEn: 'Interactive Human Body Pain Map',
+        subAr: 'اضغط بإيدك على مكان الوجع في الجسم للتشخيص السريع',
+        subEn: 'Tap where it hurts on the body map',
+        color: '#0f766e',
+        keywords: ['جسم', 'خريطه', 'مكان الوجع', 'تعبان', 'وجع', 'الم', 'body', 'pain'],
+      },
+      {
+        to: '/symptom-triage',
+        icon: '🩺',
+        badgeAr: 'مشخص الأعراض',
+        badgeEn: 'Symptom Triage',
+        titleAr: 'مشخص الأعراض الذكي (اكشف عند أنهي دكتور؟)',
+        titleEn: 'Smart Symptom Triage (Which Specialist?)',
+        subAr: 'يجاوبك تروح طوارئ ولا عيادة وأي تخصص طبي يناسب شكوتك',
+        subEn: 'Determines urgency and right medical specialty',
+        color: '#138866',
+        keywords: ['اعراض', 'تعب', 'اكشف', 'تخصص', 'دكتور', 'عياده', 'عيادات', 'وجع', 'symptom'],
+      },
+    ];
+
+    const tokens = clean.split(/\s+/).filter(Boolean);
+    const matched = entries.filter((entry) => {
+      const hay = norm(`${entry.titleAr} ${entry.titleEn} ${entry.subAr} ${entry.keywords.join(' ')}`);
+      return tokens.every((tk) => hay.includes(tk) || entry.keywords.some((kw) => norm(kw).includes(tk)));
+    });
+
+    return matched.slice(0, 6);
+  }, [q, isAr]);
 
   // Instant live autocomplete results across all 26,562 DAWAYA medicines + 206 reference packages
   const quickMatches = useMemo(() => {
@@ -1132,11 +1496,69 @@ export default function Home() {
               </Link>
             </form>
 
-            {/* Instant Live Dropdown Results */}
+            {/* Instant Live Dropdown Results (Symptoms + Triage vs Treatment + Tools + 20 Clinics + 26,572 Drugs) */}
             {focused && q.trim().length >= 2 && (
               <div className="hero-live-dropdown" role="listbox">
+                {universalSiteMatches.length > 0 && (
+                  <div style={{ marginBottom: quickMatches.length > 0 ? '8px' : 0 }}>
+                    <div
+                      style={{
+                        fontSize: '0.74rem',
+                        fontWeight: 900,
+                        color: '#065f46',
+                        padding: '2px 6px 6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <span>⚡</span>
+                      <span>{isAr ? 'توجيه فوري للأعراض والعيادات وأدوات الموقع:' : 'Instant Symptom, Clinic & Tool Matches:'}</span>
+                    </div>
+                    {universalSiteMatches.map((sm) => (
+                      <Link
+                        key={sm.to}
+                        to={sm.to}
+                        className="hero-live-item"
+                        onClick={() => setFocused(false)}
+                        style={{ borderInlineStart: `4px solid ${sm.color}` }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                          <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>{sm.icon}</span>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 900, fontSize: '0.9rem', color: '#101E36' }}>
+                              {isAr ? sm.titleAr : sm.titleEn}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                              {isAr ? sm.subAr : sm.subEn}
+                            </div>
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            background: sm.color,
+                            color: '#ffffff',
+                            borderRadius: '999px',
+                            padding: '3px 10px',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {isAr ? sm.badgeAr : sm.badgeEn}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+
                 {quickMatches.length > 0 ? (
                   <>
+                    {universalSiteMatches.length > 0 && (
+                      <div style={{ fontSize: '0.74rem', fontWeight: 900, color: '#0369a1', padding: '4px 6px 4px', borderTop: '1px solid #e2e8f0' }}>
+                        💊 {isAr ? 'أدوية مطابقة من الموسوعة (26,572+ دواء):' : 'Matching Medicines:'}
+                      </div>
+                    )}
                     {quickMatches.map((pkg) => (
                       <Link
                         key={pkg.id}
@@ -1210,7 +1632,7 @@ export default function Home() {
                       </button>
                     </div>
                   </>
-                ) : (
+                ) : universalSiteMatches.length > 0 ? null : (
                   <div style={{ padding: '12px', textAlign: 'center', fontSize: '0.86rem', color: '#64748b' }}>
                     {tr(lang, 'لا توجد مطابقة مباشرة — اضغط للبحث الشامل في المنصة:', 'No exact match — try full platform search:')}{' '}
                     <button
@@ -1266,6 +1688,15 @@ export default function Home() {
               </Link>
               <button
                 type="button"
+                onClick={() => setWelcomeModalOpen(true)}
+                className="hero-quick-tag"
+                style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+              >
+                <span>👋</span>
+                <span>{tr(lang, 'دليل البداية السريع', 'Quick Guide')}</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setSituationCompassOpen(true)}
                 className="hero-quick-tag"
                 style={{
@@ -1309,111 +1740,7 @@ export default function Home() {
       <div className="wrap stack" style={{ marginTop: '18px' }}>
         <DidYouKnow />
 
-        {/* Simple Guided Entry Card for First-Time / Everyday Users ("أنت داخل تعمل إيه النهاردة؟") */}
-        <section
-          className="card stack"
-          aria-label={isAr ? 'دليل البداية السريع' : 'Quick Start Guide'}
-          style={{
-            background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)',
-            border: '2px solid #10b981',
-            borderRadius: '20px',
-            padding: '16px 18px',
-            boxShadow: '0 8px 24px rgba(16, 185, 129, 0.1)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '1.12rem', color: '#065f46', fontWeight: 900 }}>
-                👋 {isAr ? 'أهلاً بيك في دوايا! داخل تعمل إيه النهاردة؟' : 'Welcome to DAWAYA! What would you like to do today?'}
-              </h2>
-              <p className="small muted" style={{ margin: '2px 0 0' }}>
-                {isAr ? 'اختار خطوة واحدة بس من هنا بدل ما تدور في الموقع كله:' : 'Pick one clear option below without getting lost:'}
-              </p>
-            </div>
-            <Link
-              to="/assistant"
-              className="btn small"
-              style={{ background: '#059669', borderColor: '#059669', color: '#ffffff', fontWeight: 800, borderRadius: '999px' }}
-            >
-              📞 {isAr ? 'اسأل الدكتور الذكي بالصوت' : 'Talk to AI Doctor'}
-            </Link>
-          </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-              gap: '10px',
-              marginTop: '4px',
-            }}
-          >
-            {[
-              {
-                to: '/assistant',
-                icon: '📸',
-                title: isAr ? 'أصوّر روشتة أو شريط دواء وأسعّره' : 'Scan & Price Rx / Strip',
-                sub: isAr ? 'قراءة وتسعير الروشتة بالبديل الأرخص' : 'Extract meds, prices & cheaper generics',
-                bg: '#ecfdf5',
-                border: '#6ee7b7',
-              },
-              {
-                to: '/cost-saver',
-                icon: '💊',
-                title: isAr ? 'أعرف سعر دواء أو بديله الأرخص' : 'Check Drug Price & Cheaper Generic',
-                sub: isAr ? 'مقارنة 26,572+ دواء بالسعر الرسمي' : 'Compare 26,572+ official EGP prices',
-                bg: '#eff6ff',
-                border: '#93c5fd',
-              },
-              {
-                to: '/symptom-triage',
-                icon: '🩺',
-                title: isAr ? 'حاسس بوجع وعايز أعرف العيادة' : 'I Have Pain — Which Clinic?',
-                sub: isAr ? 'تشخيص مبدئي وتحويل للعيادة المختصة' : 'Guided triage & 20 specialty clinics',
-                bg: '#fef2f2',
-                border: '#fca5a5',
-              },
-              {
-                to: '/partners',
-                icon: '🏥',
-                title: isAr ? 'ألاقي صيدلية بتوصل لقريتي' : 'Find Pharmacy Delivering to My Village',
-                sub: isAr ? 'بحث بالمحافظة والمركز والقرية' : 'Search by Governorate, Markaz & Village',
-                bg: '#f5f3ff',
-                border: '#c4b5fd',
-              },
-              {
-                to: '/tracker',
-                icon: '⏰',
-                title: isAr ? 'أظبط منبه جرعاتي وكارتي الطبي' : 'Set Pill Alarms & Medical ID',
-                sub: isAr ? 'تنبيهات أندرويد يومية + كارت الطوارئ' : 'Daily reminders & QR Medical ID',
-                bg: '#fffbeb',
-                border: '#fcd34d',
-              },
-            ].map((item) => (
-              <Link
-                key={item.to + item.icon}
-                to={item.to}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '11px 13px',
-                  borderRadius: '14px',
-                  background: item.bg,
-                  border: `1.5px solid ${item.border}`,
-                  textDecoration: 'none',
-                  color: '#0f172a',
-                  transition: 'transform 0.15s ease',
-                }}
-              >
-                <span style={{ fontSize: '1.6rem', flexShrink: 0 }}>{item.icon}</span>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 900, fontSize: '0.88rem', lineHeight: 1.3 }}>{item.title}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '2px' }}>{item.sub}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
 
         {/* Quick Symptom & Condition Finder Strip */}
         <section className="card" style={{ padding: '14px 16px', borderTop: '3px solid #138866' }}>
@@ -1810,6 +2137,162 @@ export default function Home() {
         <Suspense fallback={null}>
           <GlobalSpotlightModal isOpen={spotlightOpen} onClose={() => setSpotlightOpen(false)} />
         </Suspense>
+      )}
+
+      {/* Dismissible Welcome Guide Notification Popup (One-click quick start with X close button) */}
+      {welcomeModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={dismissWelcomeModal}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99980,
+            background: 'rgba(15, 23, 42, 0.68)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '14px',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              background: '#ffffff',
+              borderRadius: '22px',
+              border: '2px solid #10b981',
+              boxShadow: '0 22px 50px rgba(0, 0, 0, 0.35)',
+              padding: '18px 18px 16px',
+              color: '#0f172a',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
+              <div>
+                <div style={{ fontSize: '0.78rem', fontWeight: 900, color: '#059669', marginBottom: '2px' }}>
+                  ✨ {isAr ? 'رسالة ترحيبية — دليل دوايا السريع' : 'Welcome to DAWAYA Quick Guide'}
+                </div>
+                <h2 style={{ margin: 0, fontSize: '1.12rem', fontWeight: 900, color: '#0f172a' }}>
+                  👋 {isAr ? 'أهلاً بيك! داخل تعمل إيه النهاردة؟' : 'What would you like to do today?'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={dismissWelcomeModal}
+                aria-label={isAr ? 'إغلاق' : 'Close'}
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '50%',
+                  border: '1.5px solid #cbd5e1',
+                  background: '#f8fafc',
+                  color: '#334155',
+                  fontSize: '1.05rem',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {[
+                {
+                  to: '/assistant',
+                  icon: '📸',
+                  title: isAr ? 'أصوّر روشتة أو شريط مقطوع وأسعّره' : 'Scan & Price Prescription / Strip',
+                  sub: isAr ? 'قراءة وتسعير الروشتة + أرخص بديل مصري' : 'OCR pricing & cheaper generics',
+                  bg: '#ecfdf5',
+                  border: '#6ee7b7',
+                },
+                {
+                  to: '/cost-saver',
+                  icon: '💊',
+                  title: isAr ? 'أعرف سعر دواء أو بديله الأرخص' : 'Check Drug Price & Cheaper Generic',
+                  sub: isAr ? 'مقارنة 26,572+ دواء بالسعر الرسمي' : 'Compare 26,572+ official EGP prices',
+                  bg: '#eff6ff',
+                  border: '#93c5fd',
+                },
+                {
+                  to: '/symptom-triage',
+                  icon: '🩺',
+                  title: isAr ? 'حاسس بوجع وعايز تشخيص والعيادة المناسبة' : 'I Have Pain — Diagnose & Pick Clinic',
+                  sub: isAr ? 'تشخيص مبدئي وتحويل للعيادة المختصة' : 'Guided triage & 20 specialty clinics',
+                  bg: '#fef2f2',
+                  border: '#fca5a5',
+                },
+                {
+                  to: '/partners',
+                  icon: '🏥',
+                  title: isAr ? 'ألاقي صيدلية بتوصل لقريتي' : 'Find Pharmacy Delivering to My Village',
+                  sub: isAr ? 'بحث بالمحافظة والمركز والقرية' : 'Search by Governorate, Markaz & Village',
+                  bg: '#f5f3ff',
+                  border: '#c4b5fd',
+                },
+                {
+                  to: '/tracker',
+                  icon: '⏰',
+                  title: isAr ? 'أظبط منبه جرعاتي وكارتي الطبي' : 'Set Pill Alarms & Medical ID',
+                  sub: isAr ? 'تنبيهات يومية + كارت الطوارئ QR' : 'Daily reminders & QR Medical ID',
+                  bg: '#fffbeb',
+                  border: '#fcd34d',
+                },
+              ].map((item) => (
+                <Link
+                  key={item.to + item.icon}
+                  to={item.to}
+                  onClick={dismissWelcomeModal}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    borderRadius: '13px',
+                    background: item.bg,
+                    border: `1.5px solid ${item.border}`,
+                    textDecoration: 'none',
+                    color: '#0f172a',
+                  }}
+                >
+                  <span style={{ fontSize: '1.45rem', flexShrink: 0 }}>{item.icon}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 900, fontSize: '0.88rem', lineHeight: 1.3 }}>{item.title}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#475569' }}>{item.sub}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={dismissWelcomeModal}
+              style={{
+                marginTop: '12px',
+                width: '100%',
+                padding: '9px',
+                borderRadius: '12px',
+                border: '1px solid #cbd5e1',
+                background: '#f8fafc',
+                color: '#475569',
+                fontWeight: 800,
+                fontSize: '0.84rem',
+                cursor: 'pointer',
+              }}
+            >
+              {isAr ? 'تصفح الموقع بالكامل بنفسي ✕' : 'Browse Full Platform Myself ✕'}
+            </button>
+          </div>
+        </div>
       )}
 
       {situationCompassOpen && (

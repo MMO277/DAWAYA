@@ -1431,9 +1431,9 @@ export function evaluateComprehensiveSymptomAndClinicTriage(
   if (isExplicitDrugOrPriceQuery) return null;
 
   const isAskingForMedicationExplicitly =
-    /(اخد ايه|آخد إيه|ايه العلاج|إيه العلاج|ايه الدوا|إيه الدواء|اسم دوا|اسم برشام|رشحلي دوا|اكتبلي دوا|عايز مسكن|عايز علاج)/.test(q);
+    /(اخد ايه|آخد إيه|ايه العلاج|إيه العلاج|ايه الدوا|إيه الدواء|اسم دوا|اسم برشام|رشحلي دوا|اكتبلي دوا|عايز مسكن|عايز علاج|علاج امن|علاج آمن|علاج لل)/.test(q);
 
-  // If asking explicitly for medication on a follow-up turn, allow the standard drug guide / follow-up handler to run
+  // If user explicitly asks for treatment ("عندي صداع وعايز علاج"), route to treatment guide; if user only reports symptom ("عندي صداع"), diagnose & route to clinic first!
   if (isAskingForMedicationExplicitly && !/(جنب الشمال|جنبي الشمال|الجنب الشمال|جنب اليمين|جنبي اليمين|الجنب اليمين)/.test(q)) {
     return null;
   }
