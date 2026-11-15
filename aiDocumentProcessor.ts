@@ -31,6 +31,12 @@ import {
 } from './geminiApi';
 import { AddPrescriptionItemArgs, sanitizeText } from './aiActionSchemas';
 import { ACTIVE_INGREDIENTS, EGYPTIAN_COMMERCIAL_PRODUCTS } from './egyptianDrugDatabase';
+import {
+  DawayaCompactIndexItem,
+  ensureDawayaDatabaseLoaded,
+  findDawayaIndexItemSync,
+  getDawayaClassifiedAlternatives,
+} from './dawayaDrugDatabaseService';
 import { norm } from './search';
 
 export const MAX_UPLOAD_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB matches storage.rules
@@ -589,6 +595,127 @@ export function classifyAndSummarizeDocumentText(
  * Analyzes an uploaded image or document using Vision/OCR and prepares a structured preview
  * without saving anything until the patient explicitly confirms.
  */
+
+export interface RxLinePricingReport {
+  item: DawayaCompactIndexItem;
+  cheaperAlternative: DawayaCompactIndexItem | null;
+}
+
+export function buildPrescriptionPricingAndAlternativesReport(
+  rawText: string,
+  extractedItems: AddPrescriptionItemArgs[]
+): {
+  lines: RxLinePricingReport[];
+  totalOriginalEgp: number;
+  totalWithAlternativesEgp: number;
+  totalSavingsEgp: number;
+  summaryAr: string;
+  summaryEn: string;
+} {
+  const candidates = new Map<string, DawayaCompactIndexItem>();
+
+  const tryMatchText = (txt: string) => {
+    const clean = (txt || '')
+      .replace(/^(RX_DRUG_ID|RX_DRUG_NAME|RX_DOSE|RX_ROUTE|RX_FREQ|RX_DURATION_DAYS|RX_NOTES|RX_CONTRADICTIONS):/i, '')
+      .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+      .trim();
+    if (!clean || clean.length < 3) return;
+    const hit = findDawayaIndexItemSync(clean);
+    if (hit && !candidates.has(hit.i)) {
+      candidates.set(hit.i, hit);
+    }
+  };
+
+  for (const item of extractedItems) {
+    if (item.medicineName) tryMatchText(item.medicineName);
+  }
+  for (const line of (rawText || '').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed.length >= 3) {
+      tryMatchText(trimmed);
+      // Also check individual multi-word drug tokens inside a line
+      const words = trimmed.split(/[,،/|\-]+/).map((w) => w.trim()).filter((w) => w.length >= 3);
+      for (const w of words) tryMatchText(w);
+    }
+  }
+
+  const lines: RxLinePricingReport[] = [];
+  let totalOriginalEgp = 0;
+  let totalWithAlternativesEgp = 0;
+
+  for (const item of Array.from(candidates.values()).slice(0, 10)) {
+    const alts = getDawayaClassifiedAlternatives(item, 6);
+    const cheaperEq =
+      alts.exactEquivalents
+        .filter((e) => e.p && e.p > 0 && (!item.p || e.p < item.p - 0.5))
+        .sort((a, b) => (a.p ?? 999999) - (b.p ?? 999999))[0] || null;
+
+    const origPrice = item.p && item.p > 0 ? item.p : 0;
+    const altPrice = cheaperEq && cheaperEq.p ? cheaperEq.p : origPrice;
+    totalOriginalEgp += origPrice;
+    totalWithAlternativesEgp += altPrice;
+    lines.push({ item, cheaperAlternative: cheaperEq });
+  }
+
+  const totalSavingsEgp = Math.max(0, Number((totalOriginalEgp - totalWithAlternativesEgp).toFixed(2)));
+  if (lines.length === 0) {
+    return {
+      lines: [],
+      totalOriginalEgp: 0,
+      totalWithAlternativesEgp: 0,
+      totalSavingsEgp: 0,
+      summaryAr: '',
+      summaryEn: '',
+    };
+  }
+
+  const arRows = lines.map(({ item, cheaperAlternative }) => {
+    const nameAr = item.a || item.n;
+    const priceStr = item.p && item.p > 0 ? `${item.p.toFixed(2)} ج.م` : 'غير مسعّر رسمياً';
+    const altStr = cheaperAlternative
+      ? ` ← 💡 بديل مصري أرخص مطابق 100% في المادة الفعالة: «${cheaperAlternative.a || cheaperAlternative.n}» بسعر ${cheaperAlternative.p?.toFixed(2)} ج.م`
+      : '';
+    return `• ${nameAr} (${item.g || 'راجع النشرة'}): ${priceStr}${altStr}`;
+  });
+
+  const enRows = lines.map(({ item, cheaperAlternative }) => {
+    const priceStr = item.p && item.p > 0 ? `${item.p.toFixed(2)} EGP` : 'Price N/A';
+    const altStr = cheaperAlternative
+      ? ` -> Cheaper Egyptian bioequivalent: "${cheaperAlternative.n}" (${cheaperAlternative.p?.toFixed(2)} EGP)`
+      : '';
+    return `• ${item.n}: ${priceStr}${altStr}`;
+  });
+
+  const summaryAr =
+    `\n\n💰 تسعير الروشتة والبدائل المصرية الرسمية:` +
+    `\n${arRows.join('\n')}` +
+    (totalOriginalEgp > 0
+      ? `\n• إجمالي سعر الروشتة الأصلي: ${totalOriginalEgp.toFixed(2)} ج.م` +
+        (totalSavingsEgp > 0
+          ? `\n• ✅ إجمالي الروشتة بالبدائل المصرية الأرخص: ${totalWithAlternativesEgp.toFixed(2)} ج.م (توفير ${totalSavingsEgp.toFixed(2)} ج.م!)`
+          : '')
+      : '');
+
+  const summaryEn =
+    `\n\n💰 Prescription Pricing & Egyptian Bioequivalents:` +
+    `\n${enRows.join('\n')}` +
+    (totalOriginalEgp > 0
+      ? `\n• Original Total: ${totalOriginalEgp.toFixed(2)} EGP` +
+        (totalSavingsEgp > 0
+          ? `\n• ✅ Total with Cheaper Equivalents: ${totalWithAlternativesEgp.toFixed(2)} EGP (Save ${totalSavingsEgp.toFixed(2)} EGP!)`
+          : '')
+      : '');
+
+  return {
+    lines,
+    totalOriginalEgp,
+    totalWithAlternativesEgp,
+    totalSavingsEgp,
+    summaryAr,
+    summaryEn,
+  };
+}
+
 export async function analyzeUploadedMedicalDocument(params: {
   base64Data: string;
   previewDataUrl?: string;
@@ -598,6 +725,7 @@ export async function analyzeUploadedMedicalDocument(params: {
   lang: Lang;
   forcedCategory?: MedicalDocumentCategory;
 }): Promise<ProcessedMedicalDocumentAnalysis> {
+  await ensureDawayaDatabaseLoaded().catch(() => {});
   const ocrResult = await analyzePrescriptionImageWithVision(
     params.base64Data,
     params.mimeType,
@@ -657,6 +785,11 @@ export async function analyzeUploadedMedicalDocument(params: {
             },
           ];
 
+  const pricingReport =
+    effectiveCategory === 'prescription' || extractedPrescriptions.length > 0
+      ? buildPrescriptionPricingAndAlternativesReport(multiText, extractedPrescriptions)
+      : null;
+
   return {
     title: params.lang === 'ar' ? docMeta.titleAr : docMeta.titleEn,
     category: effectiveCategory,
@@ -665,8 +798,8 @@ export async function analyzeUploadedMedicalDocument(params: {
     fileSize: params.fileSize,
     previewDataUrl: params.previewDataUrl,
     base64Data: params.base64Data,
-    extractedSummaryAr: docMeta.summaryAr,
-    extractedSummaryEn: docMeta.summaryEn,
+    extractedSummaryAr: `${docMeta.summaryAr}${pricingReport?.summaryAr || ''}`,
+    extractedSummaryEn: `${docMeta.summaryEn}${pricingReport?.summaryEn || ''}`,
     extractedFields: docMeta.extractedFields,
     unreadableFields: ocrResult.unreadableFields,
     contradictionWarnings: ocrResult.contradictionWarnings,
