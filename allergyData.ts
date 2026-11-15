@@ -144,6 +144,9 @@ export function emptyHealthProfile(): UserHealthProfile {
     customOccupationTitle: '',
     factoryEnvironmentHazards: [],
     workEnvironmentNotes: '',
+    governorateId: '',
+    cityCenter: '',
+    districtVillage: '',
     displayName: '',
     age: '',
     weightKg: '',
@@ -389,6 +392,9 @@ export function normalizeProfile(raw: any): UserHealthProfile {
     customOccupationTitle,
     factoryEnvironmentHazards,
     workEnvironmentNotes,
+    governorateId: typeof raw.governorateId === 'string' ? raw.governorateId.trim() : '',
+    cityCenter: typeof raw.cityCenter === 'string' ? raw.cityCenter.trim() : '',
+    districtVillage: typeof raw.districtVillage === 'string' ? raw.districtVillage.trim() : '',
     displayName: typeof raw.displayName === 'string' ? raw.displayName : '',
     age: typeof raw.age === 'string' ? raw.age : typeof raw.age === 'number' ? String(raw.age) : '',
     weightKg:
@@ -473,6 +479,8 @@ export function isProfileNonEmpty(p: UserHealthProfile | null | undefined): bool
   if (!p) return false;
   return Boolean(
     (p.occupation && p.occupation !== 'general') ||
+    Boolean((p.governorateId || '').trim()) ||
+    Boolean((p.districtVillage || '').trim()) ||
     p.displayName.trim() ||
       p.age.trim() ||
       (p.weightKg && p.weightKg.trim()) ||
@@ -571,6 +579,9 @@ export function mergeProfiles(primary: UserHealthProfile, secondary: UserHealthP
     customOccupationTitle: (primary.customOccupationTitle || '').trim() || (secondary.customOccupationTitle || '').trim(),
     factoryEnvironmentHazards: Array.from(new Set([...(primary.factoryEnvironmentHazards || []), ...(secondary.factoryEnvironmentHazards || [])])),
     workEnvironmentNotes: (primary.workEnvironmentNotes || '').trim() || (secondary.workEnvironmentNotes || '').trim(),
+    governorateId: (primary.governorateId || '').trim() || (secondary.governorateId || '').trim(),
+    cityCenter: (primary.cityCenter || '').trim() || (secondary.cityCenter || '').trim(),
+    districtVillage: (primary.districtVillage || '').trim() || (secondary.districtVillage || '').trim(),
     displayName: primary.displayName.trim() || secondary.displayName.trim(),
     age: primary.age.trim() || secondary.age.trim(),
     weightKg: (primary.weightKg || '').trim() || (secondary.weightKg || '').trim(),
