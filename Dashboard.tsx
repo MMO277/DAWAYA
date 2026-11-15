@@ -63,28 +63,91 @@ function WhoCampaignAndVisibilityAdminCard({ isAr }: { isAr: boolean }) {
         {saving && <span className="badge">{isAr ? 'جاري الحفظ...' : 'Saving...'}</span>}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+      <div style={{ display: 'grid', gap: '12px' }}>
         <div>
-          <label className="small" style={{ fontWeight: 800, display: 'block', marginBottom: '4px' }}>
-            🎨 {isAr ? 'ثيم وحملة منظمة الصحة العالمية الحالية:' : 'Active WHO Campaign Theme:'}
+          <label className="small" style={{ fontWeight: 800, display: 'block', marginBottom: '8px' }}>
+            🎨 {isAr ? 'ثيم والمناسبة الحالية (اختر بالضغط على البطاقة):' : 'Active Campaign Theme (Tap to select):'}
           </label>
-          <select
-            className="input"
-            value={config.campaignMode}
-            onChange={(e) => void updateCfg({ campaignMode: e.target.value })}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+            <button
+              type="button"
+              onClick={() => void updateCfg({ campaignMode: 'auto' })}
+              style={{
+                flex: '1 1 180px',
+                padding: '10px 12px',
+                borderRadius: '12px',
+                border: config.campaignMode === 'auto' ? '2px solid #0d9488' : '1px solid rgba(148,163,184,0.35)',
+                background: config.campaignMode === 'auto' ? 'rgba(13, 148, 136, 0.14)' : 'rgba(255,255,255,0.04)',
+                color: 'inherit',
+                fontWeight: 800,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                textAlign: 'start',
+              }}
+            >
+              🔄 {isAr ? 'تلقائي حسب التاريخ (هجري + WHO)' : 'Auto (Hijri + WHO)'}
+              {config.campaignMode === 'auto' ? ' ✅' : ''}
+            </button>
+            <button
+              type="button"
+              onClick={() => void updateCfg({ campaignMode: 'none' })}
+              style={{
+                flex: '1 1 160px',
+                padding: '10px 12px',
+                borderRadius: '12px',
+                border: config.campaignMode === 'none' ? '2px solid #64748b' : '1px solid rgba(148,163,184,0.35)',
+                background: config.campaignMode === 'none' ? 'rgba(100, 116, 139, 0.16)' : 'rgba(255,255,255,0.04)',
+                color: 'inherit',
+                fontWeight: 800,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                textAlign: 'start',
+              }}
+            >
+              ⬜ {isAr ? 'إيقاف الزينة (ألوان دوايا الافتراضية)' : 'Disable Theme'}
+              {config.campaignMode === 'none' ? ' ✅' : ''}
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(165px, 1fr))',
+              gap: '8px',
+              maxHeight: '250px',
+              overflowY: 'auto',
+              padding: '4px 2px',
+            }}
           >
-            <option value="auto">
-              🔄 {isAr ? 'تلقائي حسب تاريخ اليوم (Auto WHO Calendar)' : 'Automatic by Date'}
-            </option>
-            <option value="none">
-              ⬜ {isAr ? 'إيقاف شريط الحملات (الألوان الافتراضية لدوايا)' : 'Disable Campaign Theme'}
-            </option>
-            {WHO_HEALTH_CAMPAIGNS.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.icon} {isAr ? c.titleAr : c.titleEn}
-              </option>
-            ))}
-          </select>
+            {WHO_HEALTH_CAMPAIGNS.map((c) => {
+              const active = config.campaignMode === c.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => void updateCfg({ campaignMode: c.id })}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '9px 10px',
+                    borderRadius: '12px',
+                    border: active ? `2px solid ${c.accentColor}` : '1px solid rgba(148,163,184,0.28)',
+                    background: active ? `${c.accentColor}22` : 'rgba(15, 23, 42, 0.04)',
+                    color: 'inherit',
+                    cursor: 'pointer',
+                    textAlign: 'start',
+                  }}
+                >
+                  <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>{c.icon}</span>
+                  <span style={{ fontSize: '0.78rem', fontWeight: active ? 900 : 700, lineHeight: 1.3, flex: 1 }}>
+                    {isAr ? c.titleAr : c.titleEn}
+                  </span>
+                  {active && <span style={{ fontSize: '0.85rem' }}>✅</span>}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>

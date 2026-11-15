@@ -437,6 +437,7 @@ function SmartCrossClinicSafetyBanner() {
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { t, lang, setLang } = useLang();
+  const { config: siteVisibility } = useWhoCampaignAndVisibility();
   const { emergency, countryName } = useEmergencyLocation();
   const isAr = lang === 'ar';
   const pageDir: 'rtl' | 'ltr' = isAr ? 'rtl' : 'ltr';
@@ -914,12 +915,12 @@ export default function Layout({ children }: { children: ReactNode }) {
           icon: '🤖',
           shortLabel: tr(lang, 'المساعد الذكي', 'AI Assistant', 'Assistant IA', 'Asistente IA'),
         },
-        {
+        ...(siteVisibility.showSurveySection ? [{
           to: '/quiz',
           key: 'navQuiz',
           icon: '📝',
           shortLabel: tr(lang, 'اختبر معلوماتك', 'Quizzes', 'Quiz', 'Cuestionarios'),
-        },
+        }] : []),
         {
           to: '/listen',
           key: 'navListen',
@@ -941,12 +942,12 @@ export default function Layout({ children }: { children: ReactNode }) {
         'Campaña WAAW, guías educativas, artículos e investigación'
       ),
       items: [
-        {
+        ...(siteVisibility.showAntibioticLegacySections ? [{
           to: '/awareness-week',
           key: 'navWAAW',
           icon: '🌍',
           shortLabel: tr(lang, 'الأسبوع العالمي للوعي الدوائي (نوفمبر)', 'World Awareness Week (Nov)', 'Semaine Mondiale (Nov)', 'Semana Mundial (Nov)'),
-        },
+        }] : []),
         {
           to: '/learn',
           key: 'navLearn',
@@ -965,12 +966,12 @@ export default function Layout({ children }: { children: ReactNode }) {
           icon: '📰',
           shortLabel: tr(lang, 'المقالات العلمية', 'Articles', 'Articles', 'Artículos'),
         },
-        {
+        ...(siteVisibility.showSurveySection ? [{
           to: '/research',
           key: 'navResearch',
           icon: '📊',
           shortLabel: tr(lang, 'استبيان البحث', 'Research Survey', 'Recherche', 'Investigación'),
-        },
+        }] : []),
         {
           to: '/methodology',
           key: 'navMethod',

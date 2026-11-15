@@ -191,6 +191,7 @@ service cloud.firestore {
             'is24Hours',
             'deliveryAvailable',
             'deliveryRadiusKm',
+            'deliveryCoverageAreas',
             'licenseDocumentUrl',
             'syndicateCardUrl',
             'logoUrl',
@@ -390,6 +391,7 @@ service cloud.firestore {
             'is24Hours',
             'deliveryAvailable',
             'deliveryRadiusKm',
+            'deliveryCoverageAreas',
             'detailedAddressAr',
             'updatedAtIso'
           ])

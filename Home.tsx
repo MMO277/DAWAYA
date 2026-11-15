@@ -2018,6 +2018,8 @@ export default function Home() {
         {/* Dynamic Partner Placement on Homepage */}
         <PublicPartnerPlacementSection placement="homepage_featured" />
 
+        {siteVisibility.showAntibioticLegacySections && (
+        <>
         {/* WHO AWaRe & Rational Medication Stewardship Section (Preserved from Original Site inside Comprehensive DAWAYA Identity) */}
         <section className="card stack" style={{ borderTop: '4px solid #138866' }}>
           <div className="head" style={{ flexWrap: 'wrap', gap: '10px' }}>
@@ -2103,6 +2105,9 @@ export default function Home() {
 
         {/* Real-World AMR Numbers Counter */}
         <ResistanceCounter />
+
+        </>
+        )}
 
         {/* Interactive Quiz, Ambassador Certificate & Audio Education Strip */}
         <div className="grid">
