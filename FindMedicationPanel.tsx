@@ -1,5 +1,6 @@
 import { SmartNativeSelect } from './SmartChoiceSelect';
-import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+import { useSyncedHealthProfile } from './allergyData';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -55,9 +56,28 @@ export function PartnerMedicationOrderModal({
   const [quantityPacks, setQuantityPacks] = useState<number>(1);
   const [patientName, setPatientName] = useState<string>(user?.displayName || '');
   const [patientPhone, setPatientPhone] = useState<string>('');
-  const [govId, setGovId] = useState<string>(defaultGovId !== 'all' ? defaultGovId : 'cairo');
-  const [city, setCity] = useState<string>('');
-  const [deliveryAddress, setDeliveryAddress] = useState<string>('');
+  const { profile: modalProfile } = useSyncedHealthProfile();
+  const [govId, setGovId] = useState<string>(() => {
+    if (defaultGovId && defaultGovId !== 'all') return defaultGovId;
+    try {
+      const saved = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+      return saved?.governorateId || modalProfile.governorateId || publishedBranches[0]?.governorateId || 'cairo';
+    } catch { return modalProfile.governorateId || publishedBranches[0]?.governorateId || 'cairo'; }
+  });
+  const [city, setCity] = useState<string>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+      const v = saved?.districtVillage || modalProfile.districtVillage || '';
+      const c = saved?.cityCenter || modalProfile.cityCenter || publishedBranches[0]?.city || '';
+      return v ? `${c} — ${v}` : c;
+    } catch { return publishedBranches[0]?.city || ''; }
+  });
+  const [deliveryAddress, setDeliveryAddress] = useState<string>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+      return saved?.districtVillage || modalProfile.districtVillage || '';
+    } catch { return modalProfile.districtVillage || ''; }
+  });
   const [prescriptionRef, setPrescriptionRef] = useState<string>('');
   const [prescriberName, setPrescriberName] = useState<string>('');
   const [prescriptionFileUrl, setPrescriptionFileUrl] = useState<string>('');
@@ -459,9 +479,48 @@ export default function FindMedicationPanel({
   const [selectedProdId, setSelectedProdId] = useState<string>(
     initialProductId || matchingPackages[0]?.productId || ''
   );
-  const [selectedGovId, setSelectedGovId] = useState<string>('all');
-  const [selectedCity, setSelectedCity] = useState<string>('all');
-  const [selectedVillage, setSelectedVillage] = useState<string>('all');
+  const { profile: panelProfile } = useSyncedHealthProfile();
+  const [selectedGovId, setSelectedGovId] = useState<string>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+      return saved?.governorateId || 'all';
+    } catch { return 'all'; }
+  });
+  const [selectedCity, setSelectedCity] = useState<string>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+      return saved?.cityCenter || 'all';
+    } catch { return 'all'; }
+  });
+  const [selectedVillage, setSelectedVillage] = useState<string>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+      return saved?.districtVillage || 'all';
+    } catch { return 'all'; }
+  });
+
+  useEffect(() => {
+    if (panelProfile.governorateId && selectedGovId === 'all') {
+      setSelectedGovId(panelProfile.governorateId);
+      if (panelProfile.cityCenter) setSelectedCity(panelProfile.cityCenter);
+      if (panelProfile.districtVillage) setSelectedVillage(panelProfile.districtVillage);
+    }
+  }, [panelProfile.governorateId, panelProfile.cityCenter, panelProfile.districtVillage]);
+
+  useEffect(() => {
+    try {
+      if (selectedGovId !== 'all') {
+        localStorage.setItem(
+          'dawaya_user_location_v1',
+          JSON.stringify({
+            governorateId: selectedGovId,
+            cityCenter: selectedCity !== 'all' ? selectedCity : '',
+            districtVillage: selectedVillage !== 'all' ? selectedVillage : '',
+          })
+        );
+      }
+    } catch { /* ignore */ }
+  }, [selectedGovId, selectedCity, selectedVillage]);
   const [showAlternativesReview, setShowAlternativesReview] = useState<boolean>(false);
   const [orderModalPartner, setOrderModalPartner] = useState<PartnerPublicRecord | null>(null);
 
@@ -482,8 +541,9 @@ export default function FindMedicationPanel({
       placement: 'medication_detail_page',
       governorateId: selectedGovId !== 'all' ? selectedGovId : undefined,
       city: selectedCity !== 'all' ? selectedCity : undefined,
+      village: selectedVillage !== 'all' ? selectedVillage : undefined,
     });
-  }, [getVisiblePartners, selectedGovId, selectedCity]);
+  }, [getVisiblePartners, selectedGovId, selectedCity, selectedVillage]);
 
   // Scientifically classified alternatives (strictly labeled as requiring pharmacist/prescriber review)
   const classifiedAlts = useMemo(

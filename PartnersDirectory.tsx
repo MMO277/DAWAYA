@@ -1,5 +1,6 @@
 import { SmartNativeSelect } from './SmartChoiceSelect';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSyncedHealthProfile } from './allergyData';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
 import { tr } from './types';
@@ -46,12 +47,58 @@ export default function PartnersDirectoryPage() {
   const { inventory: pharmacyInventory, dynamicGovernorates } = useDawayaPharmacyNetwork();
   const { products: liveCatalogProducts } = useLiveDrugCatalog();
 
+  const { profile: userProfile } = useSyncedHealthProfile();
   const [searchQ, setSearchQ] = useState('');
   const [selectedCatId, setSelectedCatId] = useState<string>('all');
-  const [selectedGovId, setSelectedGovId] = useState<string>('all');
-  const [selectedCity, setSelectedCity] = useState<string>('all');
-  const [selectedVillage, setSelectedVillage] = useState<string>('all');
+  const [selectedGovId, setSelectedGovId] = useState<string>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+      return saved?.governorateId || 'all';
+    } catch { return 'all'; }
+  });
+  const [selectedCity, setSelectedCity] = useState<string>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+      return saved?.cityCenter || 'all';
+    } catch { return 'all'; }
+  });
+  const [selectedVillage, setSelectedVillage] = useState<string>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+      return saved?.districtVillage || 'all';
+    } catch { return 'all'; }
+  });
   const [customVillageFilter, setCustomVillageFilter] = useState<string>('');
+
+  // Auto-sync from Health Profile whenever profile location is available
+  useEffect(() => {
+    if (userProfile.governorateId && selectedGovId === 'all') {
+      setSelectedGovId(userProfile.governorateId);
+      if (userProfile.cityCenter) setSelectedCity(userProfile.cityCenter);
+      if (userProfile.districtVillage) setSelectedVillage(userProfile.districtVillage);
+    }
+  }, [userProfile.governorateId, userProfile.cityCenter, userProfile.districtVillage]);
+
+  // Persist manual location selection across the site
+  useEffect(() => {
+    try {
+      if (selectedGovId !== 'all') {
+        localStorage.setItem(
+          'dawaya_user_location_v1',
+          JSON.stringify({
+            governorateId: selectedGovId,
+            cityCenter: selectedCity !== 'all' ? selectedCity : '',
+            districtVillage:
+              selectedVillage === '__CUSTOM__'
+                ? customVillageFilter.trim()
+                : selectedVillage !== 'all'
+                ? selectedVillage
+                : '',
+          })
+        );
+      }
+    } catch { /* ignore */ }
+  }, [selectedGovId, selectedCity, selectedVillage, customVillageFilter]);
   const [onlyDelivery, setOnlyDelivery] = useState<boolean>(false);
   const [only24h, setOnly24h] = useState<boolean>(false);
 
@@ -65,6 +112,13 @@ export default function PartnersDirectoryPage() {
     [categories]
   );
 
+  const activeVillageFilter =
+    selectedVillage === '__CUSTOM__'
+      ? customVillageFilter.trim()
+      : selectedVillage !== 'all'
+      ? selectedVillage
+      : '';
+
   const visiblePartners = useMemo(() => {
     const placement =
       activeTab === 'nearby' ? 'nearby_pharmacy_results' : 'partner_directory';
@@ -72,6 +126,7 @@ export default function PartnersDirectoryPage() {
       placement,
       governorateId: selectedGovId !== 'all' ? selectedGovId : undefined,
       city: selectedCity !== 'all' ? selectedCity : undefined,
+      village: activeVillageFilter || undefined,
     });
 
     const q = searchQ.toLowerCase().trim();
@@ -98,6 +153,7 @@ export default function PartnersDirectoryPage() {
     activeTab,
     selectedGovId,
     selectedCity,
+    activeVillageFilter,
     selectedCatId,
     onlyDelivery,
     only24h,
@@ -117,7 +173,12 @@ export default function PartnersDirectoryPage() {
           b.serviceGovernorates.includes(selectedGovId)) &&
         (selectedCity === 'all' ||
           b.city.toLowerCase().includes(selectedCity.toLowerCase()) ||
-          b.serviceCities.some((c) => c.toLowerCase().includes(selectedCity.toLowerCase())))
+          b.serviceCities.some((c) => c.toLowerCase().includes(selectedCity.toLowerCase()))) &&
+        (!activeVillageFilter ||
+          b.addressAr.toLowerCase().includes(activeVillageFilter.toLowerCase()) ||
+          b.city.toLowerCase().includes(activeVillageFilter.toLowerCase()) ||
+          b.deliveryCoverageAr.toLowerCase().includes(activeVillageFilter.toLowerCase()) ||
+          b.serviceCities.some((c) => c.toLowerCase().includes(activeVillageFilter.toLowerCase())))
     );
 
     if (userCoords) {
@@ -134,7 +195,7 @@ export default function PartnersDirectoryPage() {
       });
     }
     return list;
-  }, [visiblePartners, branches, selectedGovId, selectedCity, userCoords]);
+  }, [visiblePartners, branches, selectedGovId, selectedCity, activeVillageFilter, userCoords]);
 
   const handleRequestGeolocation = () => {
     if (!navigator.geolocation) {

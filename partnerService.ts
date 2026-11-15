@@ -264,6 +264,7 @@ export interface PublicVisibilityContext {
   governorateId?: string;
   city?: string;
   district?: string;
+  village?: string;
   nowIso?: string;
   onlyPharmacies?: boolean;
 }
@@ -418,6 +419,30 @@ export function isPartnerVisiblePublicly(
     if (cityPool.length > 0) {
       const cityMatches = cityPool.some((c) => c.toLowerCase().includes(targetCity));
       if (!cityMatches && vis.geographicScope === 'specific_cities') return false;
+    }
+  }
+
+  if (ctx.village && ctx.village !== 'all') {
+    const targetVillage = ctx.village.toLowerCase().trim();
+    const activeBranchesForPartner = partnerBranches.filter(
+      (b) => b.partnerId === partner.id && b.published && b.branchStatus === 'active'
+    );
+    const villagePool = [
+      ...(partner.supportedDistricts || []),
+      ...(partner.supportedCities || []),
+      partner.deliveryCoverageAr || '',
+      partner.deliveryCoverageEn || '',
+      ...activeBranchesForPartner.map((b) => b.city),
+      ...activeBranchesForPartner.map((b) => b.addressAr),
+      ...activeBranchesForPartner.map((b) => b.deliveryCoverageAr),
+      ...activeBranchesForPartner.flatMap((b) => b.serviceCities || []),
+    ]
+      .filter(Boolean)
+      .map((s) => s.toLowerCase());
+
+    if (villagePool.length > 0) {
+      const villageMatches = villagePool.some((v) => v.includes(targetVillage) || targetVillage.includes(v));
+      if (!villageMatches) return false;
     }
   }
 
@@ -1514,10 +1539,10 @@ export async function reviewPharmacyApplicationDecision(
       servicesOfferedEn: ['Prescription Dispensing', 'Drug Safety Screening', 'Home Delivery'],
       supportedGovernorates: [current.governorateId],
       supportedCities: [current.cityCenter],
-      supportedDistricts: [current.districtVillage],
+      supportedDistricts: Array.from(new Set([current.districtVillage, ...(current.deliveryCoverageAreas || [])].filter(Boolean))),
       deliveryAvailable: current.deliveryAvailable,
-      deliveryCoverageAr: `${current.cityCenter} — ${current.districtVillage} (نطاق ${current.deliveryRadiusKm} كم)`,
-      deliveryCoverageEn: `${current.cityCenter} (${current.deliveryRadiusKm} km radius)`,
+      deliveryCoverageAr: `${current.cityCenter} — ${Array.from(new Set([current.districtVillage, ...(current.deliveryCoverageAreas || [])].filter(Boolean))).join('، ')} (نطاق ${current.deliveryRadiusKm} كم)`,
+      deliveryCoverageEn: `${current.cityCenter} — ${Array.from(new Set([current.districtVillage, ...(current.deliveryCoverageAreas || [])].filter(Boolean))).join(', ')} (${current.deliveryRadiusKm} km radius)`,
       workingHoursAr: current.workingHoursAr,
       workingHoursEn: current.is24Hours ? '24 Hours' : current.workingHoursAr,
       is24Hours: current.is24Hours,

@@ -3053,6 +3053,9 @@ export interface PharmacyRegistrationApplication {
   is24Hours: boolean;
   deliveryAvailable: boolean;
   deliveryRadiusKm: number;
+  deliveryCoverageAreas?: string[];
+  deliveryCoverageAreas?: string[];
+  deliveryCoverageAreas?: string[];
   logoUrl?: string;
   licenseDocumentUrl: string;
   syndicateCardUrl?: string;

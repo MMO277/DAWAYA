@@ -380,6 +380,16 @@ export default function HealthProfile() {
       cityCenter: cityInput.trim(),
       districtVillage: villageInput.trim(),
     }));
+    try {
+      localStorage.setItem(
+        'dawaya_user_location_v1',
+        JSON.stringify({
+          governorateId: govInput,
+          cityCenter: cityInput.trim(),
+          districtVillage: villageInput.trim(),
+        })
+      );
+    } catch { /* ignore */ }
     setEditingPersonal(false);
 
     // Clean URL so setup=profile is removed forever after saving once!

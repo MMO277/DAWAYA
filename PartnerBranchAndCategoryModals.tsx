@@ -435,8 +435,48 @@ export function PartnerBranchManagerModal({
                 className="input"
                 value={serviceCitiesStr}
                 onChange={(e) => setServiceCitiesStr(e.target.value)}
-                placeholder={isAr ? 'مثال: طلخا، أجا، نوسا البحر، حي الجامعة' : 'e.g. Talkha, Aga, University District'}
+                placeholder={isAr ? 'مثال: نوسا البحر، نوسا الغيط، شبراويش، أجا' : 'e.g. Noussa El Bahr, Noussa El Gheit, Aga'}
               />
+              {(() => {
+                const govMeta = EGYPTIAN_GOVERNORATES.find((g) => g.id === editingBranch.governorateId);
+                if (!govMeta) return null;
+                const allGovVillages = govMeta.majorCities.flatMap((mc) => mc.districts).slice(0, 24);
+                const currentSet = new Set(
+                  serviceCitiesStr
+                    .split(/[,،]/)
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                );
+                return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '6px' }}>
+                    {allGovVillages.map((vil) => {
+                      const isSel = currentSet.has(vil);
+                      return (
+                        <button
+                          key={vil}
+                          type="button"
+                          className="chip"
+                          style={{
+                            background: isSel ? '#059669' : undefined,
+                            color: isSel ? '#ffffff' : undefined,
+                            borderColor: isSel ? '#059669' : undefined,
+                            fontSize: '0.74rem',
+                          }}
+                          onClick={() => {
+                            const next = new Set(currentSet);
+                            if (next.has(vil)) next.delete(vil);
+                            else next.add(vil);
+                            setServiceCitiesStr(Array.from(next).join('، '));
+                          }}
+                        >
+                          {isSel ? '✓ ' : '+ '}
+                          {vil}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="row wrapRow" style={{ gap: '16px' }}>

@@ -122,6 +122,8 @@ export default function PharmacyOwnerDashboard() {
   const [reg24h, setReg24h] = useState(false);
   const [regDelivery, setRegDelivery] = useState(true);
   const [regRadiusKm, setRegRadiusKm] = useState(10);
+  const [regDeliveryAreas, setRegDeliveryAreas] = useState<string[]>([]);
+  const [regExtraAreasText, setRegExtraAreasText] = useState<string>('');
   const [regLicenseUrl, setRegLicenseUrl] = useState('');
   const [regModel, setRegModel] = useState<'independent_partner' | 'dawaya_franchise'>('independent_partner');
 
@@ -257,6 +259,13 @@ export default function PharmacyOwnerDashboard() {
         is24Hours: reg24h,
         deliveryAvailable: regDelivery,
         deliveryRadiusKm: Number(regRadiusKm) || 5,
+        deliveryCoverageAreas: Array.from(
+          new Set([
+            regDistrict.trim(),
+            ...regDeliveryAreas,
+            ...regExtraAreasText.split(/[,،]/).map((s) => s.trim()).filter(Boolean),
+          ].filter(Boolean))
+        ),
         licenseDocumentUrl: regLicenseUrl.trim() || 'verified-upload-pending-review',
         requestedModel: regModel,
       });
@@ -1066,6 +1075,71 @@ export default function PharmacyOwnerDashboard() {
               <label><b>{isAr ? 'العنوان التفصيلي ومواعيد العمل:' : 'Detailed Address & Working Hours:'} *</b></label>
               <input value={regAddress} onChange={(e) => setRegAddress(e.target.value)} placeholder="الشارع، رقم العقار، علامة مميزة..." required />
             </div>
+
+            {/* Pharmacy Delivery Coverage Scope (نطاق الصيدلية والقرى المغطاة بالتوصيل) */}
+            {(() => {
+              const gObj = dynamicGovernorates.find((g) => g.id === regGovId) || dynamicGovernorates[0];
+              const cObj =
+                gObj?.majorCities.find((mc) => mc.ar === regCity || mc.en === regCity) ||
+                gObj?.majorCities[0];
+              const centerVillages = cObj ? cObj.districts : [];
+              return (
+                <div
+                  className="subcard stack"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(14, 165, 233, 0.06) 100%)',
+                    border: '1.5px solid #10b981',
+                    padding: '12px 14px',
+                    gap: '8px',
+                  }}
+                >
+                  <label style={{ color: '#047857', fontWeight: 800 }}>
+                    🚚 {isAr
+                      ? 'نطاق الصيدلية — القرى والأحياء الإضافية التي تغطيها بالتوصيل (حتى تظهر لمرضى هذه القرى أيضاً):'
+                      : 'Pharmacy Delivery Coverage — Additional Villages & Districts Served:'}
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {centerVillages.map((vil) => {
+                      const active = regDeliveryAreas.includes(vil) || vil === regDistrict;
+                      return (
+                        <button
+                          key={vil}
+                          type="button"
+                          onClick={() => {
+                            if (vil === regDistrict) return;
+                            setRegDeliveryAreas((prev) =>
+                              prev.includes(vil) ? prev.filter((x) => x !== vil) : [...prev, vil]
+                            );
+                          }}
+                          style={{
+                            padding: '5px 11px',
+                            borderRadius: '999px',
+                            border: active ? '1.5px solid #059669' : '1px solid #cbd5e1',
+                            background: active ? '#059669' : '#ffffff',
+                            color: active ? '#ffffff' : '#1e293b',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {active ? '✓ ' : '+ '}
+                          {vil}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <input
+                    value={regExtraAreasText}
+                    onChange={(e) => setRegExtraAreasText(e.target.value)}
+                    placeholder={
+                      isAr
+                        ? 'أضف قرى أو مناطق أخرى توصل لها الصيدلية (مفصولة بفاصلة، مثال: نوسا الغيط، شبراويش)...'
+                        : 'Add other villages/areas separated by commas...'
+                    }
+                  />
+                </div>
+              );
+            })()}
 
             <button type="submit" className="btn" style={{ alignSelf: 'flex-start' }}>
               {isAr ? 'إرسال طلب الترخيص للمراجعة المركزية' : 'Submit Pharmacy Application for Review'}
