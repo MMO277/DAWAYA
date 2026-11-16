@@ -288,6 +288,10 @@ export function translateAuthError(errCode: string, isAr = true): string {
       return isAr ? 'صيغة البريد الإلكتروني غير صحيحة.' : 'Invalid email address format.';
     case 'auth/user-not-found':
       return isAr ? 'لم يتم العثور على حساب مسجل بهذا البريد الإلكتروني.' : 'No account found with this email.';
+    case 'auth/client-rate-locked':
+      return isAr
+        ? '🛡️ تم إيقاف المحاولات مؤقتاً لمدة 30 ثانية لحماية الحساب من التخمين المتكرر. يرجى الانتظار قليلاً ثم المحاولة.'
+        : '🛡️ Too many failed attempts. Locked for 30 seconds to protect your account.';
     case 'auth/wrong-password':
     case 'auth/invalid-credential':
       return isAr ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' : 'Incorrect email or password.';
@@ -733,6 +737,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(code);
       throw new Error(code);
     }
+    // Brute-force protection: lock for 30s after 5 consecutive failed password attempts
+    const lockUntil = Number(sessionStorage.getItem('dawaya_login_lock_until_v1') || '0');
+    if (Date.now() < lockUntil) {
+      const code = 'auth/client-rate-locked';
+      setError(code);
+      throw new Error(code);
+    }
     try {
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
@@ -745,10 +756,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           lastUsedAt: Date.now(),
         });
       }
+      sessionStorage.removeItem('dawaya_login_fail_count_v1');
+      sessionStorage.removeItem('dawaya_login_lock_until_v1');
       setGuestModeActive(false);
       setIsGuest(false);
       closeAuthModal();
     } catch (err: any) {
+      const fails = Number(sessionStorage.getItem('dawaya_login_fail_count_v1') || '0') + 1;
+      sessionStorage.setItem('dawaya_login_fail_count_v1', String(fails));
+      if (fails >= 5) {
+        sessionStorage.setItem('dawaya_login_lock_until_v1', String(Date.now() + 30000));
+        sessionStorage.setItem('dawaya_login_fail_count_v1', '0');
+      }
       const code = err?.code || 'auth/unknown';
       setError(code);
       throw err;

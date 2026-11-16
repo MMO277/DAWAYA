@@ -49,10 +49,11 @@ let proxyCheckComplete = false;
 
 const DEFAULT_CLOUD_AI_PROXY_URL = 'https://us-central1-dawaya-343f8.cloudfunctions.net/dawayaAiProxy';
 
+// On Cloudflare Pages (https://dawaya.pages.dev), same-origin '/api/ai/*' is served free by functions/api/ai/*.js
 const AI_PROXY_BASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AI_PROXY_BASE_URL
+  typeof import.meta !== 'undefined' && import.meta.env?.VITE_AI_PROXY_BASE_URL
     ? String(import.meta.env.VITE_AI_PROXY_BASE_URL).replace(/\/+$/, '')
-    : DEFAULT_CLOUD_AI_PROXY_URL) || DEFAULT_CLOUD_AI_PROXY_URL;
+    : '';
 
 export function sanitizePatientPiiForAi(rawText: string): string {
   return (rawText || '')
@@ -178,11 +179,7 @@ export async function callServerAiProxy(params: {
   const timer = setTimeout(() => ctrl.abort(), 14000);
   try {
     const { auth } = await import('./firebase');
-    const token = auth?.currentUser ? await auth.currentUser.getIdToken() : '';
-    if (!token) {
-      clearTimeout(timer);
-      return '';
-    }
+    const token = auth?.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
     const sanitizedPrompt = sanitizePatientPiiForAi(params.prompt).slice(0, 12000);
     const resp = await fetch(`${AI_PROXY_BASE_URL}/api/ai/generate`, {
       method: 'POST',

@@ -318,7 +318,7 @@ service cloud.firestore {
     }
 
     match /system_config/{docId} {
-      allow read: if docId != 'ai_secrets';
+      allow read: if docId != 'ai_secrets' && (docId != 'ai_settings' || isAdmin());
       allow write: if isAdmin();
     }
 
