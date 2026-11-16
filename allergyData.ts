@@ -111,6 +111,7 @@ export interface UserHealthProfile {
   governorateId?: string;
   cityCenter?: string;
   districtVillage?: string;
+  updatedAtMs?: number;
   displayName: string;
   age: string;
   weightKg?: string;
@@ -392,9 +393,40 @@ export function normalizeProfile(raw: any): UserHealthProfile {
     customOccupationTitle,
     factoryEnvironmentHazards,
     workEnvironmentNotes,
-    governorateId: typeof raw.governorateId === 'string' ? raw.governorateId.trim() : '',
-    cityCenter: typeof raw.cityCenter === 'string' ? raw.cityCenter.trim() : '',
-    districtVillage: typeof raw.districtVillage === 'string' ? raw.districtVillage.trim() : '',
+    governorateId: (() => {
+      const direct = typeof raw.governorateId === 'string' ? raw.governorateId.trim() : '';
+      if (direct && direct !== 'all') return direct;
+      if (typeof window !== 'undefined') {
+        try {
+          const loc = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+          if (loc?.governorateId && loc.governorateId !== 'all') return String(loc.governorateId).trim();
+        } catch {}
+      }
+      return '';
+    })(),
+    cityCenter: (() => {
+      const direct = typeof raw.cityCenter === 'string' ? raw.cityCenter.trim() : '';
+      if (direct && direct !== 'all') return direct;
+      if (typeof window !== 'undefined') {
+        try {
+          const loc = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+          if (loc?.cityCenter && loc.cityCenter !== 'all') return String(loc.cityCenter).trim();
+        } catch {}
+      }
+      return '';
+    })(),
+    districtVillage: (() => {
+      const direct = typeof raw.districtVillage === 'string' ? raw.districtVillage.trim() : '';
+      if (direct && direct !== 'all') return direct;
+      if (typeof window !== 'undefined') {
+        try {
+          const loc = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+          if (loc?.districtVillage && loc.districtVillage !== 'all') return String(loc.districtVillage).trim();
+        } catch {}
+      }
+      return '';
+    })(),
+    updatedAtMs: typeof raw.updatedAtMs === 'number' ? raw.updatedAtMs : 0,
     displayName: typeof raw.displayName === 'string' ? raw.displayName : '',
     age: typeof raw.age === 'string' ? raw.age : typeof raw.age === 'number' ? String(raw.age) : '',
     weightKg:
@@ -571,24 +603,29 @@ export function mergeProfiles(primary: UserHealthProfile, secondary: UserHealthP
     }
   }
 
+  const secNewer = (secondary.updatedAtMs || 0) >= (primary.updatedAtMs || 0);
+  const first = secNewer ? secondary : primary;
+  const second = secNewer ? primary : secondary;
+
   return normalizeProfile({
+    updatedAtMs: Math.max(primary.updatedAtMs || 0, secondary.updatedAtMs || 0),
     occupation:
-      primary.occupation && primary.occupation !== 'general'
-        ? primary.occupation
-        : secondary.occupation || 'general',
-    customOccupationTitle: (primary.customOccupationTitle || '').trim() || (secondary.customOccupationTitle || '').trim(),
-    factoryEnvironmentHazards: Array.from(new Set([...(primary.factoryEnvironmentHazards || []), ...(secondary.factoryEnvironmentHazards || [])])),
-    workEnvironmentNotes: (primary.workEnvironmentNotes || '').trim() || (secondary.workEnvironmentNotes || '').trim(),
-    governorateId: (primary.governorateId || '').trim() || (secondary.governorateId || '').trim(),
-    cityCenter: (primary.cityCenter || '').trim() || (secondary.cityCenter || '').trim(),
-    districtVillage: (primary.districtVillage || '').trim() || (secondary.districtVillage || '').trim(),
-    displayName: primary.displayName.trim() || secondary.displayName.trim(),
-    age: primary.age.trim() || secondary.age.trim(),
-    weightKg: (primary.weightKg || '').trim() || (secondary.weightKg || '').trim(),
-    gender: primary.gender.trim() || secondary.gender.trim(),
-    bloodType: primary.bloodType.trim() || secondary.bloodType.trim(),
-    emergencyContact: primary.emergencyContact.trim() || secondary.emergencyContact.trim(),
-    notes: primary.notes.trim() || secondary.notes.trim(),
+      first.occupation && first.occupation !== 'general'
+        ? first.occupation
+        : second.occupation || 'general',
+    customOccupationTitle: (first.customOccupationTitle || '').trim() || (second.customOccupationTitle || '').trim(),
+    factoryEnvironmentHazards: Array.from(new Set([...(first.factoryEnvironmentHazards || []), ...(second.factoryEnvironmentHazards || [])])),
+    workEnvironmentNotes: (first.workEnvironmentNotes || '').trim() || (second.workEnvironmentNotes || '').trim(),
+    governorateId: (first.governorateId || '').trim() || (second.governorateId || '').trim(),
+    cityCenter: (first.cityCenter || '').trim() || (second.cityCenter || '').trim(),
+    districtVillage: (first.districtVillage || '').trim() || (second.districtVillage || '').trim(),
+    displayName: first.displayName.trim() || second.displayName.trim(),
+    age: first.age.trim() || second.age.trim(),
+    weightKg: (first.weightKg || '').trim() || (second.weightKg || '').trim(),
+    gender: first.gender.trim() || second.gender.trim(),
+    bloodType: first.bloodType.trim() || second.bloodType.trim(),
+    emergencyContact: first.emergencyContact.trim() || second.emergencyContact.trim(),
+    notes: first.notes.trim() || second.notes.trim(),
     pregnancyStatus:
       primary.pregnancyStatus && primary.pregnancyStatus !== 'unknown'
         ? primary.pregnancyStatus
@@ -889,18 +926,22 @@ export function useSyncedHealthProfile() {
         }
       });
 
-    // 2. Real-time cross-device listener
+    // 2. Real-time cross-device listener (merges non-destructively so local edits are never wiped)
     const unsubscribe = onSnapshot(
       userDocRef,
       (snap) => {
         if (cancelled || hydratedUidRef.current !== uid) return;
         if (snap.exists() && snap.data()?.healthProfile) {
           const remoteProfile = normalizeProfile(snap.data()?.healthProfile);
+          const merged = mergeProfiles(remoteProfile, profileRef.current);
           try {
-            localStorage.setItem(getProfileStorageKey(uid), JSON.stringify(stripUndefined(remoteProfile)));
+            localStorage.setItem(
+              getProfileStorageKey(uid),
+              encryptLocalProfilePayload(JSON.stringify(stripUndefined(merged)))
+            );
           } catch {}
           setProfileState((prev) =>
-            JSON.stringify(prev) === JSON.stringify(remoteProfile) ? prev : remoteProfile
+            JSON.stringify(prev) === JSON.stringify(merged) ? prev : merged
           );
         }
       },
@@ -933,11 +974,21 @@ export function useSyncedHealthProfile() {
     (updater: UserHealthProfile | ((prev: UserHealthProfile) => UserHealthProfile)) => {
       const prev = profileRef.current;
       const nextRaw = typeof updater === 'function' ? updater(prev) : updater;
-      const next = stripUndefined(normalizeProfile(nextRaw));
+      const next = stripUndefined(normalizeProfile({ ...nextRaw, updatedAtMs: Date.now() }));
       profileRef.current = next;
       setProfileState(next);
       try {
-        localStorage.setItem(getProfileStorageKey(uid), JSON.stringify(next));
+        localStorage.setItem(getProfileStorageKey(uid), encryptLocalProfilePayload(JSON.stringify(next)));
+        if (next.governorateId || next.cityCenter || next.districtVillage) {
+          localStorage.setItem(
+            'dawaya_user_location_v1',
+            JSON.stringify({
+              governorateId: next.governorateId || '',
+              cityCenter: next.cityCenter || '',
+              districtVillage: next.districtVillage || '',
+            })
+          );
+        }
         window.dispatchEvent(new CustomEvent(PROFILE_EVENT, { detail: { uid, profile: next } }));
       } catch (err) {
         console.error('Failed to save profile locally:', err);

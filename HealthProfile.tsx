@@ -1028,20 +1028,62 @@ export default function HealthProfile() {
             <div><b>{isAr ? 'فصيلة الدم:' : 'Blood Type:'}</b> {profile.bloodType || '—'}</div>
             <div><b>{isAr ? 'النوع:' : 'Gender:'}</b> {profile.gender === 'male' ? (isAr ? 'ذكر' : 'Male') : profile.gender === 'female' ? (isAr ? 'أنثى' : 'Female') : '—'}</div>
             <div className="profile-detail-full"><b>{isAr ? 'هاتف الطوارئ:' : 'Emergency Phone:'}</b> {profile.emergencyContact || '—'}</div>
-            <div className="profile-detail-full" style={{ background: '#f0f9ff', padding: '10px 14px', borderRadius: '12px', border: '1.5px solid #bae6fd' }}>
-              <b style={{ color: '#0369a1' }}>📍 {isAr ? 'المحافظة والمركز والقرية:' : 'Location (Governorate / Markaz / Village):'}</b>{' '}
-              <strong style={{ color: '#0f172a' }}>
-                {(() => {
-                  if (!profile.governorateId && !profile.cityCenter && !profile.districtVillage) {
-                    return isAr
-                      ? 'لم يتم تحديد منطقتك بعد (اضغط «تعديل البيانات» لاختيار محافظتك وقريتك)'
-                      : 'Not set yet (Click Edit to choose your location)';
-                  }
-                  const g = EGYPTIAN_GOVERNORATES.find((x) => x.id === profile.governorateId);
-                  const gName = g ? (isAr ? g.nameAr : g.nameEn) : profile.governorateId || '';
-                  return [gName, profile.cityCenter, profile.districtVillage].filter(Boolean).join(' ← ');
-                })()}
-              </strong>
+            <div
+              className="profile-detail-full"
+              onClick={() => {
+                if (!profile.governorateId && !profile.cityCenter && !profile.districtVillage) {
+                  setEditingPersonal(true);
+                }
+              }}
+              style={{
+                background: '#f0f9ff',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                border: '1.5px solid #bae6fd',
+                cursor: !profile.governorateId && !profile.cityCenter && !profile.districtVillage ? 'pointer' : 'default',
+              }}
+            >
+              <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                <div>
+                  <b style={{ color: '#0369a1' }}>📍 {isAr ? 'المحافظة والمركز والقرية:' : 'Location (Governorate / Markaz / Village):'}</b>{' '}
+                  <strong style={{ color: '#0f172a' }}>
+                    {(() => {
+                      let gId = profile.governorateId || '';
+                      let cName = profile.cityCenter || '';
+                      let vName = profile.districtVillage || '';
+                      if (!gId && !cName && !vName && typeof window !== 'undefined') {
+                        try {
+                          const savedLoc = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+                          if (savedLoc) {
+                            gId = savedLoc.governorateId !== 'all' ? savedLoc.governorateId || '' : '';
+                            cName = savedLoc.cityCenter !== 'all' ? savedLoc.cityCenter || '' : '';
+                            vName = savedLoc.districtVillage !== 'all' ? savedLoc.districtVillage || '' : '';
+                          }
+                        } catch {}
+                      }
+                      if (!gId && !cName && !vName) {
+                        return isAr
+                          ? 'لم يتم تحديد منطقتك بعد — اضغط هنا لاختيار محافظتك والمركز والقرية'
+                          : 'Not set yet — Tap here to choose your Governorate, Markaz & Village';
+                      }
+                      const g = EGYPTIAN_GOVERNORATES.find((x) => x.id === gId);
+                      const gName = g ? (isAr ? g.nameAr : g.nameEn) : gId;
+                      return [gName, cName, vName].filter(Boolean).join(' ← ');
+                    })()}
+                  </strong>
+                </div>
+                <button
+                  type="button"
+                  className="btn small ghost"
+                  style={{ borderColor: '#0284c7', color: '#0369a1', fontWeight: 800, padding: '4px 10px' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingPersonal(true);
+                  }}
+                >
+                  📍 {isAr ? 'تحديد / تغيير المنطقة' : 'Set Location'}
+                </button>
+              </div>
             </div>
             <div className="profile-detail-full" style={{ background: '#f0fdf4', padding: '10px 14px', borderRadius: '12px', border: '1.5px solid #86efac' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
