@@ -406,11 +406,37 @@ export default function SmartLabAndRxPhotoScanner() {
                     <strong style={{ color: '#166534', display: 'block', marginBottom: '6px' }}>
                       💊 الأدوية المستخرجة من الصورة:
                     </strong>
-                    <ul style={{ margin: 0, paddingRight: '18px', color: '#0D1F38', fontWeight: 700 }}>
+                    <ul style={{ margin: '0 0 10px', paddingRight: '18px', color: '#0D1F38', fontWeight: 700 }}>
                       {extractedMeds.map((med, i) => (
                         <li key={i}>{med}</li>
                       ))}
                     </ul>
+                    <div className="row wrapRow" style={{ gap: '8px' }}>
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(
+                          (() => {
+                            let area = '';
+                            try {
+                              const loc = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+                              if (loc) area = [loc.districtVillage, loc.cityCenter].filter((x) => x && x !== 'all').join(' - ');
+                            } catch {}
+                            const lines = extractedMeds.map((m, idx) => `${idx + 1}. ${m}`).join('\n');
+                            return isAr
+                              ? `السلام عليكم، أستفسر عن توفر أدوية هذه الروشتة كاملة عبر منصة دوايا:\n${lines}${area ? `\n📍 المنطقة / القرية: ${area}` : ''}\nبرجاء تأكيد توفر الأصناف، شكراً لحضرتك.`
+                              : `Hello, inquiring via DAWAYA about availability of this full prescription:\n${lines}${area ? `\n📍 Area: ${area}` : ''}`;
+                          })()
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn small"
+                        style={{ background: '#16a34a', borderColor: '#16a34a', color: '#ffffff', fontWeight: 900 }}
+                      >
+                        💬 {isAr ? 'اطلب أدوية الروشتة كاملة عبر واتساب' : 'Order Full Rx on WhatsApp'}
+                      </a>
+                      <Link to="/partners?tab=nearby" className="btn small ghost" style={{ fontWeight: 800 }}>
+                        🛵 {isAr ? 'اختر أقرب صيدلية في قريتك' : 'Choose Nearest Pharmacy'}
+                      </Link>
+                    </div>
                   </div>
                 )}
               </div>

@@ -570,6 +570,10 @@ export interface DawayaSiteVisibilityConfig {
   showAntibioticLegacySections: boolean;
   showSurveySection: boolean;
   showVillagePharmaciesShortcut?: boolean;
+  showPharmacySubscriptions?: boolean;
+  showUserSubscriptions?: boolean;
+  vodafoneCashNumber?: string;
+  instaPayHandle?: string;
 }
 
 const LOCAL_VISIBILITY_KEY = 'dawaya_site_visibility_config_v1';
@@ -580,6 +584,10 @@ const DEFAULT_VISIBILITY: DawayaSiteVisibilityConfig = {
   showAntibioticLegacySections: false,
   showSurveySection: false,
   showVillagePharmaciesShortcut: false,
+  showPharmacySubscriptions: false,
+  showUserSubscriptions: false,
+  vodafoneCashNumber: '01098478954',
+  instaPayHandle: 'dawaya@instapay',
 };
 
 export function getHijriMonthDay(now = new Date()): { month: number; day: number } | null {
@@ -613,6 +621,10 @@ export function getLocalVisibilityConfig(): DawayaSiteVisibilityConfig {
       showAntibioticLegacySections: Boolean(parsed.showAntibioticLegacySections),
       showSurveySection: Boolean(parsed.showSurveySection),
       showVillagePharmaciesShortcut: Boolean(parsed.showVillagePharmaciesShortcut),
+      showPharmacySubscriptions: Boolean(parsed.showPharmacySubscriptions),
+      showUserSubscriptions: Boolean(parsed.showUserSubscriptions),
+      vodafoneCashNumber: typeof parsed.vodafoneCashNumber === 'string' && parsed.vodafoneCashNumber.trim() ? parsed.vodafoneCashNumber.trim() : '01098478954',
+      instaPayHandle: typeof parsed.instaPayHandle === 'string' && parsed.instaPayHandle.trim() ? parsed.instaPayHandle.trim() : 'dawaya@instapay',
     };
   } catch {
     return DEFAULT_VISIBILITY;
@@ -691,6 +703,10 @@ export function useWhoCampaignAndVisibility() {
             showAntibioticLegacySections: Boolean(data.showAntibioticLegacySections),
             showSurveySection: Boolean(data.showSurveySection),
             showVillagePharmaciesShortcut: Boolean(data.showVillagePharmaciesShortcut),
+            showPharmacySubscriptions: Boolean(data.showPharmacySubscriptions),
+            showUserSubscriptions: Boolean(data.showUserSubscriptions),
+            vodafoneCashNumber: typeof data.vodafoneCashNumber === 'string' && data.vodafoneCashNumber.trim() ? data.vodafoneCashNumber.trim() : '01098478954',
+            instaPayHandle: typeof data.instaPayHandle === 'string' && data.instaPayHandle.trim() ? data.instaPayHandle.trim() : 'dawaya@instapay',
           };
           setConfig(merged);
           try {

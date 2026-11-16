@@ -366,6 +366,47 @@ export default function AiActionConfirmationCard({
         </div>
       </div>
 
+      {/* Full Prescription WhatsApp Order Button (No Prices, Clean Medication + Form/Dose List) */}
+      {(() => {
+        const rxList = Array.isArray((proposal.rawArgs as any)?.extractedPrescriptions)
+          ? ((proposal.rawArgs as any).extractedPrescriptions as Array<{ medicineName?: string; prescribedDose?: string; route?: string }>).filter((x) => x.medicineName)
+          : [];
+        const singleMed = fieldValues.medicineName || '';
+        if (rxList.length === 0 && !singleMed) return null;
+        const itemsText =
+          rxList.length > 0
+            ? rxList
+                .map((x, idx) => `${idx + 1}. ${x.medicineName}${x.prescribedDose ? ` (${x.prescribedDose})` : ''}${x.route ? ` — ${x.route}` : ''}`)
+                .join('\n')
+            : `1. ${singleMed}${fieldValues.prescribedDose ? ` (${fieldValues.prescribedDose})` : ''}${fieldValues.route ? ` — ${fieldValues.route}` : ''}`;
+        let area = '';
+        if (typeof window !== 'undefined') {
+          try {
+            const loc = JSON.parse(localStorage.getItem('dawaya_user_location_v1') || 'null');
+            if (loc) area = [loc.districtVillage, loc.cityCenter].filter((x) => x && x !== 'all').join(' - ');
+          } catch {}
+        }
+        const waMsg = isAr
+          ? `السلام عليكم، أستفسر عن توفر أدوية هذه الروشتة كاملة عبر منصة دوايا:\n${itemsText}${area ? `\n📍 المنطقة / القرية: ${area}` : ''}\nبرجاء تأكيد توفر الأصناف، شكراً لحضرتك.`
+          : `Hello, inquiring via DAWAYA about availability of this prescription:\n${itemsText}${area ? `\n📍 Area: ${area}` : ''}`;
+        return (
+          <div style={{ marginBottom: '10px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(waMsg)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn small"
+              style={{ background: '#16a34a', borderColor: '#16a34a', color: '#ffffff', fontWeight: 900, textDecoration: 'none' }}
+            >
+              💬 {isAr ? 'اطلب أدوية الروشتة كاملة عبر واتساب (بدون أسعار)' : 'Order Full Rx via WhatsApp'}
+            </a>
+            <Link to="/partners?tab=nearby" className="btn small ghost" style={{ fontWeight: 800, textDecoration: 'none' }}>
+              🛵 {isAr ? 'أقرب صيدلية في منطقتك' : 'Nearest Pharmacy'}
+            </Link>
+          </div>
+        );
+      })()}
+
       {/* Action Buttons or Post-Execution Result */}
       {proposal.status === 'pending_confirmation' ? (
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>

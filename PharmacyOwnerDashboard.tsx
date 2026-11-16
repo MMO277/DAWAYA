@@ -1,3 +1,5 @@
+import { SubscriptionAndPlansPanel } from './SubscriptionAndPlansPanel';
+import { useWhoCampaignAndVisibility } from './whoHealthCampaigns';
 import React, { FormEvent, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -30,6 +32,7 @@ type PortalTab =
 
 export default function PharmacyOwnerDashboard() {
   const { lang } = useLang();
+  const { config: siteVisibility } = useWhoCampaignAndVisibility();
   const isAr = lang === 'ar';
   const { user, role, openAuthModal } = useAuth();
   const {

@@ -1,3 +1,5 @@
+import { SubscriptionAndPlansPanel } from './SubscriptionAndPlansPanel';
+import { useWhoCampaignAndVisibility } from './whoHealthCampaigns';
 import { EGYPTIAN_GOVERNORATES } from './partnerTypes';
 import { DriverDrugTestShieldCard } from './egyptianClinicalInnovations';
 import { HealthProfilePrivacyGate } from './profilePrivacyLock';
@@ -48,6 +50,7 @@ import {
 
 export default function HealthProfile() {
   const { lang } = useLang();
+  const { config: siteVisibility } = useWhoCampaignAndVisibility();
   const { indexItems: dawayaIndexItems } = useDawayaDrugDatabase();
   const isAr = lang === 'ar';
   const { user } = useAuth();

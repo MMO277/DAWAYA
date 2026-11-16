@@ -9,7 +9,7 @@ import {
   evaluateSuddenStopReboundRisk,
 } from './medicationSafetyEngine';
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
 import { useApproved } from './medicinesApi';
 import { norm, searchMeds } from './search';
@@ -50,6 +50,7 @@ type SortOption = 'relevance' | 'name' | 'price_asc' | 'price_desc' | 'verified_
 
 export default function Medicines() {
   const { t, lang } = useLang();
+  const navigate = useNavigate();
   const isAr = lang === 'ar';
   const { isProMode, setProMode } = useClinicalProMode();
   const { user, role } = useAuth();
@@ -858,10 +859,23 @@ export default function Medicines() {
               }
 
               return (
-                <div key={item.i} className="dawaya-med-card-v3">
+                <div
+                  key={item.i}
+                  className="dawaya-med-card-v3"
+                  role="button"
+                  tabIndex={0}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/medicine/${item.i}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate(`/medicine/${item.i}`);
+                    }
+                  }}
+                >
                   <div>
                     {/* Top Action Icons Row: Save to Profile + WhatsApp Share + Info Page */}
-                    <div className="dawaya-med-card-v3-top-actions">
+                    <div className="dawaya-med-card-v3-top-actions" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         className="dawaya-med-icon-btn"
@@ -1088,9 +1102,22 @@ export default function Medicines() {
                   : (isAr ? `✓ آمن مع ملفك ومهنتك (${occupationLabel})` : `✓ Safe with your profile (${occupationLabel})`);
 
               return (
-                <div key={p.productId} className="dawaya-med-card-v3">
+                <div
+                  key={p.productId}
+                  className="dawaya-med-card-v3"
+                  role="button"
+                  tabIndex={0}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/medicine/${p.activeIngredientId}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate(`/medicine/${p.activeIngredientId}`);
+                    }
+                  }}
+                >
                   <div>
-                    <div className="dawaya-med-card-v3-top-actions">
+                    <div className="dawaya-med-card-v3-top-actions" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         className="dawaya-med-icon-btn"

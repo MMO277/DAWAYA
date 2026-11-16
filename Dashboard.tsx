@@ -175,6 +175,44 @@ function WhoCampaignAndVisibilityAdminCard({ isAr }: { isAr: boolean }) {
             />
             📍 {isAr ? 'إظهار زر «صيدليات قريتي / مركزي» السريع في الرئيسية (فعّله بعد إضافة الصيدليات)' : 'Show "My Village/Markaz Pharmacies" Quick Button on Home'}
           </label>
+          <label className="check" style={{ fontWeight: 700 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(config.showPharmacySubscriptions)}
+              onChange={(e) => void updateCfg({ showPharmacySubscriptions: e.target.checked })}
+            />
+            💳 {isAr ? 'إظهار باقات اشتراكات الصيدليات (فودافون كاش / InstaPay)' : 'Show Pharmacy Subscription Plans'}
+          </label>
+          <label className="check" style={{ fontWeight: 700 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(config.showUserSubscriptions)}
+              onChange={(e) => void updateCfg({ showUserSubscriptions: e.target.checked })}
+            />
+            👨‍👩‍👧‍👦 {isAr ? 'إظهار باقات اشتراكات المستخدمين والعائلة (DAWAYA Plus)' : 'Show User/Family Subscription Plans'}
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '8px', marginTop: '6px' }}>
+            <div>
+              <label className="small muted" style={{ display: 'block', marginBottom: '2px', fontWeight: 700 }}>
+                📱 {isAr ? 'رقم فودافون كاش للاستقبال:' : 'Vodafone Cash Number:'}
+              </label>
+              <input
+                className="input"
+                value={config.vodafoneCashNumber || '01098478954'}
+                onChange={(e) => void updateCfg({ vodafoneCashNumber: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="small muted" style={{ display: 'block', marginBottom: '2px', fontWeight: 700 }}>
+                🏦 {isAr ? 'عنوان InstaPay للاستقبال:' : 'InstaPay Handle:'}
+              </label>
+              <input
+                className="input"
+                value={config.instaPayHandle || 'dawaya@instapay'}
+                onChange={(e) => void updateCfg({ instaPayHandle: e.target.value })}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </section>

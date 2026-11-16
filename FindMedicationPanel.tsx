@@ -1,3 +1,4 @@
+import { findDawayaIndexItemSync } from './dawayaDrugDatabaseService';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useSyncedHealthProfile } from './allergyData';
@@ -470,11 +471,30 @@ export default function FindMedicationPanel({
   const { products: liveCatalogProducts } = useLiveDrugCatalog();
   const { getVisiblePartners, branches, mappings } = usePartnerEcosystem();
 
-  // Filter packages matching this activeIngredientId
-  const matchingPackages = useMemo(
-    () => liveCatalogProducts.filter((p) => p.activeIngredientId === activeIngredientId),
-    [liveCatalogProducts, activeIngredientId]
-  );
+  // Filter packages matching this activeIngredientId, or synthesize from the 26,572 DAWAYA index
+  const matchingPackages = useMemo(() => {
+    const direct = liveCatalogProducts.filter((p) => p.activeIngredientId === activeIngredientId);
+    if (direct.length > 0) return direct;
+    const idx = findDawayaIndexItemSync(activeIngredientId);
+    if (!idx) return [];
+    const fallbackProd: EgyptianCommercialProduct = {
+      productId: idx.i,
+      activeIngredientId: idx.i,
+      tradeNameAr: idx.a || idx.n,
+      tradeNameEn: idx.n,
+      scientificComposition: idx.g || 'Pharmaceutical Formulation',
+      dosageForm: (idx.f as any) || 'tablet',
+      dosageFormLabel: { ar: idx.s || 'عبوة دوائية', en: idx.s || 'Pack' },
+      strength: idx.s || '',
+      packSize: idx.u || '1',
+      manufacturer: idx.c || 'شركة أدوية معتمدة',
+      priceEgp: idx.p,
+      barcode: idx.b || '',
+      whoAwareCategory: 'Access',
+      prescriptionRequired: true,
+    };
+    return [fallbackProd];
+  }, [liveCatalogProducts, activeIngredientId]);
 
   const [selectedProdId, setSelectedProdId] = useState<string>(
     initialProductId || matchingPackages[0]?.productId || ''
@@ -914,9 +934,10 @@ export default function FindMedicationPanel({
                       const rawWa = (partner.socialLinks?.whatsapp || partner.phone || partner.hotline || '').replace(/[^0-9]/g, '');
                       const waNum = rawWa.startsWith('01') ? `2${rawWa}` : rawWa;
                       const areaTxt = [selectedVillage !== 'all' ? selectedVillage : '', selectedCity !== 'all' ? selectedCity : ''].filter(Boolean).join(' - ');
+                      const formTextAr = selectedProduct.dosageFormLabel?.ar || DOSAGE_FORM_LABELS[selectedProduct.dosageForm]?.ar || 'عبوة دوائية';
                       const msg = isAr
-                        ? `السلام عليكم، أستفسر عبر منصة دوايا عن توفر دواء: ${selectedProduct.tradeNameAr} (${selectedProduct.strength})${areaTxt ? ` — العنوان/المنطقة: ${areaTxt}` : ''}`
-                        : `Hello, inquiring via DAWAYA about availability of: ${selectedProduct.tradeNameEn} (${selectedProduct.strength})`;
+                        ? `السلام عليكم، أستفسر عن توفر هذا الدواء عبر منصة دوايا:\n💊 الدواء: ${selectedProduct.tradeNameAr} (${selectedProduct.tradeNameEn})\n📦 الشكل والتركيز: ${formTextAr}${selectedProduct.strength ? ` (${selectedProduct.strength})` : ''}${areaTxt ? `\n📍 المنطقة / القرية: ${areaTxt}` : ''}\nبرجاء إفادتي بتوفره، شكراً لحضرتك.`
+                        : `Hello, inquiring via DAWAYA about availability of:\n💊 Medication: ${selectedProduct.tradeNameEn}\n📦 Form & Strength: ${selectedProduct.strength}${areaTxt ? `\n📍 Area: ${areaTxt}` : ''}`;
                       return (
                         <a
                           href={`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`}

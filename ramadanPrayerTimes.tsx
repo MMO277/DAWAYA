@@ -143,6 +143,51 @@ export function EgyptGovernorateRamadanCountdown({
   });
 
   const [now, setNow] = useState<Date>(() => new Date());
+  const [alarmEnabled, setAlarmEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('dawaya_ramadan_alarm_enabled_v1') === '1';
+    } catch { return false; }
+  });
+  const [alarmToast, setAlarmToast] = useState<string>('');
+
+  const playGentleChime = () => {
+    try {
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.18);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.65);
+    } catch {}
+  };
+
+  const toggleRamadanAlarm = async () => {
+    const next = !alarmEnabled;
+    setAlarmEnabled(next);
+    try {
+      localStorage.setItem('dawaya_ramadan_alarm_enabled_v1', next ? '1' : '0');
+    } catch {}
+    if (next) {
+      playGentleChime();
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+        try { await Notification.requestPermission(); } catch {}
+      }
+      setAlarmToast(
+        isAr
+          ? '🔔 تم تفعيل منبه أدوية الإفطار والسحور حسب توقيت محافظتك!'
+          : '🔔 Iftar & Suhur medication alarm activated for your governorate!'
+      );
+      window.setTimeout(() => setAlarmToast(''), 4500);
+    }
+  };
 
   useEffect(() => {
     if (profile.governorateId && GOVERNORATE_COORDS[profile.governorateId]) {
@@ -376,16 +421,54 @@ export function EgyptGovernorateRamadanCountdown({
         className="small"
         style={{
           marginTop: '8px',
-          padding: '7px 10px',
+          padding: '8px 10px',
           borderRadius: '10px',
           background: 'rgba(16, 185, 129, 0.16)',
           border: '1px solid rgba(52, 211, 153, 0.35)',
           color: '#ecfdf5',
           fontWeight: 700,
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '8px',
         }}
       >
-        💊 {status.doseAdvice}
+        <span>💊 {status.doseAdvice}</span>
+        <button
+          type="button"
+          onClick={() => void toggleRamadanAlarm()}
+          style={{
+            background: alarmEnabled ? '#fbbf24' : 'rgba(255,255,255,0.16)',
+            color: alarmEnabled ? '#0f172a' : '#ffffff',
+            border: '1px solid rgba(251, 191, 36, 0.7)',
+            borderRadius: '999px',
+            padding: '5px 12px',
+            fontWeight: 900,
+            fontSize: '0.78rem',
+            cursor: 'pointer',
+          }}
+        >
+          {alarmEnabled
+            ? (isAr ? '🔔 منبه الإفطار والسحور مفعّل ✓' : '🔔 Iftar/Suhur Alarm Active ✓')
+            : (isAr ? '🔔 تفعيل منبه أدوية الإفطار والسحور' : '🔔 Enable Iftar/Suhur Med Alarm')}
+        </button>
       </div>
+      {alarmToast && (
+        <div
+          className="small"
+          style={{
+            marginTop: '6px',
+            padding: '6px 10px',
+            borderRadius: '8px',
+            background: 'rgba(251, 191, 36, 0.22)',
+            color: '#fde68a',
+            fontWeight: 800,
+          }}
+        >
+          {alarmToast}
+        </div>
+      )}
     </div>
   );
 }

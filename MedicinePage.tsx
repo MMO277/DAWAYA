@@ -381,10 +381,49 @@ export default function MedicinePage() {
           <button
             type="button"
             className="btn small"
-            style={{ background: '#138866', borderColor: '#138866', color: '#101E36', fontWeight: 800 }}
+            style={{ background: '#138866', borderColor: '#138866', color: '#ffffff', fontWeight: 900 }}
+            onClick={() => {
+              const el = document.getElementById('dawaya-order-from-pharmacy-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          >
+            🛵 {isAr ? 'اطلب الدواء من أقرب صيدلية حالاً' : 'Order from Nearest Pharmacy'}
+          </button>
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(
+              (() => {
+                const idx = findDawayaIndexItemSync(id);
+                const arTitle = dawayaRecord?.brandNameAr || idx?.a || name;
+                const enTitle = dawayaRecord?.brandNameEn || idx?.n || '';
+                const str = dawayaRecord?.strength || idx?.s || '';
+                const formRaw = (dawayaRecord?.dosageForm || idx?.f || '').toLowerCase();
+                const formAr =
+                  formRaw.includes('tab') ? 'أقراص' :
+                  formRaw.includes('cap') ? 'كبسولات' :
+                  formRaw.includes('susp') || formRaw.includes('syr') ? 'شراب' :
+                  formRaw.includes('inj') || formRaw.includes('vial') || formRaw.includes('amp') ? 'حقن / أمبول' :
+                  formRaw.includes('cream') || formRaw.includes('oint') || formRaw.includes('topical') ? 'دهان موضعي / كريم' :
+                  formRaw.includes('drop') ? 'نقط / قطرة' : 'عبوة دوائية';
+                const area = [profile.districtVillage, profile.cityCenter].filter(Boolean).join(' - ');
+                return isAr
+                  ? `السلام عليكم، أستفسر عن توفر هذا الدواء عبر منصة دوايا:\n💊 الدواء: ${arTitle}${enTitle ? ` (${enTitle})` : ''}\n📦 الشكل والتركيز: ${formAr}${str ? ` (${str})` : ''}${area ? `\n📍 المنطقة / القرية: ${area}` : ''}\nبرجاء إفادتي بتوفره، شكراً لحضرتك.`
+                  : `Hello, inquiring about availability via DAWAYA:\n💊 Medication: ${enTitle || arTitle}\n📦 Form & Strength: ${str || formRaw}${area ? `\n📍 Area: ${area}` : ''}`;
+              })()
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn small"
+            style={{ background: '#16a34a', borderColor: '#16a34a', color: '#ffffff', fontWeight: 900 }}
+          >
+            💬 {isAr ? 'اطلب عبر واتساب برسالة جاهزة' : 'WhatsApp Order Ready'}
+          </a>
+          <button
+            type="button"
+            className="btn small ghost"
+            style={{ fontWeight: 800 }}
             onClick={handleAddCurrentMedication}
           >
-            {isAr ? 'أضف لأدويتي الحالية' : 'Add to My Medications'}
+            ➕ {isAr ? 'أضف لأدويتي الحالية' : 'Add to My Medications'}
           </button>
           <Link to={`/tracker?med=${encodeURIComponent(name)}`} className="btn small ghost">
             {isAr ? 'ضبط منبه جرعات' : 'Set Reminder'}
@@ -1334,7 +1373,9 @@ export default function MedicinePage() {
           )}
 
           {/* Find This Medication Partner Network Section */}
-          <FindMedicationPanel activeIngredientId={m.id} />
+          <div id="dawaya-order-from-pharmacy-section" style={{ scrollMarginTop: '80px' }}>
+            <FindMedicationPanel activeIngredientId={m.id} />
+          </div>
 
           {/* Commercial Packages Table for Antibiotic Monographs */}
           {commercialPackages.length > 0 && (

@@ -107,15 +107,72 @@ if (typeof window !== 'undefined') {
   loadSharedCloudAiKey().catch(() => {});
 }
 
+let cachedAdminVisionKey = '';
+
+async function resolveAdminVisionKey(): Promise<string> {
+  if (cachedAdminVisionKey) return cachedAdminVisionKey;
+  if (typeof window !== 'undefined') {
+    try {
+      const localCfg = JSON.parse(localStorage.getItem('dawaya_ai_config_v1') || 'null');
+      if (localCfg?.visionApiKey && String(localCfg.visionApiKey).trim().length > 20) {
+        cachedAdminVisionKey = String(localCfg.visionApiKey).trim();
+        return cachedAdminVisionKey;
+      }
+    } catch {}
+  }
+  if (firebaseConfigured && db) {
+    try {
+      const snap = await getDoc(doc(db, 'system_config', 'ai_settings'));
+      if (snap.exists() && snap.data()?.visionApiKey) {
+        cachedAdminVisionKey = String(snap.data().visionApiKey).trim();
+        return cachedAdminVisionKey;
+      }
+    } catch {}
+  }
+  return '';
+}
+
 export async function callServerAiProxy(params: {
   prompt: string;
   inlineImageBase64?: string;
   mimeType?: string;
   model?: string;
 }): Promise<string> {
+  const sanitizedPrompt = sanitizePatientPiiForAi(params.prompt).slice(0, 12000);
   if (!serverAiProxyReady) {
     await loadSharedCloudAiKey();
-    if (!serverAiProxyReady) return '';
+  }
+  if (!serverAiProxyReady) {
+    // Fallback to admin-configured free Gemini 2.5 Flash Vision key if present
+    const visionKey = await resolveAdminVisionKey();
+    if (!visionKey) return '';
+    try {
+      const modelId = params.model === 'gemini-2.0-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash';
+      const parts: Array<Record<string, unknown>> = [{ text: sanitizedPrompt }];
+      if (params.inlineImageBase64) {
+        parts.push({
+          inline_data: {
+            mime_type: params.mimeType || 'image/jpeg',
+            data: params.inlineImageBase64,
+          },
+        });
+      }
+      const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${encodeURIComponent(visionKey)}`;
+      const gRes = await fetch(gUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
+        }),
+      });
+      if (!gRes.ok) return '';
+      const gData = await gRes.json();
+      const outText = gData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      return String(outText).trim();
+    } catch {
+      return '';
+    }
   }
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 14000);
@@ -156,7 +213,7 @@ export function getApiKey(): string {
 }
 
 export function hasApiKey(): boolean {
-  return serverAiProxyReady;
+  return true;
 }
 
 export function setApiKey(_key: string): void {
@@ -2060,7 +2117,7 @@ export async function analyzePrescriptionImageWithVision(
 
   const prompt =
     lang === 'ar'
-      ? `اقرأ تفاصيل الروشتة أو الدواء المكتوب في هذه الصورة بدقة شديدة. لا تخترع أو تخمّن أي معلومة غير مكتوبة بوضوح؛ إذا كان أي حقل غير واضح أو غير مكتوب، اكتب UNREADABLE.
+      ? `أنت صيدلي مصري خبير في قراءة خط الأطباء اليدوي في الروشتات المصرية. استخدم تخصص الطبيب المكتوب في أعلى الروشتة وأول حروف اسم الدواء والتركيز (مثل 500mg, 1gm, 40mg) والشكل الصيدلاني (Tab, Cap, Syr, Amp, Vial) لمطابقة الاسم التجاري المصري الصحيح بدقة شديدة. لا تخترع أو تخمّن أي معلومة غير مكتوبة بوضوح؛ إذا كان أي حقل غير واضح أو غير مكتوب، اكتب UNREADABLE.
 اكتب النتيجة في الأسطر التالية بالضبط:
 RX_DRUG_ID: [المعرف المطابق من: ${VISION_DRUG_IDS} أو UNREADABLE]
 RX_DRUG_NAME: [اسم المضاد الحيوي كما هو مكتوب في الروشتة أو UNREADABLE]

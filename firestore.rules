@@ -305,6 +305,12 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /subscription_requests/{reqId} {
+      allow create: if isValidBoundedPublicWrite(12)
+        && request.resource.data.status == 'pending_verification';
+      allow read, update, delete: if isAdmin();
+    }
+
     match /settings/{docId} {
       // Section 2 & 6 Fix: Never allow public reads of legacy gbridge_* or ai_config documents
       allow read: if !(docId.matches('gbridge_.*')) && docId != 'ai_config' && docId != 'google_app_accounts_list';

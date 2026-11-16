@@ -817,6 +817,12 @@ export function DawayaSystemAiDataSourcesAndAuditAdmin({
   const [aiAllowPrescriptionVision, setAiAllowPrescriptionVision] = useState(true);
   const [aiStrictZeroFabrication, setAiStrictZeroFabrication] = useState(true);
   const [aiModelName, setAiModelName] = useState('gemini-2.5-flash');
+  const [visionApiKey, setVisionApiKey] = useState<string>(() => {
+    try {
+      const cfg = JSON.parse(localStorage.getItem('dawaya_ai_config_v1') || 'null');
+      return cfg?.visionApiKey || '';
+    } catch { return ''; }
+  });
   const [configSavedMsg, setConfigSavedMsg] = useState('');
   const [auditLogs, setAuditLogs] = useState<AdminAuditEntry[]>([]);
 
@@ -836,6 +842,7 @@ export function DawayaSystemAiDataSourcesAndAuditAdmin({
             if (typeof d.allowPrescriptionVision === 'boolean') setAiAllowPrescriptionVision(d.allowPrescriptionVision);
             if (typeof d.strictZeroFabrication === 'boolean') setAiStrictZeroFabrication(d.strictZeroFabrication);
             if (d.modelName) setAiModelName(d.modelName);
+            if (d.visionApiKey) setVisionApiKey(String(d.visionApiKey));
           }
         })
         .catch(() => {});
@@ -867,6 +874,7 @@ export function DawayaSystemAiDataSourcesAndAuditAdmin({
       allowPrescriptionVision: aiAllowPrescriptionVision,
       strictZeroFabrication: aiStrictZeroFabrication,
       modelName: aiModelName,
+      visionApiKey: visionApiKey.trim(),
       updatedBy: uid,
       updatedAtIso: new Date().toISOString(),
     };
@@ -973,6 +981,19 @@ export function DawayaSystemAiDataSourcesAndAuditAdmin({
             </b>
           </span>
         </label>
+        <div style={{ marginTop: '8px', marginBottom: '8px' }}>
+          <label className="small" style={{ display: 'block', fontWeight: 800, marginBottom: '4px' }}>
+            🔑 {isAr ? 'مفتاح Gemini 2.5 Flash Vision المجاني لقراءة خط الأطباء بالروشتات (من Google AI Studio):' : 'Free Gemini 2.5 Flash Vision API Key (Google AI Studio):'}
+          </label>
+          <input
+            type="password"
+            dir="ltr"
+            className="input"
+            value={visionApiKey}
+            onChange={(e) => setVisionApiKey(e.target.value)}
+            placeholder="AIzaSy..."
+          />
+        </div>
         <button
           type="button"
           className="btn small"
