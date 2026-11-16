@@ -167,6 +167,14 @@ function WhoCampaignAndVisibilityAdminCard({ isAr }: { isAr: boolean }) {
             />
             📋 {isAr ? 'إظهار رابط الاستبيان والكويز في القائمة العامة' : 'Show Public Survey/Quiz Link in Menu'}
           </label>
+          <label className="check" style={{ fontWeight: 700 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(config.showVillagePharmaciesShortcut)}
+              onChange={(e) => void updateCfg({ showVillagePharmaciesShortcut: e.target.checked })}
+            />
+            📍 {isAr ? 'إظهار زر «صيدليات قريتي / مركزي» السريع في الرئيسية (فعّله بعد إضافة الصيدليات)' : 'Show "My Village/Markaz Pharmacies" Quick Button on Home'}
+          </label>
         </div>
       </div>
     </section>

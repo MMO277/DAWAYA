@@ -108,6 +108,22 @@ export default function ChatWidget() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [sosOpen, setSosOpen] = useState(false);
+  const [fabCollapsed, setFabCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('dawaya_fab_collapsed_v1') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleFabCollapsed = () => {
+    setFabCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('dawaya_fab_collapsed_v1', next ? '1' : '0');
+      } catch {}
+      return next;
+    });
+  };
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -600,52 +616,123 @@ export default function ChatWidget() {
   return (
     <aside className="chat-widget-root" aria-label="Smart Assistant & Emergency Widget">
       {!isOpen && !sosOpen && !isOnAssistantPage && (
-        <div className="floating-fab-stack">
-          <button
-            type="button"
-            className="emergency-fab"
-            onClick={() => {
-              setSosOpen(true);
-              setIsOpen(false);
-            }}
-            aria-label={tr(
-              lang,
-              `طوارئ الحساسية والإسعاف (${countryName}: ${emergency.number})`,
-              `Emergency SOS (${countryName}: ${emergency.number})`,
-              `Urgences SOS (${countryName} : ${emergency.number})`,
-              `Emergencias SOS (${countryName}: ${emergency.number})`
-            )}
-          >
-            <span className="fab-icon"></span>
-            <span className="fab-label">
-              {tr(
-                lang,
-                `طوارئ ${emergency.number}`,
-                `SOS ${emergency.number}`,
-                `SOS ${emergency.number}`,
-                `SOS ${emergency.number}`
-              )}
-            </span>
-            <span className="sos-pulse-dot"></span>
-          </button>
+        <div className="floating-fab-stack" style={{ gap: '6px' }}>
+          {fabCollapsed ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                type="button"
+                onClick={() => { setSosOpen(true); setIsOpen(false); }}
+                title={isAr ? `طوارئ ${emergency.number}` : `SOS ${emergency.number}`}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+                  color: '#fff',
+                  border: '1.5px solid #fff',
+                  fontWeight: 900,
+                  fontSize: '0.72rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(220,38,38,0.45)',
+                }}
+              >
+                {emergency.number}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsOpen(true); setSosOpen(false); }}
+                title={isAr ? 'المساعد الصحي الذكي' : 'AI Health Assistant'}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #17b8c4, #0b3c5d)',
+                  color: '#fff',
+                  border: '1.5px solid rgba(255,255,255,0.8)',
+                  fontSize: '1.15rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(11,60,93,0.4)',
+                }}
+              >
+                🤖
+              </button>
+              <button
+                type="button"
+                onClick={toggleFabCollapsed}
+                title={isAr ? 'توسيع الأزرار' : 'Expand'}
+                style={{
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '50%',
+                  background: 'rgba(15, 23, 42, 0.78)',
+                  color: '#fff',
+                  border: '1px solid rgba(255,255,255,0.4)',
+                  fontSize: '0.72rem',
+                  cursor: 'pointer',
+                }}
+              >
+                +
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  type="button"
+                  className="emergency-fab"
+                  style={{ padding: '6px 12px', fontSize: '0.8rem', minHeight: '34px' }}
+                  onClick={() => {
+                    setSosOpen(true);
+                    setIsOpen(false);
+                  }}
+                  aria-label={tr(
+                    lang,
+                    `طوارئ الحساسية والإسعاف (${countryName}: ${emergency.number})`,
+                    `Emergency SOS (${countryName}: ${emergency.number})`
+                  )}
+                >
+                  <span className="fab-label">
+                    {tr(lang, `طوارئ ${emergency.number}`, `SOS ${emergency.number}`)}
+                  </span>
+                  <span className="sos-pulse-dot"></span>
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleFabCollapsed}
+                  title={isAr ? 'تصغير الأزرار لعدم تغطية النص' : 'Minimize floating buttons'}
+                  style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '50%',
+                    background: 'rgba(15, 23, 42, 0.72)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.4)',
+                    fontSize: '0.72rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  –
+                </button>
+              </div>
 
-
-
-          <button
-            type="button"
-            className="chat-fab"
-            onClick={() => {
-              setIsOpen(true);
-              setSosOpen(false);
-            }}
-            aria-label={isAr ? 'افتح المساعد الصحي الذكي' : 'Open Personal Health Assistant'}
-          >
-            <span className="fab-icon">🤖</span>
-            <span className="fab-label">
-              {isAr ? 'المساعد الصحي الذكي' : 'AI Health Assistant'}
-            </span>
-            <span className="fab-badge"></span>
-          </button>
+              <button
+                type="button"
+                className="chat-fab"
+                style={{ padding: '7px 13px', fontSize: '0.82rem', minHeight: '36px' }}
+                onClick={() => {
+                  setIsOpen(true);
+                  setSosOpen(false);
+                }}
+                aria-label={isAr ? 'افتح المساعد الصحي الذكي' : 'Open Personal Health Assistant'}
+              >
+                <span className="fab-icon" style={{ fontSize: '1.1rem' }}>🤖</span>
+                <span className="fab-label">
+                  {isAr ? 'المساعد الصحي الذكي' : 'AI Health Assistant'}
+                </span>
+                <span className="fab-badge"></span>
+              </button>
+            </>
+          )}
         </div>
       )}
 

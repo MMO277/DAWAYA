@@ -569,6 +569,7 @@ export interface DawayaSiteVisibilityConfig {
   campaignMode: string;
   showAntibioticLegacySections: boolean;
   showSurveySection: boolean;
+  showVillagePharmaciesShortcut?: boolean;
 }
 
 const LOCAL_VISIBILITY_KEY = 'dawaya_site_visibility_config_v1';
@@ -578,6 +579,7 @@ const DEFAULT_VISIBILITY: DawayaSiteVisibilityConfig = {
   campaignMode: 'auto',
   showAntibioticLegacySections: false,
   showSurveySection: false,
+  showVillagePharmaciesShortcut: false,
 };
 
 export function getHijriMonthDay(now = new Date()): { month: number; day: number } | null {
@@ -610,6 +612,7 @@ export function getLocalVisibilityConfig(): DawayaSiteVisibilityConfig {
       campaignMode: typeof parsed.campaignMode === 'string' ? parsed.campaignMode : 'auto',
       showAntibioticLegacySections: Boolean(parsed.showAntibioticLegacySections),
       showSurveySection: Boolean(parsed.showSurveySection),
+      showVillagePharmaciesShortcut: Boolean(parsed.showVillagePharmaciesShortcut),
     };
   } catch {
     return DEFAULT_VISIBILITY;
@@ -687,6 +690,7 @@ export function useWhoCampaignAndVisibility() {
             campaignMode: typeof data.campaignMode === 'string' ? data.campaignMode : 'auto',
             showAntibioticLegacySections: Boolean(data.showAntibioticLegacySections),
             showSurveySection: Boolean(data.showSurveySection),
+            showVillagePharmaciesShortcut: Boolean(data.showVillagePharmaciesShortcut),
           };
           setConfig(merged);
           try {

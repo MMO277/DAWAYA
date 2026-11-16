@@ -1,3 +1,4 @@
+import { EGYPTIAN_GOVERNORATES } from './partnerTypes';
 /**
  * PassportView.tsx
  * صفحة البطاقة الصحية الذكية التي تظهر للطبيب أو الممرض أو المستشفى عند مسح QR المريض
@@ -372,6 +373,36 @@ function HealthView({
                   {profile.workEnvironmentNotes ? ` (${profile.workEnvironmentNotes})` : ''}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* المحافظة والمركز والقرية */}
+        {(profile.governorateId || profile.cityCenter || profile.districtVillage) && (
+          <div
+            style={{
+              marginTop: 10,
+              background: 'rgba(14, 165, 233, 0.22)',
+              borderRadius: 12,
+              padding: '10px 14px',
+              border: '1px solid rgba(125, 211, 252, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <span style={{ fontSize: '1.25rem' }}>📍</span>
+            <div>
+              <div style={{ fontSize: '0.72rem', opacity: 0.9, fontWeight: 700 }}>
+                {isAr ? 'عنوان الإقامة (المحافظة ← المركز ← القرية)' : 'Residence (Governorate / Markaz / Village)'}
+              </div>
+              <div style={{ fontSize: '0.92rem', fontWeight: 900 }}>
+                {(() => {
+                  const g = EGYPTIAN_GOVERNORATES.find((x) => x.id === profile.governorateId);
+                  const gName = g ? (isAr ? g.nameAr : g.nameEn) : profile.governorateId || '';
+                  return [gName, profile.cityCenter, profile.districtVillage].filter(Boolean).join(' ← ');
+                })()}
+              </div>
             </div>
           </div>
         )}

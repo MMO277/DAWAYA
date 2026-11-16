@@ -1,3 +1,5 @@
+import { useSyncedHealthProfile } from './allergyData';
+import { EGYPTIAN_GOVERNORATES } from './partnerTypes';
 import { SeasonalAwarenessBasketCard, SeasonalHeroDecorLayer } from './SeasonalDecorBanner';
 import { useWhoCampaignAndVisibility } from './whoHealthCampaigns';
 const SituationCompassModal = lazy(() => import('./SituationCompassModal'));
@@ -35,6 +37,7 @@ export default function Home() {
   const nav = useNavigate();
   const { isProMode, setProMode } = useClinicalProMode();
   const { config: siteVisibility, activeCampaign, secondaryWhoCampaign } = useWhoCampaignAndVisibility();
+  const { profile: userProfile } = useSyncedHealthProfile();
   const { indexItems, totalCount } = useDawayaDrugDatabase(false); // Lazy-load 8.2MB index only when searching
 
   const [q, setQ] = useState('');
@@ -463,10 +466,66 @@ export default function Home() {
     return matched.slice(0, 6);
   }, [q, isAr]);
 
-  // Instant live autocomplete results across all 26,562 DAWAYA medicines + 206 reference packages
+  // Instant live autocomplete results across all 26,562 DAWAYA medicines + personalized patient safety alerts
   const quickMatches = useMemo(() => {
     const clean = norm(q);
     if (clean.length < 2) return [];
+
+    const evaluatePersonalAlert = (hayText: string): { textAr: string; textEn: string; color: string; bg: string } | null => {
+      const low = hayText.toLowerCase();
+      // 1. Check recorded allergies
+      for (const al of userProfile.allergies || []) {
+        const key = (al.allergenKey || '').toLowerCase();
+        const dName = (al.drugName || '').toLowerCase();
+        if (
+          (dName && low.includes(dName)) ||
+          (key === 'penicillin' && /amoxicillin|ampicillin|augmentin|hibiotic|penicillin|اموكسيسيلين|أوجمنتين|بنسلين/.test(low)) ||
+          (key === 'cephalosporin' && /cef|ceph|ceftriaxone|cefuroxime|سيف|زينات|سيفترياكسون/.test(low)) ||
+          (key === 'sulfa' && /sulf|trimethoprim|sutrim|septazole|سلفا|سبتازول/.test(low)) ||
+          (key === 'fluoroquinolone' && /floxacin|cipro|tavanic|سيبرو|تافانيك/.test(low))
+        ) {
+          return {
+            textAr: '🚨 تحذير حساسية مسجلة بملفك!',
+            textEn: '🚨 Allergy Alert!',
+            color: '#991b1b',
+            bg: '#fee2e2',
+          };
+        }
+      }
+      // 2. Check driver / machinery drowsiness guard
+      if (
+        (userProfile.occupation === 'driver_transport' || userProfile.occupation === 'machinery_factory') &&
+        /chlorpheniramine|cetirizine|levocetirizine|diphenhydramine|dimethindene|muscle relaxant|tizanidine|chlorzoxazone|كلورفينيرامين|سيتريزين|حساسية|باسط/.test(low)
+      ) {
+        return {
+          textAr: '🚗 يسبب نعاس (حذر للسائقين)',
+          textEn: '🚗 Drowsiness Warning',
+          color: '#92400e',
+          bg: '#fef3c7',
+        };
+      }
+      // 3. Check pregnancy / renal / hepatic / hypertension warnings
+      if (
+        (userProfile.renalStatus === 'impaired' || (userProfile.chronicConditions || []).some((c) => /ضغط|كلى|hypertension|renal/i.test(c.conditionName))) &&
+        /diclofenac|ketoprofen|ibuprofen|piroxicam|meloxicam|cataflam|voltaren|brufen|كتافلام|فولتارين|بروفين/.test(low)
+      ) {
+        return {
+          textAr: '⚠️ حذر لمرضى الضغط والكلى',
+          textEn: '⚠️ BP / Renal Caution',
+          color: '#b45309',
+          bg: '#ffedd5',
+        };
+      }
+      if (userProfile. hepaticStatus === 'impaired' && /paracetamol|acetaminophen|panadol|بنادول|باراسيتامول/.test(low)) {
+        return {
+          textAr: '⚠️ التزم بجرعة الكبد الآمنة',
+          textEn: '⚠️ Hepatic Dose Limit',
+          color: '#b45309',
+          bg: '#ffedd5',
+        };
+      }
+      return null;
+    };
 
     const dawayaMatches = searchDawayaIndex(indexItems, { query: q.trim() }, isAr)
       .slice(0, 5)
@@ -478,6 +537,7 @@ export default function Home() {
           DAWAYA_CATEGORY_LABELS[item.k]?.[isAr ? 'ar' : 'en'] || item.d
         }`,
         priceEgp: item.p,
+        safetyAlert: evaluatePersonalAlert(`${item.n} ${item.a} ${item.g} ${item.d}`),
       }));
 
     if (dawayaMatches.length >= 5) return dawayaMatches;
@@ -495,10 +555,11 @@ export default function Home() {
         titleEn: p.tradeNameEn,
         sub: `${p.scientificComposition} • ${pick(p.dosageFormLabel, lang)}`,
         priceEgp: p.priceEgp,
+        safetyAlert: evaluatePersonalAlert(`${p.tradeNameAr} ${p.tradeNameEn} ${p.scientificComposition}`),
       }));
 
     return [...dawayaMatches, ...abxMatches];
-  }, [q, indexItems, isAr, lang]);
+  }, [q, indexItems, isAr, lang, userProfile]);
 
   const handleChoosePersona = (p: PersonaType) => {
     setSelectedPersona(p);
@@ -1621,20 +1682,37 @@ export default function Home() {
                             {pkg.sub}
                           </div>
                         </div>
-                        <span
-                          style={{
-                            background: '#dcfce7',
-                            color: '#15803d',
-                            border: '1px solid #86efac',
-                            borderRadius: '999px',
-                            padding: '3px 10px',
-                            fontSize: '0.74rem',
-                            fontWeight: 800,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {tr(lang, 'دوايا', 'DAWAYA')}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
+                          {pkg.safetyAlert ? (
+                            <span
+                              style={{
+                                background: pkg.safetyAlert.bg,
+                                color: pkg.safetyAlert.color,
+                                border: `1px solid ${pkg.safetyAlert.color}55`,
+                                borderRadius: '999px',
+                                padding: '3px 9px',
+                                fontSize: '0.7rem',
+                                fontWeight: 900,
+                              }}
+                            >
+                              {isAr ? pkg.safetyAlert.textAr : pkg.safetyAlert.textEn}
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                background: '#dcfce7',
+                                color: '#15803d',
+                                border: '1px solid #86efac',
+                                borderRadius: '999px',
+                                padding: '3px 10px',
+                                fontSize: '0.74rem',
+                                fontWeight: 800,
+                              }}
+                            >
+                              {tr(lang, 'دوايا', 'DAWAYA')}
+                            </span>
+                          )}
+                        </div>
                       </Link>
                     ))}
                     <div
@@ -1704,6 +1782,30 @@ export default function Home() {
 
             {/* Quick Access Pill Tags under Search Bar */}
             <div className="hero-quick-tags">
+              {siteVisibility.showVillagePharmaciesShortcut && (userProfile.governorateId || userProfile.cityCenter || userProfile.districtVillage) && (
+                <Link
+                  to="/partners?tab=nearby"
+                  className="hero-quick-tag"
+                  style={{
+                    background: 'rgba(14, 165, 233, 0.34)',
+                    borderColor: '#7dd3fc',
+                    color: '#ffffff',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontWeight: 900,
+                  }}
+                >
+                  <span>📍</span>
+                  <span>
+                    {(() => {
+                      const g = EGYPTIAN_GOVERNORATES.find((x) => x.id === userProfile.governorateId);
+                      const areaLabel = userProfile.districtVillage || userProfile.cityCenter || (g ? (isAr ? g.nameAr : g.nameEn) : '');
+                      return isAr ? `صيدليات ${areaLabel}` : `${areaLabel} Pharmacies`;
+                    })()}
+                  </span>
+                </Link>
+              )}
               <Link to="/passport" className="hero-quick-tag" style={{ background: 'rgba(19, 136, 102, 0.32)', borderColor: '#CFD29D', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <DawayaRouteVectorIcon route="/passport" size={16} color="#CFD29D" />
                 <span>{tr(lang, 'الكارت الطبي الذكي (ID)', 'Smart Medical ID')}</span>
