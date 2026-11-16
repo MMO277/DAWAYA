@@ -25,9 +25,15 @@ const MAX_BASE64_CHARS = 5500000; // ~4MB binary
 
 function sanitizePromptPii(rawText) {
   return String(rawText || '')
-    .replace(/\b\d{14}\b/g, '[REDACTED_NATIONAL_ID]')
-    .replace(/\b(?:\+?20|0)?1[0125]\d{8}\b/g, '[REDACTED_PHONE]')
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]');
+    .replace(/\b[0-9\u0660-\u0669]{14}\b/g, '[REDACTED_NATIONAL_ID]')
+    .replace(/\b(?:\+?20|0)?1[0125][0-9\u0660-\u0669]{8}\b/g, '[REDACTED_PHONE]')
+    .replace(/\b0[2-9][0-9\u0660-\u0669]{7,8}\b/g, '[REDACTED_LANDLINE]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]')
+    .replace(/\b(?:[A-Z]\d{7,9}|MRN[-_]?\d{4,12})\b/gi, '[REDACTED_RECORD_NO]')
+    .replace(/\b(?:\d[ -]*?){13,16}\b/g, '[REDACTED_CARD]')
+    .replace(/(?:اسم المريض|المريض|الاسم الرباعي|الاسم الثلاثي|Patient Name|Name)\s*[:：-]\s*[^\n،,.]{2,40}/gi, '[REDACTED_PATIENT_NAME]')
+    .replace(/(?:العنوان بالتفصيل|العنوان|محل الإقامة|Address)\s*[:：-]\s*[^\n،,.]{4,70}/gi, '[REDACTED_ADDRESS]')
+    .replace(/\b-?\d{1,2}\.\d{4,8}\s*,\s*-?\d{1,3}\.\d{4,8}\b/g, '[REDACTED_COORDS]');
 }
 
 /**
@@ -76,9 +82,10 @@ exports.dawayaAiProxy = onRequest(
       return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
     }
 
-    // 2. Verify Firebase App Check token when present or enforced
+    // 2. Verify Firebase App Check token (Enforced by default in production unless explicitly disabled via ENFORCE_APP_CHECK=false)
     const appCheckToken = req.headers['x-firebase-appcheck'];
-    if (process.env.ENFORCE_APP_CHECK === 'true') {
+    const enforceAppCheck = process.env.ENFORCE_APP_CHECK !== 'false';
+    if (enforceAppCheck) {
       if (!appCheckToken) {
         return res.status(401).json({ error: 'APP_CHECK_TOKEN_REQUIRED' });
       }

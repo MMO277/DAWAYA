@@ -47,16 +47,31 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 let serverAiProxyReady = false;
 let proxyCheckComplete = false;
 
+const DEFAULT_CLOUD_AI_PROXY_URL = 'https://us-central1-dawaya-343f8.cloudfunctions.net/dawayaAiProxy';
+
 const AI_PROXY_BASE_URL =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AI_PROXY_BASE_URL
     ? String(import.meta.env.VITE_AI_PROXY_BASE_URL).replace(/\/+$/, '')
-    : '') || '';
+    : DEFAULT_CLOUD_AI_PROXY_URL) || DEFAULT_CLOUD_AI_PROXY_URL;
 
 export function sanitizePatientPiiForAi(rawText: string): string {
   return (rawText || '')
-    .replace(/\b\d{14}\b/g, '[REDACTED_ID]')
-    .replace(/\b(?:\+?20|0)?1[0125]\d{8}\b/g, '[REDACTED_PHONE]')
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]');
+    // 1. Egyptian 14-digit National ID (both Western & Arabic-Indic digits)
+    .replace(/\b[0-9\u0660-\u0669]{14}\b/g, '[REDACTED_ID]')
+    // 2. Egyptian mobile & landline phone numbers (Western & Arabic-Indic digits)
+    .replace(/\b(?:\+?20|0)?1[0125][0-9\u0660-\u0669]{8}\b/g, '[REDACTED_PHONE]')
+    .replace(/\b0[2-9][0-9\u0660-\u0669]{7,8}\b/g, '[REDACTED_LANDLINE]')
+    // 3. Email addresses
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]')
+    // 4. Passport, Syndicate, or Medical Record Numbers (e.g., A12345678, MRN-12345)
+    .replace(/\b(?:[A-Z]\d{7,9}|MRN[-_]?\d{4,12})\b/gi, '[REDACTED_RECORD_NO]')
+    // 5. Credit/Debit Card numbers (13-16 digits)
+    .replace(/\b(?:\d[ -]*?){13,16}\b/g, '[REDACTED_CARD]')
+    // 6. Explicit Patient Name / Address labels in Arabic & English
+    .replace(/(?:اسم المريض|المريض|الاسم الرباعي|الاسم الثلاثي|Patient Name|Name)\s*[:：-]\s*[^\n،,.]{2,40}/gi, '[REDACTED_PATIENT_NAME]')
+    .replace(/(?:العنوان بالتفصيل|العنوان|محل الإقامة|Address)\s*[:：-]\s*[^\n،,.]{4,70}/gi, '[REDACTED_ADDRESS]')
+    // 7. GPS coordinates (lat, lng)
+    .replace(/\b-?\d{1,2}\.\d{4,8}\s*,\s*-?\d{1,3}\.\d{4,8}\b/g, '[REDACTED_COORDS]');
 }
 
 export async function loadSharedCloudAiKey(): Promise<string> {
