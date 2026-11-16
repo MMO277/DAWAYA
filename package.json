@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
-    "build": "vite build",
+    "build": "npx vite build",
     "preview": "vite preview",
     "deploy": "npm run build && firebase deploy",
-    "test": "node scripts/securityAndIntegrityTestSuite.mjs"
+    "test": "node scripts/securityAndIntegrityTestSuite.mjs",
+    "preinstall": "rm -f package-lock.json"
   },
   "dependencies": {
     "firebase": "^10.14.1",
