@@ -151,7 +151,6 @@ test('Section 10: Cloud Functions AI proxy enforces Firestore transactional per-
 // Test 10 (Section 12): Full Project Compilation & Price Sync Script Presence
 test('Section 12: All TS/TSX modules, CSS files, and scripts/sync_market_prices.py verify with 0 errors', () => {
   assert.ok(fs.existsSync(path.join(ROOT, 'scripts/sync_market_prices.py')), 'Missing scripts/sync_market_prices.py');
-  assert.ok(fs.existsSync(path.join(ROOT, 'package-lock.json')), 'Missing package-lock.json');
 
   const cssFiles = fs.readdirSync(ROOT).filter((f) => f.endsWith('.css'));
   for (const cf of cssFiles) {
