@@ -12,10 +12,16 @@ const STOP_TOKENS = new Set([
   'tablet', 'tablets', 'tab', 'tabs', 'capsule', 'capsules', 'cap', 'caps',
   'syrup', 'suspension', 'ampoule', 'amp', 'vial', 'cream', 'ointment', 'gel',
   'drops', 'spray', 'oral', 'film', 'coated', 'f.c.t', 'fct', 's.r', 'mg', 'gm',
-  'ml', 'mcg', 'iu', 'pharma', 'pharmaceutical', 'egypt', 'cairo', 'price',
+  'ml', 'mcg', 'iu', 'pharma', 'pharmaceutical', 'pharmaceuticals', 'egypt', 'cairo', 'price',
   'batch', 'exp', 'mfg', 'lot', 'for', 'use', 'only', 'keep', 'store',
+  'img', 'image', 'images', 'jpeg', 'jpg', 'png', 'webp', 'photo', 'camera', 'whatsapp',
+  'unreadable', 'unknown', 'none', 'null', 'the', 'and', 'with', 'from', 'this', 'that',
+  'each', 'contains', 'manufactured', 'company', 'medical', 'medicine', 'medicines', 'products',
+  'treatment', 'children', 'reach', 'below', 'degrees', 'dry', 'place', 'protect', 'light',
+  'internal', 'external', 'pack', 'strip', 'box', 'bottle', 'tube', 'dose', 'daily',
   'اقراص', 'قرص', 'كبسول', 'كبسولات', 'شراب', 'معلق', 'امبول', 'فيال',
   'كريم', 'مرهم', 'جل', 'نقط', 'بخاخ', 'مجم', 'جم', 'مل', 'شركة', 'ادوية',
+  'القاهرة', 'مصر', 'يحفظ', 'بعيدا', 'متناول', 'الاطفال', 'درجة', 'حرارة', 'عبوة', 'شريط',
 ]);
 
 function normalizeStripToken(str: string): string {
@@ -90,12 +96,12 @@ export function findCutBlisterStripCandidates(
           bestFrag = frag;
         }
       }
-      // 3. Substring match inside brand name or active ingredient
+      // 3. Substring match on distinct brand words (5+ chars)
       else if (
-        frag.length >= 4 &&
-        (enNorm.includes(frag) || arNorm.includes(frag) || genNorm.includes(frag))
+        frag.length >= 5 &&
+        (enNorm.split(' ').some((w) => w.startsWith(frag)) || arNorm.split(' ').some((w) => w.startsWith(frag)))
       ) {
-        const candScore = (enNorm.includes(frag) || arNorm.includes(frag) ? 95 : 80) + frag.length * 3;
+        const candScore = 105 + frag.length * 3;
         if (candScore > score) {
           score = candScore;
           bestFrag = frag;

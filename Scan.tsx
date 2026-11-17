@@ -537,9 +537,31 @@ export default function Scan() {
     rawText: string,
     method: UnifiedScanResult['method'] = 'ai_vision'
   ): UnifiedScanResult {
-    const direct26k = findDawayaIndexItemSync(rawText);
+    const trimmedRaw = (rawText || '').trim();
+    if (!trimmedRaw || /^(unreadable|unknown|none|null|غير واضح)$/i.test(trimmedRaw)) {
+      return {
+        method,
+        confidenceLabelAr: 'ℹ️ تحليل القارئ البصري',
+        confidenceLabelEn: 'ℹ️ Visual Reader Analysis',
+        detectedText: '',
+        summary: '',
+      };
+    }
+
+    // 0) First check all 26,597 Egyptian medicines in DAWAYA database (so non-antibiotic boxes/strips match their true medicine!)
+    const direct26k = findDawayaIndexItemSync(trimmedRaw);
     if (direct26k) {
       return buildResultFromProduct(dawayaIndexItemToCommercialProduct(direct26k), method);
+    }
+    const cutStripMatchesTop = findCutBlisterStripCandidates(trimmedRaw, indexItems, 6);
+    if (cutStripMatchesTop.length > 0) {
+      setStripCandidates(cutStripMatchesTop);
+      if (cutStripMatchesTop[0].score >= 125) {
+        return buildResultFromProduct(
+          dawayaIndexItemToCommercialProduct(cutStripMatchesTop[0].item),
+          method
+        );
+      }
     }
     const clean = normalizeText(rawText);
     const cleanWords = clean.split(' ');
@@ -1110,22 +1132,7 @@ export default function Scan() {
       /* No barcode on front of box — continue to Bilingual Vision & OCR */
     }
 
-    // 3) Check filename if descriptive
-    if (
-      fileNameHint &&
-      !fileNameHint.startsWith('camera-capture') &&
-      !fileNameHint.startsWith('image.') &&
-      !fileNameHint.startsWith('IMG_') &&
-      !fileNameHint.startsWith('Screenshot')
-    ) {
-      const fnMatch = matchDrugFromText(fileNameHint, 'ai_vision');
-      if (fnMatch.matchedIngredientId) {
-        setScanResult(fnMatch);
-        setBusy(false);
-        setStatusStep('');
-        return;
-      }
-    }
+    // Never guess a medicine from the camera image filename
 
     // 4) Run Parallel Bilingual Vision + Cloud OCR (English Engine 2 + Arabic Engine 1)
     const base64Data =

@@ -1,4 +1,4 @@
-import { findDawayaIndexItemSync } from './dawayaDrugDatabaseService';
+import { dawayaIndexItemToCommercialProduct, ensureDawayaDatabaseLoaded, findDawayaIndexItemSync } from './dawayaDrugDatabaseService';
 
 // ── Rate Limiting & Anti-Flood Security Guard ──
 const AI_CALL_HISTORY: number[] = [];
@@ -1901,23 +1901,36 @@ function parseVisionText(rawText: string): {
   const lines = rawText.split(/\r?\n/);
   let matchedId: string | null = null;
   let detectedName = '';
+  let genericName = '';
   const summaryLines: string[] = [];
 
   for (const line of lines) {
-    const idMatch = line.match(/DRUG_ID:\s*([a-z0-9-]+)/i);
-    const nameMatch = line.match(/DRUG_NAME:\s*(.+)/i);
+    const idMatch = line.match(/^(?:RX_)?DRUG_ID:\s*([a-z0-9-]+)/i);
+    const nameMatch = line.match(/^(?:RX_)?DRUG_NAME:\s*(.+)/i);
+    const genMatch = line.match(/^GENERIC_NAME:\s*(.+)/i);
+    const sumMatch = line.match(/^SUMMARY:\s*(.+)/i);
     if (idMatch) {
       const val = idMatch[1].toLowerCase().trim();
-      if (val !== 'unknown' && KNOWN_INGREDIENT_SLUGS.has(val)) matchedId = val;
+      if (val !== 'unknown' && val !== 'unreadable' && KNOWN_INGREDIENT_SLUGS.has(val)) matchedId = val;
     } else if (nameMatch) {
-      detectedName = nameMatch[1].trim();
-    } else {
+      const val = nameMatch[1].trim();
+      if (!/^(unreadable|unknown|none|null|n\/a|غير واضح|غير مقروء)$/i.test(val)) {
+        detectedName = val;
+      }
+    } else if (genMatch) {
+      const val = genMatch[1].trim();
+      if (!/^(unreadable|unknown|none|null|n\/a|غير واضح|غير مقروء)$/i.test(val)) {
+        genericName = val;
+      }
+    } else if (sumMatch) {
+      summaryLines.push(sumMatch[1].trim());
+    } else if (!/^(RX_|DRUG_|GENERIC_)/i.test(line.trim())) {
       summaryLines.push(line);
     }
   }
 
   return {
-    detectedDrugName: detectedName,
+    detectedDrugName: detectedName || genericName,
     matchedIngredientId: matchedId,
     summary: cleanAssistantMarkdown(summaryLines.join('\n')),
   };
@@ -1937,103 +1950,90 @@ export async function analyzeMedicineImageWithVision(
   mimeType: string,
   lang: Lang
 ): Promise<VisionAnalysisResult> {
+  await ensureDawayaDatabaseLoaded().catch(() => {});
   const prepared = await prepareImageForOcrAndVision(base64Data, mimeType);
   const dataUri = prepared.dataUri;
-  const key = getApiKey();
 
+  // Dedicated zero-example prompt for reading Medicine Boxes, Tubes, Bottles & Blister Strips accurately
   const prompt =
     lang === 'ar'
-      ? `أنت صيدلي مصري خبير جداً في فك وقراءة خط الأطباء اليدوي في الروشتات المصرية (مثلما تقرأ أي روشتة في الصيدلية).
-استخدم اسم وتخصص الطبيب المكتوب في أعلى الروشتة، والحروف الأولى من كل سطر دواء (بعد علامة R/ أو الشرطة)، والتركيز (مثل 500mg, 1gm, 40mg, 20mg) والشكل الصيدلاني (Tab, Cap, Syr, Amp, Vial, Gel, Cream) لقراءة جميع الأدوية المكتوبة في الروشتة.
-اكتب النتيجة بالصيغة التالية مباشرة بدون أقواس مربعة:
-RX_DRUG_ID: amoxicillin-clavulanic-acid
-RX_DRUG_NAME: اكتب هنا أسماء كل الأدوية التي قرأتها من الروشتة مفصولة بفاصلة (مثال: أوجمنتين 1 جم + كونترولوك 40 مجم + كتافلام 50 مجم)
-RX_DOSE: اكتب الجرعة أو التركيز المقروء (مثال: قرص كل 12 ساعة / بعد الأكل)
-RX_ROUTE: oral
-RX_FREQ: twice_daily
-RX_DURATION_DAYS: 7
-RX_NOTES: اكتب هنا قراءتك الكاملة لكل سطر في الروشتة بالتفصيل (اسم كل دواء بالعربي والإنجليزي والجرعة المكتوبة تحته)
-RX_CONTRADICTIONS: NONE`
-      : `You are an expert Egyptian pharmacist skilled at reading handwritten Egyptian medical prescriptions.
-Use the doctor's specialty header, first letters of each drug line after R/, strength, and dosage form to identify all prescribed medications.
-Output the exact lines below without brackets:
-RX_DRUG_ID: amoxicillin-clavulanic-acid
-RX_DRUG_NAME: list all medications read from the prescription
-RX_DOSE: dose and strength read from the prescription
-RX_ROUTE: oral
-RX_FREQ: twice_daily
-RX_DURATION_DAYS: 7
-RX_NOTES: full line-by-line reading of every medication and instruction on the prescription
-RX_CONTRADICTIONS: NONE`;
+      ? `أنت صيدلي مصري خبير. اقرأ الاسم التجاري للدواء المطبوع على علبة الدواء أو شريط البرشام أو العبوة في هذه الصورة بدقة تامة كما هو مكتوب حرفياً.
+ممنوع تماماً تخمين اسم دواء غير مكتوب في الصورة. لو الحروف مقطوعة على طرف الشريط، اكتب الحروف الظاهرة أو الاسم التجاري المطابق لها في مصر.
+اكتب النتيجة في 3 أسطر فقط بالصيغة التالية بدون أي أمثلة:
+DRUG_NAME: <الاسم التجاري المكتوب على العلبة أو الشريط بالإنجليزية أو العربية مع التركيز، أو UNREADABLE لو الصورة غير واضحة>
+GENERIC_NAME: <المادة الفعالة المكتوبة على العلبة أو الشريط إن وجدت، أو NONE>
+SUMMARY: <ملخص طبي مختصر في سطرين عن هذا الدواء ودواعي استعماله>`
+      : `You are an expert Egyptian pharmacist. Read the exact printed trade name on the medicine box, bottle, tube, or blister strip in this image.
+Never guess a medicine that is not visible in the image.
+Output strictly in these 3 lines:
+DRUG_NAME: <exact printed trade name and strength, or UNREADABLE>
+GENERIC_NAME: <printed active ingredient if visible, or NONE>
+SUMMARY: <brief 2-line clinical summary of this medication>`;
 
-  const runGemini = async (): Promise<string> => {
-    if (!hasApiKey()) return '';
-    return await callServerAiProxy({
-      prompt,
-      inlineImageBase64: prepared.base64Data,
-      mimeType: prepared.mimeType || 'image/jpeg',
-      model: 'gemini-2.5-flash',
-    });
-  };
-
-  const [geminiRes, cloudOcrRes, zeroHintRes] = await Promise.allSettled([
-    runGemini(),
-    runCloudOcrNonColliding(dataUri),
-    runZeroHintVisionOcr(dataUri),
-  ]);
-
-  const geminiText = geminiRes.status === 'fulfilled' ? geminiRes.value : '';
-  const cloudOcrText = cloudOcrRes.status === 'fulfilled' ? cloudOcrRes.value : '';
-  const zeroHintText = zeroHintRes.status === 'fulfilled' ? zeroHintRes.value : '';
+  const geminiText = hasApiKey()
+    ? await callServerAiProxy({
+        prompt,
+        inlineImageBase64: prepared.base64Data,
+        mimeType: prepared.mimeType || 'image/jpeg',
+        model: 'gemini-2.5-flash',
+      }).catch(() => '')
+    : '';
 
   const parsedGemini = geminiText
     ? parseVisionText(geminiText)
     : { detectedDrugName: '', matchedIngredientId: null, summary: '' };
 
-  // Prioritize deterministic OCR + barcode first, then zero-hint vision transcription
-  const primaryText = [
-    prepared.nativeBarcode || '',
-    cloudOcrText,
-    parsedGemini.detectedDrugName,
-  ]
-    .filter(Boolean)
-    .join('\n')
-    .trim();
-
-  let matched = matchEgyptianDrugFromText(primaryText);
-  if (!matched.matchedIngredientId && zeroHintText) {
-    matched = matchEgyptianDrugFromText(`${primaryText}\n${zeroHintText}`);
-  }
-
-  let localTesseractText = '';
-  if (!matched.matchedIngredientId) {
-    localTesseractText = await performBrowserTesseractOcr(dataUri);
-    if (localTesseractText) {
-      matched = matchEgyptianDrugFromText(`${primaryText}\n${zeroHintText}\n${localTesseractText}`);
+  // 1) If native barcode was found on the box/strip, check full 26,597 database first
+  if (prepared.nativeBarcode) {
+    const bcHit = findDawayaIndexItemSync(prepared.nativeBarcode);
+    if (bcHit) {
+      return {
+        detectedDrugName: `${bcHit.a} (${bcHit.n})`,
+        matchedIngredientId: bcHit.i,
+        summary: parsedGemini.summary,
+        rawExtractedText: `${bcHit.n} ${bcHit.a} ${bcHit.g}`,
+      };
     }
   }
 
-  const allExtracted = [
-    matched.detectedDrugName,
-    parsedGemini.detectedDrugName,
-    cloudOcrText,
-    zeroHintText,
-    localTesseractText,
-  ]
-    .filter(Boolean)
-    .join('\n')
-    .trim();
+  // 2) If AI Vision read a clear drug name from the box/strip, resolve it against the full 26,597 database FIRST!
+  if (parsedGemini.detectedDrugName) {
+    const direct26k = findDawayaIndexItemSync(parsedGemini.detectedDrugName);
+    if (direct26k) {
+      return {
+        detectedDrugName: `${direct26k.a} (${direct26k.n})`,
+        matchedIngredientId: direct26k.i,
+        summary: parsedGemini.summary,
+        rawExtractedText: `${parsedGemini.detectedDrugName}\n${direct26k.n} ${direct26k.a}`,
+      };
+    }
+    return {
+      detectedDrugName: parsedGemini.detectedDrugName,
+      matchedIngredientId: parsedGemini.matchedIngredientId,
+      summary: parsedGemini.summary,
+      rawExtractedText: parsedGemini.detectedDrugName,
+    };
+  }
+
+  // 3) Fallback to local Tesseract OCR only if AI Vision returned nothing
+  const localTesseractText = await performBrowserTesseractOcr(dataUri);
+  if (localTesseractText && localTesseractText.trim().length >= 3) {
+    const directOcr26k = findDawayaIndexItemSync(localTesseractText);
+    if (directOcr26k) {
+      return {
+        detectedDrugName: `${directOcr26k.a} (${directOcr26k.n})`,
+        matchedIngredientId: directOcr26k.i,
+        summary: '',
+        rawExtractedText: localTesseractText,
+      };
+    }
+  }
 
   return {
-    detectedDrugName:
-      matched.detectedDrugName ||
-      parsedGemini.detectedDrugName ||
-      cloudOcrText.split(/\r?\n/)[0] ||
-      zeroHintText.split(/\r?\n/)[0] ||
-      '',
-    matchedIngredientId: matched.matchedIngredientId || parsedGemini.matchedIngredientId,
+    detectedDrugName: '',
+    matchedIngredientId: null,
     summary: parsedGemini.summary,
-    rawExtractedText: allExtracted,
+    rawExtractedText: localTesseractText || '',
   };
 }
 
