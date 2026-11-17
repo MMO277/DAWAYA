@@ -47,6 +47,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 let serverAiProxyReady = false;
 let proxyCheckComplete = false;
 export let lastAiVisionDiagnostic = '';
+export let lastAiRawOutputPreview = '';
 
 const DEFAULT_CLOUD_AI_PROXY_URL = 'https://us-central1-dawaya-343f8.cloudfunctions.net/dawayaAiProxy';
 
@@ -205,8 +206,12 @@ export async function callServerAiProxy(params: {
     }
     const data = await resp.json();
     const out = typeof data?.text === 'string' ? data.text.trim() : '';
-    if (!out) lastAiVisionDiagnostic = `EMPTY_MODEL_TEXT:${data?.model || ''}`;
-    else lastAiVisionDiagnostic = `OK:${data?.model || 'gemini'}`;
+    if (!out) {
+      lastAiVisionDiagnostic = `EMPTY_MODEL_TEXT:${data?.model || ''}`;
+    } else {
+      lastAiVisionDiagnostic = `OK:${data?.model || 'gemini'}`;
+      lastAiRawOutputPreview = out.slice(0, 600);
+    }
     return out;
   } catch {
     clearTimeout(timer);
@@ -1739,16 +1744,28 @@ export async function analyzeMedicineImageWithVision(
 
   const prompt =
     lang === 'ar'
-      ? `اقرأ اسم الدواء أو المضاد الحيوي الظاهر في هذه الصورة بدقة سواء كان مكتوباً باللغة العربية أو الإنجليزية (علبة دواء، شريط دواء، أو اسم دواء مكتوب).
-اكتب في السطر الأول:
-DRUG_ID: [اختر المعرف المطابق من القائمة: ${VISION_DRUG_IDS} أو unknown]
-وفي السطر الثاني:
-DRUG_NAME: [اسم الدواء التجاري والعلمي والتركيز كما يظهر في الصورة بالعربية والإنجليزية]
-ثم اكتب ملخصاً سريرياً واضحاً عن الدواء بدون جداول وبدون رموز ** أو ###.`
-      : `Read the medicine or antibiotic name shown in this image carefully whether written in English or Arabic (medicine box, blister pack, or printed/written text).
-Line 1: DRUG_ID: [matching slug from: ${VISION_DRUG_IDS} or unknown]
-Line 2: DRUG_NAME: [detected brand name, generic name, and strength in English and Arabic]
-Then write a clear clinical summary without markdown tables or ** symbols.`;
+      ? `أنت صيدلي مصري خبير جداً في فك وقراءة خط الأطباء اليدوي في الروشتات المصرية (مثلما تقرأ أي روشتة في الصيدلية).
+استخدم اسم وتخصص الطبيب المكتوب في أعلى الروشتة، والحروف الأولى من كل سطر دواء (بعد علامة R/ أو الشرطة)، والتركيز (مثل 500mg, 1gm, 40mg, 20mg) والشكل الصيدلاني (Tab, Cap, Syr, Amp, Vial, Gel, Cream) لقراءة جميع الأدوية المكتوبة في الروشتة.
+اكتب النتيجة بالصيغة التالية مباشرة بدون أقواس مربعة:
+RX_DRUG_ID: amoxicillin-clavulanic-acid
+RX_DRUG_NAME: اكتب هنا أسماء كل الأدوية التي قرأتها من الروشتة مفصولة بفاصلة (مثال: أوجمنتين 1 جم + كونترولوك 40 مجم + كتافلام 50 مجم)
+RX_DOSE: اكتب الجرعة أو التركيز المقروء (مثال: قرص كل 12 ساعة / بعد الأكل)
+RX_ROUTE: oral
+RX_FREQ: twice_daily
+RX_DURATION_DAYS: 7
+RX_NOTES: اكتب هنا قراءتك الكاملة لكل سطر في الروشتة بالتفصيل (اسم كل دواء بالعربي والإنجليزي والجرعة المكتوبة تحته)
+RX_CONTRADICTIONS: NONE`
+      : `You are an expert Egyptian pharmacist skilled at reading handwritten Egyptian medical prescriptions.
+Use the doctor's specialty header, first letters of each drug line after R/, strength, and dosage form to identify all prescribed medications.
+Output the exact lines below without brackets:
+RX_DRUG_ID: amoxicillin-clavulanic-acid
+RX_DRUG_NAME: list all medications read from the prescription
+RX_DOSE: dose and strength read from the prescription
+RX_ROUTE: oral
+RX_FREQ: twice_daily
+RX_DURATION_DAYS: 7
+RX_NOTES: full line-by-line reading of every medication and instruction on the prescription
+RX_CONTRADICTIONS: NONE`;
 
   const runGemini = async (): Promise<string> => {
     if (!hasApiKey()) return '';
@@ -1900,14 +1917,14 @@ export function parsePrescriptionTextDeterministically(
 
     const nameMatch = line.match(/^(?:RX_DRUG_NAME|DRUG_NAME):\s*(.+)$/i);
     if (nameMatch) {
-      const val = nameMatch[1].trim();
+      const val = nameMatch[1].replace(/^\[|\]$/g, '').trim();
       if (!isUnreadableToken(val)) detectedDrugName = val;
       continue;
     }
 
     const doseMatch = line.match(/^RX_DOSE:\s*(.+)$/i);
     if (doseMatch) {
-      const val = doseMatch[1].trim();
+      const val = doseMatch[1].replace(/^\[|\]$/g, '').trim();
       if (!isUnreadableToken(val)) extractedDoseText = val;
       continue;
     }

@@ -745,7 +745,7 @@ export async function analyzeUploadedMedicalDocument(params: {
     try {
       const extra = await callServerAiProxy({
         prompt:
-          'List every medication, lab value (e.g. Creatinine, WBC, CRP, Hemoglobin), or Culture & Sensitivity result (Organism name, Sensitive S antibiotics, Resistant R antibiotics) visible in this image on separate lines. Never guess or invent unreadable values.',
+          'أنت صيدلي مصري خبير. اقرأ هذه الروشتة أو التحليل الطبي واكتب كل دواء مكتوب بخط اليد أو المطبوع (الاسم التجاري المصري بالعربي والإنجليزي والتركيز والجرعة) في سطر مستقل.',
         inlineImageBase64: params.base64Data,
         mimeType: params.mimeType,
       });
