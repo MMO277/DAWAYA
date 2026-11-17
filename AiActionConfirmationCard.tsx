@@ -91,6 +91,10 @@ export default function AiActionConfirmationCard({
       className="ai-action-confirmation-card"
       dir={isAr ? 'rtl' : 'ltr'}
       style={{
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        overflowX: 'hidden',
         background: '#ffffff',
         border: '1.5px solid #cbd5e1',
         borderTop: '4px solid #0284c7',
@@ -240,7 +244,7 @@ export default function AiActionConfirmationCard({
         className="action-fields-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(115px, 1fr))',
           gap: '6px',
           marginBottom: '10px',
         }}

@@ -23,6 +23,7 @@ import { Lang } from './types';
 import { MedicalDocumentCategory } from './allergyData';
 import {
   analyzePrescriptionImageWithVision,
+  lastAiVisionDiagnostic,
   callServerAiProxy,
   getApiKey,
   hasApiKey,
@@ -575,8 +576,13 @@ export function classifyAndSummarizeDocumentText(
     summaryAr = `قرأتلك النص اللي في المستند (${categoryTitles[category].ar}). راجع البيانات المستخرجة وأكدها قبل الحفظ.`;
     summaryEn = `Extracted text from ${categoryTitles[category].en}. Please review and confirm before saving.`;
   } else {
+    const diagHint = lastAiVisionDiagnostic === 'CLOUDFLARE_KEY_MISSING'
+      ? ' (تنبيه تقني: مفتاح GEMINI_API_KEY غير ظاهر لبيئة Production في Cloudflare — تأكد من إضافته في Production + Retry deployment)'
+      : lastAiVisionDiagnostic
+        ? ` (تشخيص الخادم: ${lastAiVisionDiagnostic})`
+        : '';
     summaryAr =
-      'مقدرتش أقرأ نص واضح تلقائياً من الصورة دي. تقدر تكتب أو تعدل البيانات بإيدك في الكارت تحت قبل ما تحفظ المستند في ملفك.';
+      `مقدرتش أقرأ نص واضح تلقائياً من الصورة دي${diagHint}. تقدر تكتب أو تعدل البيانات بإيدك في الكارت تحت قبل ما تحفظ المستند في ملفك.`;
     summaryEn =
       'Automated OCR could not read clear text from this image. You can manually fill or edit the fields before saving.';
   }

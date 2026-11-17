@@ -46,6 +46,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 // authenticated server-side proxy (/api/ai/generate) or deterministic clinical fallback.
 let serverAiProxyReady = false;
 let proxyCheckComplete = false;
+export let lastAiVisionDiagnostic = '';
 
 const DEFAULT_CLOUD_AI_PROXY_URL = 'https://us-central1-dawaya-343f8.cloudfunctions.net/dawayaAiProxy';
 
@@ -95,6 +96,7 @@ export async function loadSharedCloudAiKey(): Promise<string> {
     if (resp.ok) {
       const data = await resp.json();
       serverAiProxyReady = Boolean(data?.configured);
+      if (!serverAiProxyReady) lastAiVisionDiagnostic = 'CLOUDFLARE_KEY_MISSING';
       if (serverAiProxyReady) proxyCheckComplete = true;
     }
   } catch {
@@ -196,7 +198,11 @@ export async function callServerAiProxy(params: {
       }),
     });
     clearTimeout(timer);
-    if (!resp.ok) return '';
+    if (!resp.ok) {
+      const errBody = await resp.text().catch(() => '');
+      lastAiVisionDiagnostic = `HTTP_${resp.status}:${errBody.slice(0, 120)}`;
+      return '';
+    }
     const data = await resp.json();
     return typeof data?.text === 'string' ? data.text.trim() : '';
   } catch {
@@ -2118,7 +2124,7 @@ export async function analyzePrescriptionImageWithVision(
       ? `أنت صيدلي مصري خبير في قراءة خط الأطباء اليدوي في الروشتات المصرية. استخدم تخصص الطبيب المكتوب في أعلى الروشتة وأول حروف اسم الدواء والتركيز (مثل 500mg, 1gm, 40mg) والشكل الصيدلاني (Tab, Cap, Syr, Amp, Vial) لمطابقة الاسم التجاري المصري الصحيح بدقة شديدة. لا تخترع أو تخمّن أي معلومة غير مكتوبة بوضوح؛ إذا كان أي حقل غير واضح أو غير مكتوب، اكتب UNREADABLE.
 اكتب النتيجة في الأسطر التالية بالضبط:
 RX_DRUG_ID: [المعرف المطابق من: ${VISION_DRUG_IDS} أو UNREADABLE]
-RX_DRUG_NAME: [اسم المضاد الحيوي كما هو مكتوب في الروشتة أو UNREADABLE]
+RX_DRUG_NAME: [اسم الدواء (مضاد حيوي أو مسكن أو ضغط أو سكر أو أي دواء) كما هو مكتوب أو UNREADABLE]
 RX_DOSE: [الجرعة والتركيز كما هي مكتوبة بالضبط مثل 500mg أو 1 قرص أو UNREADABLE]
 RX_ROUTE: [oral أو suspension أو injection أو topical أو UNREADABLE]
 RX_FREQ: [once_daily أو twice_daily أو thrice_daily أو four_times_daily أو UNREADABLE]
@@ -2128,7 +2134,7 @@ RX_CONTRADICTIONS: [اذكر أي تعارض أو غموض في التعليما
       : `Read the prescription details in this image with strict accuracy. NEVER invent or guess any missing or unclear instruction; if any field is not clearly written, output UNREADABLE.
 Output the exact lines below:
 RX_DRUG_ID: [matching slug from: ${VISION_DRUG_IDS} or UNREADABLE]
-RX_DRUG_NAME: [antibiotic name as written or UNREADABLE]
+RX_DRUG_NAME: [medication name (any drug class) as written or UNREADABLE]
 RX_DOSE: [exact dose/strength written on prescription or UNREADABLE]
 RX_ROUTE: [oral or suspension or injection or topical or UNREADABLE]
 RX_FREQ: [once_daily or twice_daily or thrice_daily or four_times_daily or UNREADABLE]
