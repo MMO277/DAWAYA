@@ -204,7 +204,10 @@ export async function callServerAiProxy(params: {
       return '';
     }
     const data = await resp.json();
-    return typeof data?.text === 'string' ? data.text.trim() : '';
+    const out = typeof data?.text === 'string' ? data.text.trim() : '';
+    if (!out) lastAiVisionDiagnostic = `EMPTY_MODEL_TEXT:${data?.model || ''}`;
+    else lastAiVisionDiagnostic = `OK:${data?.model || 'gemini'}`;
+    return out;
   } catch {
     clearTimeout(timer);
     return '';
@@ -1879,7 +1882,11 @@ export function parsePrescriptionTextDeterministically(
 
   const lines = text.split(/\r?\n/);
   for (const rawLine of lines) {
-    const line = rawLine.trim();
+    const line = rawLine
+      .trim()
+      .replace(/^[*•\-–]+\s*/, '')
+      .replace(/\*\*/g, '')
+      .trim();
     if (!line) continue;
 
     const idMatch = line.match(/^(?:RX_DRUG_ID|DRUG_ID):\s*(.+)$/i);

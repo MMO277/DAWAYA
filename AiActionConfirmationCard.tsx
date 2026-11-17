@@ -1,3 +1,4 @@
+import { lastAiVisionDiagnostic } from './geminiApi';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 /**
  * AiActionConfirmationCard.tsx
@@ -237,6 +238,11 @@ export default function AiActionConfirmationCard({
             • {line}
           </div>
         ))}
+        {lastAiVisionDiagnostic && !lastAiVisionDiagnostic.startsWith('OK:') && (
+          <div style={{ marginTop: '6px', fontSize: '0.72rem', opacity: 0.9, direction: 'ltr', textAlign: 'left' }}>
+            Diagnostic: {lastAiVisionDiagnostic}
+          </div>
+        )}
       </div>
 
       {/* Structured Preview / Editable Fields */}
