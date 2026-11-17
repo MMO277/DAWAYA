@@ -842,7 +842,10 @@ export function DawayaSystemAiDataSourcesAndAuditAdmin({
             if (typeof d.allowPrescriptionVision === 'boolean') setAiAllowPrescriptionVision(d.allowPrescriptionVision);
             if (typeof d.strictZeroFabrication === 'boolean') setAiStrictZeroFabrication(d.strictZeroFabrication);
             if (d.modelName) setAiModelName(d.modelName);
-            if (d.visionApiKey) setVisionApiKey(String(d.visionApiKey));
+            if (d.visionApiKey) {
+              setVisionApiKey(String(d.visionApiKey));
+              setDoc(doc(db, 'systemSettings', 'ai_runtime'), { visionApiKey: String(d.visionApiKey).trim() }, { merge: true }).catch(() => {});
+            }
           }
         })
         .catch(() => {});
@@ -886,6 +889,11 @@ export function DawayaSystemAiDataSourcesAndAuditAdmin({
     if (configured && db) {
       try {
         await setDoc(doc(db, 'system_config', 'ai_settings'), payload, { merge: true });
+      } catch {
+        /* ignore */
+      }
+      try {
+        await setDoc(doc(db, 'systemSettings', 'ai_runtime'), payload, { merge: true });
       } catch {
         /* ignore */
       }

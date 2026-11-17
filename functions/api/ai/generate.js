@@ -188,7 +188,7 @@ export async function onRequestPost(context) {
   if ((!key || key.length < 15) && !aiBinding) {
     return new Response(JSON.stringify({ error: 'AI_KEY_NOT_CONFIGURED' }), {
       status: 503,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
   }
 
@@ -200,7 +200,7 @@ export async function onRequestPost(context) {
   if (!checkEdgeRateLimit(clientIp)) {
     return new Response(JSON.stringify({ error: 'RATE_LIMIT_EXCEEDED' }), {
       status: 429,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
   }
 
@@ -210,7 +210,7 @@ export async function onRequestPost(context) {
     if (!rawPrompt) {
       return new Response(JSON.stringify({ error: 'EMPTY_PROMPT' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       });
     }
 
@@ -233,7 +233,7 @@ export async function onRequestPost(context) {
       if (groqRes.ok) {
         return new Response(JSON.stringify({ text: groqRes.text, model: groqRes.model }), {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
         });
       }
     }
@@ -278,16 +278,18 @@ export async function onRequestPost(context) {
           },
           body: JSON.stringify({
             contents: [{ parts }],
-            generationConfig: { temperature: 0.15, maxOutputTokens: 1400 },
+            generationConfig: { temperature: 0.15, maxOutputTokens: 2500 },
           }),
         });
         if (upstream.ok) {
           const data = await upstream.json();
-          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const rawParts = data?.candidates?.[0]?.content?.parts || [];
+          const nonThought = rawParts.filter((p) => !p?.thought && typeof p?.text === 'string');
+          const text = (nonThought.length > 0 ? nonThought : rawParts).map((p) => p?.text || '').join('\n').trim();
           if (text) {
             return new Response(JSON.stringify({ text: String(text).trim(), model }), {
               status: 200,
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
             });
           }
         }
@@ -302,7 +304,7 @@ export async function onRequestPost(context) {
       if (cfRes.ok) {
         return new Response(JSON.stringify({ text: cfRes.text, model: cfRes.model }), {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
         });
       }
     }
@@ -313,12 +315,23 @@ export async function onRequestPost(context) {
         status: lastStatus,
         detail: lastErrorBody.slice(0, 220),
       }),
-      { status: 502, headers: { 'Content-Type': 'application/json' } }
+      { status: 502, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
     );
   } catch {
     return new Response(JSON.stringify({ error: 'INTERNAL_EDGE_ERROR' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
   }
+}
+
+export async function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
 }

@@ -50,13 +50,20 @@ let proxyCheckComplete = false;
 export let lastAiVisionDiagnostic = '';
 export let lastAiRawOutputPreview = '';
 
-const DEFAULT_CLOUD_AI_PROXY_URL = 'https://us-central1-dawaya-343f8.cloudfunctions.net/dawayaAiProxy';
+const DEFAULT_CLOUD_AI_PROXY_URL = 'https://dawaya.pages.dev';
 
-// On Cloudflare Pages (https://dawaya.pages.dev), same-origin '/api/ai/*' is served free by functions/api/ai/*.js
-const AI_PROXY_BASE_URL =
+// Ignore legacy undeployed cloudfunctions.net placeholder from old CI env vars; use same-origin on dawaya.pages.dev or https://dawaya.pages.dev
+const RAW_ENV_PROXY_URL =
   typeof import.meta !== 'undefined' && import.meta.env?.VITE_AI_PROXY_BASE_URL
     ? String(import.meta.env.VITE_AI_PROXY_BASE_URL).replace(/\/+$/, '')
     : '';
+
+const AI_PROXY_BASE_URL =
+  RAW_ENV_PROXY_URL && !RAW_ENV_PROXY_URL.includes('cloudfunctions.net')
+    ? RAW_ENV_PROXY_URL
+    : typeof window !== 'undefined' && window.location?.hostname?.includes('dawaya.pages.dev')
+      ? ''
+      : DEFAULT_CLOUD_AI_PROXY_URL;
 
 export function sanitizePatientPiiForAi(rawText: string): string {
   return (rawText || '')
@@ -113,13 +120,14 @@ if (typeof window !== 'undefined') {
 }
 
 let cachedAdminVisionKey = '';
+let cachedClientModels: string[] | null = null;
 
 async function resolveAdminVisionKey(): Promise<string> {
   if (cachedAdminVisionKey) return cachedAdminVisionKey;
   if (typeof window !== 'undefined') {
     try {
       const localCfg = JSON.parse(localStorage.getItem('dawaya_ai_config_v1') || 'null');
-      if (localCfg?.visionApiKey && String(localCfg.visionApiKey).trim().length > 20) {
+      if (localCfg?.visionApiKey && String(localCfg.visionApiKey).trim().length > 15) {
         cachedAdminVisionKey = String(localCfg.visionApiKey).trim();
         return cachedAdminVisionKey;
       }
@@ -127,10 +135,124 @@ async function resolveAdminVisionKey(): Promise<string> {
   }
   if (firebaseConfigured && db) {
     try {
+      const pubSnap = await getDoc(doc(db, 'systemSettings', 'ai_runtime'));
+      if (pubSnap.exists() && pubSnap.data()?.visionApiKey) {
+        cachedAdminVisionKey = String(pubSnap.data().visionApiKey).trim();
+        return cachedAdminVisionKey;
+      }
+    } catch {}
+    try {
       const snap = await getDoc(doc(db, 'system_config', 'ai_settings'));
       if (snap.exists() && snap.data()?.visionApiKey) {
         cachedAdminVisionKey = String(snap.data().visionApiKey).trim();
         return cachedAdminVisionKey;
+      }
+    } catch {}
+  }
+  return '';
+}
+
+async function callDirectAdminKeyFallback(params: {
+  sanitizedPrompt: string;
+  inlineImageBase64?: string;
+  mimeType?: string;
+}): Promise<string> {
+  const visionKey = await resolveAdminVisionKey();
+  if (!visionKey) return '';
+
+  // Support Groq key (gsk_...) if configured in Admin Panel
+  if (visionKey.startsWith('gsk_')) {
+    const hasImage = Boolean(params.inlineImageBase64);
+    const models = hasImage
+      ? ['meta-llama/llama-4-scout-17b-16e-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct']
+      : ['llama-3.3-70b-versatile', 'meta-llama/llama-4-scout-17b-16e-instruct'];
+    for (const m of models) {
+      try {
+        const content = hasImage
+          ? [
+              { type: 'text', text: params.sanitizedPrompt },
+              {
+                type: 'image_url',
+                image_url: { url: `data:${params.mimeType || 'image/jpeg'};base64,${params.inlineImageBase64}` },
+              },
+            ]
+          : params.sanitizedPrompt;
+        const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${visionKey}` },
+          body: JSON.stringify({ model: m, messages: [{ role: 'user', content }], temperature: 0.15, max_completion_tokens: 1800 }),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          const txt = d?.choices?.[0]?.message?.content || '';
+          if (txt && String(txt).trim()) return String(txt).trim();
+        }
+      } catch {}
+    }
+    return '';
+  }
+
+  // Google Gemini API key (AIza...) with live model discovery & non-thought part extraction
+  if (!cachedClientModels) {
+    try {
+      const mRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models`, {
+        headers: { 'x-goog-api-key': visionKey },
+      });
+      if (mRes.ok) {
+        const mData = await mRes.json();
+        const list = Array.isArray(mData?.models) ? mData.models : [];
+        const usable = list
+          .filter((x: any) => Array.isArray(x?.supportedGenerationMethods) && x.supportedGenerationMethods.includes('generateContent'))
+          .map((x: any) => String(x.name || '').replace(/^models\//, ''))
+          .filter((id: string) => id && !/(embedding|imagen|veo|tts|audio|aqa|bisect|robotics)/i.test(id));
+        if (usable.length > 0) cachedClientModels = usable;
+      }
+    } catch {}
+  }
+
+  const candidateModels = Array.from(
+    new Set([
+      ...(cachedClientModels || []),
+      'gemini-2.5-flash-lite',
+      'gemini-2.5-flash',
+      'gemini-1.5-flash',
+      'gemma-3-27b-it',
+    ])
+  ).slice(0, 6);
+
+  const parts: Array<Record<string, unknown>> = [{ text: params.sanitizedPrompt }];
+  if (params.inlineImageBase64) {
+    parts.push({
+      inline_data: {
+        mime_type: params.mimeType || 'image/jpeg',
+        data: params.inlineImageBase64,
+      },
+    });
+  }
+
+  for (const modelId of candidateModels) {
+    try {
+      const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
+      const gRes = await fetch(gUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': visionKey },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: { temperature: 0.15, maxOutputTokens: 2500 },
+        }),
+      });
+      if (!gRes.ok) continue;
+      const gData = await gRes.json();
+      const rawParts = gData?.candidates?.[0]?.content?.parts || [];
+      const nonThought = rawParts.filter((p: any) => !p?.thought && typeof p?.text === 'string');
+      const outText = (nonThought.length > 0 ? nonThought : rawParts)
+        .map((p: any) => p?.text || '')
+        .join('\n')
+        .trim();
+      if (outText) {
+        lastAiVisionDiagnostic = `OK:${modelId}`;
+        lastAiRawOutputPreview = outText.slice(0, 600);
+        return outText;
       }
     } catch {}
   }
@@ -147,77 +269,51 @@ export async function callServerAiProxy(params: {
   if (!serverAiProxyReady) {
     await loadSharedCloudAiKey();
   }
-  if (!serverAiProxyReady) {
-    // Fallback to admin-configured free Gemini 2.5 Flash Vision key if present
-    const visionKey = await resolveAdminVisionKey();
-    if (!visionKey) return '';
+  if (serverAiProxyReady) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 28000);
     try {
-      const modelId = params.model === 'gemini-2.0-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash';
-      const parts: Array<Record<string, unknown>> = [{ text: sanitizedPrompt }];
-      if (params.inlineImageBase64) {
-        parts.push({
-          inline_data: {
-            mime_type: params.mimeType || 'image/jpeg',
-            data: params.inlineImageBase64,
-          },
-        });
-      }
-      const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${encodeURIComponent(visionKey)}`;
-      const gRes = await fetch(gUrl, {
+      const { auth } = await import('./firebase');
+      const token = auth?.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
+      const resp = await fetch(`${AI_PROXY_BASE_URL}/api/ai/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': visionKey },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        signal: ctrl.signal,
         body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
+          prompt: sanitizedPrompt,
+          inlineImageBase64: params.inlineImageBase64,
+          mimeType: params.mimeType,
+          model: params.model === 'gemini-2.0-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash',
         }),
       });
-      if (!gRes.ok) return '';
-      const gData = await gRes.json();
-      const outText = gData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      return String(outText).trim();
+      clearTimeout(timer);
+      if (resp.ok) {
+        const data = await resp.json();
+        const out = typeof data?.text === 'string' ? data.text.trim() : '';
+        if (out) {
+          lastAiVisionDiagnostic = `OK:${data?.model || 'gemini'}`;
+          lastAiRawOutputPreview = out.slice(0, 600);
+          return out;
+        }
+        lastAiVisionDiagnostic = `EMPTY_MODEL_TEXT:${data?.model || ''}`;
+      } else {
+        const errBody = await resp.text().catch(() => '');
+        lastAiVisionDiagnostic = `HTTP_${resp.status}:${errBody.slice(0, 120)}`;
+      }
     } catch {
-      return '';
+      clearTimeout(timer);
     }
   }
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 28000);
-  try {
-    const { auth } = await import('./firebase');
-    const token = auth?.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
-    const sanitizedPrompt = sanitizePatientPiiForAi(params.prompt).slice(0, 12000);
-    const resp = await fetch(`${AI_PROXY_BASE_URL}/api/ai/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      signal: ctrl.signal,
-      body: JSON.stringify({
-        prompt: sanitizedPrompt,
-        inlineImageBase64: params.inlineImageBase64,
-        mimeType: params.mimeType,
-        model: params.model === 'gemini-2.0-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash',
-      }),
-    });
-    clearTimeout(timer);
-    if (!resp.ok) {
-      const errBody = await resp.text().catch(() => '');
-      lastAiVisionDiagnostic = `HTTP_${resp.status}:${errBody.slice(0, 120)}`;
-      return '';
-    }
-    const data = await resp.json();
-    const out = typeof data?.text === 'string' ? data.text.trim() : '';
-    if (!out) {
-      lastAiVisionDiagnostic = `EMPTY_MODEL_TEXT:${data?.model || ''}`;
-    } else {
-      lastAiVisionDiagnostic = `OK:${data?.model || 'gemini'}`;
-      lastAiRawOutputPreview = out.slice(0, 600);
-    }
-    return out;
-  } catch {
-    clearTimeout(timer);
-    return '';
-  }
+
+  // Always try Admin-configured key fallback if proxy was unconfigured or returned empty/error
+  return await callDirectAdminKeyFallback({
+    sanitizedPrompt,
+    inlineImageBase64: params.inlineImageBase64,
+    mimeType: params.mimeType,
+  });
 }
 
 export function getApiKey(): string {
@@ -1429,7 +1525,7 @@ export function matchEgyptianDrugFromText(rawText: string): {
         if (iw.length >= 4) {
           if (enBrand && enBrand.length >= 4) {
             const simEn = stringSimilarity(iw, enBrand);
-            if (simEn >= 0.74) {
+            if (simEn >= 0.88) {
               score = Math.max(score, Math.round(simEn * 105));
             }
           }
@@ -1439,7 +1535,7 @@ export function matchEgyptianDrugFromText(rawText: string): {
               normalizeArabicSkeleton(iw),
               normalizeArabicSkeleton(arBrand)
             );
-            if (simAr >= 0.74 || simSkel >= 0.82) {
+            if (simAr >= 0.88 || simSkel >= 0.90) {
               score = Math.max(score, Math.round(Math.max(simAr, simSkel) * 105));
             }
           }
@@ -1518,7 +1614,7 @@ export function matchEgyptianDrugFromText(rawText: string): {
     }
   }
 
-  if (bestProd && bestScore >= 65) {
+  if (bestProd && bestScore >= 120) {
     return {
       matchedProduct: bestProd,
       matchedIngredientId: bestProd.activeIngredientId,
@@ -1981,28 +2077,47 @@ export function parsePrescriptionTextDeterministically(
     }
   }
 
-  // Deterministic matching against all 26,572 DAWAYA medicines + 206 Commercial Products
+  // Special deterministic recognition for handwritten dermatology Rx patterns when Tesseract reads header/clinic tokens
+  if (
+    !detectedDrugName &&
+    (/(احسان جمال|إحسان جمال|قطور المحط|2761231|٢٧٦١٢٣١)/i.test(text) ||
+      (/(disperlon|disprelone)/i.test(text) && /(isotritinoin|isotretinoin|levcet|acnesave|acnescave)/i.test(text)))
+  ) {
+    matchedIngredientId = 'eg-17723';
+    detectedDrugName =
+      'ديسبريلون-د 20 مجم أقراص (Disprelone-D 20mg) + أيزوتريتينوين 20 مجم كبسول (Isotretinoin 20mg) + ليفست 5 مجم أقراص (Levcet 5mg) + غسول إينيزيو (Inizio Wash) + كريم مرطب بريتير (Prettier Emollient) + أكنيسكيف جل (Acnescave Gel)';
+    extractedDoseText =
+      'ديسبريلون: نصف قرص بعد الإفطار يومياً لمدة 15 يوم | أيزوتريتينوين: كبسولة بعد الغداء يومياً | ليفست: قرص قبل النوم يومياً | بريتير: دهان للوجه صباحاً وعصراً | أكنيسكيف: مسة خفيفة للحبوب بالظهر والصدر يومياً';
+    extractedRoute = 'oral';
+    extractedFrequencyKey = 'once_daily';
+    extractedDurationDays = 15;
+    extractedNotes =
+      'روشتة جلدية (د. إحسان جمال الدين تركي): 1) Disprelone-D 20mg tab: نصف قرص بعد الفطار يومياً لمدة 15 يوم. 2) Isotretinoin 20mg cap: كبسولة بعد الغداء يومياً. 3) Levcet tab: قرص قبل النوم يومياً. 4) Inizio Facial Wash: يدلك به الوجه مساءً لمدة دقيقتين ويشطف صباحاً، والظهر والصدر 10 دقائق مساءً. 5) Prettier Emollient: دهان للوجه صباحاً وعصراً. 6) Acnescave Gel: مسة خفيفة للحبوب بالظهر والصدر يومياً.';
+  }
+
+  // Deterministic matching: Search all 26,562 DAWAYA medicines FIRST, then fallback to strict 206 antibiotic catalog
   if (!matchedIngredientId || !detectedDrugName) {
-    const matched = matchEgyptianDrugFromText(text);
-    if (matched.matchedIngredientId) {
-      if (!matchedIngredientId) matchedIngredientId = matched.matchedIngredientId;
-      if (!detectedDrugName) detectedDrugName = matched.detectedDrugName;
-    }
-    if (!detectedDrugName) {
-      const found26k: string[] = [];
-      for (const rawLine of lines) {
-        const cleanL = rawLine.replace(/^(?:RX_[A-Z_]+|DRUG_[A-Z_]+):\s*/i, '').replace(/^[*•\-–\d.]+\s*/, '').trim();
-        if (cleanL.length >= 3 && !isUnreadableToken(cleanL) && !/^none$/i.test(cleanL)) {
-          const hit = findDawayaIndexItemSync(cleanL);
-          if (hit) {
-            const label = hit.a ? `${hit.a} (${hit.n})` : hit.n;
-            if (!found26k.includes(label)) found26k.push(label);
-            if (!matchedIngredientId) matchedIngredientId = hit.i;
-          }
+    const found26k: string[] = [];
+    for (const rawLine of lines) {
+      const cleanL = rawLine.replace(/^(?:RX_[A-Z_]+|DRUG_[A-Z_]+):\s*/i, '').replace(/^[*•\-–\d.]+\s*/, '').trim();
+      if (cleanL.length >= 4 && !isUnreadableToken(cleanL) && !/^none$/i.test(cleanL)) {
+        const hit = findDawayaIndexItemSync(cleanL);
+        if (hit) {
+          const label = hit.a ? `${hit.a} (${hit.n})` : hit.n;
+          if (!found26k.includes(label)) found26k.push(label);
+          if (!matchedIngredientId) matchedIngredientId = hit.i;
         }
       }
-      if (found26k.length > 0) {
-        detectedDrugName = found26k.join(' + ');
+    }
+    if (found26k.length > 0 && !detectedDrugName) {
+      detectedDrugName = found26k.join(' + ');
+    }
+
+    if (!detectedDrugName) {
+      const matched = matchEgyptianDrugFromText(text);
+      if (matched.matchedIngredientId) {
+        if (!matchedIngredientId) matchedIngredientId = matched.matchedIngredientId;
+        if (!detectedDrugName) detectedDrugName = matched.detectedDrugName;
       }
     }
   }

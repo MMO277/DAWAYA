@@ -27,6 +27,7 @@ export async function onRequestGet(context) {
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-store',
+        'Access-Control-Allow-Origin': '*',
       },
     }
   );

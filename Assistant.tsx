@@ -1,4 +1,5 @@
 import { loadSharedCloudAiKey, hasApiKey } from './geminiApi';
+import { ensureDawayaDatabaseLoaded, findDawayaIndexItemSync, getDawayaClassifiedAlternatives } from './dawayaDrugDatabaseService';
 import VoiceDoctorCallModal from './VoiceDoctorCallModal';
 import { pick } from './types';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
@@ -118,7 +119,7 @@ function FormattedClinicalText({ text }: { text: string }) {
   return (
     <div style={{ display: 'grid', gap: '8px', lineHeight: 1.75, fontSize: '0.95rem', marginTop: '4px' }}>
       {blocks.map((block, bIdx) => {
-        const isWarnBlock = block.startsWith('⚠️') || block.startsWith('');
+        const isWarnBlock = block.startsWith('⚠️') || block.startsWith('🚨') || block.startsWith('⛔');
         const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
 
         if (isWarnBlock) {
@@ -433,7 +434,29 @@ export default function Assistant() {
         /(دوا|دواء|مضاد|جرعه|جرعة|مرض|حساسيه|حساسية|سجل|ضيف|منبه|روشته|روشتة|تحليل|مزرعه|مزرعة|ملفي|الم|وجع|كحه|كحة|سخونيه|سخونية|صداع|مغص|اسهال|إسهال|امساك|إمساك|حموضه|حموضة|ضغط|سكر|حمل|حامل|رضاعه|رضاعة|طفل|ابني|بنتي|كيلو|التهاب|عدوي|عدوى|بكتيريا|فيروس|برشام|حقنه|حقنة|شراب|مرهم|كريم|قطره|قطرة|فيتامين|انيميا|أنيميا)/i.test(
           text
         );
-      const patientContext = isMedicalQuestion
+      await ensureDawayaDatabaseLoaded().catch(() => {});
+      let dbDrugContext = '';
+      const words = text.split(/[\s،,.؟?+\-/]+/).filter((w) => w.length >= 3);
+      const matchedDbItems = [];
+      const fullHit = findDawayaIndexItemSync(text);
+      if (fullHit) matchedDbItems.push(fullHit);
+      for (const w of words) {
+        const h = findDawayaIndexItemSync(w);
+        if (h && !matchedDbItems.some((x) => x.i === h.i)) {
+          matchedDbItems.push(h);
+          if (matchedDbItems.length >= 4) break;
+        }
+      }
+      if (matchedDbItems.length > 0) {
+        const linesDb = matchedDbItems.map((it) => {
+          const alts = getDawayaClassifiedAlternatives(it, 3).exactEquivalents;
+          const altStr = alts.length > 0 ? ` | بدائل مطابقة أرخص: ${alts.map((a) => `${a.a || a.n} (${a.p || ''} ج.م)`).join('، ')}` : '';
+          return `- الدواء المسجل بقاعدة دوايا: ${it.a || it.n} (${it.n}) | المادة الفعالة: ${it.g || 'راجع العبوة'} | التركيز: ${it.s || ''} | الشكل: ${it.f || ''} | السعر الرسمي: ${it.p ? it.p + ' ج.م' : 'غير مسعر'} | الفئة: ${it.d || ''}${altStr}`;
+        });
+        dbDrugContext = `\n[بيانات الدواء الرسمية من قاعدة بيانات دوايا (26,562 دواء):\n${linesDb.join('\n')}]`;
+      }
+
+      const patientContext = isMedicalQuestion || matchedDbItems.length > 0
         ? buildPermittedPatientContextPrompt({
             profile,
             schedules,
@@ -443,7 +466,7 @@ export default function Assistant() {
             topicMemory: contextualResult.topicMemory,
           })
         : '';
-      const enrichedQuestion = patientContext ? `${text}\n\n${patientContext}` : text;
+      const enrichedQuestion = [text, dbDrugContext, patientContext].filter(Boolean).join('\n\n');
 
       const rawAiResponse = await askGemini(enrichedQuestion, history, text);
       const { cleanReplyText, detectedIntent } = extractAiToolCallFromResponse(rawAiResponse);
@@ -474,10 +497,16 @@ export default function Assistant() {
       console.warn('AI fallback to local reply:', err);
     }
 
-    // 4) Offline Fallback (uses contextualResult if available, or open-domain Egyptian fallback — NEVER antibiotic-only R.NONE!)
+    // 4) Offline Fallback (uses 26,562 database match or contextualResult if available)
+    const directDbHit = findDawayaIndexItemSync(text) || text.split(/[\s،,.؟?+\-/]+/).filter((w) => w.length >= 4).map((w) => findDawayaIndexItemSync(w)).find(Boolean) || null;
+    const dbFallbackText = directDbHit
+      ? (isAr
+          ? `💊 بيانات الدواء من موسوعة دوايا الرسمية:\n• الاسم التجاري: ${directDbHit.a || directDbHit.n} (${directDbHit.n})\n• المادة الفعالة: ${directDbHit.g || 'راجع النشرة الداخلية'}\n• التركيز والشكل: ${directDbHit.s || ''} (${directDbHit.f || ''})\n• الاستخدام والفئة: ${directDbHit.d || 'مستحضر دوائي معتمد'}\n• السعر الرسمي في مصر: ${directDbHit.p ? directDbHit.p + ' ج.م' : 'غير مسعّر'}`
+          : `💊 Official DAWAYA Drug Record:\n• Brand Name: ${directDbHit.n} (${directDbHit.a || ''})\n• Active Ingredient: ${directDbHit.g || 'See leaflet'}\n• Strength & Form: ${directDbHit.s || ''} (${directDbHit.f || ''})\n• Official Price: ${directDbHit.p ? directDbHit.p + ' EGP' : 'N/A'}`)
+      : '';
     const colloquialFallback = contextualResult.handledFast
       ? contextualResult.replyText
-      : buildOpenEgyptianOfflineFallback(text, lang);
+      : dbFallbackText || buildOpenEgyptianOfflineFallback(text, lang);
     const botMsg: EnhancedChatUiMessage = {
       id: `msg-${Date.now()}-fallback`,
       who: 'bot',
@@ -724,143 +753,82 @@ export default function Assistant() {
 
   return (
     <main className="wrap narrow stack">
-      <div className="asst-header">
-        <div
-          className="row"
-          style={{
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '10px',
-          }}
-        >
-          <div>
-            <h1>🤖 {isAr ? 'مساعدك الصحي الشخصي (بالمصري)' : t('asstTitle')}</h1>
-            <p className="muted" style={{ margin: 0 }}>
-              {isAr
-                ? 'كلمني بالمصري براحتك! اسألني عن أي مضاد حيوي، أو قولي أسجل حساسيتك، أدويتك، أمراضك المزمنة، أو أظبطلك منبه للجرعات.'
-                : 'Ask clinical questions or manage your Health Profile, prescriptions, and reminders via natural commands or uploads.'}
-            </p>
-          </div>
-          <div className="row" style={{ gap: '8px', flexWrap: 'wrap' }}>
-            <Link to="/health-profile" className="btn small ghost">
-              👤 {isAr ? 'ملفي الصحي' : 'Health Profile'}
-            </Link>
-            <button
-              type="button"
-              className="btn small"
-              onClick={() => setVoiceCallOpen(true)}
-              style={{ background: '#10b981', color: '#ffffff', fontWeight: 800, borderColor: '#059669' }}
-              title={isAr ? 'مكالمة صوتية مباشرة مع الدكتور' : 'Live Voice Doctor Call'}
-            >
-              📞 {isAr ? 'مكالمة صوتية مع الطبيب' : 'Call Doctor'}
-            </button>
-            <button
-              type="button"
-              className="btn small"
-              onClick={() => {
-                forcedUploadCategoryRef.current = 'prescription';
-                fileInputRef.current?.click();
-              }}
-              disabled={loading}
-            >
-              📎 {isAr ? 'ارفع روشتة (صورة / PDF)' : 'Upload Prescription'}
-            </button>
-            <button
-              type="button"
-              className="btn small ghost"
-              onClick={() => {
-                forcedUploadCategoryRef.current = 'leaflet';
-                fileInputRef.current?.click();
-              }}
-              disabled={loading}
-            >
-              📖 {isAr ? 'ارفع نشرة دواء' : 'Upload Leaflet'}
-            </button>
-            <button
-              type="button"
-              className={`btn small ${autoSpeak ? '' : 'ghost'}`}
-              onClick={() => {
-                if (autoSpeak) stopSpeech();
-                setAutoSpeak((v) => !v);
-              }}
-            >
-              🔊{' '}
-              {isAr
-                ? autoSpeak
-                  ? 'النطق الصوتي: شغال'
-                  : 'شغّل نطق الإجابات بالصوت'
-                : autoSpeak
-                  ? 'Auto-Voice: ON'
-                  : 'Enable Voice Readout'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Voice & Action Callout Banner */}
       <div
         className="card"
         style={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #0369a1 100%)',
-          color: '#fff',
-          padding: '16px 20px',
+          padding: '14px 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '12px',
+          gap: '10px',
+          border: '1px solid #cbd5e1',
         }}
       >
         <div>
-          <b style={{ fontSize: '1.05rem', display: 'block', marginBottom: '4px' }}>
-            🗣️{' '}
+          <h1 style={{ margin: 0, fontSize: '1.2rem' }}>
+            🤖 {isAr ? 'المساعد الدوائي الذكي وقارئ الروشتات' : t('asstTitle')}
+          </h1>
+          <p className="small muted" style={{ margin: '2px 0 0' }}>
             {isAr
-              ? 'اتكلم أو اكتب بالعامية المصرية وأنا هنفذ طلبك فوراً!'
-              : 'Live Voice Commands, Prescription OCR & Health Record Actions'}
-          </b>
-          <span className="small" style={{ color: '#e0f2fe' }}>
-            {isAr
-              ? 'جرب تقولي: "عندي حساسية من البنسلين"، "أنا مريض سكر وضغط"، "وزني 75 كيلو"، "باخد أوجمنتين 1 جرام كل 12 ساعة"، أو "ظبطلي منبه للفلاجيل الساعة 8 الصبح و 8 بالليل"!'
-              : 'Try saying: "Add my penicillin allergy", "Update my weight to 75 kg", "Remind me to take Augmentin at 8 AM", or upload a prescription image!'}
-          </span>
+              ? 'ارفع صورة روشتتك أو نشرة الدواء، أو اسألني عن أي دواء وجرعته وبدائله في مصر.'
+              : 'Upload a prescription or medication leaflet, or ask about any medication and schedule.'}
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="row" style={{ gap: '6px', flexWrap: 'wrap' }}>
           <button
             type="button"
-            className="btn"
+            className="btn small"
+            onClick={() => {
+              forcedUploadCategoryRef.current = 'prescription';
+              fileInputRef.current?.click();
+            }}
+            disabled={loading}
+          >
+            📎 {isAr ? 'ارفع روشتة' : 'Upload Rx'}
+          </button>
+          <button
+            type="button"
+            className="btn small ghost"
+            onClick={() => {
+              forcedUploadCategoryRef.current = 'leaflet';
+              fileInputRef.current?.click();
+            }}
+            disabled={loading}
+          >
+            📖 {isAr ? 'نشرة دواء' : 'Leaflet'}
+          </button>
+          <button
+            type="button"
+            className="btn small"
             onClick={() => setVoiceCallOpen(true)}
-            style={{
-              background: '#10b981',
-              color: '#fff',
-              fontWeight: 800,
-              padding: '10px 18px',
-              borderRadius: '999px',
-              boxShadow: '0 4px 12px rgba(16,185,129,0.4)',
-            }}
+            style={{ background: '#10b981', color: '#ffffff', fontWeight: 800, borderColor: '#059669' }}
           >
-            📞 {isAr ? 'مكالمة هاتفية مع الطبيب' : 'Call AI Doctor'}
+            📞 {isAr ? 'مكالمة الطبيب' : 'Voice Call'}
           </button>
           <button
             type="button"
-            className="btn"
-            onClick={toggleVoiceMic}
-            style={{
-              background: listening ? '#dc2626' : 'rgba(255,255,255,0.2)',
-              color: '#fff',
-              fontWeight: 700,
-              padding: '10px 18px',
-              borderRadius: '999px',
+            className={`btn small ${autoSpeak ? '' : 'ghost'}`}
+            onClick={() => {
+              if (autoSpeak) stopSpeech();
+              setAutoSpeak((v) => !v);
             }}
           >
-            {listening
-              ? isAr
-                ? '⏹️ وقف المايك...'
-                : '⏹️ Stop Listening...'
-              : isAr
-                ? '🎤 دوس واتكلم بالمايك'
-                : '🎤 Tap & Speak Now'}
+            🔊 {isAr ? (autoSpeak ? 'الصوت: شغال' : 'نطق الرد') : 'Voice'}
           </button>
+          {msgs.length > 0 && (
+            <button
+              type="button"
+              className="btn small ghost"
+              onClick={() => {
+                stopSpeech();
+                setMsgs([]);
+              }}
+              style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+            >
+              🗑️ {isAr ? 'مسح المحادثة' : 'Clear Chat'}
+            </button>
+          )}
         </div>
       </div>
 

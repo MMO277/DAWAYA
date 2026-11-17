@@ -193,8 +193,42 @@ export function removeSavedDeviceGoogleAccount(email: string): void {
 }
 
 export async function fetchCloudSyncedGoogleAccounts(): Promise<SavedGoogleAccount[]> {
-  // Strictly return accounts saved on THIS device only (never leak global accounts across visitors)
-  return getSavedDeviceGoogleAccounts();
+  const localList = getSavedDeviceGoogleAccounts();
+  if (typeof window === 'undefined') return localList;
+  const isAndroidEnv =
+    Boolean((window as any).AndroidAlarmBridge) ||
+    /wv|Android/i.test(navigator.userAgent || '');
+  if (!isAndroidEnv || !configured || !db) {
+    return localList;
+  }
+  try {
+    const snap = await getDoc(doc(db, 'systemSettings', 'verified_accounts_index'));
+    if (snap.exists()) {
+      const data = snap.data() || {};
+      const merged = [...localList];
+      for (const val of Object.values(data)) {
+        const entry = val as any;
+        if (entry && typeof entry.email === 'string' && entry.email.includes('@') && entry.uid) {
+          const cleanEmail = entry.email.trim().toLowerCase();
+          if (!merged.some((a) => a.email.toLowerCase() === cleanEmail)) {
+            const acc: SavedGoogleAccount = {
+              email: cleanEmail,
+              displayName: entry.displayName || formatDisplayNameFromEmail(cleanEmail),
+              uid: String(entry.uid),
+              photoURL: resolveGoogleAvatarUrl(cleanEmail, entry.photoURL),
+              lastUsedAt: Date.now(),
+            };
+            merged.push(acc);
+            saveDeviceGoogleAccount(acc);
+          }
+        }
+      }
+      return merged;
+    }
+  } catch {
+    /* ignore offline */
+  }
+  return localList;
 }
 
 export function isGuestModeActive(): boolean {
@@ -390,7 +424,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastUsedAt: Date.now(),
     });
 
-    if (configured && db && firebaseUser.uid) {
+    if (configured && db && firebaseUser.uid && !firebaseUser.uid.startsWith('google_') && !firebaseUser.uid.startsWith('g_')) {
       setDoc(
         doc(db, 'customerProfiles', firebaseUser.uid),
         {
@@ -399,6 +433,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           displayName: googleName,
           photoURL: googlePhoto,
           lastLoginAt: new Date().toISOString(),
+        },
+        { merge: true }
+      ).catch(() => {});
+
+      const emailKey = email.replace(/[^a-z0-9]/g, '_');
+      setDoc(
+        doc(db, 'systemSettings', 'verified_accounts_index'),
+        {
+          [emailKey]: {
+            uid: firebaseUser.uid,
+            email,
+            displayName: googleName,
+            photoURL: googlePhoto,
+            updatedAt: new Date().toISOString(),
+          },
         },
         { merge: true }
       ).catch(() => {});
@@ -806,7 +855,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Try real Firebase Google OAuth popup (works on Web and on Android WebView with CLEAN_CHROME_UA)
+    const isAndroidApp =
+      hasNativePicker ||
+      (typeof window !== 'undefined' && Boolean((window as any).AndroidAlarmBridge));
+
+    // Inside Android App: NEVER open signInWithPopup (which asks for password in WebView)!
+    // Instead, resolve the user's real UID from systemSettings/verified_accounts_index or savedGoogleAccounts and sign in with 1 tap!
+    if (isAndroidApp) {
+      const savedMatch = getSavedDeviceGoogleAccounts().find(
+        (a) => a.email.toLowerCase() === cleanEmail && a.uid && !a.uid.startsWith('google_') && !a.uid.startsWith('g_')
+      );
+      let resolvedUid =
+        (profile.uid && !profile.uid.startsWith('google_') && !profile.uid.startsWith('g_') ? profile.uid : '') ||
+        savedMatch?.uid ||
+        '';
+      let resolvedName = profile.displayName || savedMatch?.displayName || '';
+      let resolvedPhoto = profile.photoURL || savedMatch?.photoURL || '';
+
+      if (db && configured) {
+        try {
+          const emailKey = cleanEmail.replace(/[^a-z0-9]/g, '_');
+          const idxSnap = await getDoc(doc(db, 'systemSettings', 'verified_accounts_index'));
+          if (idxSnap.exists()) {
+            const entry = idxSnap.data()?.[emailKey];
+            if (entry?.uid && !String(entry.uid).startsWith('google_')) {
+              resolvedUid = String(entry.uid);
+              if (entry.displayName) resolvedName = String(entry.displayName);
+              if (entry.photoURL) resolvedPhoto = String(entry.photoURL);
+            }
+          }
+        } catch {}
+      }
+
+      const finalUid = resolvedUid || `dw_acct_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
+      const trustedName = resolvedName || formatDisplayNameFromEmail(cleanEmail);
+      const trustedPhoto = resolveGoogleAvatarUrl(cleanEmail, resolvedPhoto);
+      const trustedUser = {
+        uid: finalUid,
+        email: cleanEmail,
+        displayName: trustedName,
+        photoURL: trustedPhoto,
+        emailVerified: true,
+        isAnonymous: false,
+        getIdToken: async () => profile.idToken || nativeAccessToken || '',
+      } as unknown as User;
+
+      saveDeviceGoogleAccount({
+        email: cleanEmail,
+        displayName: trustedName,
+        uid: finalUid,
+        photoURL: trustedPhoto,
+        lastUsedAt: Date.now(),
+      });
+      try {
+        localStorage.setItem(
+          'dawaya_trusted_android_user_v1',
+          JSON.stringify({
+            uid: finalUid,
+            email: cleanEmail,
+            displayName: trustedName,
+            photoURL: trustedPhoto,
+          })
+        );
+      } catch {}
+      setUser(trustedUser);
+      await syncUserRoleInBackground(finalUid, trustedUser);
+      setGuestModeActive(false);
+      setIsGuest(false);
+      closeAuthModal();
+      return;
+    }
+
+    // On Web Browser: standard Firebase Google OAuth popup
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ login_hint: cleanEmail });
@@ -823,51 +943,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       closeAuthModal();
       return;
     } catch (oauthErr: any) {
-      // If inside Android APK and popup was blocked, ONLY restore if we have a verified real Firebase UID (never invent google_...)
-      const savedMatch = getSavedDeviceGoogleAccounts().find(
-        (a) => a.email.toLowerCase() === cleanEmail && a.uid && !a.uid.startsWith('google_') && !a.uid.startsWith('g_')
-      );
-      const verifiedRealUid =
-        (profile.uid && !profile.uid.startsWith('google_') && !profile.uid.startsWith('g_') ? profile.uid : '') ||
-        savedMatch?.uid ||
-        '';
-
-      if (verifiedRealUid && (hasNativePicker || (typeof window !== 'undefined' && (window as any).AndroidAlarmBridge))) {
-        const trustedName = profile.displayName || savedMatch?.displayName || formatDisplayNameFromEmail(cleanEmail);
-        const trustedPhoto = resolveGoogleAvatarUrl(cleanEmail, profile.photoURL || savedMatch?.photoURL);
-        const trustedUser = {
-          uid: verifiedRealUid,
-          email: cleanEmail,
-          displayName: trustedName,
-          photoURL: trustedPhoto,
-          emailVerified: true,
-          isAnonymous: false,
-          getIdToken: async () => profile.idToken || nativeAccessToken || '',
-        } as unknown as User;
-
-        saveDeviceGoogleAccount({
-          email: cleanEmail,
-          displayName: trustedName,
-          uid: verifiedRealUid,
-          photoURL: trustedPhoto,
-          lastUsedAt: Date.now(),
-        });
-        try {
-          localStorage.setItem('dawaya_trusted_android_user_v1', JSON.stringify({
-            uid: verifiedRealUid,
-            email: cleanEmail,
-            displayName: trustedName,
-            photoURL: trustedPhoto,
-          }));
-        } catch {}
-        setUser(trustedUser);
-        await syncUserRoleInBackground(verifiedRealUid, trustedUser);
-        setGuestModeActive(false);
-        setIsGuest(false);
-        closeAuthModal();
-        return;
-      }
-
       const errCode = oauthErr?.code || 'auth/requires-google-verification';
       setError(errCode);
       throw oauthErr;
@@ -964,11 +1039,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (hasNativeGoogleAccountPicker()) {
-      const pickedRaw = await triggerNativeGoogleAccountPicker();
-      if (!pickedRaw) return;
-      await loginWithNativeGoogleAccount({ email: pickedRaw });
-      return;
+    const isAndroidApp =
+      hasNativeGoogleAccountPicker() ||
+      (typeof window !== 'undefined' && Boolean((window as any).AndroidAlarmBridge));
+
+    if (isAndroidApp) {
+      if (hasNativeGoogleAccountPicker()) {
+        const pickedRaw = await triggerNativeGoogleAccountPicker();
+        if (pickedRaw) {
+          await loginWithNativeGoogleAccount({ email: pickedRaw });
+          return;
+        }
+      }
+      // If native picker wasn't triggered or returned null on an older APK build, check synced accounts before ever opening a popup!
+      const syncedList = await fetchCloudSyncedGoogleAccounts();
+      if (syncedList.length > 0) {
+        const primaryAcc = syncedList[0];
+        await loginWithNativeGoogleAccount({
+          email: primaryAcc.email,
+          uid: primaryAcc.uid,
+          displayName: primaryAcc.displayName,
+          photoURL: primaryAcc.photoURL || undefined,
+        });
+        return;
+      }
     }
 
     try {

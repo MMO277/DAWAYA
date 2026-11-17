@@ -552,8 +552,15 @@ export function resolveMedicationIdentity(
   ).trim();
   const sourceType = structured.sourceType || 'prescription';
 
+  // If rawInput is a multi-drug list joined by '+' or formatted as "Arabic Name (English Name)", extract primary name candidates cleanly
+  const primarySegment = rawInput.includes(' + ') ? rawInput.split(' + ')[0].trim() : rawInput;
+  const parenMatch = primarySegment.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  const candidateArOrMain = parenMatch ? parenMatch[1].trim() : primarySegment;
+  const candidateEnInParen = parenMatch ? parenMatch[2].trim() : '';
+
   const { cleanedName, strength: inlineStrength, dosageForm: inlineForm, route: inlineRoute } =
-    parseInlineStrengthAndRoute(rawInput);
+    parseInlineStrengthAndRoute(candidateArOrMain);
+  const { cleanedName: cleanedEnParen } = parseInlineStrengthAndRoute(candidateEnInParen);
 
   const effectiveStrength = (structured.strength || structured.prescribedDose || inlineStrength || '').trim();
   const effectiveForm = (structured.dosageForm || inlineForm || '').trim();
@@ -574,10 +581,16 @@ export function resolveMedicationIdentity(
     const tArBase = normalizeMedToken(
       p.tradeNameAr.replace(/\b\d+(?:\.\d+)?(?:\s*\/\s*\d+)?\s*(?:مجم|جم|ملجم|مل|%)\b.*/i, '')
     );
+    const normArMain = normalizeMedToken(candidateArOrMain);
+    const normEnParen = normalizeMedToken(candidateEnInParen);
+    const normCleanedEn = normalizeMedToken(cleanedEnParen);
     return (
       tEn === normRaw ||
       tAr === normRaw ||
-      (normCleaned.length >= 3 && (tEnBase === normCleaned || tArBase === normCleaned))
+      tAr === normArMain ||
+      (normEnParen.length >= 3 && tEn === normEnParen) ||
+      (normCleaned.length >= 3 && (tEnBase === normCleaned || tArBase === normCleaned)) ||
+      (normCleanedEn.length >= 3 && tEnBase === normCleanedEn)
     );
   });
 
@@ -796,6 +809,10 @@ export function resolveMedicationIdentity(
     (structured.id && findDawayaIndexItemSync(structured.id)) ||
     (structured.barcode && findDawayaIndexItemSync(structured.barcode)) ||
     findDawayaIndexItemSync(rawInput) ||
+    findDawayaIndexItemSync(primarySegment) ||
+    (candidateEnInParen.length >= 3 ? findDawayaIndexItemSync(candidateEnInParen) : null) ||
+    (candidateArOrMain.length >= 3 ? findDawayaIndexItemSync(candidateArOrMain) : null) ||
+    (cleanedEnParen.length >= 3 ? findDawayaIndexItemSync(cleanedEnParen) : null) ||
     (cleanedName.length >= 3 ? findDawayaIndexItemSync(cleanedName) : null);
 
   if (dawayaMatch && dawayaMatch.g) {
@@ -878,6 +895,28 @@ export function resolveMedicationIdentity(
       strength: effectiveStrength,
       dosageForm: effectiveForm,
       route: effectiveRoute,
+    };
+  }
+
+  // 5b. Cosmetic / Dermatological Wash, Cleanser, Soap, or Emollient (non-systemic topical care)
+  if (/(?:\bwash\b|\bcleanser\b|\bsoap\b|\bshampoo\b|\bemollient\b|غسول|صابون|صابونة|شامبو|مرطب|لوشن)/i.test(rawInput)) {
+    return {
+      inputKey: `topical-care:${normRaw}`,
+      rawInput,
+      sourceType,
+      matchedStatus: 'verified',
+      resolutionStatus: 'resolved_exact_product',
+      uncertaintyReasons: [],
+      activeIngredientId: 'topical-derma-care',
+      displayName: { ar: candidateArOrMain || rawInput, en: candidateEnInParen || rawInput },
+      genericName: { ar: 'عناية جلدية موضعية / غسول أو مرطب طبي', en: 'Dermatological Topical Cleanser / Emollient' },
+      components: ['topical_emollient_cleanser'],
+      componentsDisplay: [{ ar: 'مستحضر عناية جلدية موضعي', en: 'Topical Dermatological Care' }],
+      componentsDisplayText: ['مستحضر عناية جلدية موضعي'],
+      isCombination: false,
+      strength: effectiveStrength,
+      dosageForm: effectiveForm || 'topical',
+      route: 'topical',
     };
   }
 

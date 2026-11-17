@@ -17,6 +17,7 @@ import {
   isDirectVerifiedMatch,
 } from './assistantLogic';
 import { askGemini, ChatMessage, cleanAssistantMarkdown, isCustomApiKey } from './geminiApi';
+import { ensureDawayaDatabaseLoaded, findDawayaIndexItemSync, getDawayaClassifiedAlternatives } from './dawayaDrugDatabaseService';
 import {
   isVoiceRecognitionSupported,
   speakText,
@@ -347,7 +348,29 @@ export default function ChatWidget() {
         /(دوا|دواء|مضاد|جرعه|جرعة|مرض|حساسيه|حساسية|سجل|ضيف|منبه|روشته|روشتة|تحليل|مزرعه|مزرعة|ملفي|الم|وجع|كحه|كحة|سخونيه|سخونية|صداع|مغص|اسهال|إسهال|امساك|إمساك|حموضه|حموضة|ضغط|سكر|حمل|حامل|رضاعه|رضاعة|طفل|ابني|بنتي|كيلو|التهاب|عدوي|عدوى|بكتيريا|فيروس|برشام|حقنه|حقنة|شراب|مرهم|كريم|قطره|قطرة|فيتامين|انيميا|أنيميا)/i.test(
           text
         );
-      const patientContext = isMedicalQuestion
+      await ensureDawayaDatabaseLoaded().catch(() => {});
+      let dbDrugContext = '';
+      const words = text.split(/[\s،,.؟?+\-/]+/).filter((w) => w.length >= 3);
+      const matchedDbItems = [];
+      const fullHit = findDawayaIndexItemSync(text);
+      if (fullHit) matchedDbItems.push(fullHit);
+      for (const w of words) {
+        const h = findDawayaIndexItemSync(w);
+        if (h && !matchedDbItems.some((x) => x.i === h.i)) {
+          matchedDbItems.push(h);
+          if (matchedDbItems.length >= 4) break;
+        }
+      }
+      if (matchedDbItems.length > 0) {
+        const linesDb = matchedDbItems.map((it) => {
+          const alts = getDawayaClassifiedAlternatives(it, 3).exactEquivalents;
+          const altStr = alts.length > 0 ? ` | بدائل مطابقة أرخص: ${alts.map((a) => `${a.a || a.n} (${a.p || ''} ج.م)`).join('، ')}` : '';
+          return `- الدواء المسجل بقاعدة دوايا: ${it.a || it.n} (${it.n}) | المادة الفعالة: ${it.g || 'راجع العبوة'} | التركيز: ${it.s || ''} | الشكل: ${it.f || ''} | السعر الرسمي: ${it.p ? it.p + ' ج.م' : 'غير مسعر'} | الفئة: ${it.d || ''}${altStr}`;
+        });
+        dbDrugContext = `\n[بيانات الدواء الرسمية من قاعدة بيانات دوايا (26,562 دواء):\n${linesDb.join('\n')}]`;
+      }
+
+      const patientContext = isMedicalQuestion || matchedDbItems.length > 0
         ? buildPermittedPatientContextPrompt({
             profile,
             schedules,
@@ -357,7 +380,7 @@ export default function ChatWidget() {
             topicMemory: contextualResult.topicMemory,
           })
         : '';
-      const enrichedQuestion = patientContext ? `${text}\n\n${patientContext}` : text;
+      const enrichedQuestion = [text, dbDrugContext, patientContext].filter(Boolean).join('\n\n');
 
       const rawAiResponse = await askGemini(enrichedQuestion, history, text);
       const { cleanReplyText, detectedIntent } = extractAiToolCallFromResponse(rawAiResponse);
@@ -892,40 +915,44 @@ export default function ChatWidget() {
 
       {isOpen && (
         <div className="chat-popup" role="dialog" aria-modal="true">
-          <div className="popup-head">
-            <div className="popup-title">
-              <span className="head-avatar">🤖</span>
-              <div>
-                <b>{isAr ? 'مساعدك الصحي الشخصي (بالمصري)' : 'AI Personal Health Assistant'}</b>
+          <div className="popup-head" style={{ padding: '10px 12px', gap: '8px', flexShrink: 0 }}>
+            <div className="popup-title" style={{ minWidth: 0, flex: 1, gap: '8px' }}>
+              <span className="head-avatar" style={{ width: '32px', height: '32px', fontSize: '1.2rem', flexShrink: 0 }}>🤖</span>
+              <div style={{ minWidth: 0 }}>
+                <b style={{ fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {isAr ? 'مساعد دوايا الذكي' : 'DAWAYA AI Assistant'}
+                </b>
                 <div className="online-status">
                   <span className="status-dot"></span>
-                  <small>
-                    {isAr
-                      ? 'بينفذ طلباتك، بيقرأ الروشتات 📎، وبيسمعك بالمايك 🎤'
-                      : 'Supports Actions, Uploads 📎 & Voice 🎤'}
+                  <small style={{ fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {isAr ? 'قارئ الروشتات والاستشارات 📎' : 'Rx Reader & Medical AI'}
                   </small>
                 </div>
               </div>
             </div>
-            <div className="popup-actions">
+            <div className="popup-actions" style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
               <button
                 type="button"
-                className="chip"
-                onClick={() => setVoiceCallOpen(true)}
-                style={{ background: '#10b981', color: '#ffffff', fontWeight: 900, borderColor: '#059669' }}
-                title={isAr ? 'ابدأ مكالمة صوتية مباشرة' : 'Start Live Voice Call'}
-              >
-                📞 {isAr ? 'مكالمة صوتية' : 'Call'}
-              </button>
-
-              <Link
-                to="/health-profile"
                 className="expand-btn"
-                title={isAr ? 'ملفي الصحي' : 'My Health Profile'}
-                onClick={() => setIsOpen(false)}
+                onClick={() => setVoiceCallOpen(true)}
+                style={{ background: '#10b981', color: '#ffffff', borderColor: '#059669' }}
+                title={isAr ? 'مكالمة صوتية مع الطبيب' : 'Voice Call'}
               >
-                👤
-              </Link>
+                📞
+              </button>
+              {msgs.length > 0 && (
+                <button
+                  type="button"
+                  className="expand-btn"
+                  onClick={() => {
+                    stopSpeech();
+                    setMsgs([]);
+                  }}
+                  title={isAr ? 'مسح المحادثة' : 'Clear Chat'}
+                >
+                  🗑️
+                </button>
+              )}
               <Link
                 to="/assistant"
                 className="expand-btn"
@@ -1191,9 +1218,19 @@ export default function ChatWidget() {
             <div ref={endRef} />
           </div>
 
-          {/* Smart Action Chips + Classic Awareness Chips */}
-          <div className="popup-chips">
-            {smartActionChips.slice(0, 5).map((sc) => (
+          {/* Single-row horizontal scrollable quick actions so chat messages have full height */}
+          <div
+            className="popup-chips"
+            style={{
+              display: 'flex',
+              flexWrap: 'nowrap',
+              overflowX: 'auto',
+              padding: '6px 10px',
+              gap: '6px',
+              flexShrink: 0,
+            }}
+          >
+            {smartActionChips.slice(0, 3).map((sc) => (
               <button
                 key={sc.label}
                 type="button"
@@ -1204,21 +1241,14 @@ export default function ChatWidget() {
                   background: sc.isUploadTrigger ? '#e0f2fe' : '#f0fdf4',
                   borderColor: sc.isUploadTrigger ? '#0284c7' : '#16a34a',
                   color: sc.isUploadTrigger ? '#0369a1' : '#15803d',
-                  fontWeight: 600,
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  fontSize: '0.76rem',
+                  padding: '4px 10px',
                 }}
               >
                 {sc.label}
-              </button>
-            ))}
-            {(WIDGET_CHIPS[lang] || WIDGET_CHIPS.en).slice(0, 3).map((c) => (
-              <button
-                key={c}
-                type="button"
-                className="chip"
-                onClick={() => ask(c)}
-                disabled={loading}
-              >
-                {c}
               </button>
             ))}
           </div>

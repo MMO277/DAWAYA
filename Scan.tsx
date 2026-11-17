@@ -537,6 +537,10 @@ export default function Scan() {
     rawText: string,
     method: UnifiedScanResult['method'] = 'ai_vision'
   ): UnifiedScanResult {
+    const direct26k = findDawayaIndexItemSync(rawText);
+    if (direct26k) {
+      return buildResultFromProduct(dawayaIndexItemToCommercialProduct(direct26k), method);
+    }
     const clean = normalizeText(rawText);
     const cleanWords = clean.split(' ');
     const inWords = cleanWords.filter(
@@ -611,7 +615,7 @@ export default function Scan() {
           if (iw.length >= 4) {
             if (enBrand && enBrand.length >= 4) {
               const simEn = stringSimilarity(iw, enBrand);
-              if (simEn >= 0.74) {
+              if (simEn >= 0.88) {
                 score = Math.max(score, Math.round(simEn * 105));
               }
             }
@@ -621,7 +625,7 @@ export default function Scan() {
                 normalizeArabicSkeleton(iw),
                 normalizeArabicSkeleton(arBrand)
               );
-              if (simAr >= 0.74 || simSkel >= 0.82) {
+              if (simAr >= 0.88 || simSkel >= 0.90) {
                 score = Math.max(score, Math.round(Math.max(simAr, simSkel) * 105));
               }
             }
@@ -700,7 +704,7 @@ export default function Scan() {
       }
     }
 
-    if (bestProd && bestScore >= 65) {
+    if (bestProd && bestScore >= 120) {
       return buildResultFromProduct(bestProd, method);
     }
 

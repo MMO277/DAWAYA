@@ -318,13 +318,13 @@ service cloud.firestore {
     }
 
     match /system_config/{docId} {
-      allow read: if docId != 'ai_secrets' && (docId != 'ai_settings' || isAdmin());
+      allow read: if docId != 'ai_secrets';
       allow write: if isAdmin();
     }
 
     match /systemSettings/{docId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() || (isSignedIn() && docId == 'verified_accounts_index');
     }
 
     match /roles/{uid} {

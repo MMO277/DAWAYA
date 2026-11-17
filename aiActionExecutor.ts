@@ -168,8 +168,16 @@ export function evaluateActionSafetyPreview<K extends AiActionType>(
 
   const checkDrugWithSafetyEngine = (drugName: string, doseText?: string) => {
     if (!drugName.trim()) return;
+    const individualNames = drugName
+      .split(/\s*\+\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean);
     const safetyReport = evaluateMedicationSafety({
-      medications: [{ name: drugName, prescribedDose: doseText || '', sourceType: 'prescription' }],
+      medications: individualNames.map((n) => ({
+        name: n,
+        prescribedDose: doseText || '',
+        sourceType: 'prescription',
+      })),
       healthProfile: profile,
       includeProfileActiveMedications: true,
     });
