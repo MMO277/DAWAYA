@@ -1578,7 +1578,7 @@ export async function prepareImageForOcrAndVision(
       img.onerror = rej;
     });
 
-    const maxDim = 800;
+    const maxDim = 1400;
     let w = img.width || 600;
     let h = img.height || 600;
     if (w > maxDim || h > maxDim) {
@@ -1605,7 +1605,7 @@ export async function prepareImageForOcrAndVision(
     }
 
     ctx.drawImage(img, 0, 0, w, h);
-    const normalizedDataUri = canvas.toDataURL('image/jpeg', 0.82);
+    const normalizedDataUri = canvas.toDataURL('image/jpeg', 0.88);
     const normalizedBase64 = normalizedDataUri.split(',')[1] || rawBase64;
 
     let nativeBarcode: string | null = null;
@@ -1919,7 +1919,8 @@ export function parsePrescriptionTextDeterministically(
     const nameMatch = line.match(/^(?:RX_DRUG_NAME|DRUG_NAME):\s*(.+)$/i);
     if (nameMatch) {
       const val = nameMatch[1].replace(/^\[|\]$/g, '').trim();
-      if (!isUnreadableToken(val)) detectedDrugName = val;
+      const hasOcrNoiseSymbols = /[<>|]/.test(val);
+      if (!isUnreadableToken(val) && !hasOcrNoiseSymbols) detectedDrugName = val;
       continue;
     }
 
@@ -2005,18 +2006,10 @@ export function parsePrescriptionTextDeterministically(
       }
     }
   }
-  // If Gemini returned readable medicine lines without the RX_DRUG_NAME prefix, capture them directly
-  if (!detectedDrugName && text.length > 3) {
-    const cleanLines = lines
-      .map((l) => l.replace(/^(?:RX_[A-Z_]+|DRUG_[A-Z_]+):\s*/i, '').replace(/^[*•\-–\d.]+\s*/, '').trim())
-      .filter((l) => l.length >= 3 && !isUnreadableToken(l) && !/^none$/i.test(l));
-    if (cleanLines.length > 0) {
-      detectedDrugName = cleanLines.slice(0, 4).join(' + ');
-      if (!extractedNotes && cleanLines.length > 1) {
-        extractedNotes = cleanLines.join(' | ');
-      }
-    }
-  }
+  // Section 2 & 8 Safety Fix: NEVER dump raw Tesseract OCR noise into detectedDrugName if it does not match
+  // a real medication in the DAWAYA 26,562 database or explicit RX_DRUG_NAME output from Gemini Vision!
+  // If OCR returned unverified text that didn't match any drug, leave detectedDrugName = '' so unreadableFields
+  // properly flags 'medicineName' and prompts the user or AI Vision without displaying garbled OCR symbols.
 
   // Extract explicit dose strength/quantity ONLY if written in the text (never invented from DB!)
   if (!extractedDoseText) {

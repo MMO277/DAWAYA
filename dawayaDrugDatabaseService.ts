@@ -1105,10 +1105,22 @@ const ARABIC_TO_ENGLISH_INGREDIENT_MAP: Record<string, string> = {
   الوبيورينول: 'allopurinol',
 };
 
+const HANDWRITING_RX_SPELLING_MAP: Record<string, string> = {
+  disperlon: 'disprelone',
+  'disperlon d': 'disprelone-d',
+  'disprelone d': 'disprelone-d',
+  isotritinoin: 'isotretinoin',
+  acnesave: 'acnescave',
+  'acne save': 'acnescave',
+  levcet: 'levcet',
+  prettier: 'prettier emollient',
+};
+
 export function findDawayaIndexItemSync(queryOrId: string): DawayaCompactIndexItem | null {
   if (!globalIndexLoaded || !queryOrId) return null;
-  const clean = decodeURIComponent(queryOrId).toLowerCase().trim();
-  if (!clean) return null;
+  let clean = decodeURIComponent(queryOrId).toLowerCase().trim();
+  if (!clean || clean.length < 3) return null;
+  if (/[<>|]/.test(clean)) return null;
 
   const byId = indexByIdMap.get(clean);
   if (byId) return byId;
@@ -1116,7 +1128,23 @@ export function findDawayaIndexItemSync(queryOrId: string): DawayaCompactIndexIt
   const byBc = indexByBarcodeMap.get(clean);
   if (byBc) return byBc;
 
+  // Normalize common handwritten prescription spellings and strip leading bullets/R/
+  clean = clean
+    .replace(/^(?:r\/|rx:?|[-*•–]+)\s*/i, '')
+    .replace(/disperlon\s*d/g, 'disprelone-d')
+    .replace(/disprelone\s*d/g, 'disprelone-d')
+    .replace(/disperlon/g, 'disprelone')
+    .replace(/isotritinoin/g, 'isotretinoin')
+    .replace(/acnesave/g, 'acnescave')
+    .trim();
+
+  if (HANDWRITING_RX_SPELLING_MAP[clean]) {
+    clean = HANDWRITING_RX_SPELLING_MAP[clean];
+  }
+
   const normClean = norm(clean);
+  if (!normClean || normClean.length < 3) return null;
+
   const byExactName = globalIndexItems.find(
     (x) =>
       x.n.toLowerCase() === clean ||
@@ -1124,7 +1152,34 @@ export function findDawayaIndexItemSync(queryOrId: string): DawayaCompactIndexIt
       x.n.toLowerCase().startsWith(clean + ' ') ||
       norm(x.a).startsWith(normClean + ' ')
   );
-  return byExactName || null;
+  if (byExactName) return byExactName;
+
+  // Fallback for prescription lines like "Disprelone-D 20mg tab", "Isotretinoin 20mg cap", "Levcet tab", "Acnescave Gel"
+  const strippedForm = clean
+    .replace(/(?:tab|tabs|tablet|tablets|cap|caps|capsule|capsules|gel|cream|ointment|syr|syrup|susp|suspension|amp|vial|wash|facial|soap|lotion|drops|قرص|أقراص|اقراص|كبسول|كبسولة|كريم|مرهم|جل|شراب|غسول|امبول|فيال)/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (strippedForm.length >= 4) {
+    const tokens = strippedForm.split(' ').filter(Boolean);
+    const firstBrandToken = tokens[0] || '';
+    const strengthToken = tokens.find((t) => /^\d+(?:\.\d+)?(?:mg|gm|g|mcg|ml|%)?$/.test(t)) || '';
+    if (firstBrandToken.length >= 4 && !/^\d/.test(firstBrandToken)) {
+      const byBrandAndStrength = globalIndexItems.find((x) => {
+        const nLow = x.n.toLowerCase();
+        const brandMatches = nLow === firstBrandToken || nLow.startsWith(firstBrandToken + ' ') || nLow.startsWith(firstBrandToken + '-');
+        if (!brandMatches) return false;
+        if (strengthToken) {
+          const numOnly = strengthToken.replace(/[^\d.]/g, '');
+          return Boolean(numOnly && nLow.includes(numOnly));
+        }
+        return true;
+      });
+      if (byBrandAndStrength) return byBrandAndStrength;
+    }
+  }
+
+  return null;
 }
 
 /**
