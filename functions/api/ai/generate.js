@@ -1,19 +1,17 @@
 /**
  * Cloudflare Pages Function (100% Free Tier - 100,000 req/day)
  * Endpoint: POST /api/ai/generate
- * Keeps GEMINI_API_KEY 100% hidden on the Cloudflare server edge, enforces per-IP rate limiting,
- * strips patient PII, and proxies prescription vision/text queries to Gemini 2.5 Flash.
+ * Supports both AIza... and AQ... Google AI Studio Gemini API keys via x-goog-api-key,
+ * defaults to gemini-2.5-flash with automatic model fallback and fast vision config.
  */
 const ipWindowMap = new Map();
-const MAX_REQ_PER_IP_PER_MIN = 25;
+const MAX_REQ_PER_IP_PER_MIN = 30;
 
 function checkEdgeRateLimit(ip) {
   const now = Date.now();
   const prev = ipWindowMap.get(ip) || [];
   const recent = prev.filter((t) => now - t < 60000);
-  if (recent.length >= MAX_REQ_PER_IP_PER_MIN) {
-    return false;
-  }
+  if (recent.length >= MAX_REQ_PER_IP_PER_MIN) return false;
   recent.push(now);
   ipWindowMap.set(ip, recent);
   return true;
@@ -59,7 +57,6 @@ export async function onRequestPost(context) {
     }
 
     const cleanPrompt = sanitizeEdgePromptPii(rawPrompt);
-    const model = body?.model === 'gemini-2.0-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash';
     const parts = [{ text: cleanPrompt }];
 
     if (body?.inlineImageBase64 && typeof body.inlineImageBase64 === 'string') {
@@ -71,29 +68,62 @@ export async function onRequestPost(context) {
       });
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
-    const upstream = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: { temperature: 0.15, maxOutputTokens: 1200 },
-      }),
-    });
+    const preferredModel = body?.model === 'gemini-2.0-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash';
+    const candidateModels =
+      preferredModel === 'gemini-2.5-flash'
+        ? ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
+        : ['gemini-2.0-flash', 'gemini-2.5-flash'];
 
-    if (!upstream.ok) {
-      return new Response(JSON.stringify({ error: 'UPSTREAM_AI_ERROR', status: upstream.status }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json' },
+    let lastStatus = 502;
+    let lastErrorBody = '';
+
+    for (const model of candidateModels) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+      const genConfig = { temperature: 0.15, maxOutputTokens: 1400 };
+      if (model.startsWith('gemini-2.5')) {
+        genConfig.thinkingConfig = { thinkingBudget: 0 };
+      }
+
+      const upstream = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key,
+        },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: genConfig,
+        }),
       });
+
+      if (upstream.ok) {
+        const data = await upstream.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        return new Response(JSON.stringify({ text: String(text).trim(), model }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      lastStatus = upstream.status;
+      lastErrorBody = await upstream.text().catch(() => '');
+      // Retry next fallback model only on 404/400/429
+      if (lastStatus !== 404 && lastStatus !== 400 && lastStatus !== 429) {
+        break;
+      }
     }
 
-    const data = await upstream.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    return new Response(JSON.stringify({ text: String(text).trim(), model }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        error: 'UPSTREAM_AI_ERROR',
+        status: lastStatus,
+        detail: lastErrorBody.slice(0, 220),
+      }),
+      {
+        status: 502,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   } catch {
     return new Response(JSON.stringify({ error: 'INTERNAL_EDGE_ERROR' }), {
       status: 500,

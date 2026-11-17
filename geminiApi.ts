@@ -83,10 +83,9 @@ export async function loadSharedCloudAiKey(): Promise<string> {
       /* ignore */
     }
   }
-  if (proxyCheckComplete) return '';
-  proxyCheckComplete = true;
+  if (proxyCheckComplete && serverAiProxyReady) return '';
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 4500);
+  const timer = setTimeout(() => ctrl.abort(), 6000);
   try {
     const resp = await fetch(`${AI_PROXY_BASE_URL}/api/ai/status`, {
       method: 'GET',
@@ -96,6 +95,7 @@ export async function loadSharedCloudAiKey(): Promise<string> {
     if (resp.ok) {
       const data = await resp.json();
       serverAiProxyReady = Boolean(data?.configured);
+      if (serverAiProxyReady) proxyCheckComplete = true;
     }
   } catch {
     clearTimeout(timer);
@@ -161,7 +161,7 @@ export async function callServerAiProxy(params: {
       const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${encodeURIComponent(visionKey)}`;
       const gRes = await fetch(gUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': visionKey },
         body: JSON.stringify({
           contents: [{ parts }],
           generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
@@ -176,7 +176,7 @@ export async function callServerAiProxy(params: {
     }
   }
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 14000);
+  const timer = setTimeout(() => ctrl.abort(), 28000);
   try {
     const { auth } = await import('./firebase');
     const token = auth?.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
@@ -192,7 +192,7 @@ export async function callServerAiProxy(params: {
         prompt: sanitizedPrompt,
         inlineImageBase64: params.inlineImageBase64,
         mimeType: params.mimeType,
-        model: params.model === 'gemini-2.5-flash' ? 'gemini-2.5-flash' : 'gemini-2.0-flash',
+        model: params.model === 'gemini-2.0-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash',
       }),
     });
     clearTimeout(timer);
@@ -1747,6 +1747,7 @@ Then write a clear clinical summary without markdown tables or ** symbols.`;
       prompt,
       inlineImageBase64: prepared.base64Data,
       mimeType: prepared.mimeType || 'image/jpeg',
+      model: 'gemini-2.5-flash',
     });
   };
 
