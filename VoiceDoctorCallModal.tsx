@@ -108,11 +108,11 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
     if (waveTimerRef.current) clearInterval(waveTimerRef.current);
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     try {
-      recogRef.current?.stop();
+      directRecorderRef.current?.cancel();
     } catch {
       /* ignore */
     }
-    recogRef.current = null;
+    directRecorderRef.current = null;
     stopSpeech();
   };
 

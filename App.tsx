@@ -242,6 +242,7 @@ export default function App() {
   }, []);
 
   return (
+    <DawayaErrorBoundary>
     <AuthProvider>
       <EmergencyLocationProvider>
         <Layout>
@@ -411,5 +412,6 @@ export default function App() {
         <AuthModal />
       </EmergencyLocationProvider>
     </AuthProvider>
+    </DawayaErrorBoundary>
   );
 }

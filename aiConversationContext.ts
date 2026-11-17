@@ -1,4 +1,5 @@
 import { matchDriverDrugScreen, matchInjectionSafety } from './egyptianClinicalInnovations';
+import { ensureDawayaDatabaseLoaded } from './dawayaDrugDatabaseService';
 
 /**
  * Comprehensive Medical Input Sanitizer & Prompt Injection Shield:
