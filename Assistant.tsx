@@ -1,3 +1,4 @@
+import { loadSharedCloudAiKey, hasApiKey } from './geminiApi';
 import VoiceDoctorCallModal from './VoiceDoctorCallModal';
 import { pick } from './types';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';

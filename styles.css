@@ -175,8 +175,8 @@ legend { font-weight: 600; padding-inline: 6px; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: 6px; }
 .tbl { border-collapse: collapse; width: 100%; font-size: .92rem; }
 .tbl th, .tbl td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: start; white-space: nowrap; }
-.chat { display: grid; gap: 10px; max-height: 60vh; overflow-y: auto; padding: 4px; align-content: start; }
-.msg { padding: 10px 14px; border-radius: 14px; max-width: 92%; overflow-wrap: anywhere; }
+.chat { display: grid; gap: 12px; width: 100%; max-height: none; overflow: visible; padding: 4px 0; align-content: start; }
+.msg { padding: 12px 14px; border-radius: 14px; max-width: 100%; min-width: 0; box-sizing: border-box; overflow-wrap: anywhere; }
 .msg p { margin: .3rem 0; }
 .msg.me { background: var(--teal-dark); color: var(--white); justify-self: end; }
 .msg.bot { background: var(--tint); border: 1px solid var(--line); justify-self: start; }
@@ -7855,6 +7855,10 @@ button:active:not(:disabled), .btn:active:not(:disabled) {
   .msg.bot {
     padding: 10px !important;
     width: 100% !important;
+    max-width: 100% !important;
     overflow-x: hidden !important;
+  }
+  .action-fields-grid {
+    grid-template-columns: 1fr !important;
   }
 }
