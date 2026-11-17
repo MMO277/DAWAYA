@@ -7845,3 +7845,16 @@ button:active:not(:disabled), .btn:active:not(:disabled) {
     padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
   }
 }
+
+/* Fix mobile horizontal clipping on chat bubbles & confirmation cards */
+.chat-stream, .msg, .msg.bot, .msg.user, .action-confirm-card {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+@media (max-width: 640px) {
+  .msg.bot {
+    padding: 10px !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+}

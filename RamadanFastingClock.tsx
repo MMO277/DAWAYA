@@ -66,7 +66,7 @@ export default function RamadanFastingClock() {
   const isAr = lang === 'ar';
   const { indexItems } = useDawayaDrugDatabase();
 
-  const [meds, setMeds] = useState<FastingMedRow[]>(DEFAULT_RAMADAN_MEDS);
+  const [meds, setMeds] = useState<FastingMedRow[]>([]);
   const [searchQ, setSearchQ] = useState('');
   const [selectedTimingFilter, setSelectedTimingFilter] = useState<'all' | 'iftar' | 'suhur' | 'split_iftar_suhur'>('all');
 

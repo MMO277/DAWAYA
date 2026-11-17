@@ -454,7 +454,7 @@ const SAMPLE_BILL_ITEMS: BillPresetRow[] = [
 ];
 
 export function SmartPharmacyBillOptimizerCard({ isAr }: { isAr: boolean }) {
-  const [rows, setRows] = useState<BillPresetRow[]>(SAMPLE_BILL_ITEMS);
+  const [rows, setRows] = useState<BillPresetRow[]>([]);
   const [customName, setCustomName] = useState('');
   const [customPrice, setCustomPrice] = useState('');
   const [customAltPrice, setCustomAltPrice] = useState('');

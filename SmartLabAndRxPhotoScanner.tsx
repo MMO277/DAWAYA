@@ -457,32 +457,6 @@ export default function SmartLabAndRxPhotoScanner() {
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => applyPreset('anemia_thyroid')}
-              className="chip"
-              style={{ fontWeight: 800, background: '#fef2f2', color: '#991b1b', borderColor: '#fca5a5' }}
-            >
-              🧪 مثال ١: أنيميا + خمول غدة + نقص فيتامين د
-            </button>
-            <button
-              type="button"
-              onClick={() => applyPreset('diabetes_kidney')}
-              className="chip"
-              style={{ fontWeight: 800, background: '#fffbeb', color: '#92400e', borderColor: '#fcd34d' }}
-            >
-              🧪 مثال ٢: سكر تراكمي + إجهاد كلى ونقرس
-            </button>
-            <button
-              type="button"
-              onClick={() => applyPreset('all_normal')}
-              className="chip"
-              style={{ fontWeight: 800, background: '#f0fdf4', color: '#166534', borderColor: '#86efac' }}
-            >
-              🟢 مثال ٣: تحاليل مثالية بالكامل
-            </button>
-          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>

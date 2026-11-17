@@ -1103,20 +1103,26 @@ export default function Assistant() {
           <div ref={end} />
         </div>
 
-        {/* Smart Personal Health Action Chips */}
+        {/* Clean Compact Action Chips (2 primary actions + collapsible quick suggestions) */}
         <div className="chips" style={{ marginBottom: '4px' }}>
-          {smartActionChips.map((sc) => (
+          {smartActionChips.slice(0, 2).map((sc) => (
             <button
               key={sc.label}
               type="button"
               className="chip"
-              onClick={() => ask(sc.prompt)}
+              onClick={() => {
+                if (sc.isUploadTrigger) {
+                  fileInputRef.current?.click();
+                } else {
+                  ask(sc.prompt);
+                }
+              }}
               disabled={loading}
               style={{
                 background: sc.isUploadTrigger ? '#e0f2fe' : '#f0fdf4',
                 borderColor: sc.isUploadTrigger ? '#0284c7' : '#16a34a',
                 color: sc.isUploadTrigger ? '#0369a1' : '#15803d',
-                fontWeight: 700,
+                fontWeight: 800,
               }}
             >
               {sc.label}
@@ -1124,20 +1130,39 @@ export default function Assistant() {
           ))}
         </div>
 
-        {/* General Awareness Question Chips */}
-        <div className="chips">
-          {(CHIPS[lang] || CHIPS.en).map((c) => (
-            <button
-              key={c}
-              type="button"
-              className="chip"
-              onClick={() => ask(c)}
-              disabled={loading}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        <details style={{ marginBottom: '6px' }}>
+          <summary
+            style={{
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              color: '#0369a1',
+              padding: '4px 6px',
+              userSelect: 'none',
+            }}
+          >
+            💡 {isAr ? 'اقتراحات وأسئلة سريعة (اضغط للفتح)' : 'Quick Suggestions & FAQs'}
+          </summary>
+          <div className="chips" style={{ marginTop: '6px' }}>
+            {smartActionChips.slice(2).map((sc) => (
+              <button
+                key={sc.label}
+                type="button"
+                className="chip"
+                onClick={() => ask(sc.prompt)}
+                disabled={loading}
+                style={{ background: '#f0fdf4', borderColor: '#16a34a', color: '#15803d', fontWeight: 700 }}
+              >
+                {sc.label}
+              </button>
+            ))}
+            {(CHIPS[lang] || CHIPS.en).slice(0, 4).map((c) => (
+              <button key={c} type="button" className="chip" onClick={() => ask(c)} disabled={loading}>
+                {c}
+              </button>
+            ))}
+          </div>
+        </details>
 
         <input
           ref={fileInputRef}
