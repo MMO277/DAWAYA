@@ -400,6 +400,16 @@ let globalPriceDeltas: Record<string, DawayaPriceDeltaEntry> = {};
 const indexByIdMap = new Map<string, DawayaCompactIndexItem>();
 const indexByBarcodeMap = new Map<string, DawayaCompactIndexItem>();
 const indexByNormalizedIngredientMap = new Map<string, DawayaCompactIndexItem[]>();
+const brandFirstWordMap = new Map<string, DawayaCompactIndexItem[]>();
+const genericIngredientWordsSet = new Set<string>([
+  "potassium", "sodium", "hydrochloride", "hcl", "fumarate", "maleate", "besylate",
+  "calcium", "trihydrate", "clavulanic", "clavulanate", "acid", "anhydrous", "monohydrate",
+  "dihydrate", "acetate", "sulfate", "sulphate", "phosphate", "citrate", "tartrate",
+  "succinate", "valerate", "propionate", "bromide", "chloride", "nitrate", "mesylate",
+  "benzoate", "salicylate", "gluconate", "lactate", "carbonate", "bicarbonate", "oxide",
+  "hydroxide", "peroxide", "zinc", "iron", "ferrous", "ferric", "magnesium", "vitamin",
+  "بوتاسيوم", "صوديوم", "هيدروكلوريد", "كالسيوم", "حمض", "كلافولانيك", "سلفات", "فوسفات", "زنك", "حديد", "فيتامين"
+]);
 const loadedChunksCache = new Map<number, Map<string, DawayaMedicineRecord>>();
 
 function loadAdminCustomOverrides(): Record<string, DawayaCompactIndexItem> {
@@ -573,10 +583,23 @@ export function saveAdminMedicineOverride(item: DawayaCompactIndexItem): void {
   }
 }
 
+function addBrandKeyToMap(key: string, item: DawayaCompactIndexItem): void {
+  if (!key || key.length < 2) return;
+  const list = brandFirstWordMap.get(key);
+  if (list) {
+    list.push(item);
+  } else {
+    brandFirstWordMap.set(key, [item]);
+  }
+}
+
 function rebuildFastMaps(items: DawayaCompactIndexItem[]): void {
   indexByIdMap.clear();
   indexByBarcodeMap.clear();
   indexByNormalizedIngredientMap.clear();
+  brandFirstWordMap.clear();
+
+
 
   for (const item of items) {
     const idLow = item.i.toLowerCase();
@@ -585,7 +608,10 @@ function rebuildFastMaps(items: DawayaCompactIndexItem[]): void {
       indexByIdMap.set(idLow.slice(3), item);
     }
     if (item.b) {
-      indexByBarcodeMap.set(item.b, item);
+      for (const bcPart of item.b.split(/[\s,;+|/]+/)) {
+        const cleanBc = bcPart.trim();
+        if (cleanBc.length >= 6) indexByBarcodeMap.set(cleanBc, item);
+      }
     }
     if (item.g) {
       const normG = item.g.toLowerCase().trim();
@@ -595,6 +621,48 @@ function rebuildFastMaps(items: DawayaCompactIndexItem[]): void {
       } else {
         indexByNormalizedIngredientMap.set(normG, [item]);
       }
+      for (const gw of normG.split(/[^a-z0-9\u0600-\u06FF]+/)) {
+        if (gw.length >= 4 && !/^\d+$/.test(gw)) {
+          genericIngredientWordsSet.add(gw);
+        }
+      }
+    }
+
+    // Index English brand first word (with and without hyphens)
+    const nLow = (item.n || "").toLowerCase().trim();
+    const firstRawEn = nLow.split(/\s+/)[0]?.replace(/[^a-z0-9-]/g, "") || "";
+    if (firstRawEn.length >= 2) {
+      addBrandKeyToMap(firstRawEn, item);
+      if (firstRawEn.includes("-")) {
+        const noHyphen = firstRawEn.replace(/-/g, "");
+        if (noHyphen.length >= 3) addBrandKeyToMap(noHyphen, item);
+        const firstSub = firstRawEn.split("-")[0];
+        if (firstSub && firstSub.length >= 3) addBrandKeyToMap(firstSub, item);
+      }
+    }
+    const enWords = nLow.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+    if (enWords.length >= 2 && enWords[0].length <= 3 && !/^\d/.test(enWords[1])) {
+      addBrandKeyToMap(enWords[0] + enWords[1], item);
+    }
+
+    // Index Arabic brand first word & 2-word compound prefix
+    const aNorm = norm(item.a || "");
+    const arWords = aNorm.replace(/[^\u0600-\u06FFa-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+    if (arWords.length > 0 && arWords[0].length >= 2) {
+      addBrandKeyToMap(arWords[0], item);
+      if (arWords.length >= 2 && !/^\d/.test(arWords[1])) {
+        addBrandKeyToMap(arWords[0] + arWords[1], item);
+        addBrandKeyToMap(arWords[0] + " " + arWords[1], item);
+      }
+    }
+  }
+  // Add Arabic ingredient aliases ONLY if their English target is an actual active ingredient from item.g
+  for (const [arK, enV] of Object.entries(ARABIC_TO_ENGLISH_INGREDIENT_MAP)) {
+    const nAr = norm(arK);
+    const nEn = enV.toLowerCase().trim();
+    const enFirst = nEn.split(/[^a-z0-9]+/)[0] || "";
+    if (enFirst && genericIngredientWordsSet.has(enFirst)) {
+      if (nAr.length >= 3) genericIngredientWordsSet.add(nAr);
     }
   }
 }
@@ -1110,23 +1178,110 @@ const NON_DRUG_STOP_WORDS = new Set([
   'mouthwash', 'daily', 'once', 'twice', 'thrice', 'once_daily', 'twice_daily',
   'thrice_daily', 'four_times_daily', 'none', 'unknown', 'unreadable', 'missing',
   'normal', 'care', 'medical', 'prescription', 'report', 'leaflet', 'result',
+  'film', 'coated', 'sugar', 'gastro', 'resistant', 'hard', 'soft', 'gelatin',
+  'sachet', 'sachets', 'effervescent', 'eff', 'granules', 'powder', 'infusion',
+  'suppository', 'suppositories', 'supp', 'ovules', 'vaginal', 'rectal', 'nasal',
+  'eye', 'ear', 'oint', 'susp', 'sol', 'conc',
+  'intestinal', 'antiseptic', 'antiprotozoal', 'analgesic', 'antipyretic', 'anti',
+  'inflammatory', 'antibiotic', 'antibacterial', 'antifungal', 'antiviral',
+  'broad', 'spectrum', 'contains', 'each', 'composition', 'indications', 'dosage',
+  'store', 'keep', 'reach', 'children', 'temperature', 'degrees', 'manufactured',
+  'company', 'pharma', 'pharmaceutical', 'pharmaceuticals', 'industries', 'laboratories',
+  'sanofi', 'aventis', 'pfizer', 'novartis', 'glaxo', 'gsk', 'astrazeneca', 'bayer',
+  'merck', 'abbott', 'servier', 'roche', 'boehringer', 'sandoz', 'mundipharma',
+  'eipico', 'amoun', 'sedico', 'pharaonia', 'hikma', 'rameda', 'marcyrl', 'borg',
+  'eva', 'fpi', 'global', 'napi', 'memphis', 'alexandria', 'amriya', 'kahira',
+  'misr', 'nile', 'cid', 'adwia', 'chemipharm', 'october', 'utopia', 'zetapharm',
+  'macro', 'parkville', 'premier', 'avenir', 'jamjoom', 'tabuk', 'spimaco', 'julphar',
   'قرص', 'أقراص', 'اقراص', 'كبسول', 'كبسولة', 'كبسولات', 'شراب', 'معلق', 'كريم',
   'مرهم', 'جل', 'غسول', 'فموي', 'موضعي', 'حقن', 'امبول', 'أمبول', 'فيال', 'نقط',
   'مرتين', 'ثلاث', 'اربع', 'يوميا', 'يومياً', 'مرات', 'ساعة', 'ساعات', 'فقط',
-  'شريط', 'علبة', 'عبوة', 'تركيز', 'مجم', 'جم', 'مل', 'صباحا', 'مساء', 'قبل', 'بعد',
+  'شريط', 'علبة', 'عبوة', 'تركيز', 'مجم', 'ملجم', 'جم', 'جرام', 'مل', 'صباحا', 'مساء', 'قبل', 'بعد',
+  'مغلفة', 'سريعة', 'المفعول', 'للبالغين', 'للأطفال', 'اطفال', 'شركة', 'للأدوية', 'الادوية',
+  'لبوس', 'لبوسات', 'اقماع', 'أقماع', 'بويضات', 'فوار', 'كيس', 'أكياس', 'اكياس',
 ]);
 
+function normalizeOcrBrandTokenVariants(token: string): string[] {
+  const clean = token.toLowerCase().trim();
+  const variants = new Set<string>([clean]);
+  if (clean.length >= 4 && /^[a-z0-9-]+$/.test(clean)) {
+    variants.add(clean.replace(/1/g, 'l'));
+    variants.add(clean.replace(/1/g, 'i'));
+    variants.add(clean.replace(/0/g, 'o'));
+    variants.add(clean.replace(/5/g, 's'));
+    if (clean.endsWith('i') && clean.length >= 5) {
+      variants.add(clean.slice(0, -1) + 'l');
+    }
+    if (clean.includes('i') && clean.length >= 5) {
+      variants.add(clean.replace(/i/g, 'l'));
+    }
+  }
+  return Array.from(variants);
+}
+
+function isGenericTokenWord(word: string): boolean {
+  if (!word || word.length < 3) return false;
+  if (brandFirstWordMap.size === 0 && globalIndexItems.length > 0) {
+    rebuildFastMaps(globalIndexItems);
+  }
+  const low = word.toLowerCase().trim();
+  const nAr = norm(low);
+  return genericIngredientWordsSet.has(low) || genericIngredientWordsSet.has(nAr);
+}
+
+export function isPureGenericIngredientQuery(query: string): boolean {
+  if (!query) return false;
+  if (brandFirstWordMap.size === 0 && globalIndexItems.length > 0) {
+    rebuildFastMaps(globalIndexItems);
+  }
+  const cleaned = query
+    .toLowerCase()
+    .replace(/[®™©*()[\]«»"'/+,:;\-_]/g, ' ')
+    .replace(/\b\d+(?:\.\d+)?\s*(?:mg|gm|g|mcg|ml|%|iu|مجم|ملجم|جم|جرام|مل)?\b/gi, ' ')
+    .trim();
+  const words = cleaned
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !NON_DRUG_STOP_WORDS.has(w) && !NON_DRUG_STOP_WORDS.has(norm(w)));
+  if (words.length === 0) return false;
+  return words.every((w) => isGenericTokenWord(w));
+}
+
+function isItemGenericNamed(item: DawayaCompactIndexItem): boolean {
+  const firstEn = (item.n || '').toLowerCase().trim().split(/[\s-]+/)[0] || '';
+  if (!firstEn) return false;
+  if (genericIngredientWordsSet.has(firstEn)) return true;
+  const gLow = (item.g || '').toLowerCase();
+  return firstEn.length >= 4 && gLow.includes(firstEn);
+}
+
 export function findDawayaIndexItemSync(queryOrId: string): DawayaCompactIndexItem | null {
-  if (!globalIndexLoaded || !queryOrId) return null;
-  let clean = decodeURIComponent(queryOrId).toLowerCase().trim();
+  if (!queryOrId || globalIndexItems.length === 0) return null;
+  if (brandFirstWordMap.size === 0) {
+    rebuildFastMaps(globalIndexItems);
+  }
+
+  let clean = queryOrId;
+  try {
+    clean = decodeURIComponent(queryOrId);
+  } catch {
+    clean = queryOrId;
+  }
+  clean = clean
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .toLowerCase()
+    .trim();
+
   if (!clean || clean.length < 3) return null;
   if (/[<>|]/.test(clean)) return null;
 
-  // Never match metadata tags like RX_ROUTE: oral or RX_FREQ: twice_daily
   if (/^(?:rx_route|rx_freq|rx_dose|rx_duration_days|rx_contradictions|route|frequency|duration)\s*:/i.test(clean)) {
     return null;
   }
-  clean = clean.replace(/^(?:rx_drug_name|rx_drug_id|drug_name|drug_id|medicine_name)\s*:\s*/i, '').trim();
+  clean = clean
+    .replace(/^(?:rx_drug_name|rx_drug_id|drug_name|drug_id|medicine_name|اسم الدواء|الاسم التجاري)\s*:\s*/i, '')
+    .replace(/[®™©*#[\]«»]/g, ' ')
+    .trim();
+
   if (!clean || clean.length < 3 || NON_DRUG_STOP_WORDS.has(clean)) return null;
 
   const byId = indexByIdMap.get(clean);
@@ -1135,73 +1290,284 @@ export function findDawayaIndexItemSync(queryOrId: string): DawayaCompactIndexIt
   const byBc = indexByBarcodeMap.get(clean);
   if (byBc) return byBc;
 
-  // If formatted as "Arabic Name (English Name)", extract both parts so we can match either accurately
-  const parenMatch = clean.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
-  const candidatesToTry = parenMatch
-    ? [parenMatch[2].trim(), parenMatch[1].trim(), clean]
-    : [clean];
+  const inlineBcMatch = clean.match(/\b(\d{8,14})\b/);
+  if (inlineBcMatch && indexByBarcodeMap.has(inlineBcMatch[1])) {
+    return indexByBarcodeMap.get(inlineBcMatch[1])!;
+  }
 
-  for (const rawCand of candidatesToTry) {
-    const c = rawCand
-      .replace(/^(?:r\/|rx:?|[-*•–\d.]+)\s*/i, '')
-      .trim();
-    if (!c || c.length < 3 || NON_DRUG_STOP_WORDS.has(c)) continue;
-
-    const byIdCand = indexByIdMap.get(c);
-    if (byIdCand) return byIdCand;
-
-    const normC = norm(c);
-    if (!normC || normC.length < 3 || NON_DRUG_STOP_WORDS.has(normC)) continue;
-
-    // 1) Exact full name match
-    const exactFull = globalIndexItems.find(
-      (x) => x.n.toLowerCase() === c || norm(x.a) === normC
-    );
-    if (exactFull) return exactFull;
-
-    // 2) Brand + Strength match (e.g., "flagyl 500 mg", "flamotal 600 mg", "فلاجيل 500 مجم", "فلاموتال 600")
-    const strippedForm = c
-      .replace(/\b(?:tab|tabs|tablet|tablets|cap|caps|capsule|capsules|f\.c\.|fc|s\.r\.|sr|gel|cream|ointment|syr|syrup|susp|suspension|amp|ampoule|vial|wash|facial|soap|lotion|drops|film|coated|قرص|أقراص|اقراص|كبسول|كبسولة|كبسولات|كريم|مرهم|جل|شراب|غسول|امبول|أمبول|فيال|مغلفة)\b/gi, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    const tokens = strippedForm.split(' ').filter(Boolean);
-    const firstToken = tokens[0] || '';
-    if (firstToken.length >= 3 && !NON_DRUG_STOP_WORDS.has(firstToken) && !/^\d/.test(firstToken)) {
-      const strengthMatch = c.match(/(\d+(?:\.\d+)?)\s*(?:mg|gm|g|mcg|ml|%|مجم|جم|مل|ملجم)?/i);
-      const strengthNum = strengthMatch ? strengthMatch[1] : '';
-      const normFirst = norm(firstToken);
-      const mappedEnFirst = ARABIC_TO_ENGLISH_INGREDIENT_MAP[normFirst] || '';
-
-      const matchesBrand = (x: DawayaCompactIndexItem) => {
-        const nLow = x.n.toLowerCase();
-        const aNorm = norm(x.a);
-        const enHit =
-          nLow === firstToken ||
-          nLow.startsWith(firstToken + ' ') ||
-          nLow.startsWith(firstToken + '-');
-        const arHit =
-          normFirst.length >= 3 &&
-          (aNorm === normFirst || aNorm.startsWith(normFirst + ' '));
-        const mappedHit =
-          mappedEnFirst.length >= 3 &&
-          (nLow === mappedEnFirst || nLow.startsWith(mappedEnFirst + ' '));
-        return enHit || arHit || mappedHit;
-      };
-
-      if (strengthNum) {
-        const withStrength = globalIndexItems.find(
-          (x) => matchesBrand(x) && (x.n.toLowerCase().includes(strengthNum) || (x.s && x.s.includes(strengthNum)))
-        );
-        if (withStrength) return withStrength;
-      }
-
-      const byBrandOnly = globalIndexItems.find((x) => matchesBrand(x));
-      if (byBrandOnly) return byBrandOnly;
+  const primaryStrengths = new Set<string>();
+  const unitStrengthRegex = /(\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)?)\s*(mg|gm|g|mcg|ml|%|مجم|ملجم|جم|جرام|مل)\b/gi;
+  for (const m of clean.matchAll(unitStrengthRegex)) {
+    const numPart = m[1].replace(/\s+/g, '');
+    const unitPart = m[2].toLowerCase();
+    primaryStrengths.add(numPart);
+    if ((unitPart === 'gm' || unitPart === 'g' || unitPart === 'جم' || unitPart === 'جرام') && numPart === '1') {
+      primaryStrengths.add('1000');
+      primaryStrengths.add('1 gm');
+      primaryStrengths.add('1g');
+    } else if (numPart === '1000' && (unitPart === 'mg' || unitPart === 'مجم')) {
+      primaryStrengths.add('1 gm');
+      primaryStrengths.add('1g');
     }
   }
 
-  return null;
+  const secondaryStrengths = new Set<string>();
+  const cleanWithoutPackCounts = clean.replace(
+    /\b\d{1,3}\s*(?:f\.?c\.?\s*)?(?:sugar\s*c\.?\s*)?(?:film\s*coated\s*)?(?:gastro\s*resistant\s*)?(?:hard\s*|soft\s*)?(?:gelatin\s*)?(?:tablets?|tabs?|capsules?|caps?|sachets?|ampoules?|amps?|vials?|supp(?:ositories)?|ovules|قرص|أقراص|اقراص|كبسولة|كبسولات|كبسول|كيس|أكياس|اكياس|امبول|أمبول|اقماع|أقماع|لبوس|بويضات)\b/gi,
+    ' '
+  );
+  for (const m of cleanWithoutPackCounts.matchAll(/\b(\d+(?:\.\d+)?)\b/g)) {
+    const nVal = m[1];
+    if (!primaryStrengths.has(nVal) && Number(nVal) >= 1 && Number(nVal) <= 2000) {
+      secondaryStrengths.add(nVal);
+    }
+  }
+
+  const wantsTablet = /\b(tab|tabs|tablet|tablets|f\.c\.|fc|s\.r\.|sr|sugar\s*c|film\s*coated|gastro\s*resistant|قرص|أقراص|اقراص)\b/i.test(clean);
+  const wantsCapsule = /\b(cap|caps|capsule|capsules|كبسول|كبسولة|كبسولات)\b/i.test(clean);
+  const wantsSyrup = /\b(syr|syrup|susp|suspension|drops|شراب|معلق|نقط)\b/i.test(clean);
+  const wantsTopical = /\b(cream|ointment|gel|lotion|topical|wash|soap|spray|mouthwash|كريم|مرهم|جل|لوشن|موضعي|غسول|سبراي|مضمضة)\b/i.test(clean);
+  const wantsInjection = /\b(vial|amp|ampoule|infusion|i\.v\.|i\.m\.|injection|فيال|امبول|أمبول|حقن|وريد|عضل)\b/i.test(clean);
+  const wantsSuppository = /\b(supp|suppository|ovules|vaginal|لبوس|لبوسات|اقماع|أقماع|بويضات)\b/i.test(clean);
+  const wantsSachet = /\b(sachet|sachets|eff|effervescent|فوار|أكياس|اكياس|كيس)\b/i.test(clean);
+
+  const parenMatch = clean.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  const segmentsToInspect = parenMatch
+    ? [parenMatch[1].trim(), parenMatch[2].trim(), clean]
+    : [clean];
+
+  for (const seg of segmentsToInspect) {
+    const normSeg = norm(seg);
+    const exactHit = globalIndexItems.find(
+      (x) => (x.n.toLowerCase() === seg || norm(x.a) === normSeg) && !isItemGenericNamed(x)
+    );
+    if (exactHit) return exactHit;
+  }
+
+  const allRawTokens = clean
+    .replace(/^(?:r\/|rx:?)\s*/gim, ' ')
+    .replace(/[()[\],:;/"'+•*\-–_]/g, ' ')
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2 && !/^\d+(?:\.\d+)?(?:mg|gm|g|mcg|ml|%|iu|مجم|جم|مل)?$/i.test(t));
+
+  const commercialTokens: string[] = [];
+  const genericTokens: string[] = [];
+  const detectedGenericIngredients = new Set<string>();
+  const allTokensSet = new Set<string>();
+
+  for (const tok of allRawTokens) {
+    const nTok = norm(tok);
+    allTokensSet.add(tok);
+    allTokensSet.add(nTok);
+    if (NON_DRUG_STOP_WORDS.has(tok) || NON_DRUG_STOP_WORDS.has(nTok)) {
+      continue;
+    }
+    if (isGenericTokenWord(tok)) {
+      const mapped = ARABIC_TO_ENGLISH_INGREDIENT_MAP[nTok] || tok;
+      genericTokens.push(mapped);
+      detectedGenericIngredients.add(mapped.toLowerCase());
+    } else if (tok.length >= 3) {
+      commercialTokens.push(tok);
+      const mappedBrand = ARABIC_TO_ENGLISH_INGREDIENT_MAP[nTok];
+      if (mappedBrand && !isGenericTokenWord(mappedBrand)) {
+        commercialTokens.push(mappedBrand.toLowerCase().trim());
+      }
+    }
+  }
+
+  const baseCommLen = commercialTokens.length;
+  for (let i = 0; i < baseCommLen - 1; i++) {
+    const w1 = commercialTokens[i];
+    const w2 = commercialTokens[i + 1];
+    if (w1.length >= 2 && w2.length >= 3) {
+      commercialTokens.push(norm(w1) + norm(w2));
+      commercialTokens.push(norm(w1) + ' ' + norm(w2));
+    }
+  }
+
+  const scoreCandidateItem = (
+    x: DawayaCompactIndexItem,
+    matchedViaCommercialBrand: boolean,
+    exactBrandWordMatch: boolean
+  ): number => {
+    let score = matchedViaCommercialBrand
+      ? exactBrandWordMatch
+        ? 300
+        : 220
+      : 90;
+
+    if (isItemGenericNamed(x) && matchedViaCommercialBrand) {
+      score -= 120;
+    }
+
+    const nLow = (x.n || '').toLowerCase();
+    const aNorm = norm(x.a || '');
+    const sLow = (x.s || '').toLowerCase();
+    const fLow = (x.f || '').toLowerCase();
+    const gLow = (x.g || '').toLowerCase();
+
+    const enWords = nLow.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+    if (enWords.length >= 2 && enWords[1].length >= 2 && !/^\d/.test(enWords[1])) {
+      const secondWord = enWords[1];
+      if (
+        ![
+          'tab', 'tabs', 'tablet', 'tablets', 'cap', 'caps', 'capsule', 'capsules', 'syr', 'syrup',
+          'susp', 'suspension', 'vial', 'amp', 'ampoule', 'cream', 'gel', 'ointment', 'drops',
+          'topical', 'oral', 'sugar', 'film', 'coated', 'gastro', 'gastroresistant', 'powder',
+          'f', 'c', 's', 'r', 'gm', 'mg', 'ml', 'mcg', 'iu',
+        ].includes(secondWord)
+      ) {
+        if (allTokensSet.has(secondWord) || clean.includes(secondWord)) {
+          score += 150;
+        } else {
+          score -= 45;
+        }
+      }
+    }
+    const arWords = aNorm.split(/\s+/).filter(Boolean);
+    if (arWords.length >= 2 && arWords[1].length >= 3 && !/^\d/.test(arWords[1])) {
+      const secondAr = arWords[1];
+      if (!NON_DRUG_STOP_WORDS.has(secondAr) && (allTokensSet.has(secondAr) || norm(clean).includes(secondAr))) {
+        score += 85;
+      }
+    }
+
+    if (matchedViaCommercialBrand && detectedGenericIngredients.size > 0 && gLow) {
+      for (const genIng of detectedGenericIngredients) {
+        if (genIng.length >= 4 && gLow.includes(genIng)) {
+          score += 70;
+          break;
+        }
+      }
+    }
+
+    const itemStrengthNums = new Set<string>();
+    const sSource = sLow + ' ' + nLow;
+    for (const sm of sSource.matchAll(/(\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)?)\s*(mg|gm|g|mcg|ml|%)/gi)) {
+      const numP = sm[1].replace(/\s+/g, '');
+      const unitP = sm[2].toLowerCase();
+      itemStrengthNums.add(numP);
+      if ((unitP === 'gm' || unitP === 'g') && numP === '1') {
+        itemStrengthNums.add('1000');
+        itemStrengthNums.add('1 gm');
+        itemStrengthNums.add('1g');
+      } else if (numP === '1000' && unitP === 'mg') {
+        itemStrengthNums.add('1 gm');
+        itemStrengthNums.add('1g');
+      }
+    }
+
+    if (primaryStrengths.size > 0) {
+      let matchedPrimary = false;
+      for (const ps of primaryStrengths) {
+        if (itemStrengthNums.has(ps)) {
+          matchedPrimary = true;
+          break;
+        }
+      }
+      if (matchedPrimary) {
+        score += 120;
+      } else if (itemStrengthNums.size > 0) {
+        score -= 60;
+      }
+    } else if (secondaryStrengths.size > 0) {
+      for (const ss of secondaryStrengths) {
+        if (itemStrengthNums.has(ss) || sLow === ss) {
+          score += 65;
+          break;
+        }
+      }
+    }
+
+    const isItemTab = fLow === 'tablet' || /\b(tab|tabs|tablet|tablets)\b/.test(nLow);
+    const isItemCap = fLow === 'capsule' || /\b(cap|caps|capsule|capsules)\b/.test(nLow);
+    const isItemSyr = fLow === 'suspension' || fLow === 'syrup' || /\b(syr|syrup|susp|suspension|drops)\b/.test(nLow);
+    const isItemTop = fLow.includes('topical') || /\b(cream|gel|ointment|lotion|wash|spray)\b/.test(nLow);
+    const isItemInj =
+      fLow.includes('vial') ||
+      fLow.includes('ampoule') ||
+      fLow === 'infusion' ||
+      /\b(vial|amp|ampoule|infusion|i\.v\.|i\.m\.)\b/.test(nLow);
+    const isItemSupp = fLow === 'suppository' || /\b(supp|suppository|ovules|vaginal)\b/.test(nLow);
+    const isItemSachet = fLow === 'sachet' || /\b(sachet|sachets|eff\.|effervescent)\b/.test(nLow);
+
+    if (wantsTablet && isItemTab && !isItemSachet && !isItemSupp) score += 55;
+    if (wantsCapsule && isItemCap) score += 55;
+    if (wantsSyrup && isItemSyr) score += 55;
+    if (wantsTopical && isItemTop) score += 55;
+    if (wantsInjection && isItemInj) score += 55;
+    if (wantsSuppository && isItemSupp) score += 55;
+    if (wantsSachet && isItemSachet) score += 55;
+
+    if (!wantsInjection && !wantsSuppository && !wantsTopical && !wantsSachet && !wantsSyrup) {
+      if ((isItemTab || isItemCap) && !isItemSachet && !isItemSupp && !isItemInj) {
+        score += 25;
+      } else if (isItemInj || isItemSupp || isItemSachet || isItemTop) {
+        score -= 35;
+      }
+    }
+
+    return score;
+  };
+
+  let bestCommercialItem: DawayaCompactIndexItem | null = null;
+  let bestCommercialScore = 0;
+
+  const evaluatedIds = new Set<string>();
+  for (const rawTok of commercialTokens) {
+    const variants = normalizeOcrBrandTokenVariants(rawTok);
+    const normArTok = norm(rawTok);
+    if (normArTok && !variants.includes(normArTok)) variants.push(normArTok);
+
+    for (const vTok of variants) {
+      const exactList = brandFirstWordMap.get(vTok) || [];
+      for (const cand of exactList) {
+        const sc = scoreCandidateItem(cand, true, vTok === rawTok || vTok === normArTok);
+        if (sc > bestCommercialScore) {
+          bestCommercialScore = sc;
+          bestCommercialItem = cand;
+        }
+        evaluatedIds.add(cand.i);
+      }
+
+      if (exactList.length === 0 && vTok.length >= 4) {
+        for (const [bKey, bList] of brandFirstWordMap.entries()) {
+          if (bKey.length >= 4 && (bKey.startsWith(vTok) || (vTok.length >= 5 && vTok.startsWith(bKey)))) {
+            for (const cand of bList) {
+              if (evaluatedIds.has(cand.i)) continue;
+              const sc = scoreCandidateItem(cand, true, false);
+              if (sc > bestCommercialScore) {
+                bestCommercialScore = sc;
+                bestCommercialItem = cand;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (bestCommercialItem && bestCommercialScore >= 200) {
+    return bestCommercialItem;
+  }
+
+  let bestGenericItem: DawayaCompactIndexItem | null = null;
+  let bestGenericScore = 0;
+  for (const gTok of genericTokens) {
+    const gKey = gTok.toLowerCase().trim();
+    const gNorm = norm(gKey);
+    const exactList = brandFirstWordMap.get(gKey) || brandFirstWordMap.get(gNorm) || [];
+    for (const cand of exactList) {
+      const sc = scoreCandidateItem(cand, false, true);
+      if (sc > bestGenericScore) {
+        bestGenericScore = sc;
+        bestGenericItem = cand;
+      }
+    }
+  }
+
+  return bestGenericItem;
 }
 
 export function canonicalizeIngredientKey(rawG: string): string {
@@ -2138,7 +2504,6 @@ export function matchMedicationCandidatesFromDatabase(params: {
   const maxCandidates = params.maxCandidates || 6;
   const cleanName = (params.rawName || '')
     .replace(/^(RX_[A-Z_]+|DRUG_[A-Z_]+):\s*/i, '')
-    .replace(/[()[\]]/g, ' ')
     .trim();
 
   if (!cleanName || cleanName.length < 2) {
@@ -2152,10 +2517,47 @@ export function matchMedicationCandidatesFromDatabase(params: {
     };
   }
 
-  const normQuery = norm(cleanName);
-  const firstWord = normQuery.split(/\s+/)[0] || normQuery;
+  // Fast-path: Use our Brand-First, Strength & Form-aware matcher first!
+  const combinedLookupQuery = [cleanName, params.rawStrength || '', params.rawDosageForm || '', params.rawActiveIngredient || '']
+    .filter(Boolean)
+    .join(' ');
+  const directHit = findDawayaIndexItemSync(combinedLookupQuery) || findDawayaIndexItemSync(cleanName);
   const targetStrength = normalizeStrengthForEquivalence(params.rawStrength || '', cleanName);
-  const rawFormLower = `${params.rawDosageForm || ''} ${cleanName}`.toLowerCase();
+
+  if (directHit) {
+    const hitStrength = normalizeStrengthForEquivalence(directHit.s, directHit.n);
+    const hasExplicitStrengthMatch =
+      !targetStrength || !hitStrength || targetStrength === hitStrength || cleanName.toLowerCase().includes(directHit.n.toLowerCase());
+    const directCandidate: MedicationDatabaseMatchCandidate = {
+      id: directHit.i,
+      brandNameAr: directHit.a || directHit.n,
+      brandNameEn: directHit.n,
+      activeIngredient: directHit.g || '',
+      strength: directHit.s || params.rawStrength || '',
+      dosageForm: directHit.f || 'tablet',
+      route: directHit.r || 'oral',
+      priceEgp: directHit.p ?? null,
+      manufacturer: directHit.c || '',
+      matchScore: hasExplicitStrengthMatch ? 96 : 86,
+      strengthVerified: Boolean(targetStrength || directHit.s),
+      formVerified: true,
+    };
+    if (hasExplicitStrengthMatch && (targetStrength || directHit.s || cleanName.includes('('))) {
+      return {
+        exactSingleMatch: directCandidate,
+        possibleMatches: [directCandidate],
+        isUncertainOrMultiple: false,
+        requiresPatientSelection: false,
+        resolutionReasonAr: `تم التحقق من تطابق الاسم التجاري والمادة الفعالة والتركيز (${directCandidate.brandNameAr}).`,
+        resolutionReasonEn: `Verified exact match by brand name, active ingredient, and strength (${directCandidate.brandNameEn}).`,
+      };
+    }
+  }
+
+  const strippedParensName = cleanName.replace(/[()[\]]/g, ' ').trim();
+  const normQuery = norm(strippedParensName);
+  const firstWord = normQuery.split(/\s+/)[0] || normQuery;
+  const rawFormLower = `${params.rawDosageForm || ''} ${strippedParensName}`.toLowerCase();
 
   let targetForm = '';
   if (/(tablet|\btab\b|قرص|أقراص|اقراص)/i.test(rawFormLower)) targetForm = 'tablet';
@@ -2167,7 +2569,7 @@ export function matchMedicationCandidatesFromDatabase(params: {
 
   const hits = searchDawayaIndex(
     globalIndexItems,
-    { query: firstWord.length >= 3 ? firstWord : cleanName },
+    { query: firstWord.length >= 3 ? firstWord : strippedParensName },
     true
   ).slice(0, 35);
 
@@ -2178,7 +2580,9 @@ export function matchMedicationCandidatesFromDatabase(params: {
     const itemForm = (item.f || '').toLowerCase();
 
     let score = 50;
-    if (itemNormEn === normQuery || itemNormAr === normQuery) {
+    if (directHit && item.i === directHit.i) {
+      score += 45;
+    } else if (itemNormEn === normQuery || itemNormAr === normQuery) {
       score += 40;
     } else if (itemNormEn.startsWith(firstWord) || itemNormAr.startsWith(firstWord)) {
       score += 25;

@@ -655,51 +655,6 @@ export default function Scan() {
         }
       }
 
-      // D. Active Ingredient Match (both English & Arabic generic names)
-      const ing = ACTIVE_INGREDIENTS.find((a) => a.id === p.activeIngredientId);
-      if (ing) {
-        const ingArTokens = normalizeText(ing.nameAr)
-          .split(' ')
-          .filter((w) => w.length >= 3 && !PHARMA_STOP_WORDS.has(w));
-        const ingEnTokens = normalizeText(ing.nameEn)
-          .split(' ')
-          .filter((w) => w.length >= 3 && !PHARMA_STOP_WORDS.has(w));
-
-        let matchedEnIng = 0;
-        for (const gw of ingEnTokens) {
-          if (
-            clean.includes(gw) ||
-            inWords.some((iw) => iw.length >= 4 && stringSimilarity(iw, gw) >= 0.8)
-          ) {
-            matchedEnIng++;
-          }
-        }
-
-        let matchedArIng = 0;
-        for (const gw of ingArTokens) {
-          if (
-            clean.includes(gw) ||
-            inWords.some(
-              (iw) =>
-                iw.length >= 4 &&
-                (stringSimilarity(iw, gw) >= 0.8 ||
-                  stringSimilarity(normalizeArabicSkeleton(iw), normalizeArabicSkeleton(gw)) >= 0.85)
-            )
-          ) {
-            matchedArIng++;
-          }
-        }
-
-        if (matchedEnIng > 0) {
-          const ratio = matchedEnIng / Math.max(1, ingEnTokens.length);
-          score = Math.max(score, Math.round(70 + matchedEnIng * 20 + ratio * 25));
-        }
-        if (matchedArIng > 0) {
-          const ratio = matchedArIng / Math.max(1, ingArTokens.length);
-          score = Math.max(score, Math.round(70 + matchedArIng * 20 + ratio * 25));
-        }
-      }
-
       // E. Secondary Tie-Breaker: Strength & Dosage Form (only if brand or ingredient matched!)
       if (score > 0) {
         const strengthNums = p.strength.match(/\d+/g) || [];
@@ -730,18 +685,7 @@ export default function Scan() {
       return buildResultFromProduct(bestProd, method);
     }
 
-    // 2) Also check ALL_LOCAL_MEDICINES brands & substitutes
-    for (const med of ALL_LOCAL_MEDICINES) {
-      const genAr = normalizeText(med.genericName.ar);
-      const genEn = normalizeText(med.genericName.en);
-      if (
-        (genAr.length >= 4 && clean.includes(genAr)) ||
-        (genEn.length >= 4 && clean.includes(genEn))
-      ) {
-        const rep = EGYPTIAN_COMMERCIAL_PRODUCTS.find((p) => p.activeIngredientId === med.id);
-        if (rep) return buildResultFromProduct(rep, method);
-      }
-    }
+// Generic active ingredient substitution disabled so commercial brand names are never overwritten
 
     // 3) Check Cut Blister Strip Partial Fragments & the 26,562 DAWAYA National Medicine Database
     const cutStripMatches = findCutBlisterStripCandidates(rawText, indexItems, 6);
@@ -1145,11 +1089,29 @@ export default function Scan() {
           lang
         );
 
-        // Match using the combined bilingual extracted text first
-        const combinedText = `${aiAnalysis.detectedDrugName || ''} ${aiAnalysis.rawExtractedText || ''}`;
-        const matched = matchDrugFromText(combinedText, 'ai_vision');
+        // 1) If Vision already resolved an exact 26,597 database ID (e.g. eg-4920), use it directly!
+        if (aiAnalysis.matchedIngredientId) {
+          const directById = findDawayaIndexItemSync(aiAnalysis.matchedIngredientId);
+          if (directById) {
+            setScanResult(
+              buildResultFromProduct(
+                dawayaIndexItemToCommercialProduct(directById),
+                'ai_vision',
+                aiAnalysis.summary || undefined
+              )
+            );
+            setBusy(false);
+            setStatusStep('');
+            return;
+          }
+        }
 
-        if (matched.matchedIngredientId) {
+        // 2) Otherwise match detectedDrugName or rawExtractedText via our Brand-First matcher
+        const matched =
+          (aiAnalysis.detectedDrugName ? matchDrugFromText(aiAnalysis.detectedDrugName, 'ai_vision') : null) ||
+          matchDrugFromText(`${aiAnalysis.detectedDrugName || ''}\n${aiAnalysis.rawExtractedText || ''}`, 'ai_vision');
+
+        if (matched && matched.matchedIngredientId) {
           setScanResult({
             ...matched,
             method: 'ai_vision',
@@ -1161,21 +1123,6 @@ export default function Scan() {
           setBusy(false);
           setStatusStep('');
           return;
-        }
-
-        // If Vision returned a direct matchedIngredientId
-        if (aiAnalysis.matchedIngredientId) {
-          const repProd = EGYPTIAN_COMMERCIAL_PRODUCTS.find(
-            (p) => p.activeIngredientId === aiAnalysis.matchedIngredientId
-          );
-          if (repProd) {
-            setScanResult(
-              buildResultFromProduct(repProd, 'ai_vision', aiAnalysis.summary || undefined)
-            );
-            setBusy(false);
-            setStatusStep('');
-            return;
-          }
         }
       } catch (err) {
         console.warn('Cloud vision/OCR note:', err);

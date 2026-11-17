@@ -1,4 +1,4 @@
-import { dawayaIndexItemToCommercialProduct, ensureDawayaDatabaseLoaded, findDawayaIndexItemSync } from './dawayaDrugDatabaseService';
+import { dawayaIndexItemToCommercialProduct, ensureDawayaDatabaseLoaded, findDawayaIndexItemSync, isPureGenericIngredientQuery } from './dawayaDrugDatabaseService';
 
 // ── Rate Limiting & Anti-Flood Security Guard ──
 const AI_CALL_HISTORY: number[] = [];
@@ -214,9 +214,9 @@ async function callDirectAdminKeyFallback(params: {
 
   const candidateModels = Array.from(
     new Set([
-      ...(cachedClientModels || []),
-      'gemini-2.5-flash-lite',
       'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+      ...(cachedClientModels || []),
       'gemini-1.5-flash',
       'gemma-3-27b-it',
     ])
@@ -1534,28 +1534,24 @@ export function matchEgyptianDrugFromText(rawText: string): {
   score: number;
 } {
   const raw = (rawText || '').trim();
-  if (!raw) {
+  if (!raw || raw.length < 2) {
     return { matchedProduct: null, matchedIngredientId: null, detectedDrugName: '', score: 0 };
   }
 
-  // 1) Check exact barcode (622...) in raw text
-  const eanMatches = raw.match(/622\d{10}/g);
-  if (eanMatches) {
-    for (const bc of eanMatches) {
-      const exactBc = EGYPTIAN_COMMERCIAL_PRODUCTS.find((p) => p.barcode === bc);
-      if (exactBc) {
-        return {
-          matchedProduct: exactBc,
-          matchedIngredientId: exactBc.activeIngredientId,
-          detectedDrugName: `${exactBc.tradeNameAr} (${exactBc.tradeNameEn})`,
-          score: 250,
-        };
-      }
-    }
+  // 0) First check the full 26,597 Egyptian Medicine Database (Brand-First + Strength + Form)
+  const hit26k = findDawayaIndexItemSync(raw);
+  if (hit26k) {
+    const asComm = dawayaIndexItemToCommercialProduct(hit26k);
+    return {
+      matchedProduct: asComm,
+      matchedIngredientId: hit26k.i,
+      detectedDrugName: hit26k.a ? `${hit26k.a} (${hit26k.n})` : hit26k.n,
+      score: 165,
+    };
   }
 
   const clean = normalizePharmaText(raw);
-  const cleanWords = clean.split(' ').filter(Boolean);
+  const cleanWords = clean.split(' ');
   const inWords = cleanWords.filter(
     (w) =>
       w.length >= 2 &&
@@ -1621,10 +1617,10 @@ export function matchEgyptianDrugFromText(rawText: string): {
       }
     }
 
-    // C. Fuzzy Levenshtein & Arabic Dot-Skeleton Match on Brand Words
+    // C. Fuzzy Levenshtein & Arabic Dot-Skeleton Match on Brand Words ONLY (never substitute random brand from active ingredient)
     if (score === 0) {
       for (const iw of inWords) {
-        if (iw.length >= 4) {
+        if (iw.length >= 4 && !isPureGenericIngredientQuery(iw)) {
           if (enBrand && enBrand.length >= 4) {
             const simEn = stringSimilarity(iw, enBrand);
             if (simEn >= 0.88) {
@@ -1642,51 +1638,6 @@ export function matchEgyptianDrugFromText(rawText: string): {
             }
           }
         }
-      }
-    }
-
-    // D. Active Ingredient Match (English & Arabic generic names)
-    const ing = ACTIVE_INGREDIENTS.find((a) => a.id === p.activeIngredientId);
-    if (ing) {
-      const ingArTokens = normalizePharmaText(ing.nameAr)
-        .split(' ')
-        .filter((w) => w.length >= 3 && !PHARMA_STOP_WORDS.has(w));
-      const ingEnTokens = normalizePharmaText(ing.nameEn)
-        .split(' ')
-        .filter((w) => w.length >= 3 && !PHARMA_STOP_WORDS.has(w));
-
-      let matchedEnIng = 0;
-      for (const gw of ingEnTokens) {
-        if (
-          clean.includes(gw) ||
-          inWords.some((iw) => iw.length >= 4 && stringSimilarity(iw, gw) >= 0.8)
-        ) {
-          matchedEnIng++;
-        }
-      }
-
-      let matchedArIng = 0;
-      for (const gw of ingArTokens) {
-        if (
-          clean.includes(gw) ||
-          inWords.some(
-            (iw) =>
-              iw.length >= 4 &&
-              (stringSimilarity(iw, gw) >= 0.8 ||
-                stringSimilarity(normalizeArabicSkeleton(iw), normalizeArabicSkeleton(gw)) >= 0.85)
-          )
-        ) {
-          matchedArIng++;
-        }
-      }
-
-      if (matchedEnIng > 0) {
-        const ratio = matchedEnIng / Math.max(1, ingEnTokens.length);
-        score = Math.max(score, Math.round(70 + matchedEnIng * 20 + ratio * 25));
-      }
-      if (matchedArIng > 0) {
-        const ratio = matchedArIng / Math.max(1, ingArTokens.length);
-        score = Math.max(score, Math.round(70 + matchedArIng * 20 + ratio * 25));
       }
     }
 
@@ -1725,25 +1676,11 @@ export function matchEgyptianDrugFromText(rawText: string): {
     };
   }
 
-  for (const item of DRUG_KEYWORD_TO_ID) {
-    if (item.pattern.test(raw)) {
-      const rep = EGYPTIAN_COMMERCIAL_PRODUCTS.find((p) => p.activeIngredientId === item.id) || null;
-      return {
-        matchedProduct: rep,
-        matchedIngredientId: item.id,
-        detectedDrugName: rep ? `${rep.tradeNameAr} (${rep.tradeNameEn})` : item.label,
-        score: 90,
-      };
-    }
-  }
-
   return { matchedProduct: null, matchedIngredientId: null, detectedDrugName: '', score: 0 };
 }
 
 /**
- * Downscales large camera/gallery images in the browser to <=800px JPEG (<95 KB)
- * so Cloud OCR (`removed-legacy-endpoint` 1024 KB limit) and Vision endpoints never reject phone photos,
- * and checks native BarcodeDetector.
+ * Downscales large camera/gallery images in the browser
  */
 export async function prepareImageForOcrAndVision(
   base64OrDataUrl: string,
@@ -1895,6 +1832,7 @@ async function runCloudOcrNonColliding(_dataUri: string): Promise<string> {
 
 function parseVisionText(rawText: string): {
   detectedDrugName: string;
+  genericName: string;
   matchedIngredientId: string | null;
   summary: string;
 } {
@@ -1904,47 +1842,55 @@ function parseVisionText(rawText: string): {
   let genericName = '';
   const summaryLines: string[] = [];
 
-  for (const line of lines) {
+  for (const rawLine of lines) {
+    const line = rawLine
+      .trim()
+      .replace(/^[*•\-–\d.]+\s*/, '')
+      .replace(/\*\*/g, '')
+      .trim();
+    if (!line) continue;
+
     const idMatch = line.match(/^(?:RX_)?DRUG_ID:\s*([a-z0-9-]+)/i);
-    const nameMatch = line.match(/^(?:RX_)?DRUG_NAME:\s*(.+)/i);
-    const genMatch = line.match(/^GENERIC_NAME:\s*(.+)/i);
-    const sumMatch = line.match(/^SUMMARY:\s*(.+)/i);
+    const nameMatch = line.match(/^(?:RX_)?(?:DRUG_NAME|MEDICINE_NAME|TRADE_NAME|الاسم التجاري|اسم الدواء):\s*(.+)/i);
+    const genMatch = line.match(/^(?:GENERIC_NAME|ACTIVE_INGREDIENT|المادة الفعالة):\s*(.+)/i);
+    const sumMatch = line.match(/^(?:SUMMARY|RX_NOTES|الملخص):\s*(.+)/i);
     if (idMatch) {
       const val = idMatch[1].toLowerCase().trim();
       if (val !== 'unknown' && val !== 'unreadable' && KNOWN_INGREDIENT_SLUGS.has(val)) matchedId = val;
     } else if (nameMatch) {
-      const val = nameMatch[1].trim();
+      const val = nameMatch[1].replace(/^\[|\]$/g, '').trim();
       if (!/^(unreadable|unknown|none|null|n\/a|غير واضح|غير مقروء)$/i.test(val)) {
         detectedName = val;
       }
     } else if (genMatch) {
-      const val = genMatch[1].trim();
+      const val = genMatch[1].replace(/^\[|\]$/g, '').trim();
       if (!/^(unreadable|unknown|none|null|n\/a|غير واضح|غير مقروء)$/i.test(val)) {
         genericName = val;
       }
     } else if (sumMatch) {
       summaryLines.push(sumMatch[1].trim());
-    } else if (!/^(RX_|DRUG_|GENERIC_)/i.test(line.trim())) {
-      summaryLines.push(line);
+    } else if (!/^(RX_|DRUG_|GENERIC_)/i.test(line)) {
+      summaryLines.push(rawLine);
+    }
+  }
+
+  // If detectedName has "Brand (Generic)" where inside parentheses is a generic ingredient, keep the Brand part clean
+  if (detectedName) {
+    const pm = detectedName.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+    if (pm && isPureGenericIngredientQuery(pm[2]) && !isPureGenericIngredientQuery(pm[1])) {
+      if (!genericName) genericName = pm[2].trim();
+      detectedName = pm[1].trim();
     }
   }
 
   return {
     detectedDrugName: detectedName || genericName,
+    genericName,
     matchedIngredientId: matchedId,
     summary: cleanAssistantMarkdown(summaryLines.join('\n')),
   };
 }
 
-/**
- * Multi-Engine Bilingual Vision & OCR Scanner:
- * Reads both Arabic and English medicine names accurately using:
- * 1) Native BarcodeDetector
- * 2) Non-colliding Cloud OCR (`removed-legacy-endpoint` Engine 1 Arabic+Latin, then Engine 2 English)
- * 3) Google Gemini Vision (if user API key `AIza...` is configured)
- * 4) Zero-hint Vision OCR transcription (no drug names in prompt so it never hallucinates)
- * 5) Local in-browser Tesseract.js OCR (`eng+ara`) fallback
- */
 export async function analyzeMedicineImageWithVision(
   base64Data: string,
   mimeType: string,
@@ -1954,19 +1900,18 @@ export async function analyzeMedicineImageWithVision(
   const prepared = await prepareImageForOcrAndVision(base64Data, mimeType);
   const dataUri = prepared.dataUri;
 
-  // Dedicated zero-example prompt for reading Medicine Boxes, Tubes, Bottles & Blister Strips accurately
   const prompt =
     lang === 'ar'
-      ? `أنت صيدلي مصري خبير. اقرأ الاسم التجاري للدواء المطبوع على علبة الدواء أو شريط البرشام أو العبوة في هذه الصورة بدقة تامة كما هو مكتوب حرفياً.
-ممنوع تماماً تخمين اسم دواء غير مكتوب في الصورة. لو الحروف مقطوعة على طرف الشريط، اكتب الحروف الظاهرة أو الاسم التجاري المطابق لها في مصر.
-اكتب النتيجة في 3 أسطر فقط بالصيغة التالية بدون أي أمثلة:
-DRUG_NAME: <الاسم التجاري المكتوب على العلبة أو الشريط بالإنجليزية أو العربية مع التركيز، أو UNREADABLE لو الصورة غير واضحة>
-GENERIC_NAME: <المادة الفعالة المكتوبة على العلبة أو الشريط إن وجدت، أو NONE>
+      ? `أنت صيدلي مصري خبير. اقرأ الاسم التجاري للدواء (Trade/Brand Name المطبوع بخط كبير ورئيسي على علبة الدواء أو شريط البرشام) مع التركيز والشكل الصيدلاني بدقة تامة كما هو مكتوب في الصورة.
+تحذير هام جداً: إياك أن تكتب اسم المادة الفعالة (Generic/Active Ingredient المكتوبة بخط أصغر تحت الاسم التجاري) في خانة DRUG_NAME، بل اكتب الاسم التجاري للدواء في DRUG_NAME وضع المادة الفعالة في GENERIC_NAME فقط.
+اكتب النتيجة في 3 أسطر فقط بالصيغة التالية مباشرة بدون أي علامات ترقيم إضافية:
+DRUG_NAME: <الاسم التجاري للدواء المكتوب على العلبة أو الشريط مع التركيز والشكل الصيدلاني، أو UNREADABLE لو غير واضح>
+GENERIC_NAME: <المادة الفعالة المكتوبة على العلبة إن وجدت، أو NONE>
 SUMMARY: <ملخص طبي مختصر في سطرين عن هذا الدواء ودواعي استعماله>`
-      : `You are an expert Egyptian pharmacist. Read the exact printed trade name on the medicine box, bottle, tube, or blister strip in this image.
-Never guess a medicine that is not visible in the image.
+      : `You are an expert Egyptian pharmacist. Read the exact printed COMMERCIAL TRADE/BRAND NAME on the medicine box, bottle, tube, or blister strip in this image along with its strength and dosage form.
+CRITICAL RULE: Never put the generic active ingredient (printed in smaller font under the brand name) in DRUG_NAME. Always put the commercial brand name in DRUG_NAME and the active ingredient in GENERIC_NAME.
 Output strictly in these 3 lines:
-DRUG_NAME: <exact printed trade name and strength, or UNREADABLE>
+DRUG_NAME: <exact printed commercial brand name, strength, and dosage form, or UNREADABLE>
 GENERIC_NAME: <printed active ingredient if visible, or NONE>
 SUMMARY: <brief 2-line clinical summary of this medication>`;
 
@@ -1981,7 +1926,7 @@ SUMMARY: <brief 2-line clinical summary of this medication>`;
 
   const parsedGemini = geminiText
     ? parseVisionText(geminiText)
-    : { detectedDrugName: '', matchedIngredientId: null, summary: '' };
+    : { detectedDrugName: '', genericName: '', matchedIngredientId: null, summary: '' };
 
   // 1) If native barcode was found on the box/strip, check full 26,597 database first
   if (prepared.nativeBarcode) {
@@ -1996,15 +1941,20 @@ SUMMARY: <brief 2-line clinical summary of this medication>`;
     }
   }
 
-  // 2) If AI Vision read a clear drug name from the box/strip, resolve it against the full 26,597 database FIRST!
-  if (parsedGemini.detectedDrugName) {
-    const direct26k = findDawayaIndexItemSync(parsedGemini.detectedDrugName);
+  // 2) If AI Vision returned a commercial brand name, resolve it (with genericName synergy) against the 26,597 database!
+  if (parsedGemini.detectedDrugName && !isPureGenericIngredientQuery(parsedGemini.detectedDrugName)) {
+    const combinedVisionLookup = [parsedGemini.detectedDrugName, parsedGemini.genericName]
+      .filter(Boolean)
+      .join('\n');
+    const direct26k =
+      findDawayaIndexItemSync(combinedVisionLookup) ||
+      findDawayaIndexItemSync(parsedGemini.detectedDrugName);
     if (direct26k) {
       return {
         detectedDrugName: `${direct26k.a} (${direct26k.n})`,
         matchedIngredientId: direct26k.i,
         summary: parsedGemini.summary,
-        rawExtractedText: `${parsedGemini.detectedDrugName}\n${direct26k.n} ${direct26k.a}`,
+        rawExtractedText: `${ direct26k.n } ${ direct26k.a }`,
       };
     }
     return {
@@ -2015,33 +1965,38 @@ SUMMARY: <brief 2-line clinical summary of this medication>`;
     };
   }
 
-  // 3) Fallback to local Tesseract OCR only if AI Vision returned nothing
+  // 3) Run local Tesseract OCR if Vision returned nothing OR if Vision only returned a generic active ingredient name
   const localTesseractText = await performBrowserTesseractOcr(dataUri);
-  if (localTesseractText && localTesseractText.trim().length >= 3) {
-    const directOcr26k = findDawayaIndexItemSync(localTesseractText);
+  const combinedOcrAndVision = [
+    localTesseractText || '',
+    parsedGemini.detectedDrugName || '',
+    parsedGemini.genericName || '',
+     parsedGemini.summary || '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+
+  if (combinedOcrAndVision.length >= 3) {
+    const directOcr26k = findDawayaIndexItemSync(combinedOcrAndVision);
     if (directOcr26k) {
       return {
         detectedDrugName: `${directOcr26k.a} (${directOcr26k.n})`,
         matchedIngredientId: directOcr26k.i,
-        summary: '',
-        rawExtractedText: localTesseractText,
+        summary: parsedGemini.summary,
+        rawExtractedText: `${directOcr26k.n} ${directOcr26k.a}`,
       };
     }
   }
 
   return {
-    detectedDrugName: '',
-    matchedIngredientId: null,
+    detectedDrugName: parsedGemini.detectedDrugName || '',
+    matchedIngredientId: parsedGemini.matchedIngredientId,
     summary: parsedGemini.summary,
     rawExtractedText: localTesseractText || '',
   };
 }
 
-/**
- * Result of Prescription OCR / Camera extraction.
- * Strictly marks extracted data as unverified (`isUnverifiedOcr: true`, `autoApproved: false`)
- * and never invents missing dose, frequency, duration, or route values.
- */
 export interface PrescriptionOcrExtractionResult {
   detectedDrugName: string;
   matchedIngredientId: string | null;
@@ -2187,13 +2142,20 @@ export function parsePrescriptionTextDeterministically(
       .filter(Boolean);
     const enrichedParts: string[] = [];
     for (const part of drugParts) {
-      const hit = findDawayaIndexItemSync(part);
+      // Combine part with dose/route/notes context so strength & form (e.g. 600 mg, 500 mg, tablets) are always matched!
+      const lookupWithContext =
+        drugParts.length === 1
+          ? [part, extractedDoseText, extractedRoute, isPureGenericIngredientQuery(part) ? extractedNotes : '']
+              .filter(Boolean)
+              .join(' ')
+          : part;
+      const hit = findDawayaIndexItemSync(lookupWithContext) || findDawayaIndexItemSync(part);
       if (hit) {
         if (!matchedIngredientId) matchedIngredientId = hit.i;
         const label = hit.a ? `${hit.a} (${hit.n})` : hit.n;
         if (!enrichedParts.includes(label)) enrichedParts.push(label);
       } else {
-        const abxHit = matchEgyptianDrugFromText(part);
+        const abxHit = matchEgyptianDrugFromText(lookupWithContext);
         if (abxHit.matchedIngredientId) {
           if (!matchedIngredientId) matchedIngredientId = abxHit.matchedIngredientId;
           if (!enrichedParts.includes(abxHit.detectedDrugName)) enrichedParts.push(abxHit.detectedDrugName);
@@ -2209,10 +2171,9 @@ export function parsePrescriptionTextDeterministically(
 
   // 2) Only if detectedDrugName was NOT found via RX_DRUG_NAME:, scan non-metadata lines against the 26,597 database
   if (!detectedDrugName) {
-    const found26k: string[] = [];
+    const nonMetaLines: string[] = [];
     for (const rawLine of lines) {
       const trimmedLine = rawLine.trim();
-      // NEVER scan RX_ROUTE, RX_DOSE, RX_FREQ, RX_DURATION_DAYS, RX_NOTES, RX_CONTRADICTIONS, or RX_DRUG_ID lines as drug names!
       if (/^(?:RX_ROUTE|RX_DOSE|RX_FREQ|RX_DURATION_DAYS|RX_NOTES|RX_CONTRADICTIONS|RX_DRUG_ID|DRUG_ID|SUMMARY|GENERIC_NAME):/i.test(trimmedLine)) {
         continue;
       }
@@ -2220,29 +2181,50 @@ export function parsePrescriptionTextDeterministically(
         .replace(/^(?:RX_DRUG_NAME|DRUG_NAME):\s*/i, '')
         .replace(/^[*•\-–\d.]+\s*/, '')
         .trim();
-      if (cleanL.length >= 4 && !isUnreadableToken(cleanL) && !/^none$/i.test(cleanL)) {
-        const hit = findDawayaIndexItemSync(cleanL);
+      if (cleanL.length >= 3 && !isUnreadableToken(cleanL) && !/^none$/i.test(cleanL)) {
+        nonMetaLines.push(cleanL);
+      }
+    }
+
+    // Check if the prescription has multiple bulleted/numbered R/ lines vs a single medicine box
+    const rxBulletLines = lines.filter((l) => /^\s*(?:[-*•–]|\d+[.)]|R\/)\s*[A-Za-z\u0600-\u06FF]/i.test(l));
+    if (rxBulletLines.length >= 2) {
+      const found26k: string[] = [];
+      const seenGenerics = new Set<string>();
+      for (const bLine of rxBulletLines) {
+        const cleanB = bLine.replace(/^\s*(?:R\/|[-*•–]|\d+[.)])+\s*/i, '').trim();
+        const hit = findDawayaIndexItemSync(cleanB);
         if (hit) {
+          if (isPureGenericIngredientQuery(cleanB) && seenGenerics.has((hit.g || '').toLowerCase())) {
+            continue;
+          }
           const label = hit.a ? `${hit.a} (${hit.n})` : hit.n;
           if (!found26k.includes(label)) found26k.push(label);
+          if (hit.g) seenGenerics.add(hit.g.toLowerCase());
           if (!matchedIngredientId) matchedIngredientId = hit.i;
         }
       }
+      if (found26k.length > 0) {
+        detectedDrugName = found26k.join(' + ');
+      }
     }
-    if (found26k.length > 0) {
-      detectedDrugName = found26k.join(' + ');
-    } else {
-      const matched = matchEgyptianDrugFromText(text);
-      if (matched.matchedIngredientId) {
-        if (!matchedIngredientId) matchedIngredientId = matched.matchedIngredientId;
-        detectedDrugName = matched.detectedDrugName;
+
+    // Single medicine box / blister strip / single-drug text: match across the combined non-metadata lines at once!
+    if (!detectedDrugName && nonMetaLines.length > 0) {
+      const combinedBoxText = nonMetaLines.join('\n');
+      const boxHit = findDawayaIndexItemSync(combinedBoxText);
+      if (boxHit) {
+        detectedDrugName = boxHit.a ? `${boxHit.a} (${boxHit.n})` : boxHit.n;
+        matchedIngredientId = boxHit.i;
+      } else {
+        const matched = matchEgyptianDrugFromText(combinedBoxText);
+        if (matched.matchedIngredientId) {
+          matchedIngredientId = matched.matchedIngredientId;
+          detectedDrugName = matched.detectedDrugName;
+        }
       }
     }
   }
-  // Section 2 & 8 Safety Fix: NEVER dump raw Tesseract OCR noise into detectedDrugName if it does not match
-  // a real medication in the DAWAYA 26,562 database or explicit RX_DRUG_NAME output from Gemini Vision!
-  // If OCR returned unverified text that didn't match any drug, leave detectedDrugName = '' so unreadableFields
-  // properly flags 'medicineName' and prompts the user or AI Vision without displaying garbled OCR symbols.
 
   // Extract explicit dose strength/quantity ONLY if written in the text (never invented from DB!)
   if (!extractedDoseText) {
@@ -2395,35 +2377,36 @@ export async function analyzePrescriptionImageWithVision(
   lang: Lang,
   fileNameHint?: string
 ): Promise<PrescriptionOcrExtractionResult> {
+  await ensureDawayaDatabaseLoaded().catch(() => {});
   const prepared = await prepareImageForOcrAndVision(base64Data, mimeType);
   const dataUri = prepared.dataUri;
-  const key = getApiKey();
 
   const prompt =
     lang === 'ar'
       ? `أنت صيدلي إكلينيكي مصري خبير في قراءة علب وشرائط الأدوية وفك خط الأطباء اليدوي في الروشتات المصرية.
 انظر للصورة المرفوعة بدقة:
-- إذا كانت الصورة لعلبة دواء أو شريط برشام أو عبوة (مثل Flagyl 500 mg أو Flamotal 600 mg أو أي دواء): اقرأ الاسم التجاري المطبوع على العلبة والتركيز بدقة في خانة RX_DRUG_NAME، واكتب التركيز أو الجرعة المعتادة في RX_DOSE، وطريقة الإعطاء في RX_ROUTE، وشرحاً مختصراً عن الدواء ومادته الفعالة ودواعي استعماله في RX_NOTES.
+- إذا كانت الصورة لعلبة دواء أو شريط برشام أو عبوة: اقرأ الاسم التجاري المطبوع بخط رئيسي كبير على العلبة (Commercial Trade/Brand Name) مع التركيز والشكل الصيدلاني بدقة في خانة RX_DRUG_NAME. تحذير صارم: إياك أن تكتب اسم المادة الفعالة (Generic/Active Ingredient المكتوبة بخط أصغر تحت الاسم التجاري) في خانة RX_DRUG_NAME، بل ضع المادة الفعالة ودواعي الاستعمال داخل RX_NOTES فقط.
 - إذا كانت الصورة لروشتة طبية مكتوبة بخط اليد أو مطبوعة: استخدم تخصص الطبيب والحروف الأولى والتركيز والشكل الصيدلاني لقراءة جميع الأدوية المكتوبة في الروشتة وافصل بينها بعلامة + في خانة RX_DRUG_NAME، واكتب الجرعات المكتوبة لكل دواء في RX_DOSE و RX_NOTES.
-اكتب النتيجة بالصيغة التالية مباشرة بدون أقواس مربعة:
+اكتب النتيجة بالصيغة التالية مباشرة بدون أقواس مربعة وبدون أمثلة:
 RX_DRUG_ID: unknown
-RX_DRUG_NAME: اكتب الاسم التجاري للدواء المطبوع على العلبة أو أسماء أدوية الروشتة مفصولة بعلامة +
-RX_DOSE: اكتب التركيز والجرعة المقروءة
-RX_ROUTE: oral
-RX_FREQ: twice_daily
-RX_DURATION_DAYS: 7
-RX_NOTES: اكتب المادة الفعالة ودواعي الاستعمال أو قراءتك الكاملة لكل سطر في الروشتة بالتفصيل
+RX_DRUG_NAME: <الاسم التجاري للدواء المطبوع على العلبة مع التركيز، أو أسماء أدوية الروشتة مفصولة بعلامة +>
+RX_DOSE: <التركيز والجرعة المقروءة من الصورة أو UNREADABLE>
+RX_ROUTE: <oral أو suspension أو injection أو topical أو UNREADABLE>
+RX_FREQ: <once_daily أو twice_daily أو thrice_daily أو four_times_daily أو UNREADABLE>
+RX_DURATION_DAYS: <عدد أيام العلاج بالأرقام أو UNREADABLE>
+RX_NOTES: <المادة الفعالة ودواعي الاستعمال أو قراءتك الكاملة لكل سطر في الروشتة بالتفصيل>
 RX_CONTRADICTIONS: NONE`
-      : `You are an expert Egyptian pharmacist skilled at reading handwritten Egyptian medical prescriptions.
-Use the doctor's specialty header, first letters of each drug line after R/, strength, and dosage form to identify all prescribed medications.
+      : `You are an expert Egyptian clinical pharmacist skilled at reading medicine boxes, blister strips, and handwritten Egyptian prescriptions.
+- If the image is a medicine box, bottle, tube, or blister strip: put the exact COMMERCIAL TRADE/BRAND NAME and strength in RX_DRUG_NAME. CRITICAL: Never put the generic active ingredient (printed in smaller font under the brand name) in RX_DRUG_NAME; put the active ingredient in RX_NOTES instead.
+- If the image is a medical prescription: list all prescribed medications separated by + in RX_DRUG_NAME.
 Output the exact lines below without brackets:
 RX_DRUG_ID: unknown
-RX_DRUG_NAME: list all medications read from the prescription separated by +
-RX_DOSE: dose and strength read from the prescription
-RX_ROUTE: oral
-RX_FREQ: twice_daily
-RX_DURATION_DAYS: 7
-RX_NOTES: full line-by-line reading of every medication and instruction on the prescription
+RX_DRUG_NAME: <commercial brand name and strength on the box, or prescription medications separated by +>
+RX_DOSE: <dose and strength read from the image, or UNREADABLE>
+RX_ROUTE: <oral, suspension, injection, topical, or UNREADABLE>
+RX_FREQ: <once_daily, twice_daily, thrice_daily, four_times_daily, or UNREADABLE>
+RX_DURATION_DAYS: <number of days or UNREADABLE>
+RX_NOTES: <active ingredient and clinical summary, or full line-by-line reading of the prescription>
 RX_CONTRADICTIONS: NONE`;
 
   const runGemini = async (): Promise<string> => {
@@ -2457,11 +2440,19 @@ RX_CONTRADICTIONS: NONE`;
 
   let parsedResult = parsePrescriptionTextDeterministically(combinedRaw);
 
-  if (!parsedResult.detectedDrugName) {
+  // Run local Tesseract OCR if no drug name was detected OR if only a generic active ingredient was returned
+  if (!parsedResult.detectedDrugName || isPureGenericIngredientQuery(parsedResult.detectedDrugName)) {
     const localTesseract = await performBrowserTesseractOcr(dataUri);
     if (localTesseract) {
-      combinedRaw = [combinedRaw, localTesseract].filter(Boolean).join('\n').trim();
-      parsedResult = parsePrescriptionTextDeterministically(combinedRaw);
+      const boxBrandHit = findDawayaIndexItemSync(`${localTesseract}\n${parsedResult.detectedDrugName}\n${parsedResult.extractedDoseText}`);
+      if (boxBrandHit) {
+        parsedResult.detectedDrugName = boxBrandHit.a ? `${boxBrandHit.a} (${boxBrandHit.n})` : boxBrandHit.n;
+        parsedResult.matchedIngredientId = boxBrandHit.i;
+        parsedResult.unreadableFields = parsedResult.unreadableFields.filter((f) => f !== 'medicineName');
+      } else if (!parsedResult.detectedDrugName) {
+        combinedRaw = [combinedRaw, localTesseract].filter(Boolean).join('\n').trim();
+        parsedResult = parsePrescriptionTextDeterministically(combinedRaw);
+      }
     }
   }
 

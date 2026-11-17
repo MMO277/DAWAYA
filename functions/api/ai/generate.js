@@ -76,7 +76,7 @@ async function discoverGoogleModels(apiKey, preferAudio = false) {
     const scoreModel = (id) => {
       const lower = id.toLowerCase();
       if (lower === 'gemini-2.0-flash' || lower === 'gemini-2.0-flash-001') return -50;
-      if (lower === 'gemini-2.5-flash') return -20;
+      if (lower === 'gemini-2.5-flash') return 110;
       let score = 0;
       if (lower.includes('gemini-3')) score += 100;
       if (lower.includes('flash-lite')) score += 90;
