@@ -37,8 +37,10 @@ import {
 import {
   analyzeUploadedMedicalDocument,
   compressMedicalImageFile,
+  compressMultipleMedicalFiles,
   validateMedicalUploadFile,
 } from './aiDocumentProcessor';
+import { MedicalDocumentCategory } from './allergyData';
 import {
   buildOpenEgyptianOfflineFallback,
   buildPermittedPatientContextPrompt,
@@ -234,6 +236,7 @@ export default function Assistant() {
   const [voiceNote, setVoiceNote] = useState('');
   const stopListenRef = useRef<VoiceRecognitionHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const forcedUploadCategoryRef = useRef<MedicalDocumentCategory | undefined>(undefined);
   const end = useRef<HTMLDivElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const autoQueryRanRef = useRef<string>('');
@@ -490,10 +493,13 @@ export default function Assistant() {
   }
 
   async function handleFileAttachment(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const fileList = e.target.files ? Array.from(e.target.files) : [];
+    const forcedCat = forcedUploadCategoryRef.current;
+    forcedUploadCategoryRef.current = undefined;
     e.target.value = '';
-    if (!file || loading) return;
+    if (fileList.length === 0 || loading) return;
 
+    const file = fileList[0];
     const date = new Date().toLocaleDateString(isAr ? 'ar-EG' : 'en-GB');
     const validation = validateMedicalUploadFile(file);
     if (!validation.valid) {
@@ -514,7 +520,7 @@ export default function Assistant() {
     setUploadProgress(20);
 
     try {
-      const compressed = await compressMedicalImageFile(file);
+      const multiCompressed = await compressMultipleMedicalFiles(fileList);
       setUploadProgress(55);
 
       setMsgs((m) => [
@@ -523,21 +529,25 @@ export default function Assistant() {
           id: `msg-${Date.now()}-file-user`,
           who: 'me',
           text: isAr
-            ? `📎 رفعت صورة/مستند: ${validation.sanitizedFileName}`
-            : `📎 Attached medical document: ${validation.sanitizedFileName}`,
-          attachmentPreviewUrl: compressed.previewDataUrl,
-          attachmentFileName: validation.sanitizedFileName,
+            ? `📎 رفعت مستند (${multiCompressed.pageCount} صفحة): ${multiCompressed.combinedFileName}`
+            : `📎 Attached medical document (${multiCompressed.pageCount} page(s)): ${multiCompressed.combinedFileName}`,
+          attachmentPreviewUrl: multiCompressed.previewDataUrl,
+          attachmentFileName: multiCompressed.combinedFileName,
           date,
         },
       ]);
 
       const analysis = await analyzeUploadedMedicalDocument({
-        base64Data: compressed.base64Data,
-        previewDataUrl: compressed.previewDataUrl,
+        base64Data: multiCompressed.primaryBase64,
+        previewDataUrl: multiCompressed.previewDataUrl,
         fileName: validation.sanitizedFileName,
-        mimeType: compressed.mimeType,
-        fileSize: compressed.compressedSize,
+        mimeType: multiCompressed.mimeType,
+        fileSize: multiCompressed.totalSize,
         lang,
+        forcedCategory: forcedCat,
+        pdfPageCount: multiCompressed.pageCount,
+        pdfExtractedText: multiCompressed.combinedPdfText,
+        additionalPageImagesBase64: multiCompressed.allPageImagesBase64,
       });
       setUploadProgress(90);
 
@@ -559,9 +569,9 @@ export default function Assistant() {
         profile,
         schedules,
         prescriptions,
-        previewImageUrl: compressed.previewDataUrl,
+        previewImageUrl: multiCompressed.previewDataUrl,
         rawFileForUpload: file,
-        base64DataForUpload: compressed.base64Data,
+        base64DataForUpload: multiCompressed.primaryBase64,
       });
 
       setMsgs((m) => [
@@ -748,10 +758,24 @@ export default function Assistant() {
             <button
               type="button"
               className="btn small"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                forcedUploadCategoryRef.current = 'prescription';
+                fileInputRef.current?.click();
+              }}
               disabled={loading}
             >
-              📎 {isAr ? 'صور / ارفع روشتة أو تحليل' : 'Upload Rx / Lab'}
+              📎 {isAr ? 'ارفع روشتة (صورة / PDF)' : 'Upload Prescription'}
+            </button>
+            <button
+              type="button"
+              className="btn small ghost"
+              onClick={() => {
+                forcedUploadCategoryRef.current = 'leaflet';
+                fileInputRef.current?.click();
+              }}
+              disabled={loading}
+            >
+              📖 {isAr ? 'ارفع نشرة دواء' : 'Upload Leaflet'}
             </button>
             <button
               type="button"
@@ -1168,6 +1192,7 @@ export default function Assistant() {
         <input
           ref={fileInputRef}
           type="file"
+          multiple
           accept="image/jpeg,image/png,image/webp,application/pdf"
           style={{ display: 'none' }}
           onChange={handleFileAttachment}

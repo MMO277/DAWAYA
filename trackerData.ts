@@ -5,7 +5,7 @@ import { useAuth } from './authContext';
 import { AllergyRecord, checkDrugAllergySafety } from './allergyData';
 import { syncNativeAlarmsWithSchedules, fireLoudBackgroundAlarmNow, triggerTestAlarm } from './nativeAlarmService';
 
-export type DoseStatus = 'upcoming' | 'taken' | 'missed' | 'unconfirmed';
+export type DoseStatus = 'upcoming' | 'taken' | 'missed' | 'skipped' | 'unconfirmed';
 
 export type DoseDocumentedOutcome =
   | 'taken_on_time'
@@ -108,7 +108,11 @@ export type TreatmentJourneyEventType =
   | 'dose_taken'
   | 'dose_missed'
   | 'dose_documented'
+  | 'dose_skipped'
   | 'dose_undone'
+  | 'schedule_paused'
+  | 'schedule_resumed'
+  | 'schedule_discontinued'
   | 'duplicate_dose_blocked';
 
 export interface TreatmentJourneyEvent {
@@ -147,6 +151,10 @@ export interface TreatmentSchedule {
   verifiedByPatient?: boolean;
   clarificationFlags?: ClarificationFlag[];
   rawExtractedText?: string;
+  trackingStatus?: 'active' | 'paused' | 'discontinued' | 'completed';
+  pausedAt?: string;
+  discontinuedAt?: string;
+  discontinueReason?: string;
   createdAt: string;
   updatedAt: string;
   doses: ScheduledDose[];
@@ -1024,7 +1032,7 @@ export function normalizeSchedules(raw: any): TreatmentSchedule[] {
                 typeof d.id === 'string' && d.id.trim()
                   ? d.id.trim()
                   : `${id}-d${dayNumber}-${doseNumberInDay}`;
-              const status: DoseStatus = ['upcoming', 'taken', 'missed', 'unconfirmed'].includes(d.status)
+              const status: DoseStatus = ['upcoming', 'taken', 'missed', 'skipped', 'unconfirmed'].includes(d.status)
                 ? d.status
                 : 'upcoming';
               const takenAt = typeof d.takenAt === 'string' && d.takenAt ? d.takenAt : undefined;
@@ -1115,6 +1123,12 @@ export function normalizeSchedules(raw: any): TreatmentSchedule[] {
         ...(typeof s.rawExtractedText === 'string' && s.rawExtractedText.trim()
           ? { rawExtractedText: s.rawExtractedText.trim() }
           : {}),
+        trackingStatus: ['active', 'paused', 'discontinued', 'completed'].includes(s.trackingStatus)
+          ? s.trackingStatus
+          : 'active',
+        ...(typeof s.pausedAt === 'string' && s.pausedAt ? { pausedAt: s.pausedAt } : {}),
+        ...(typeof s.discontinuedAt === 'string' && s.discontinuedAt ? { discontinuedAt: s.discontinuedAt } : {}),
+        ...(typeof s.discontinueReason === 'string' && s.discontinueReason ? { discontinueReason: s.discontinueReason } : {}),
         createdAt,
         updatedAt,
         doses,
@@ -1154,7 +1168,7 @@ export function mergeDoseRecords(primary: ScheduledDose, secondary: ScheduledDos
     return primary;
   }
 
-  const isExplicit = (st: DoseStatus) => st === 'taken' || st === 'missed';
+  const isExplicit = (st: DoseStatus) => st === 'taken' || st === 'missed' || st === 'skipped';
   if (!isExplicit(primary.status) && isExplicit(secondary.status)) {
     return { ...secondary, id: primary.id, scheduleId: primary.scheduleId };
   }
@@ -1323,7 +1337,7 @@ export function safeMergeGuestIntoCloud(
             (d.dayNumber === cd.dayNumber && d.doseNumberInDay === cd.doseNumberInDay)
         );
         if (!gd) return cd;
-        if (cd.status === 'upcoming' && (gd.status === 'taken' || gd.status === 'missed')) {
+        if (cd.status === 'upcoming' && (gd.status === 'taken' || gd.status === 'missed' || gd.status === 'skipped')) {
           doseChanged = true;
           return {
             ...cd,
@@ -2666,6 +2680,19 @@ export function useSyncedSchedules() {
           summaryAr: `✅ تم تسجيل أخذ الجرعة ${targetDose.doseNumberInDay} (اليوم ${targetDose.dayNumber}) من ${targetSch.medicineName} (${formatDocumentedOutcomeLabel(outcome, true)})${nextNote ? ` — ملاحظة: ${nextNote}` : ''}`,
           summaryEn: `✅ Recorded Dose #${targetDose.doseNumberInDay} (Day ${targetDose.dayNumber}) of ${targetSch.medicineName} as Taken (${formatDocumentedOutcomeLabel(outcome, false)})${nextNote ? ` — Note: ${nextNote}` : ''}`,
         };
+      } else if (newStatus === 'skipped') {
+        const outcome: DoseDocumentedOutcome =
+          options?.documentedOutcome || 'skipped_clinician_advice';
+        eventItem = {
+          type: 'dose_skipped',
+          scheduleId,
+          doseId,
+          medicineName: targetSch.medicineName,
+          scheduledTime: targetDose.scheduledTime,
+          actualTime: nowIso,
+          summaryAr: `⏭️ تم تسجيل تخطي الجرعة ${targetDose.doseNumberInDay} (اليوم ${targetDose.dayNumber}) من ${targetSch.medicineName} (${formatDocumentedOutcomeLabel(outcome, true)})${nextNote ? ` — ملاحظة: ${nextNote}` : ''}`,
+          summaryEn: `⏭️ Recorded Dose #${targetDose.doseNumberInDay} (Day ${targetDose.dayNumber}) of ${targetSch.medicineName} as Skipped (${formatDocumentedOutcomeLabel(outcome, false)})${nextNote ? ` — Note: ${nextNote}` : ''}`,
+        };
       } else if (newStatus === 'missed') {
         const outcome: DoseDocumentedOutcome =
           options?.documentedOutcome || 'missed_confirmed';
@@ -2719,6 +2746,18 @@ export function useSyncedSchedules() {
                   ...rest,
                   status: 'taken' as const,
                   takenAt: nowIso,
+                  statusUpdatedAt: nowIso,
+                  documentedOutcome: outcome,
+                  ...(nextNote ? { note: nextNote } : {}),
+                };
+              }
+              if (newStatus === 'skipped') {
+                const outcome: DoseDocumentedOutcome =
+                  options?.documentedOutcome || 'skipped_clinician_advice';
+                return {
+                  ...rest,
+                  status: 'skipped' as const,
+                  missedAt: nowIso,
                   statusUpdatedAt: nowIso,
                   documentedOutcome: outcome,
                   ...(nextNote ? { note: nextNote } : {}),
@@ -2804,10 +2843,66 @@ export function useSyncedSchedules() {
 
   const syncing = syncStatus === 'loading' || syncStatus === 'saving';
 
+  const setScheduleTrackingStatus = useCallback(
+    (
+      scheduleId: string,
+      newTrackingStatus: 'active' | 'paused' | 'discontinued' | 'completed',
+      reason?: string
+    ) => {
+      const nowIso = new Date().toISOString();
+      const target = schedulesRef.current.find((s) => s.id === scheduleId);
+      if (!target) return;
+
+      const evType: TreatmentJourneyEventType =
+        newTrackingStatus === 'paused'
+          ? 'schedule_paused'
+          : newTrackingStatus === 'discontinued'
+            ? 'schedule_discontinued'
+            : 'schedule_resumed';
+
+      const statusAr =
+        newTrackingStatus === 'paused'
+          ? 'إيقاف مؤقت لمتابعة الجدول'
+          : newTrackingStatus === 'discontinued'
+            ? 'إيقاف متابعة الدواء'
+            : newTrackingStatus === 'completed'
+              ? 'اكتمال متابعة الكورس'
+              : 'استئناف متابعة الجدول';
+
+      updateSchedules(
+        (prev) =>
+          prev.map((s) =>
+            s.id === scheduleId
+              ? {
+                  ...s,
+                  trackingStatus: newTrackingStatus,
+                  ...(newTrackingStatus === 'paused' ? { pausedAt: nowIso } : {}),
+                  ...(newTrackingStatus === 'discontinued'
+                    ? { discontinuedAt: nowIso, ...(reason ? { discontinueReason: reason } : {}) }
+                    : {}),
+                  updatedAt: nowIso,
+                }
+              : s
+          ),
+        [
+          {
+            type: evType,
+            scheduleId,
+            medicineName: target.medicineName,
+            summaryAr: `🔔 ${statusAr} للدواء: ${target.medicineName}${reason ? ` (${reason})` : ''}`,
+            summaryEn: `🔔 Schedule status changed to "${newTrackingStatus}" for: ${target.medicineName}${reason ? ` (${reason})` : ''}`,
+          },
+        ]
+      );
+    },
+    [updateSchedules]
+  );
+
   return {
     schedules,
     setSchedules: updateSchedules,
     deleteScheduleById,
+    setScheduleTrackingStatus,
     updateDoseStatus,
     prescriptions,
     setPrescriptions: updatePrescriptions,
@@ -2829,6 +2924,7 @@ export function useSyncedSchedules() {
 export function getDoseStatus(dose: ScheduledDose, now = new Date()): DoseStatus {
   if (dose.status === 'taken') return 'taken';
   if (dose.status === 'missed') return 'missed';
+  if (dose.status === 'skipped') return 'skipped';
   const scheduled = new Date(dose.scheduledTime);
   if (!isNaN(scheduled.getTime()) && now > scheduled) return 'unconfirmed';
   return 'upcoming';
@@ -2838,6 +2934,7 @@ export function calculateScheduleProgress(sch: TreatmentSchedule, now = new Date
   const totalDoses = sch.doses.length;
   let takenCount = 0;
   let missedCount = 0;
+  let skippedCount = 0;
   let unconfirmedCount = 0;
   let upcomingCount = 0;
 
@@ -2845,6 +2942,7 @@ export function calculateScheduleProgress(sch: TreatmentSchedule, now = new Date
     const st = getDoseStatus(d, now);
     if (st === 'taken') takenCount++;
     else if (st === 'missed') missedCount++;
+    else if (st === 'skipped') skippedCount++;
     else if (st === 'unconfirmed') unconfirmedCount++;
     else upcomingCount++;
   }
@@ -2854,9 +2952,16 @@ export function calculateScheduleProgress(sch: TreatmentSchedule, now = new Date
     totalDoses,
     takenCount,
     missedCount,
+    skippedCount,
     unconfirmedCount,
     upcomingCount,
     progressPercent,
+    // Aliases for PatientDashboard compatibility
+    total: totalDoses,
+    taken: takenCount,
+    missed: missedCount,
+    skipped: skippedCount,
+    percent: progressPercent,
   };
 }
 

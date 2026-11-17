@@ -2405,6 +2405,37 @@ export function buildPermittedPatientContextPrompt(params: {
     `• الأدوية الحالية التي يتناولها المريض بالفعل: ${activeMeds || activeSchedules || 'لا توجد أدوية مسجلة حالياً'}`
   );
 
+  // Include next upcoming dose reminder & saved prescriptions / leaflets in patient context
+  const nowIso = new Date().toISOString().slice(0, 16);
+  const upcomingList: string[] = [];
+  for (const s of schedules || []) {
+    if (s.trackingStatus === 'paused' || s.trackingStatus === 'discontinued') continue;
+    for (const d of s.doses || []) {
+      if (d.status === 'upcoming' && d.scheduledTime >= nowIso) {
+        upcomingList.push(`${s.medicineName} (${s.prescribedDose}) في ${d.scheduledTime.replace('T', ' الساعة ')}`);
+      }
+    }
+  }
+  upcomingList.sort();
+  if (upcomingList.length > 0) {
+    parts.push(`[موعد الجرعة والمنبه القادم للمريض]: ${upcomingList[0]} (إجمالي الجرعات القادمة المجدولة: ${upcomingList.length})`);
+  }
+
+  if (prescriptions && prescriptions.length > 0) {
+    const rxLines = prescriptions
+      .slice(0, 5)
+      .map((rx) => `${rx.medicineName} (${rx.prescribedDose || 'بدون تركيز'} - ${rx.frequency || 'غير محدد'} - الحالة: ${rx.verificationStatus})`);
+    parts.push(`[الروشتات المحفوظة في حساب المريض]: ${rxLines.join(' | ')}`);
+  }
+
+  const savedLeaflets = (profile.medicalDocuments || []).filter((d) => d.category === 'leaflet');
+  if (savedLeaflets.length > 0) {
+    const lfLines = savedLeaflets
+      .slice(0, 3)
+      .map((d) => `${d.title}: ${d.extractedSummary.slice(0, 220)}`);
+    parts.push(`[النشرات الدوائية المرفوعة في حساب المريض]: ${lfLines.join(' || ')}`);
+  }
+
   // Cross-Clinic Clinical Interaction Directive
   if (activeMeds || activeSchedules) {
     parts.push(

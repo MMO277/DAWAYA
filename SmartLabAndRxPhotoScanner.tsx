@@ -6,6 +6,7 @@ import { speakText } from './speechService';
 import {
   analyzeUploadedMedicalDocument,
   compressMedicalImageFile,
+  compressMultipleMedicalFiles,
   validateMedicalUploadFile,
 } from './aiDocumentProcessor';
 import Disclaimer from './Disclaimer';
@@ -212,9 +213,10 @@ export default function SmartLabAndRxPhotoScanner() {
   };
 
   async function handlePhotoUpload(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const fileList = e.target.files ? Array.from(e.target.files) : [];
     e.target.value = '';
-    if (!file) return;
+    if (fileList.length === 0) return;
+    const file = fileList[0];
 
     const validation = validateMedicalUploadFile(file);
     if (!validation.valid) {
@@ -225,20 +227,23 @@ export default function SmartLabAndRxPhotoScanner() {
     setPhotoError(null);
     setScanningPhoto(true);
     try {
-      const compressed = await compressMedicalImageFile(file);
-      setPhotoPreviewUrl(compressed.previewDataUrl);
+      const multiCompressed = await compressMultipleMedicalFiles(fileList);
+      setPhotoPreviewUrl(multiCompressed.previewDataUrl);
       const analysis = await analyzeUploadedMedicalDocument({
-        base64Data: compressed.base64Data,
-        previewDataUrl: compressed.previewDataUrl,
+        base64Data: multiCompressed.primaryBase64,
+        previewDataUrl: multiCompressed.previewDataUrl,
         fileName: validation.sanitizedFileName,
-        mimeType: compressed.mimeType,
-        fileSize: compressed.compressedSize,
+        mimeType: multiCompressed.mimeType,
+        fileSize: multiCompressed.totalSize,
         lang,
+        pdfPageCount: multiCompressed.pageCount,
+        pdfExtractedText: multiCompressed.combinedPdfText,
+        additionalPageImagesBase64: multiCompressed.allPageImagesBase64,
       });
       setAiSummaryText(isAr ? analysis.extractedSummaryAr : analysis.extractedSummaryEn);
       setExtractedMeds(
         (analysis.extractedPrescriptions || []).map(
-          (rx) => `${rx.medicineName} ${rx.dosageText ? `(${rx.dosageText})` : ''}`
+          (rx) => `${rx.medicineName} ${rx.prescribedDose ? `(${rx.prescribedDose})` : ''}`
         )
       );
     } catch {
@@ -339,8 +344,8 @@ export default function SmartLabAndRxPhotoScanner() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
-          capture="environment"
+          multiple
+          accept="image/jpeg,image/png,image/webp,application/pdf"
           onChange={handlePhotoUpload}
           style={{ display: 'none' }}
         />

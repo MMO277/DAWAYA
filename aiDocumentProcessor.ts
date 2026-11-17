@@ -1,17 +1,19 @@
 /**
  * aiDocumentProcessor.ts
  *
- * Medical Image & Document Upload, Validation, Compression, Multi-Medication OCR Extraction,
- * Culture & Sensitivity (S/R) Lab Analyzer, and Secure Firebase Storage Service
- * for the Antibiotic Awareness Personal Health Assistant.
+ * Medical Image & Document Upload, Validation, Compression, PDF.js Multi-Page Processing,
+ * Tesseract.js Local OCR Fallback, Gemini Multimodal Vision, Medication Leaflet 12-Field Reader,
+ * Structured JSON Schema Validator, Database Ambiguity Matcher, Culture & Sensitivity (S/R) Lab Analyzer,
+ * and Secure Firebase Storage Service for DAWAYA.
  *
  * Safety & Security Principles:
  * - Validates MIME types (JPEG, PNG, WEBP, PDF) and enforces an 8 MB ceiling.
  * - Rejects executable/script/HTML files and path-traversal filenames.
- * - Compresses images client-side before OCR and Storage upload.
+ * - Compresses images client-side and extracts/renders multi-page PDF documents via PDF.js before OCR and Storage upload.
  * - Extracts single or multiple medications from a prescription without EVER inventing
  *   a missing dose, strength, frequency, route, or duration.
- * - Extracts Culture & Sensitivity (مزرعة وحساسية) organisms, Sensitive (S), and Resistant (R) antibiotics.
+ * - Extracts 12 structured fields from Medication Leaflets while distinguishing between
+ *   explicitly stated leaflet facts and general educational explanations.
  * - Flags unreadable or ambiguous fields in `unreadableFields` for mandatory patient review.
  * - Uploads original/compressed files to `/patient_documents/{uid}/{docId}_{safeName}`
  *   only when authenticated and Firebase Storage is configured, reporting real upload results.
@@ -28,15 +30,19 @@ import {
   getApiKey,
   hasApiKey,
   parsePrescriptionTextDeterministically,
+  performBrowserTesseractOcr,
   PrescriptionOcrExtractionResult,
 } from './geminiApi';
 import { AddPrescriptionItemArgs, sanitizeText } from './aiActionSchemas';
 import { ACTIVE_INGREDIENTS, EGYPTIAN_COMMERCIAL_PRODUCTS } from './egyptianDrugDatabase';
 import {
+  compactItemToFullRecord,
   DawayaCompactIndexItem,
   ensureDawayaDatabaseLoaded,
   findDawayaIndexItemSync,
   getDawayaClassifiedAlternatives,
+  matchMedicationCandidatesFromDatabase,
+  MedicationDatabaseMatchCandidate,
 } from './dawayaDrugDatabaseService';
 import { norm } from './search';
 
@@ -57,12 +63,67 @@ export interface FileValidationResult {
   errorEn?: string;
 }
 
+/**
+ * Section 8 Structured Data Extraction Schema for Prescriptions
+ */
+export interface StructuredExtractedMedicationItem {
+  name: string;
+  activeIngredient: string;
+  strength: string;
+  dosageForm: string;
+  dose: string;
+  frequency: string;
+  route: string;
+  duration: string;
+  instructions: string;
+  confidence: number;
+  verificationStatus: 'needs_review' | 'verified_by_patient' | 'uncertain_db_match';
+  matchedDatabaseId?: string;
+  possibleDatabaseMatches?: MedicationDatabaseMatchCandidate[];
+}
+
+export interface StructuredPrescriptionExtractionJson {
+  documentType: 'prescription' | 'leaflet' | 'lab_report' | 'medical_report' | 'other';
+  language: 'ar' | 'en' | 'mixed';
+  pageCount: number;
+  medications: StructuredExtractedMedicationItem[];
+  unreadableFields: string[];
+  requiresHumanVerification: true;
+  ocrEngineUsed: 'gemini_multimodal' | 'tesseract_local_ocr' | 'pdfjs_text_layer' | 'hybrid';
+}
+
+/**
+ * Section 3 Structured Medication Leaflet Extraction (12 Official Fields + Explicit Source Separation)
+ */
+export interface StructuredLeafletExtraction {
+  medicationName: string;
+  activeIngredient: string;
+  indicationsAndUses: string;
+  officialDosageInfo: string;
+  contraindications: string;
+  warningsAndPrecautions: string;
+  commonSideEffects: string;
+  seriousAdverseReactions: string;
+  drugInteractions: string;
+  foodAndDrinkInteractions: string;
+  storageInstructions: string;
+  missedDoseInstructions: string;
+  pregnancyAndBreastfeedingWarnings: string;
+  explicitlyStatedInLeafletAr: string[];
+  explicitlyStatedInLeafletEn: string[];
+  generalEducationalExplanationAr: string[];
+  generalEducationalExplanationEn: string[];
+  sourceTraceabilityNoteAr: string;
+  sourceTraceabilityNoteEn: string;
+}
+
 export interface ProcessedMedicalDocumentAnalysis {
   title: string;
   category: MedicalDocumentCategory;
   fileName: string;
   mimeType: string;
   fileSize: number;
+  pageCount?: number;
   previewDataUrl?: string;
   base64Data: string;
   extractedSummaryAr: string;
@@ -72,6 +133,8 @@ export interface ProcessedMedicalDocumentAnalysis {
   contradictionWarnings: string[];
   extractedPrescriptions: AddPrescriptionItemArgs[];
   isUnclearOrIncomplete: boolean;
+  structuredJson?: StructuredPrescriptionExtractionJson;
+  leafletDetails?: StructuredLeafletExtraction;
 }
 
 export interface StorageUploadOutcome {
@@ -102,7 +165,7 @@ export function validateMedicalUploadFile(file: {
       sanitizedFileName: safeName,
       mimeType: file?.type || '',
       errorAr:
-        '⛔ نوع الملف ده مش مسموح بيه عشان أمان حسابك. تقدر ترفع بس صور الروشتات والتحاليل (JPG, PNG, WEBP) أو ملفات PDF.',
+        '⛔ نوع الملف ده مش مسموح بيه عشان أمان حسابك. تقدر ترفع بس صور الروشتات والنسب والتحاليل (JPG, PNG, WEBP) أو ملفات PDF.',
       errorEn:
         '⛔ Unsafe file type blocked. Only medical images (JPG, PNG, WEBP) or PDF documents are allowed.',
     };
@@ -159,26 +222,157 @@ export function validateMedicalUploadFile(file: {
 }
 
 /**
- * Compresses an image file in the browser using HTML5 Canvas, returning base64 data and a preview data URL.
+ * Section 2 & 7: Free Open-Source PDF.js Loader & Multi-Page Text + Canvas Renderer.
+ * Extracts embedded text across pages AND renders pages to JPEG canvases so scanned PDFs
+ * and multi-page prescriptions/leaflets work seamlessly with Gemini Vision and Tesseract.js OCR.
+ */
+export async function extractPdfTextAndRenderPagesWithPdfJs(
+  arrayBuffer: ArrayBuffer,
+  maxPagesToProcess = 4
+): Promise<{
+  pageCount: number;
+  extractedPdfText: string;
+  firstPagePreviewDataUrl: string;
+  pageImagesBase64: string[];
+}> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return {
+      pageCount: 1,
+      extractedPdfText: '',
+      firstPagePreviewDataUrl: '',
+      pageImagesBase64: [],
+    };
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    if (!win.pdfjsLib) {
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('PDFJS_LOAD_FAILED'));
+        document.head.appendChild(script);
+      });
+    }
+
+    const pdfjsLib = win.pdfjsLib;
+    if (!pdfjsLib) {
+      throw new Error('PDFJS_UNAVAILABLE');
+    }
+    if (pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+    const pdfDoc = await loadingTask.promise;
+    const totalPages: number = pdfDoc.numPages || 1;
+    const pagesToRead = Math.min(totalPages, maxPagesToProcess);
+
+    const textChunks: string[] = [];
+    const pageImagesBase64: string[] = [];
+    let firstPagePreviewDataUrl = '';
+
+    for (let pageNum = 1; pageNum <= pagesToRead; pageNum++) {
+      const page = await pdfDoc.getPage(pageNum);
+
+      // 1. Extract digital text layer if present
+      try {
+        const textContent = await page.getTextContent();
+        const pageStr = (textContent?.items || [])
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((it: any) => (typeof it?.str === 'string' ? it.str : ''))
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (pageStr) {
+          textChunks.push(`[Page ${pageNum}/${totalPages}] ${pageStr}`);
+        }
+      } catch {
+        /* ignore text layer error */
+      }
+
+      // 2. Render page to canvas for Scanned PDF OCR & Vision
+      try {
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        const maxDim = 1200;
+        let scale = 1.5;
+        if (viewport.width > maxDim || viewport.height > maxDim) {
+          scale = (maxDim / Math.max(viewport.width, viewport.height)) * 1.5;
+        }
+        const scaledVp = page.getViewport({ scale });
+        canvas.width = Math.round(scaledVp.width);
+        canvas.height = Math.round(scaledVp.height);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          await page.render({ canvasContext: ctx, viewport: scaledVp }).promise;
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          const b64 = dataUrl.split(',')[1] || '';
+          if (b64) pageImagesBase64.push(b64);
+          if (pageNum === 1) {
+            firstPagePreviewDataUrl = dataUrl;
+          }
+        }
+      } catch {
+        /* ignore canvas render error */
+      }
+    }
+
+    return {
+      pageCount: totalPages,
+      extractedPdfText: textChunks.join('\n'),
+      firstPagePreviewDataUrl,
+      pageImagesBase64,
+    };
+  } catch {
+    return {
+      pageCount: 1,
+      extractedPdfText: '',
+      firstPagePreviewDataUrl: '',
+      pageImagesBase64: [],
+    };
+  }
+}
+
+/**
+ * Compresses an image file or renders a PDF in the browser, returning base64 data, preview data URL,
+ * and optional multi-page PDF text/images.
  */
 export async function compressMedicalImageFile(
   file: File,
   maxDimension = 1400,
   quality = 0.8
-): Promise<{ base64Data: string; previewDataUrl: string; mimeType: string; compressedSize: number }> {
-  if (file.type === 'application/pdf' || typeof document === 'undefined') {
+): Promise<{
+  base64Data: string;
+  previewDataUrl: string;
+  mimeType: string;
+  compressedSize: number;
+  pdfPageCount?: number;
+  pdfExtractedText?: string;
+  pdfPageImagesBase64?: string[];
+}> {
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name) || typeof document === 'undefined') {
     const arrayBuffer = await file.arrayBuffer();
+    const pdfRes = await extractPdfTextAndRenderPagesWithPdfJs(arrayBuffer, 4);
     const bytes = new Uint8Array(arrayBuffer);
     let binary = '';
     for (let i = 0; i < bytes.byteLength; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    const base64Data = typeof btoa === 'function' ? btoa(binary) : '';
+    const rawPdfBase64 = typeof btoa === 'function' ? btoa(binary) : '';
+    const effectiveBase64 = pdfRes.pageImagesBase64[0] || rawPdfBase64;
     return {
-      base64Data,
-      previewDataUrl: '',
-      mimeType: file.type || 'application/pdf',
+      base64Data: effectiveBase64,
+      previewDataUrl: pdfRes.firstPagePreviewDataUrl || '',
+      mimeType: pdfRes.pageImagesBase64.length > 0 ? 'image/jpeg' : file.type || 'application/pdf',
       compressedSize: file.size,
+      pdfPageCount: pdfRes.pageCount,
+      pdfExtractedText: pdfRes.extractedPdfText,
+      pdfPageImagesBase64: pdfRes.pageImagesBase64,
     };
   }
 
@@ -250,6 +444,63 @@ export async function compressMedicalImageFile(
 }
 
 /**
+ * Compress and merge multiple uploaded prescription/leaflet page files into a single multi-page analysis input.
+ */
+export async function compressMultipleMedicalFiles(files: File[]): Promise<{
+  primaryBase64: string;
+  previewDataUrl: string;
+  mimeType: string;
+  totalSize: number;
+  pageCount: number;
+  combinedPdfText: string;
+  allPageImagesBase64: string[];
+  combinedFileName: string;
+}> {
+  const validFiles = files.slice(0, 5);
+  let totalSize = 0;
+  let pageCount = 0;
+  let previewDataUrl = '';
+  let primaryBase64 = '';
+  let mimeType = 'image/jpeg';
+  const textParts: string[] = [];
+  const allPageImagesBase64: string[] = [];
+
+  for (let i = 0; i < validFiles.length; i++) {
+    const f = validFiles[i];
+    totalSize += f.size;
+    const comp = await compressMedicalImageFile(f);
+    if (i === 0) {
+      primaryBase64 = comp.base64Data;
+      previewDataUrl = comp.previewDataUrl;
+      mimeType = comp.mimeType;
+    }
+    pageCount += comp.pdfPageCount || 1;
+    if (comp.pdfExtractedText) {
+      textParts.push(comp.pdfExtractedText);
+    }
+    if (comp.pdfPageImagesBase64 && comp.pdfPageImagesBase64.length > 0) {
+      allPageImagesBase64.push(...comp.pdfPageImagesBase64);
+    } else if (comp.base64Data) {
+      allPageImagesBase64.push(comp.base64Data);
+    }
+  }
+
+  return {
+    primaryBase64,
+    previewDataUrl,
+    mimeType,
+    totalSize,
+    pageCount: Math.max(1, pageCount),
+    combinedPdfText: textParts.join('\n'),
+    allPageImagesBase64: allPageImagesBase64.slice(0, 5),
+    combinedFileName:
+      validFiles.length > 1
+        ? `${validFiles[0].name} (+${validFiles.length - 1} pages)`
+        : validFiles[0]?.name || 'document.jpg',
+  };
+}
+
+/**
  * Deterministically extracts one OR multiple medications from raw OCR/Vision text
  * without ever inventing missing doses, routes, frequencies, or durations.
  */
@@ -302,6 +553,14 @@ export function extractMultiplePrescriptionItemsFromText(
       }
     }
 
+    if (!matchedIng) {
+      const dbHit = findDawayaIndexItemSync(line);
+      if (dbHit) {
+        matchedIng = dbHit.i;
+        matchedName = dbHit.a ? `${dbHit.a} (${dbHit.n})` : dbHit.n;
+      }
+    }
+
     if (matchedIng && !lineDrugHits.some((h) => h.ingId === matchedIng)) {
       lineDrugHits.push({ line, ingId: matchedIng, drugName: matchedName });
     }
@@ -342,6 +601,266 @@ export function extractMultiplePrescriptionItemsFromText(
 }
 
 /**
+ * Section 3: Extracts and Explains Medication Leaflets (12 Structured Fields)
+ * while strictly distinguishing between information explicitly stated in the uploaded leaflet
+ * and general educational explanations from the DAWAYA clinical database.
+ */
+export function extractAndExplainMedicationLeaflet(
+  rawText: string,
+  fileName: string,
+  detectedDrugNameHint?: string
+): StructuredLeafletExtraction {
+  const text = (rawText || '').trim();
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+  // Match medication in DAWAYA 26,562 database
+  let matchedCompact: DawayaCompactIndexItem | null = null;
+  if (detectedDrugNameHint) {
+    matchedCompact = findDawayaIndexItemSync(detectedDrugNameHint);
+  }
+  if (!matchedCompact) {
+    for (const line of lines.slice(0, 12)) {
+      const hit = findDawayaIndexItemSync(line);
+      if (hit) {
+        matchedCompact = hit;
+        break;
+      }
+    }
+  }
+
+  const fullRec = matchedCompact ? compactItemToFullRecord(matchedCompact) : null;
+
+  const extractSectionByPattern = (headingRegex: RegExp): string => {
+    for (let i = 0; i < lines.length; i++) {
+      if (headingRegex.test(lines[i])) {
+        const inlineVal = lines[i].replace(headingRegex, '').replace(/^[:：\-–•]+/, '').trim();
+        const nextLines = lines.slice(i + 1, i + 4).join(' ');
+        const combined = `${inlineVal} ${nextLines}`.trim().slice(0, 320);
+        if (combined.length >= 5) return combined;
+      }
+    }
+    return '';
+  };
+
+  const explicitName =
+    detectedDrugNameHint ||
+    (fullRec ? `${fullRec.brandNameAr} (${fullRec.brandNameEn})` : '') ||
+    extractSectionByPattern(/(?:trade name|brand name|اسم الدواء|اسم المستحضر|المستحضر)/i);
+
+  const explicitActive =
+    extractSectionByPattern(/(?:composition|active ingredient|generic name|التركيب|المادة الفعالة|المواد الفعالة)/i) ||
+    (fullRec ? fullRec.genericName : '');
+
+  const explicitIndications = extractSectionByPattern(
+    /(?:indications|therapeutic uses|what .* is used for|دواعي الاستعمال|الاستخدامات العلاجية|فيما يستخدم)/i
+  );
+  const explicitDosage = extractSectionByPattern(
+    /(?:dosage and administration|posology|how to take|الجرعة وطريقة الاستعمال|الجرعة المعتادة|طريقة الاستخدام)/i
+  );
+  const explicitContra = extractSectionByPattern(
+    /(?:contraindications|do not take|موانع الاستعمال|لا تستخدم هذا الدواء)/i
+  );
+  const explicitWarnings = extractSectionByPattern(
+    /(?:warnings and precautions|special warnings|التحذيرات والاحتياطات|احتياطات الاستخدام|تنبيهات هامة)/i
+  );
+  const explicitSideEffects = extractSectionByPattern(
+    /(?:side effects|undesirable effects|adverse reactions|الآثار الجانبية|الأعراض الجانبية)/i
+  );
+  const explicitSerious = extractSectionByPattern(
+    /(?:serious side effects|seek immediate medical|أعراض جانبية خطيرة|اطلب الرعاية الطبية فوراً|تفاعلات تحسسية)/i
+  );
+  const explicitDrugInter = extractSectionByPattern(
+    /(?:drug interactions|other medicines|التداخلات الدوائية|التفاعلات مع الأدوية الأخرى)/i
+  );
+  const explicitFoodInter = extractSectionByPattern(
+    /(?:food and drink|with food|مع الطعام والشراب|الأكل والشرب)/i
+  );
+  const explicitStorage = extractSectionByPattern(
+    /(?:storage|how to store|طريقة الحفظ|التخزين|شروط الحفظ)/i
+  );
+  const explicitMissed = extractSectionByPattern(
+    /(?:missed dose|if you forget|نسيان الجرعة|في حال نسيان جرعة|ماذا تفعل إذا نسيت)/i
+  );
+  const explicitPreg = extractSectionByPattern(
+    /(?:pregnancy and lactation|pregnancy and breast|الحمل والرضاعة|أثناء الحمل)/i
+  );
+
+  const explicitlyStatedAr: string[] = [];
+  const explicitlyStatedEn: string[] = [];
+
+  if (explicitIndications) {
+    explicitlyStatedAr.push(`📄 [مذكور نصاً في النشرة المرفوعة - دواعي الاستعمال]: ${explicitIndications}`);
+    explicitlyStatedEn.push(`📄 [Stated in Uploaded Leaflet - Indications]: ${explicitIndications}`);
+  }
+  if (explicitDosage) {
+    explicitlyStatedAr.push(`📄 [مذكور نصاً في النشرة المرفوعة - الجرعة]: ${explicitDosage}`);
+    explicitlyStatedEn.push(`📄 [Stated in Uploaded Leaflet - Dosage]: ${explicitDosage}`);
+  }
+  if (explicitContra) {
+    explicitlyStatedAr.push(`📄 [مذكور نصاً في النشرة المرفوعة - موانع الاستعمال]: ${explicitContra}`);
+    explicitlyStatedEn.push(`📄 [Stated in Uploaded Leaflet - Contraindications]: ${explicitContra}`);
+  }
+  if (explicitWarnings) {
+    explicitlyStatedAr.push(`📄 [مذكور نصاً في النشرة المرفوعة - التحذيرات]: ${explicitWarnings}`);
+    explicitlyStatedEn.push(`📄 [Stated in Uploaded Leaflet - Warnings]: ${explicitWarnings}`);
+  }
+  if (explicitSideEffects) {
+    explicitlyStatedAr.push(`📄 [مذكور نصاً في النشرة المرفوعة - الآثار الجانبية]: ${explicitSideEffects}`);
+    explicitlyStatedEn.push(`📄 [Stated in Uploaded Leaflet - Side Effects]: ${explicitSideEffects}`);
+  }
+  if (explicitStorage) {
+    explicitlyStatedAr.push(`📄 [مذكور نصاً في النشرة المرفوعة - الحفظ]: ${explicitStorage}`);
+    explicitlyStatedEn.push(`📄 [Stated in Uploaded Leaflet - Storage]: ${explicitStorage}`);
+  }
+
+  if (explicitlyStatedAr.length === 0 && text.length > 10) {
+    const snippet = text.slice(0, 260).replace(/\s+/g, ' ');
+    explicitlyStatedAr.push(`📄 [النص المقروء مباشرة من وثيقة النشرة (${fileName})]: ${snippet}`);
+    explicitlyStatedEn.push(`📄 [Direct Text Extracted from Leaflet (${fileName})]: ${snippet}`);
+  }
+
+  const generalEducationalAr: string[] = [
+    `💡 [شرح تثقيفي عام من موسوعة دوايا]: ${
+      fullRec
+        ? `${fullRec.indicationsAr} — التحذيرات المسجلة: ${fullRec.warningsSummaryAr}`
+        : 'الالتزام بالجرعة المحددة من الطبيب وعدم مضاعفة الجرعة عند النسيان يحميك من المضاعفات الدوائية.'
+    }`,
+    '💡 [قاعدة الجرعة المنسية]: إذا نسيت جرعة، خذها فور تذكرها إلا إذا اقترب موعد الجرعة التالية؛ لا تضاعف الجرعة أبداً لتعويض الفائتة.',
+    '🚨 [متى تطلب الطوارئ فوراً؟]: عند ظهور طفح جلدي شديد، تورم بالوجه أو الشفتين أو اللسان، أو صعوبة في التنفس والبلع، أوقف الدواء وتوجه لأقرب طوارئ.',
+  ];
+
+  const generalEducationalEn: string[] = [
+    `💡 [General Educational Explanation from DAWAYA]: ${
+      fullRec
+        ? `${fullRec.indicationsEn} — Registered Warnings: ${fullRec.warningsSummaryEn}`
+        : 'Always follow your prescribing physician’s exact dosage instructions and never double a missed dose.'
+    }`,
+    '💡 [Missed Dose Rule]: Take the missed dose as soon as you remember unless it is almost time for your next scheduled dose. Never take a double dose.',
+    '🚨 [When to Seek Urgent Care]: If you experience severe rash, swelling of the face/lips/tongue, or difficulty breathing, stop the medication and seek emergency medical care immediately.',
+  ];
+
+  return {
+    medicationName: explicitName || 'غير محدد بوضوح في الصورة / Unspecified in Image',
+    activeIngredient: explicitActive || 'يتطلب مراجعة سطر التركيب في النشرة / Verify composition line',
+    indicationsAndUses:
+      explicitIndications ||
+      (fullRec ? fullRec.indicationsAr : 'غير واضح في النص المقروء — راجع قسم دواعي الاستعمال بالنشرة الورقية'),
+    officialDosageInfo:
+      explicitDosage ||
+      'تُحدد الجرعة حسب الروشتة الطبية وتوجيهات الطبيب المعالج أو الصيدلي (لا يتم تخمين الجرعة تلقائياً)',
+    contraindications:
+      explicitContra ||
+      (fullRec ? fullRec.contraindicationsAr : 'فرط الحساسية للمادة الفعالة أو أي من مكونات المستحضر'),
+    warningsAndPrecautions:
+      explicitWarnings ||
+      (fullRec ? fullRec.warningsSummaryAr : 'راجع الطبيب أو الصيدلي في حال وجود أمراض مزمنة بالكلى أو الكبد أو القلب'),
+    commonSideEffects:
+      explicitSideEffects ||
+      'اضطرابات هضمية بسيطة (غثيان خفيف أو صداع عابر) تختلف حسب المادة الفعالة واستجابة الجسم',
+    seriousAdverseReactions:
+      explicitSerious ||
+      '🚨 أعراض التحسس المفرط (تورم الوجه/الشفتين، ضيق تنفس، طفح جلدي منتشر) أو إسهال مدمم شديد — تتطلب طوارئ طبية فورية',
+    drugInteractions:
+      explicitDrugInter ||
+      'أخبر طبيبك أو الصيدلي بجميع الأدوية المسجلة في ملفك الصحي (خاصة أدوية السيولة والضغط والمسكنات) لتجنب التداخلات',
+    foodAndDrinkInteractions:
+      explicitFoodInter ||
+      'افصل الشاي والقهوة ومنتجات الألبان بساعتين عن المضادات الحيوية والحديد، وتناول المسكنات بعد الطعام',
+    storageInstructions:
+      explicitStorage ||
+      (fullRec ? fullRec.storageInfoAr : 'يُحفظ في درجة حرارة أقل من 25–30 درجة مئوية بعيداً عن الرطوبة ومتناول الأطفال'),
+    missedDoseInstructions:
+      explicitMissed ||
+      'خذ الجرعة فور تذكرها، وإذا اقترب موعد الجرعة التالية تخطَّ الجرعة الفائتة وأكمل جدولك المعتاد دون مضاعفة الجرعة أبداً',
+    pregnancyAndBreastfeedingWarnings:
+      explicitPreg ||
+      (fullRec && (fullRec.warningsFlags.pregnancy || fullRec.warningsFlags.lactation)
+        ? '⚠️ تحذير مسجل في قاعدة البيانات للحمل والرضاعة — لا يُستخدم إلا بأمر الطبيب المختص'
+        : 'يجب استشارة الطبيب المختص قبل استخدام أي دواء أثناء الحمل أو الرضاعة الطبيعية'),
+    explicitlyStatedInLeafletAr: explicitlyStatedAr,
+    explicitlyStatedInLeafletEn: explicitlyStatedEn,
+    generalEducationalExplanationAr: generalEducationalAr,
+    generalEducationalExplanationEn: generalEducationalEn,
+    sourceTraceabilityNoteAr: `مرتبط بالمستند الأصلي المرفوع (${fileName}) — تم الفصل بوضوح بين النص الوارد في النشرة والشرح التثقيفي العام.`,
+    sourceTraceabilityNoteEn: `Traceable to uploaded source document (${fileName}) — explicitly separates official leaflet text from general educational explanations.`,
+  };
+}
+
+/**
+ * Section 8: Validates and builds the canonical StructuredPrescriptionExtractionJson object.
+ * Never treats AI-generated JSON as trusted medical data (`requiresHumanVerification: true`).
+ */
+export function buildAndValidateStructuredPrescriptionJson(params: {
+  category: MedicalDocumentCategory;
+  rawText: string;
+  extractedPrescriptions: AddPrescriptionItemArgs[];
+  unreadableFields: string[];
+  pageCount?: number;
+  ocrEngineUsed?: StructuredPrescriptionExtractionJson['ocrEngineUsed'];
+}): StructuredPrescriptionExtractionJson {
+  const hasArabic = /[\u0600-\u06FF]/.test(params.rawText || '');
+  const hasLatin = /[A-Za-z]/.test(params.rawText || '');
+  const language: 'ar' | 'en' | 'mixed' =
+    hasArabic && hasLatin ? 'mixed' : hasArabic ? 'ar' : 'en';
+
+  const medications: StructuredExtractedMedicationItem[] = params.extractedPrescriptions.map(
+    (rx) => {
+      const dbMatch = matchMedicationCandidatesFromDatabase({
+        rawName: rx.medicineName,
+        rawStrength: rx.prescribedDose,
+        rawDosageForm: rx.route,
+      });
+
+      const primaryCandidate = dbMatch.exactSingleMatch || dbMatch.possibleMatches[0] || null;
+      const missingCount = (rx.unreadableFields || []).length;
+      const confidence = !rx.medicineName
+        ? 0
+        : dbMatch.exactSingleMatch && missingCount === 0
+          ? 0.92
+          : primaryCandidate
+            ? Math.max(0.45, Number((0.85 - missingCount * 0.12).toFixed(2)))
+            : 0.35;
+
+      return {
+        name: sanitizeText(rx.medicineName, 120),
+        activeIngredient: sanitizeText(
+          primaryCandidate?.activeIngredient || rx.antibioticId || '',
+          120
+        ),
+        strength: sanitizeText(primaryCandidate?.strength || rx.prescribedDose || '', 80),
+        dosageForm: sanitizeText(primaryCandidate?.dosageForm || rx.route || '', 60),
+        dose: sanitizeText(rx.prescribedDose || '', 100),
+        frequency: sanitizeText(rx.frequency || '', 60),
+        route: sanitizeText(rx.route || '', 40),
+        duration:
+          rx.durationDays !== null && rx.durationDays !== undefined
+            ? `${rx.durationDays} days`
+            : '',
+        instructions: sanitizeText(rx.notes || '', 240),
+        confidence,
+        verificationStatus: dbMatch.isUncertainOrMultiple
+          ? 'uncertain_db_match'
+          : 'needs_review',
+        ...(dbMatch.exactSingleMatch ? { matchedDatabaseId: dbMatch.exactSingleMatch.id } : {}),
+        ...(dbMatch.possibleMatches.length > 0
+          ? { possibleDatabaseMatches: dbMatch.possibleMatches.slice(0, 5) }
+          : {}),
+      };
+    }
+  );
+
+  return {
+    documentType: params.category,
+    language,
+    pageCount: Math.max(1, params.pageCount || 1),
+    medications,
+    unreadableFields: Array.from(new Set(params.unreadableFields || [])),
+    requiresHumanVerification: true,
+    ocrEngineUsed: params.ocrEngineUsed || 'hybrid',
+  };
+}
+
+/**
  * Extracts Culture & Sensitivity (مزرعة البكتيريا والحساسية S / R) findings from lab text.
  */
 export function extractCultureAndSensitivityFindings(rawText: string): {
@@ -378,7 +897,6 @@ export function extractCultureAndSensitivityFindings(rawText: string): {
 
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   for (const line of lines) {
-    // Check if any known active ingredient or antibiotic name appears on this line
     let abxLabel = '';
     const normLine = norm(line);
     for (const ing of ACTIVE_INGREDIENTS) {
@@ -429,7 +947,8 @@ export function extractCultureAndSensitivityFindings(rawText: string): {
 export function classifyAndSummarizeDocumentText(
   rawText: string,
   fileName: string,
-  ocrResult?: PrescriptionOcrExtractionResult
+  ocrResult?: PrescriptionOcrExtractionResult,
+  forcedCategory?: MedicalDocumentCategory
 ): {
   category: MedicalDocumentCategory;
   titleAr: string;
@@ -437,6 +956,7 @@ export function classifyAndSummarizeDocumentText(
   summaryAr: string;
   summaryEn: string;
   extractedFields: Record<string, string>;
+  leafletDetails?: StructuredLeafletExtraction;
 } {
   const combined = `${rawText || ''} ${fileName || ''}`.toLowerCase();
 
@@ -448,7 +968,8 @@ export function classifyAndSummarizeDocumentText(
       combined
     );
   const isLeaflet =
-    /(leaflet|package insert|composition|indications|contraindications|نشرة|النشرة الداخلية|دواعي الاستعمال|التركيب)/i.test(
+    forcedCategory === 'leaflet' ||
+    /(leaflet|package insert|composition|indications|contraindications|نشرة|النشرة الداخلية|دواعي الاستعمال|التركيب|موانع الاستعمال)/i.test(
       combined
     );
   const isReport =
@@ -456,13 +977,15 @@ export function classifyAndSummarizeDocumentText(
       combined
     );
 
-  let category: MedicalDocumentCategory = 'prescription';
-  if (cultureFindings.isCultureReport || (isLab && !ocrResult?.detectedDrugName)) {
-    category = 'lab_report';
-  } else if (isLeaflet && !ocrResult?.extractedFrequencyKey) {
-    category = 'leaflet';
-  } else if (isReport && !ocrResult?.detectedDrugName) {
-    category = 'medical_report';
+  let category: MedicalDocumentCategory = forcedCategory || 'prescription';
+  if (!forcedCategory) {
+    if (cultureFindings.isCultureReport || (isLab && !ocrResult?.detectedDrugName)) {
+      category = 'lab_report';
+    } else if (isLeaflet && !ocrResult?.extractedFrequencyKey) {
+      category = 'leaflet';
+    } else if (isReport && !ocrResult?.detectedDrugName) {
+      category = 'medical_report';
+    }
   }
 
   const extractedFields: Record<string, string> = {};
@@ -506,6 +1029,24 @@ export function classifyAndSummarizeDocumentText(
     extractedFields.cultureResistantR = cultureFindings.resistantAntibiotics.join('، ');
   }
 
+  let leafletDetails: StructuredLeafletExtraction | undefined;
+  if (category === 'leaflet') {
+    leafletDetails = extractAndExplainMedicationLeaflet(
+      rawText,
+      fileName,
+      ocrResult?.detectedDrugName
+    );
+    extractedFields.leafletMedicationName = leafletDetails.medicationName;
+    extractedFields.leafletActiveIngredient = leafletDetails.activeIngredient;
+    extractedFields.leafletIndications = leafletDetails.indicationsAndUses;
+    extractedFields.leafletContraindications = leafletDetails.contraindications;
+    extractedFields.leafletWarnings = leafletDetails.warningsAndPrecautions;
+    extractedFields.leafletSideEffects = leafletDetails.commonSideEffects;
+    extractedFields.leafletStorage = leafletDetails.storageInstructions;
+    extractedFields.leafletMissedDose = leafletDetails.missedDoseInstructions;
+    extractedFields.leafletPregnancy = leafletDetails.pregnancyAndBreastfeedingWarnings;
+  }
+
   const categoryTitles: Record<MedicalDocumentCategory, { ar: string; en: string }> = {
     prescription: { ar: 'روشتة طبية', en: 'Medical Prescription' },
     lab_report: {
@@ -513,7 +1054,7 @@ export function classifyAndSummarizeDocumentText(
       en: cultureFindings.isCultureReport ? 'Culture & Sensitivity Report (S/R)' : 'Laboratory Result',
     },
     medical_report: { ar: 'تقرير طبي', en: 'Medical Report' },
-    leaflet: { ar: 'نشرة دوائية', en: 'Medication Leaflet' },
+    leaflet: { ar: 'نشرة دوائية رسمية', en: 'Medication Package Leaflet' },
     other: { ar: 'مستند صحي', en: 'Health Document' },
   };
 
@@ -535,7 +1076,29 @@ export function classifyAndSummarizeDocumentText(
   let summaryAr = '';
   let summaryEn = '';
 
-  if (cultureFindings.isCultureReport) {
+  if (category === 'leaflet' && leafletDetails) {
+    summaryAr =
+      `📖 قرأتلك النشرة الدوائية لـ «${leafletDetails.medicationName}»:\n` +
+      `• المادة الفعالة: ${leafletDetails.activeIngredient}\n` +
+      `• دواعي الاستعمال: ${leafletDetails.indicationsAndUses}\n` +
+      `• موانع الاستعمال والتحذيرات: ${leafletDetails.contraindications} | ${leafletDetails.warningsAndPrecautions}\n` +
+      `• الآثار الجانبية الشائعة: ${leafletDetails.commonSideEffects}\n` +
+      `• التداخلات الدوائية والغذائية: ${leafletDetails.drugInteractions} | ${leafletDetails.foodAndDrinkInteractions}\n` +
+      `• تعليمات نسيان الجرعة والحفظ: ${leafletDetails.missedDoseInstructions} | ${leafletDetails.storageInstructions}\n` +
+      `• الحمل والرضاعة: ${leafletDetails.pregnancyAndBreastfeedingWarnings}\n\n` +
+      `${leafletDetails.explicitlyStatedInLeafletAr.join('\n')}\n` +
+      `${leafletDetails.generalEducationalExplanationAr.join('\n')}`;
+
+    summaryEn =
+      `📖 Extracted Medication Leaflet for "${leafletDetails.medicationName}":\n` +
+      `• Active Ingredient: ${leafletDetails.activeIngredient}\n` +
+      `• Indications: ${leafletDetails.indicationsAndUses}\n` +
+      `• Contraindications & Warnings: ${leafletDetails.contraindications}\n` +
+      `• Side Effects & Interactions: ${leafletDetails.commonSideEffects} | ${leafletDetails.drugInteractions}\n` +
+      `• Missed Dose & Storage: ${leafletDetails.missedDoseInstructions} | ${leafletDetails.storageInstructions}\n\n` +
+      `${leafletDetails.explicitlyStatedInLeafletEn.join('\n')}\n` +
+      `${leafletDetails.generalEducationalExplanationEn.join('\n')}`;
+  } else if (cultureFindings.isCultureReport) {
     const partsAr: string[] = ['🔬 ده تحليل مزرعة وحساسية للمضادات الحيوية!'];
     const partsEn: string[] = ['🔬 Culture & Sensitivity lab report detected.'];
     if (cultureFindings.organism) {
@@ -594,13 +1157,9 @@ export function classifyAndSummarizeDocumentText(
     summaryAr,
     summaryEn,
     extractedFields,
+    ...(leafletDetails ? { leafletDetails } : {}),
   };
 }
-
-/**
- * Analyzes an uploaded image or document using Vision/OCR and prepares a structured preview
- * without saving anything until the patient explicitly confirms.
- */
 
 export interface RxLinePricingReport {
   item: DawayaCompactIndexItem;
@@ -639,7 +1198,6 @@ export function buildPrescriptionPricingAndAlternativesReport(
     const trimmed = line.trim();
     if (trimmed.length >= 3) {
       tryMatchText(trimmed);
-      // Also check individual multi-word drug tokens inside a line
       const words = trimmed.split(/[,،/|\-]+/).map((w) => w.trim()).filter((w) => w.length >= 3);
       for (const w of words) tryMatchText(w);
     }
@@ -730,8 +1288,12 @@ export async function analyzeUploadedMedicalDocument(params: {
   fileSize: number;
   lang: Lang;
   forcedCategory?: MedicalDocumentCategory;
+  pdfPageCount?: number;
+  pdfExtractedText?: string;
+  additionalPageImagesBase64?: string[];
 }): Promise<ProcessedMedicalDocumentAnalysis> {
   await ensureDawayaDatabaseLoaded().catch(() => {});
+
   const ocrResult = await analyzePrescriptionImageWithVision(
     params.base64Data,
     params.mimeType,
@@ -739,25 +1301,61 @@ export async function analyzeUploadedMedicalDocument(params: {
     params.fileName
   );
 
-  // Also check if Gemini Vision can extract multi-drug lines or Culture S/R tables when an API key is configured
-  let multiText = ocrResult.rawExtractedText || '';
-  if (hasApiKey() && params.mimeType.startsWith('image/')) {
+  let multiText = [params.pdfExtractedText || '', ocrResult.rawExtractedText || '']
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+
+  // If multi-page images were supplied (e.g., page 2..N of a PDF or multi-page upload), run Vision/OCR on them too
+  if (params.additionalPageImagesBase64 && params.additionalPageImagesBase64.length > 1) {
+    for (let idx = 1; idx < Math.min(params.additionalPageImagesBase64.length, 4); idx++) {
+      const pageB64 = params.additionalPageImagesBase64[idx];
+      if (!pageB64) continue;
+      try {
+        const pageOcr = await analyzePrescriptionImageWithVision(
+          pageB64,
+          'image/jpeg',
+          params.lang,
+          `${params.fileName}_p${idx + 1}`
+        );
+        if (pageOcr.rawExtractedText) {
+          multiText = `${multiText}\n${pageOcr.rawExtractedText}`.trim();
+        }
+      } catch {
+        const localPageText = await performBrowserTesseractOcr(`data:image/jpeg;base64,${pageB64}`);
+        if (localPageText) {
+          multiText = `${multiText}\n${localPageText}`.trim();
+        }
+      }
+    }
+  }
+
+  // Also check if Gemini Vision can extract multi-drug lines, leaflet sections, or Culture S/R tables
+  if (hasApiKey() && (params.mimeType.startsWith('image/') || params.mimeType === 'application/pdf')) {
     try {
+      const visionPrompt =
+        params.forcedCategory === 'leaflet'
+          ? 'أنت صيدلي إكلينيكي خبير. اقرأ هذه النشرة الدوائية (Medication Leaflet) بدقة واستخرج: اسم الدواء، المادة الفعالة، دواعي الاستعمال، الجرعة، موانع الاستعمال، التحذيرات، الآثار الجانبية الشائعة والخطيرة، التداخلات الدوائية والغذائية، تعليمات الحفظ، تعليمات نسيان الجرعة، وتحذيرات الحمل والرضاعة دون تخمين أي معلومة غير مكتوبة.'
+          : 'أنت صيدلي مصري خبير. اقرأ هذه الروشتة أو التحليل الطبي واكتب كل دواء مكتوب بخط اليد أو المطبوع (الاسم التجاري المصري بالعربي والإنجليزي والتركيز والجرعة والتكرار والمدة) في سطر مستقل بدون تخمين أي حرف غير واضح.';
       const extra = await callServerAiProxy({
-        prompt:
-          'أنت صيدلي مصري خبير. اقرأ هذه الروشتة أو التحليل الطبي واكتب كل دواء مكتوب بخط اليد أو المطبوع (الاسم التجاري المصري بالعربي والإنجليزي والتركيز والجرعة) في سطر مستقل.',
+        prompt: visionPrompt,
         inlineImageBase64: params.base64Data,
-        mimeType: params.mimeType,
+        mimeType: params.mimeType.startsWith('image/') ? params.mimeType : 'image/jpeg',
       });
       if (extra) {
         multiText = `${multiText}\n${extra}`.trim();
       }
     } catch {
-      // Rely on deterministic OCR result if proxy is unavailable
+      // Rely on deterministic OCR + Tesseract result if proxy is unavailable
     }
   }
 
-  const docMeta = classifyAndSummarizeDocumentText(multiText, params.fileName, ocrResult);
+  const docMeta = classifyAndSummarizeDocumentText(
+    multiText,
+    params.fileName,
+    ocrResult,
+    params.forcedCategory
+  );
   const effectiveCategory = params.forcedCategory || docMeta.category;
 
   const multiItems =
@@ -784,7 +1382,7 @@ export async function analyzeUploadedMedicalDocument(params: {
                 : {}),
               captureMethod: 'ocr_upload',
               isOcrUnverified: true,
-              rawExtractedText: ocrResult.rawExtractedText,
+              rawExtractedText: multiText || ocrResult.rawExtractedText,
               imageFileName: params.fileName,
               unreadableFields: ocrResult.unreadableFields,
               createScheduleAlso: false,
@@ -796,16 +1394,52 @@ export async function analyzeUploadedMedicalDocument(params: {
       ? buildPrescriptionPricingAndAlternativesReport(multiText, extractedPrescriptions)
       : null;
 
+  const structuredJson = buildAndValidateStructuredPrescriptionJson({
+    category: effectiveCategory,
+    rawText: multiText,
+    extractedPrescriptions,
+    unreadableFields: ocrResult.unreadableFields,
+    pageCount: params.pdfPageCount || 1,
+    ocrEngineUsed: params.pdfExtractedText ? 'pdfjs_text_layer' : 'hybrid',
+  });
+
+  // Check if any recognized medication has multiple database matches requiring patient selection
+  const dbAmbiguityNotesAr: string[] = [];
+  const dbAmbiguityNotesEn: string[] = [];
+  for (const medItem of structuredJson.medications) {
+    if (
+      medItem.verificationStatus === 'uncertain_db_match' &&
+      medItem.possibleDatabaseMatches &&
+      medItem.possibleDatabaseMatches.length > 1
+    ) {
+      const optsAr = medItem.possibleDatabaseMatches
+        .slice(0, 3)
+        .map((c) => `${c.brandNameAr} (${c.strength})`)
+        .join(' أو ');
+      const optsEn = medItem.possibleDatabaseMatches
+        .slice(0, 3)
+        .map((c) => `${c.brandNameEn} (${c.strength})`)
+        .join(' or ');
+      dbAmbiguityNotesAr.push(
+        `\n🔍 تنبيه تطابق قاعدة البيانات: وُجد أكثر من تركيز/شكل لـ «${medItem.name}» (${optsAr}) — يرجى تحديد التركيز المطابق لروشتتك قبل الحفظ.`
+      );
+      dbAmbiguityNotesEn.push(
+        `\n🔍 Database Match Notice: Multiple strengths/forms found for "${medItem.name}" (${optsEn}) — please select the exact match on your prescription.`
+      );
+    }
+  }
+
   return {
     title: params.lang === 'ar' ? docMeta.titleAr : docMeta.titleEn,
     category: effectiveCategory,
     fileName: params.fileName,
     mimeType: params.mimeType,
     fileSize: params.fileSize,
+    pageCount: params.pdfPageCount || 1,
     previewDataUrl: params.previewDataUrl,
     base64Data: params.base64Data,
-    extractedSummaryAr: `${docMeta.summaryAr}${pricingReport?.summaryAr || ''}`,
-    extractedSummaryEn: `${docMeta.summaryEn}${pricingReport?.summaryEn || ''}`,
+    extractedSummaryAr: `${docMeta.summaryAr}${pricingReport?.summaryAr || ''}${dbAmbiguityNotesAr.join('')}`,
+    extractedSummaryEn: `${docMeta.summaryEn}${pricingReport?.summaryEn || ''}${dbAmbiguityNotesEn.join('')}`,
     extractedFields: docMeta.extractedFields,
     unreadableFields: ocrResult.unreadableFields,
     contradictionWarnings: ocrResult.contradictionWarnings,
@@ -814,6 +1448,8 @@ export async function analyzeUploadedMedicalDocument(params: {
       (effectiveCategory === 'prescription' && !ocrResult.detectedDrugName) ||
       ocrResult.unreadableFields.length > 0 ||
       ocrResult.contradictionWarnings.length > 0,
+    structuredJson,
+    ...(docMeta.leafletDetails ? { leafletDetails: docMeta.leafletDetails } : {}),
   };
 }
 

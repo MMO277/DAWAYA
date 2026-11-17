@@ -2020,3 +2020,183 @@ if (typeof window !== 'undefined') {
     ensureDawayaDatabaseLoaded().catch(() => {});
   }, 60);
 }
+
+
+/**
+ * Medication Database Ambiguity & Multi-Candidate Matcher (Section 4 Upgrade):
+ * Searches the 26,562+ DAWAYA medication index + 206 commercial packages by:
+ * 1) Brand name (Arabic & English)
+ * 2) Active ingredient
+ * 3) Strength and dosage form verification
+ * - Presents possible matches if multiple products exist (e.g., Augmentin 1g Tab vs 625mg Tab vs 457mg Susp).
+ * - NEVER automatically selects an uncertain match.
+ */
+export interface MedicationDatabaseMatchCandidate {
+  id: string;
+  brandNameAr: string;
+  brandNameEn: string;
+  activeIngredient: string;
+  strength: string;
+  dosageForm: string;
+  route: string;
+  priceEgp: number | null;
+  manufacturer: string;
+  matchScore: number;
+  strengthVerified: boolean;
+  formVerified: boolean;
+}
+
+export interface MedicationDatabaseMatchResult {
+  exactSingleMatch: MedicationDatabaseMatchCandidate | null;
+  possibleMatches: MedicationDatabaseMatchCandidate[];
+  isUncertainOrMultiple: boolean;
+  requiresPatientSelection: boolean;
+  resolutionReasonAr: string;
+  resolutionReasonEn: string;
+}
+
+export function matchMedicationCandidatesFromDatabase(params: {
+  rawName: string;
+  rawStrength?: string;
+  rawDosageForm?: string;
+  rawActiveIngredient?: string;
+  maxCandidates?: number;
+}): MedicationDatabaseMatchResult {
+  const maxCandidates = params.maxCandidates || 6;
+  const cleanName = (params.rawName || '')
+    .replace(/^(RX_[A-Z_]+|DRUG_[A-Z_]+):\s*/i, '')
+    .replace(/[()[\]]/g, ' ')
+    .trim();
+
+  if (!cleanName || cleanName.length < 2) {
+    return {
+      exactSingleMatch: null,
+      possibleMatches: [],
+      isUncertainOrMultiple: true,
+      requiresPatientSelection: true,
+      resolutionReasonAr: 'اسم الدواء غير واضح — يرجى كتابة اسم الدواء أو اختياره من القائمة.',
+      resolutionReasonEn: 'Medication name is unclear — please enter or select the medication.',
+    };
+  }
+
+  const normQuery = norm(cleanName);
+  const firstWord = normQuery.split(/\s+/)[0] || normQuery;
+  const targetStrength = normalizeStrengthForEquivalence(params.rawStrength || '', cleanName);
+  const rawFormLower = `${params.rawDosageForm || ''} ${cleanName}`.toLowerCase();
+
+  let targetForm = '';
+  if (/(tablet|\btab\b|قرص|أقراص|اقراص)/i.test(rawFormLower)) targetForm = 'tablet';
+  else if (/(capsule|\bcap\b|كبسول|كبسولة)/i.test(rawFormLower)) targetForm = 'capsule';
+  else if (/(suspension|\bsyr\b|syrup|شراب|معلق)/i.test(rawFormLower)) targetForm = 'suspension';
+  else if (/(\bvial\b|ampoule|\bamp\b|injection|حقن|حقنة|أمبول|امبول|فيال)/i.test(rawFormLower)) targetForm = 'vial';
+  else if (/(cream|ointment|\bgel\b|كريم|مرهم|جيل|دهان)/i.test(rawFormLower)) targetForm = 'cream';
+  else if (/(drops|نقط|قطرة|قطره)/i.test(rawFormLower)) targetForm = 'drops';
+
+  const hits = searchDawayaIndex(
+    globalIndexItems,
+    { query: firstWord.length >= 3 ? firstWord : cleanName },
+    true
+  ).slice(0, 35);
+
+  const scored: MedicationDatabaseMatchCandidate[] = hits.map((item) => {
+    const itemNormEn = norm(item.n);
+    const itemNormAr = norm(item.a);
+    const itemStrength = normalizeStrengthForEquivalence(item.s, item.n);
+    const itemForm = (item.f || '').toLowerCase();
+
+    let score = 50;
+    if (itemNormEn === normQuery || itemNormAr === normQuery) {
+      score += 40;
+    } else if (itemNormEn.startsWith(firstWord) || itemNormAr.startsWith(firstWord)) {
+      score += 25;
+    }
+
+    const strengthVerified = Boolean(
+      targetStrength && itemStrength && targetStrength === itemStrength
+    );
+    if (strengthVerified) {
+      score += 30;
+    } else if (targetStrength && itemStrength && targetStrength !== itemStrength) {
+      score -= 15;
+    }
+
+    const formVerified = Boolean(
+      targetForm &&
+        (itemForm === targetForm ||
+          (targetForm === 'vial' && (itemForm.includes('vial') || itemForm.includes('amp'))))
+    );
+    if (formVerified) {
+      score += 20;
+    } else if (targetForm && itemForm && itemForm !== targetForm) {
+      score -= 10;
+    }
+
+    if (params.rawActiveIngredient && item.g) {
+      const ingNorm = norm(params.rawActiveIngredient);
+      if (ingNorm.length >= 4 && norm(item.g).includes(ingNorm)) {
+        score += 15;
+      }
+    }
+
+    return {
+      id: item.i,
+      brandNameAr: item.a || item.n,
+      brandNameEn: item.n,
+      activeIngredient: item.g || '',
+      strength: item.s || '',
+      dosageForm: item.f || 'tablet',
+      route: item.r || 'oral',
+      priceEgp: item.p ?? null,
+      manufacturer: item.c || '',
+      matchScore: Math.max(10, Math.min(100, score)),
+      strengthVerified,
+      formVerified,
+    };
+  });
+
+  scored.sort((a, b) => b.matchScore - a.matchScore);
+  const topCandidates = scored.slice(0, maxCandidates);
+
+  if (topCandidates.length === 0) {
+    return {
+      exactSingleMatch: null,
+      possibleMatches: [],
+      isUncertainOrMultiple: true,
+      requiresPatientSelection: true,
+      resolutionReasonAr: `لم يتم العثور على تطابق مؤكد لـ «${cleanName}» في قاعدة البيانات — يرجى مراجعة الاسم والتركيز مع الصيدلي.`,
+      resolutionReasonEn: `No verified match found for "${cleanName}" in the database — please verify the name and strength.`,
+    };
+  }
+
+  const best = topCandidates[0];
+  const second = topCandidates[1];
+  const hasMultipleStrengthsOrForms =
+    topCandidates.length > 1 &&
+    (!targetStrength || !best.strengthVerified || (second && best.matchScore - second.matchScore < 18));
+
+  if (!hasMultipleStrengthsOrForms && best.matchScore >= 85 && best.strengthVerified) {
+    return {
+      exactSingleMatch: best,
+      possibleMatches: topCandidates,
+      isUncertainOrMultiple: false,
+      requiresPatientSelection: false,
+      resolutionReasonAr: `تم التحقق من تطابق الاسم التجاري والمادة الفعالة والتركيز (${best.brandNameAr} — ${best.strength}).`,
+      resolutionReasonEn: `Verified exact match by brand name, active ingredient, and strength (${best.brandNameEn} — ${best.strength}).`,
+    };
+  }
+
+  return {
+    exactSingleMatch: null,
+    possibleMatches: topCandidates,
+    isUncertainOrMultiple: true,
+    requiresPatientSelection: true,
+    resolutionReasonAr:
+      topCandidates.length > 1
+        ? `يوجد ${topCandidates.length} أصناف/تركيزات محتملة لـ «${cleanName}» في قاعدة بيانات دوايا — يرجى اختيار التركيز والشكل الصيدلي المكتوب في روشتتك (لا يتم الاختيار تلقائياً عند وجود أكثر من احتمال).`
+        : `يرجى تأكيد التركيز والشكل الصيدلي لـ «${best.brandNameAr}» قبل الحفظ.`,
+    resolutionReasonEn:
+      topCandidates.length > 1
+        ? `Found ${topCandidates.length} possible products/strengths for "${cleanName}" in DAWAYA database — please select the exact strength and dosage form on your prescription (never auto-selected when uncertain).`
+        : `Please confirm the strength and dosage form for "${best.brandNameEn}" before saving.`,
+  };
+}

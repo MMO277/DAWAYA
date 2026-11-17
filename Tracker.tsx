@@ -273,6 +273,7 @@ export default function Tracker() {
     schedules,
     setSchedules,
     deleteScheduleById,
+    setScheduleTrackingStatus,
     updateDoseStatus,
     prescriptions,
     setPrescriptions,
@@ -1299,6 +1300,39 @@ export default function Tracker() {
                   >
                     {isAr ? 'تجربة شاشة المنبه الآن' : 'Test Phone Alarm'}
                   </button>
+                  {sch.trackingStatus === 'paused' ? (
+                    <button
+                      type="button"
+                      className="btn-secondary small"
+                      style={{ background: '#dcfce7', borderColor: '#16a34a', color: '#166534', fontWeight: 700 }}
+                      onClick={() => setScheduleTrackingStatus(sch.id, 'active')}
+                    >
+                      ▶️ {isAr ? 'استئناف المتابعة' : 'Resume Tracking'}
+                    </button>
+                  ) : sch.trackingStatus !== 'discontinued' ? (
+                    <button
+                      type="button"
+                      className="btn-secondary small"
+                      style={{ background: '#fef3c7', borderColor: '#f59e0b', color: '#92400e', fontWeight: 700 }}
+                      onClick={() => setScheduleTrackingStatus(sch.id, 'paused')}
+                    >
+                      ⏸️ {isAr ? 'إيقاف مؤقت' : 'Pause Tracking'}
+                    </button>
+                  ) : null}
+                  {sch.trackingStatus !== 'discontinued' && (
+                    <button
+                      type="button"
+                      className="btn-secondary small"
+                      style={{ background: '#fee2e2', borderColor: '#ef4444', color: '#991b1b', fontWeight: 700 }}
+                      onClick={() => {
+                        if (window.confirm(isAr ? 'هل تريد إيقاف متابعة هذا الدواء في السجل (مع الاحتفاظ بتاريخ الجرعات السابقة)؟ تنبيه: لا توقف الدواء طبياً إلا باستشارة طبيبك.' : 'Discontinue tracking this schedule while keeping past dose history? Never stop a prescribed medication without consulting your doctor.')) {
+                          setScheduleTrackingStatus(sch.id, 'discontinued');
+                        }
+                      }}
+                    >
+                      ⏹️ {isAr ? 'إيقاف المتابعة' : 'Discontinue'}
+                    </button>
+                  )}
                   <button type="button" className="btn-secondary" onClick={() => openEdit(sch)}>
                     ✏️ {isAr ? 'تعديل' : 'Edit'}
                   </button>
@@ -1396,6 +1430,8 @@ export default function Tracker() {
                                     (isAr ? 'لم تُسجّل (متأخرة غير مؤكدة) ⚠️' : 'Missing Record (Unconfirmed) ⚠️')}
                                   {status === 'missed' &&
                                     (isAr ? 'فائتة مؤكدة ❌' : 'Confirmed Missed ❌')}
+                                  {status === 'skipped' &&
+                                    (isAr ? 'تم تخطيها ⏭️' : 'Skipped ⏭️')}
                                 </span>
                                 {dose.documentedOutcome && (
                                   <small className="muted" style={{ display: 'block', width: '100%', fontSize: '0.74rem' }}>
@@ -1486,6 +1522,13 @@ export default function Tracker() {
                                       onClick={() => handleDoseAction(sch.id, dose.id, 'missed')}
                                     >
                                       ✕ {isAr ? 'فائتة' : 'Mark Missed'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="undo-btn"
+                                      onClick={() => handleDoseAction(sch.id, dose.id, 'skipped')}
+                                    >
+                                      ⏭️ {isAr ? 'تخطي' : 'Mark Skipped'}
                                     </button>
                                     <button
                                       type="button"
@@ -1661,7 +1704,7 @@ export default function Tracker() {
                       📁 {isAr ? 'رفع صورة روشتة' : 'Upload Rx Image'}
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
                         onChange={(e) => handlePrescriptionImageChange(e, 'ocr_upload')}
                         style={{ display: 'none' }}
                       />
@@ -1670,7 +1713,7 @@ export default function Tracker() {
                       📸 {isAr ? 'كاميرا الموبايل' : 'Camera Capture'}
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
                         capture="environment"
                         onChange={(e) => handlePrescriptionImageChange(e, 'camera_capture')}
                         style={{ display: 'none' }}

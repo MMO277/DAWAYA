@@ -825,6 +825,42 @@ export function buildActionPreviewFields<K extends AiActionType>(
           });
         }
       }
+      if (a.category === 'leaflet' && a.extractedFields?.leafletMedicationName) {
+        fields.push(
+          {
+            key: 'leafletMedicationName',
+            labelAr: 'اسم الدواء في النشرة',
+            labelEn: 'Medication Name (Leaflet)',
+            value: a.extractedFields.leafletMedicationName,
+            editable: true,
+            inputType: 'text',
+          },
+          {
+            key: 'leafletActiveIngredient',
+            labelAr: 'المادة الفعالة (التركيب)',
+            labelEn: 'Active Ingredient',
+            value: a.extractedFields.leafletActiveIngredient || '',
+            editable: true,
+            inputType: 'text',
+          },
+          {
+            key: 'leafletIndications',
+            labelAr: 'دواعي الاستعمال المذكورة بالنشرة',
+            labelEn: 'Indications & Uses',
+            value: a.extractedFields.leafletIndications || '',
+            editable: true,
+            inputType: 'text',
+          },
+          {
+            key: 'leafletMissedDose',
+            labelAr: 'تعليمات نسيان الجرعة',
+            labelEn: 'Missed Dose Instructions',
+            value: a.extractedFields.leafletMissedDose || '',
+            editable: true,
+            inputType: 'text',
+          }
+        );
+      }
       if (rx && (rx.medicineName || a.category === 'prescription')) {
         fields.push(
           {

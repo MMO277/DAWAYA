@@ -38,6 +38,7 @@ import {
 import {
   analyzeUploadedMedicalDocument,
   compressMedicalImageFile,
+  compressMultipleMedicalFiles,
   validateMedicalUploadFile,
 } from './aiDocumentProcessor';
 import {
@@ -406,10 +407,11 @@ export default function ChatWidget() {
   }
 
   async function handleFileAttachment(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const fileList = e.target.files ? Array.from(e.target.files) : [];
     e.target.value = '';
-    if (!file || loading) return;
+    if (fileList.length === 0 || loading) return;
 
+    const file = fileList[0];
     const date = new Date().toLocaleDateString(isAr ? 'ar-EG' : 'en-GB');
     const validation = validateMedicalUploadFile(file);
     if (!validation.valid) {
@@ -430,7 +432,7 @@ export default function ChatWidget() {
     setUploadProgress(20);
 
     try {
-      const compressed = await compressMedicalImageFile(file);
+      const multiCompressed = await compressMultipleMedicalFiles(fileList);
       setUploadProgress(55);
 
       setMsgs((m) => [
@@ -439,21 +441,24 @@ export default function ChatWidget() {
           id: `msg-${Date.now()}-file-user`,
           who: 'me',
           text: isAr
-            ? `📎 رفعت صورة/مستند: ${validation.sanitizedFileName}`
-            : `📎 Attached medical document: ${validation.sanitizedFileName}`,
-          attachmentPreviewUrl: compressed.previewDataUrl,
-          attachmentFileName: validation.sanitizedFileName,
+            ? `📎 رفعت مستند (${multiCompressed.pageCount} صفحة): ${multiCompressed.combinedFileName}`
+            : `📎 Attached medical document (${multiCompressed.pageCount} page(s)): ${multiCompressed.combinedFileName}`,
+          attachmentPreviewUrl: multiCompressed.previewDataUrl,
+          attachmentFileName: multiCompressed.combinedFileName,
           date,
         },
       ]);
 
       const analysis = await analyzeUploadedMedicalDocument({
-        base64Data: compressed.base64Data,
-        previewDataUrl: compressed.previewDataUrl,
+        base64Data: multiCompressed.primaryBase64,
+        previewDataUrl: multiCompressed.previewDataUrl,
         fileName: validation.sanitizedFileName,
-        mimeType: compressed.mimeType,
-        fileSize: compressed.compressedSize,
+        mimeType: multiCompressed.mimeType,
+        fileSize: multiCompressed.totalSize,
         lang,
+        pdfPageCount: multiCompressed.pageCount,
+        pdfExtractedText: multiCompressed.combinedPdfText,
+        additionalPageImagesBase64: multiCompressed.allPageImagesBase64,
       });
       setUploadProgress(90);
 
@@ -475,9 +480,9 @@ export default function ChatWidget() {
         profile,
         schedules,
         prescriptions,
-        previewImageUrl: compressed.previewDataUrl,
+        previewImageUrl: multiCompressed.previewDataUrl,
         rawFileForUpload: file,
-        base64DataForUpload: compressed.base64Data,
+        base64DataForUpload: multiCompressed.primaryBase64,
       });
 
       const leadMsg = isAr
@@ -1221,7 +1226,7 @@ export default function ChatWidget() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,application/pdf"
+            multiple accept="image/jpeg,image/png,image/webp,application/pdf"
             style={{ display: 'none' }}
             onChange={handleFileAttachment}
           />
