@@ -641,12 +641,21 @@ export default function AuthModal() {
     }
   };
 
-  const handleGoogleLogin = async (hintEmail?: string) => {
+  const handleGoogleLogin = async (hintEmail?: string, savedAcc?: SavedGoogleAccount) => {
     clearError();
     setLocalValidationMsg('');
     setPendingBridgeEmail(null);
     setGoogleSubmitting(true);
     try {
+      if (savedAcc && savedAcc.email) {
+        await loginWithNativeGoogleAccount({
+          email: savedAcc.email,
+          uid: savedAcc.uid,
+          displayName: savedAcc.displayName,
+          photoURL: savedAcc.photoURL || undefined,
+        });
+        return;
+      }
       let targetHint = hintEmail;
       if (!targetHint && hasNativeGoogleAccountPicker()) {
         const picked = await triggerNativeGoogleAccountPicker();
@@ -872,13 +881,13 @@ appId: "1:..."`}
                     {savedGoogleAccounts.map((acc) => (
                       <div
                         key={acc.email}
-                        onClick={() => !googleSubmitting && handleGoogleLogin(acc.email)}
+                        onClick={() => !googleSubmitting && handleGoogleLogin(acc.email, acc)}
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            if (!googleSubmitting) handleGoogleLogin(acc.email);
+                            if (!googleSubmitting) handleGoogleLogin(acc.email, acc);
                           }
                         }}
                         style={{

@@ -6,7 +6,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { Role, useAuth } from './auth';
+import { Role, useAuth, isStaffOrAdminRole } from './auth';
 import { useLang } from './i18n';
 import { fetchAll, removeMedicine, seedStarter, setStatus, validateForApproval } from './medicinesApi';
 import { Medicine, pick, Status, STATUSES, tr } from './types';
@@ -538,7 +538,7 @@ export default function Dashboard() {
 
   if (loading) return <main className="wrap"><p>{t('loading')}</p></main>;
   if (!user) return <Login />;
-  if (!role)
+  if (!role || !isStaffOrAdminRole(role))
     return (
       <main className="wrap narrow stack">
         <p className="alert">{t('noRole')}</p>

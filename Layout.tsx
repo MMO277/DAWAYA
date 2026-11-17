@@ -23,7 +23,7 @@ import { lazy, Suspense, ReactNode, useRef, useEffect, useState, useMemo } from 
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useLang, SUPPORTED_LANGS } from './i18n';
 import { Lang, localizeFallbackText, tr } from './types';
-import { useAuth } from './authContext';
+import { useAuth, isStaffOrAdminRole } from './authContext';
 import Disclaimer from './Disclaimer';
 import { useEmergencyLocation } from './emergencyLocation';
 
@@ -456,6 +456,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [openDrawerGroups, setOpenDrawerGroups] = useState<Record<string, boolean>>({});
   const authCtx = useAuth();
   const user = authCtx.user;
+  const role = authCtx.role;
   const openAuthModal = authCtx.openAuthModal;
 
   const hamburgerBtnRef = useRef<HTMLButtonElement>(null);
@@ -2034,15 +2035,17 @@ export default function Layout({ children }: { children: ReactNode }) {
                 </span>
                 <span className="item-arrow" aria-hidden="true">{pageDir === 'rtl' ? '←' : '→'}</span>
               </button>
-              <NavLink
-                to="/admin"
-                onClick={() => closeDrawer(false)}
-                className={({ isActive }) => `drawer-item admin ${isActive ? 'active' : ''}`}
-              >
-                <span className="item-icon" aria-hidden="true">⚙️</span>
-                <span className="item-title">{t('navAdmin')}</span>
-                <span className="item-arrow" aria-hidden="true">{pageDir === 'rtl' ? '←' : '→'}</span>
-              </NavLink>
+              {Boolean(user && isStaffOrAdminRole(role)) && (
+                <NavLink
+                  to="/admin"
+                  onClick={() => closeDrawer(false)}
+                  className={({ isActive }) => `drawer-item admin ${isActive ? 'active' : ''}`}
+                >
+                  <span className="item-icon" aria-hidden="true">⚙️</span>
+                  <span className="item-title">{t('navAdmin')}</span>
+                  <span className="item-arrow" aria-hidden="true">{pageDir === 'rtl' ? '←' : '→'}</span>
+                </NavLink>
+              )}
 
               {!user && (
                 <>

@@ -56,6 +56,25 @@ export const ROLES: Role[] = [
   'customer',
 ];
 
+export const STAFF_ADMIN_ROLES: Role[] = [
+  'owner',
+  'super_admin',
+  'admin',
+  'regional_manager',
+  'reviewer',
+  'editor',
+  'pharmacy_owner',
+  'pharmacy_manager',
+  'pharmacist',
+  'employee',
+  'viewer',
+];
+
+export function isStaffOrAdminRole(role: Role | null | undefined): boolean {
+  if (!role || role === 'customer' || role === 'user') return false;
+  return STAFF_ADMIN_ROLES.includes(role);
+}
+
 export const GUEST_MODE_KEY = 'aa_guest_mode';
 const ROLE_CACHE_PREFIX = 'aa_cached_role_';
 export const SAVED_GOOGLE_ACCOUNTS_KEY = 'aa_saved_google_accounts_v1';
@@ -333,6 +352,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       localStorage.removeItem('aa_quick_google_user_v1');
+      const rawTrusted = localStorage.getItem('dawaya_trusted_android_user_v1');
+      if (rawTrusted) {
+        const parsed = JSON.parse(rawTrusted);
+        if (!parsed?.uid || String(parsed.uid).startsWith('google_') || String(parsed.uid).startsWith('g_')) {
+          localStorage.removeItem('dawaya_trusted_android_user_v1');
+        }
+      }
     } catch {}
   }, []);
 
@@ -417,11 +443,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const syncUserRoleInBackground = async (uid: string, currentUser?: User | null) => {
+    const cleanUserEmail = currentUser?.email?.trim().toLowerCase() || '';
     try {
       const cachedR = localStorage.getItem(ROLE_CACHE_PREFIX + uid) as Role | null;
-      if (cachedR && ROLES.includes(cachedR)) {
+      if (cachedR && isStaffOrAdminRole(cachedR)) {
         setRole(cachedR);
         setRoleStatus('ok');
+      } else if (cachedR === 'customer' || cachedR === 'user') {
+        localStorage.removeItem(ROLE_CACHE_PREFIX + uid);
+        setRole(null);
       }
     } catch {}
 
@@ -430,33 +460,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (currentUser && typeof currentUser.getIdTokenResult === 'function') {
         const tokenResult = await currentUser.getIdTokenResult().catch(() => null);
         const claimRole = tokenResult?.claims?.role;
-        if (typeof claimRole === 'string' && ROLES.includes(claimRole.trim().toLowerCase() as Role)) {
+        if (typeof claimRole === 'string') {
           const r = claimRole.trim().toLowerCase() as Role;
-          setRole(r);
-          setRoleStatus('ok');
-          try { localStorage.setItem(ROLE_CACHE_PREFIX + uid, r); } catch {}
-          return;
+          if (isStaffOrAdminRole(r)) {
+            setRole(r);
+            setRoleStatus('ok');
+            try { localStorage.setItem(ROLE_CACHE_PREFIX + uid, r); } catch {}
+            return;
+          }
         }
       }
 
       const snap = await getDoc(doc(db, 'roles', uid));
       if (!snap.exists()) {
-        setRole(null);
-        setRoleStatus('missing');
+        if (cleanUserEmail === 'albrnsmstfy277@gmail.com') {
+          setRole('super_admin');
+          setRoleStatus('ok');
+          try { localStorage.setItem(ROLE_CACHE_PREFIX + uid, 'super_admin'); } catch {}
+        } else {
+          setRole(null);
+          setRoleStatus('missing');
+          try { localStorage.removeItem(ROLE_CACHE_PREFIX + uid); } catch {}
+        }
       } else {
         const raw = snap.data().role;
         const r = typeof raw === 'string' ? (raw.trim().toLowerCase() as Role) : null;
-        if (r && ROLES.includes(r)) {
+        if (r && isStaffOrAdminRole(r)) {
           setRole(r);
           setRoleStatus('ok');
           try { localStorage.setItem(ROLE_CACHE_PREFIX + uid, r); } catch {}
+        } else if (cleanUserEmail === 'albrnsmstfy277@gmail.com') {
+          setRole('super_admin');
+          setRoleStatus('ok');
+          try { localStorage.setItem(ROLE_CACHE_PREFIX + uid, 'super_admin'); } catch {}
         } else {
           setRole(null);
-          setRoleStatus(`invalid:${String(raw)}`);
+          setRoleStatus(r === 'customer' || r === 'user' ? 'missing' : `invalid:${String(raw)}`);
+          try { localStorage.removeItem(ROLE_CACHE_PREFIX + uid); } catch {}
         }
       }
     } catch (e) {
-      setRoleStatus(`error:${(e as { code?: string }).code ?? 'offline'}`);
+      if (cleanUserEmail === 'albrnsmstfy277@gmail.com') {
+        setRole('super_admin');
+        setRoleStatus('ok');
+      } else {
+        setRoleStatus(`error:${(e as { code?: string }).code ?? 'offline'}`);
+      }
     }
   };
 
@@ -516,17 +565,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let restoredAndroidUser: any = null;
         try {
           const rawTrusted = localStorage.getItem('dawaya_trusted_android_user_v1');
-          if (rawTrusted) restoredAndroidUser = JSON.parse(rawTrusted);
+          if (rawTrusted) {
+            const parsed = JSON.parse(rawTrusted);
+            if (
+              parsed &&
+              parsed.email &&
+              parsed.uid &&
+              !String(parsed.uid).startsWith('google_') &&
+              !String(parsed.uid).startsWith('g_')
+            ) {
+              restoredAndroidUser = parsed;
+            } else {
+              localStorage.removeItem('dawaya_trusted_android_user_v1');
+            }
+          }
         } catch {}
-        if (restoredAndroidUser && restoredAndroidUser.email) {
-          setUser({
+        if (restoredAndroidUser && restoredAndroidUser.email && restoredAndroidUser.uid) {
+          const restoredUserObj = {
             ...restoredAndroidUser,
             emailVerified: true,
             isAnonymous: false,
             getIdToken: async () => '',
-          } as unknown as User);
-          setRole(restoredAndroidUser.email === 'albrnsmstfy277@gmail.com' ? 'super_admin' : 'customer');
-          setRoleStatus('approved');
+          } as unknown as User;
+          setUser(restoredUserObj);
+          await syncUserRoleInBackground(restoredAndroidUser.uid, restoredUserObj);
           setLoading(false);
           setGuestModeActive(false);
           setIsGuest(false);
@@ -729,46 +791,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // If user picked their trusted device Google account from Android native picker (or is inside Android APK WebView),
-    // trust the OS-verified account directly without opening a second Firebase WebView password popup!
-    if (hasNativePicker || (typeof navigator !== 'undefined' && /wv|Android/i.test(navigator.userAgent) && (window as any).AndroidAlarmBridge)) {
-      const trustedName = profile.displayName || formatDisplayNameFromEmail(cleanEmail);
-      const trustedPhoto = resolveGoogleAvatarUrl(cleanEmail, profile.photoURL);
-      const syntheticUid = profile.uid || `google_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
-      const trustedUser = {
-        uid: syntheticUid,
-        email: cleanEmail,
-        displayName: trustedName,
-        photoURL: trustedPhoto,
-        emailVerified: true,
-        isAnonymous: false,
-        getIdToken: async () => profile.idToken || nativeAccessToken || '',
-      } as unknown as User;
-
-      saveDeviceGoogleAccount({
-        email: cleanEmail,
-        displayName: trustedName,
-        uid: syntheticUid,
-        photoURL: trustedPhoto,
-        lastUsedAt: Date.now(),
-      });
-      try {
-        localStorage.setItem('dawaya_trusted_android_user_v1', JSON.stringify({
-          uid: syntheticUid,
-          email: cleanEmail,
-          displayName: trustedName,
-          photoURL: trustedPhoto,
-        }));
-      } catch {}
-      setUser(trustedUser);
-      setRole(cleanEmail === 'albrnsmstfy277@gmail.com' ? 'super_admin' : 'customer');
-      setRoleStatus('approved');
+    // If already signed into Firebase with this exact email and a real Firebase UID, keep the real session!
+    if (
+      auth.currentUser &&
+      auth.currentUser.email?.trim().toLowerCase() === cleanEmail &&
+      !auth.currentUser.uid.startsWith('google_') &&
+      !auth.currentUser.uid.startsWith('g_')
+    ) {
+      await syncGoogleBridgeToFirestore(auth.currentUser);
+      await syncUserRoleInBackground(auth.currentUser.uid, auth.currentUser);
       setGuestModeActive(false);
       setIsGuest(false);
       closeAuthModal();
       return;
     }
 
+    // Try real Firebase Google OAuth popup (works on Web and on Android WebView with CLEAN_CHROME_UA)
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ login_hint: cleanEmail });
@@ -779,11 +817,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         oauthCred?.idToken,
         oauthCred?.accessToken
       );
+      await syncUserRoleInBackground(popCred.user.uid, popCred.user);
       setGuestModeActive(false);
       setIsGuest(false);
       closeAuthModal();
       return;
     } catch (oauthErr: any) {
+      // If inside Android APK and popup was blocked, ONLY restore if we have a verified real Firebase UID (never invent google_...)
+      const savedMatch = getSavedDeviceGoogleAccounts().find(
+        (a) => a.email.toLowerCase() === cleanEmail && a.uid && !a.uid.startsWith('google_') && !a.uid.startsWith('g_')
+      );
+      const verifiedRealUid =
+        (profile.uid && !profile.uid.startsWith('google_') && !profile.uid.startsWith('g_') ? profile.uid : '') ||
+        savedMatch?.uid ||
+        '';
+
+      if (verifiedRealUid && (hasNativePicker || (typeof window !== 'undefined' && (window as any).AndroidAlarmBridge))) {
+        const trustedName = profile.displayName || savedMatch?.displayName || formatDisplayNameFromEmail(cleanEmail);
+        const trustedPhoto = resolveGoogleAvatarUrl(cleanEmail, profile.photoURL || savedMatch?.photoURL);
+        const trustedUser = {
+          uid: verifiedRealUid,
+          email: cleanEmail,
+          displayName: trustedName,
+          photoURL: trustedPhoto,
+          emailVerified: true,
+          isAnonymous: false,
+          getIdToken: async () => profile.idToken || nativeAccessToken || '',
+        } as unknown as User;
+
+        saveDeviceGoogleAccount({
+          email: cleanEmail,
+          displayName: trustedName,
+          uid: verifiedRealUid,
+          photoURL: trustedPhoto,
+          lastUsedAt: Date.now(),
+        });
+        try {
+          localStorage.setItem('dawaya_trusted_android_user_v1', JSON.stringify({
+            uid: verifiedRealUid,
+            email: cleanEmail,
+            displayName: trustedName,
+            photoURL: trustedPhoto,
+          }));
+        } catch {}
+        setUser(trustedUser);
+        await syncUserRoleInBackground(verifiedRealUid, trustedUser);
+        setGuestModeActive(false);
+        setIsGuest(false);
+        closeAuthModal();
+        return;
+      }
+
       const errCode = oauthErr?.code || 'auth/requires-google-verification';
       setError(errCode);
       throw oauthErr;
