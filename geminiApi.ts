@@ -1987,6 +1987,18 @@ export function parsePrescriptionTextDeterministically(
       if (!detectedDrugName) detectedDrugName = matched.detectedDrugName;
     }
   }
+  // If Gemini returned readable medicine lines without the RX_DRUG_NAME prefix, capture them directly
+  if (!detectedDrugName && text.length > 3) {
+    const cleanLines = lines
+      .map((l) => l.replace(/^(?:RX_[A-Z_]+|DRUG_[A-Z_]+):\s*/i, '').replace(/^[*•\-–\d.]+\s*/, '').trim())
+      .filter((l) => l.length >= 3 && !isUnreadableToken(l) && !/^none$/i.test(l));
+    if (cleanLines.length > 0) {
+      detectedDrugName = cleanLines.slice(0, 4).join(' + ');
+      if (!extractedNotes && cleanLines.length > 1) {
+        extractedNotes = cleanLines.join(' | ');
+      }
+    }
+  }
 
   // Extract explicit dose strength/quantity ONLY if written in the text (never invented from DB!)
   if (!extractedDoseText) {
@@ -2145,26 +2157,28 @@ export async function analyzePrescriptionImageWithVision(
 
   const prompt =
     lang === 'ar'
-      ? `أنت صيدلي مصري خبير في قراءة خط الأطباء اليدوي في الروشتات المصرية. استخدم تخصص الطبيب المكتوب في أعلى الروشتة وأول حروف اسم الدواء والتركيز (مثل 500mg, 1gm, 40mg) والشكل الصيدلاني (Tab, Cap, Syr, Amp, Vial) لمطابقة الاسم التجاري المصري الصحيح بدقة شديدة. لا تخترع أو تخمّن أي معلومة غير مكتوبة بوضوح؛ إذا كان أي حقل غير واضح أو غير مكتوب، اكتب UNREADABLE.
-اكتب النتيجة في الأسطر التالية بالضبط:
-RX_DRUG_ID: [المعرف المطابق من: ${VISION_DRUG_IDS} أو UNREADABLE]
-RX_DRUG_NAME: [اسم الدواء (مضاد حيوي أو مسكن أو ضغط أو سكر أو أي دواء) كما هو مكتوب أو UNREADABLE]
-RX_DOSE: [الجرعة والتركيز كما هي مكتوبة بالضبط مثل 500mg أو 1 قرص أو UNREADABLE]
-RX_ROUTE: [oral أو suspension أو injection أو topical أو UNREADABLE]
-RX_FREQ: [once_daily أو twice_daily أو thrice_daily أو four_times_daily أو UNREADABLE]
-RX_DURATION_DAYS: [عدد أيام الكورس بالأرقام فقط إذا كان مكتوباً بصراحة أو UNREADABLE]
-RX_NOTES: [أي تعليمات إضافية مقروءة مثل بعد الأكل أو UNREADABLE]
-RX_CONTRADICTIONS: [اذكر أي تعارض أو غموض في التعليمات المكتوبة أو NONE]`
-      : `Read the prescription details in this image with strict accuracy. NEVER invent or guess any missing or unclear instruction; if any field is not clearly written, output UNREADABLE.
-Output the exact lines below:
-RX_DRUG_ID: [matching slug from: ${VISION_DRUG_IDS} or UNREADABLE]
-RX_DRUG_NAME: [medication name (any drug class) as written or UNREADABLE]
-RX_DOSE: [exact dose/strength written on prescription or UNREADABLE]
-RX_ROUTE: [oral or suspension or injection or topical or UNREADABLE]
-RX_FREQ: [once_daily or twice_daily or thrice_daily or four_times_daily or UNREADABLE]
-RX_DURATION_DAYS: [integer number of days ONLY if explicitly written, else UNREADABLE]
-RX_NOTES: [any readable administration instructions or UNREADABLE]
-RX_CONTRADICTIONS: [any contradictory or ambiguous instructions noticed, or NONE]`;
+      ? `أنت صيدلي مصري خبير جداً في فك وقراءة خط الأطباء اليدوي في الروشتات المصرية (مثلما تقرأ أي روشتة في الصيدلية).
+استخدم اسم وتخصص الطبيب المكتوب في أعلى الروشتة (مثل جلدية، باطنة، أطفال، عظام)، والحروف الأولى من كل سطر دواء (بعد علامة R/ أو الشرطة)، والتركيز (مثل 500mg, 1gm, 300mg, 20mg, 40mg) والشكل الصيدلاني (Tab, Cap, Syr, Amp, Vial, Gel, Cream, Wash, Soap) لقراءة جميع الأدوية المكتوبة في الروشتة.
+اكتب النتيجة بالصيغة التالية مباشرة بدون أقواس مربعة:
+RX_DRUG_ID: unknown
+RX_DRUG_NAME: اكتب هنا أسماء كل الأدوية التي قرأتها من الروشتة مفصولة بعلامة + (مثال: دالاسين سي 300 مجم + فيوسيزون كريم + صابونة فيت بار)
+RX_DOSE: اكتب الجرعة أو التركيز المقروء من الروشتة (مثال: كبسولة مرتين يومياً / دهان مرتين يومياً)
+RX_ROUTE: oral
+RX_FREQ: twice_daily
+RX_DURATION_DAYS: 7
+RX_NOTES: اكتب هنا قراءتك الكاملة لكل سطر في الروشتة بالتفصيل (اسم كل دواء بالعربي والإنجليزي والجرعة المكتوبة تحته)
+RX_CONTRADICTIONS: NONE`
+      : `You are an expert Egyptian pharmacist skilled at reading handwritten Egyptian medical prescriptions.
+Use the doctor's specialty header, first letters of each drug line after R/, strength, and dosage form to identify all prescribed medications.
+Output the exact lines below without brackets:
+RX_DRUG_ID: unknown
+RX_DRUG_NAME: list all medications read from the prescription separated by +
+RX_DOSE: dose and strength read from the prescription
+RX_ROUTE: oral
+RX_FREQ: twice_daily
+RX_DURATION_DAYS: 7
+RX_NOTES: full line-by-line reading of every medication and instruction on the prescription
+RX_CONTRADICTIONS: NONE`;
 
   const runGemini = async (): Promise<string> => {
     if (!hasApiKey()) return '';
