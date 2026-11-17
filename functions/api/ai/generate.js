@@ -1,8 +1,8 @@
 /**
  * Cloudflare Pages Function (100% Free Tier - 100,000 req/day)
  * Endpoint: POST /api/ai/generate
- * Supports both AIza... and AQ... Google AI Studio Gemini API keys via x-goog-api-key,
- * defaults to gemini-2.5-flash with automatic model fallback and fast vision config.
+ * Uses current 2026 Free-Tier Gemini models (gemini-3.8-flash, gemini-3.6-flash, gemini-3.5-flash-lite)
+ * AND dynamically discovers available models via /v1beta/models if any model returns 404!
  */
 const ipWindowMap = new Map();
 const MAX_REQ_PER_IP_PER_MIN = 30;
@@ -23,6 +23,36 @@ function sanitizeEdgePromptPii(rawText) {
     .replace(/\b(?:\+?20|0)?1[0125][0-9\u0660-\u0669]{8}\b/g, '[REDACTED_PHONE]')
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]')
     .replace(/(?:اسم المريض|المريض|Patient Name|Name)\s*[:：-]\s*[^\n،,.]{2,40}/gi, '[REDACTED_PATIENT_NAME]');
+}
+
+async function discoverAvailableFlashModels(key) {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`,
+      { headers: { 'x-goog-api-key': key } }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const list = Array.isArray(data?.models) ? data.models : [];
+    const usable = list
+      .filter(
+        (m) =>
+          Array.isArray(m.supportedGenerationMethods) &&
+          m.supportedGenerationMethods.includes('generateContent') &&
+          /gemini/i.test(m.name || '') &&
+          !/embedding|tts|imagen|veo|audio/i.test(m.name || '')
+      )
+      .map((m) => String(m.name || '').replace(/^models\//, ''));
+    // Prefer flash models first
+    usable.sort((a, b) => {
+      const aFlash = /flash/i.test(a) ? 0 : 1;
+      const bFlash = /flash/i.test(b) ? 0 : 1;
+      return aFlash - bFlash;
+    });
+    return usable.slice(0, 5);
+  } catch {
+    return [];
+  }
 }
 
 export async function onRequestPost(context) {
@@ -68,22 +98,22 @@ export async function onRequestPost(context) {
       });
     }
 
-    const preferredModel = body?.model === 'gemini-2.0-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash';
-    const candidateModels =
-      preferredModel === 'gemini-2.5-flash'
-        ? ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
-        : ['gemini-2.0-flash', 'gemini-2.5-flash'];
+    const candidateModels = [
+      'gemini-3.8-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3-flash-preview',
+      'gemini-2.5-flash',
+    ];
 
     let lastStatus = 502;
     let lastErrorBody = '';
+    const tried = new Set();
 
-    for (const model of candidateModels) {
+    const tryModel = async (model) => {
+      if (tried.has(model)) return null;
+      tried.add(model);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
-      const genConfig = { temperature: 0.15, maxOutputTokens: 1400 };
-      if (model.startsWith('gemini-2.5')) {
-        genConfig.thinkingConfig = { thinkingBudget: 0 };
-      }
-
       const upstream = await fetch(url, {
         method: 'POST',
         headers: {
@@ -92,24 +122,43 @@ export async function onRequestPost(context) {
         },
         body: JSON.stringify({
           contents: [{ parts }],
-          generationConfig: genConfig,
+          generationConfig: { temperature: 0.15, maxOutputTokens: 1400 },
         }),
       });
-
       if (upstream.ok) {
         const data = await upstream.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        return new Response(JSON.stringify({ text: String(text).trim(), model }), {
+        return { text: String(text).trim(), model };
+      }
+      lastStatus = upstream.status;
+      lastErrorBody = await upstream.text().catch(() => '');
+      return null;
+    };
+
+    for (const model of candidateModels) {
+      const ok = await tryModel(model);
+      if (ok) {
+        return new Response(JSON.stringify(ok), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
       }
-
-      lastStatus = upstream.status;
-      lastErrorBody = await upstream.text().catch(() => '');
-      // Retry next fallback model only on 404/400/429
       if (lastStatus !== 404 && lastStatus !== 400 && lastStatus !== 429) {
         break;
+      }
+    }
+
+    // Dynamic model discovery fallback if hardcoded names returned 404
+    if (lastStatus === 404) {
+      const dynamicModels = await discoverAvailableFlashModels(key);
+      for (const dm of dynamicModels) {
+        const ok = await tryModel(dm);
+        if (ok) {
+          return new Response(JSON.stringify(ok), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
       }
     }
 
