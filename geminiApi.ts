@@ -156,6 +156,8 @@ async function callDirectAdminKeyFallback(params: {
   sanitizedPrompt: string;
   inlineImageBase64?: string;
   mimeType?: string;
+  inlineAudioBase64?: string;
+  audioMimeType?: string;
 }): Promise<string> {
   const visionKey = await resolveAdminVisionKey();
   if (!visionKey) return '';
@@ -229,6 +231,14 @@ async function callDirectAdminKeyFallback(params: {
       },
     });
   }
+  if (params.inlineAudioBase64) {
+    parts.push({
+      inline_data: {
+        mime_type: params.audioMimeType || 'audio/webm',
+        data: params.inlineAudioBase64,
+      },
+    });
+  }
 
   for (const modelId of candidateModels) {
     try {
@@ -263,6 +273,8 @@ export async function callServerAiProxy(params: {
   prompt: string;
   inlineImageBase64?: string;
   mimeType?: string;
+  inlineAudioBase64?: string;
+  audioMimeType?: string;
   model?: string;
 }): Promise<string> {
   const sanitizedPrompt = sanitizePatientPiiForAi(params.prompt).slice(0, 12000);
@@ -286,6 +298,8 @@ export async function callServerAiProxy(params: {
           prompt: sanitizedPrompt,
           inlineImageBase64: params.inlineImageBase64,
           mimeType: params.mimeType,
+          inlineAudioBase64: params.inlineAudioBase64,
+          audioMimeType: params.audioMimeType,
           model: params.model === 'gemini-2.0-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash',
         }),
       });
@@ -313,6 +327,8 @@ export async function callServerAiProxy(params: {
     sanitizedPrompt,
     inlineImageBase64: params.inlineImageBase64,
     mimeType: params.mimeType,
+    inlineAudioBase64: params.inlineAudioBase64,
+    audioMimeType: params.audioMimeType,
   });
 }
 
@@ -455,8 +471,8 @@ export const SYSTEM_PROMPT = `أنت الطبيب والاستشاري الصي�
 قواعد شخصيتك وطريقتك الذهبية في التعامل مع المرضى:
 1. **الترحيب الودود باللهجة المصرية العامية الأصيلة:**
    تحدث دايماً كطبيب واستشاري مصري شاطر، ودود، إنساني، وصبور جداً ("ألف سلامة عليك يا فندم"، "بص يا سيدي"، "من عنيا الاتنين"، "متقلقش خالص"، "طمني عليك"). لو سألك المريض بأي لغة ثانية (إنجليزي، فرنسي، ألماني، إسباني) أجب بطلاقة بنفس لغته.
-2. **الرد على أي سؤال في الوجود بدون تردد أو رفض:**
-   أجب على أي سؤال يسأله المريض في أي مجال؛ أسئلة الأدوية والجرعات، الأعراض، التحاليل الطبية والمزارع البكتيرية (S / R)، التغذية، الحمل والرضاعة، الأطفال، كبار السن، أو حتى الأسئلة الحياتية العامة والثقافية. لا تعتذر أو ترفض الإجابة أبداً، وكن دائماً السند والمعين للمريض.
+2. **انفتاح كامل على كل المواضيع مع احترام تام وبدون شتايم نهائياً:**
+   أنت مساعد ذكي ومنفتح تجيب على كل الأسئلة في أي مجال (الطبية، الأدوية، التحاليل، العناية بالبشرة، التغذية، التقنية، التعليم، أو الأسئلة الحياتية العامة والثقافية) بحرية وذكاء وود باللهجة المصرية، لكن يُمنع منعاً باتاً استخدام أي شتائم أو سباب أو ألفاظ نابية أو إهانات تحت أي ظرف حتى لو كان كلام المستخدم مستفزاً؛ حافظ دايماً على أسلوب راقٍ ومحترم.
 3. **الدقة السريرية والأمان الصارم (Triple Check):**
    - فحص تعارضات الأدوية مع الحساسية المسجلة للمريض في ملفه الصحي.
    - التحذير الصارم من «الضربة الثلاثية للكلى» (مسكن NSAID + دواء ضغط + مدر بول).
@@ -473,7 +489,8 @@ export const COMPACT_CLOUD_SYSTEM_PROMPT = `أنت مساعد ذكي شامل و
 1. جاوب على سؤال المستخدم فوراً وبدقة ومباشرة باللهجة المصرية الودودة ("يا هلا بيك"، "بص يا سيدي"، "من عنيا").
 2. لو مرفق مع السؤال [بيانات حية ومباشرة من الإنترنت الآن]، اعتمد عليها في إجابتك (مثل مواعيد ونتائج المباريات اليوم، الطقس، أسعار العملات، والأخبار الجارية).
 3. جاوب على قد السؤال بالظبط في صلب الموضوع، وإياك ترد بردود عامة أو تتكلم عن موضوع مختلف عن سؤال المستخدم.
-4. رتب الإجابة في نقاط واضحة بدون جداول Markdown (|) وبدون نجوم ** أو علامات ###.`;
+4. رتب الإجابة في نقاط واضحة بدون جداول Markdown (|) وبدون نجوم ** أو علامات ###.
+5. أجب على جميع الأسئلة بانفتاح وود، وامنع تماماً أي شتائم أو ألفاظ خارجة أو مسيئة.`;
 
 function isValidCloudReply(text: string | undefined | null): boolean {
   if (!text) return false;
@@ -1030,7 +1047,7 @@ export async function askGemini(
         model: geminiModel,
       });
       if (isValidCloudReply(proxyReply)) {
-        return cleanAssistantMarkdown(proxyReply);
+        return sanitizeNoProfanity(cleanAssistantMarkdown(proxyReply));
       }
     }
   }
@@ -1041,6 +1058,91 @@ export async function askGemini(
   }
 
   throw new Error('ALL_AI_ENDPOINTS_UNAVAILABLE');
+}
+
+export function sanitizeNoProfanity(text: string): string {
+  const s = String(text || '');
+  return s.replace(
+    /\b(fuck|shit|bitch|asshole|bastard|dick|pussy|whore|slut|cunt|motherfucker|كسمك|كس امك|ابن الكلب|ابن الوسخة|يا وسخ|يا شرموط|شرموطة|عرص|خول|متناك|منيوك|يلعن دين|قحبة)\b/gi,
+    '***'
+  );
+}
+
+export async function askGeminiWithAudio(
+  audioBase64: string,
+  audioMimeType: string,
+  history: ChatMessage[] = [],
+  patientContextPrefix = '',
+  lang: Lang = 'ar'
+): Promise<{ transcript: string; reply: string }> {
+  const rateLimit = checkAiRateLimit();
+  if (!rateLimit.allowed) {
+    return {
+      transcript: '',
+      reply:
+        '⏳ حفاظاً على أمان واستقرار المنصة، يرجى الانتظار ' +
+        rateLimit.waitSec +
+        ' ثانية قبل رسالتك الصوتية التالية.',
+    };
+  }
+
+  let key = getApiKey();
+  if (!key) {
+    key = await loadSharedCloudAiKey();
+  }
+
+  const emerg = getCurrentEmergencyInfo();
+  const dynamicSystemPrompt = SYSTEM_PROMPT.replace(
+    'الإسعاف المصري (123)',
+    `طوارئ ${emerg.name.ar} (${emerg.number})`
+  );
+
+  const recentHistoryText = history
+    .slice(-5)
+    .map((m) => `${m.who === 'me' ? 'المريض' : 'المساعد'}: ${(m.text || '').slice(0, 350)}`)
+    .join('\n');
+
+  const audioInstruction =
+    lang === 'ar'
+      ? `اسمع التسجيل الصوتي المرفق ده كويس جداً، افهم كلام المستخدم بالعامية المصرية أو العربية أو الإنجليزية، واكتب ردك بالصيغة دي بالظبط:
+[TRANSCRIPT]: <النص الحرفي اللي قاله المستخدم في الصوت>
+[REPLY]: <ردك الطبيعي والمباشر والودود والمحترم بدون أي شتايم على كلامه>
+
+قواعد مهمة:
+- لو الصوت مش واضح خالص أو فاضي، اكتب [TRANSCRIPT]: غير واضح و[REPLY]: معلش الصوت مكانش واضح، ممكن تقوله تاني؟
+- أجب على أي سؤال في الدنيا بانفتاح واحترام تام وبدون أي ألفاظ خارجة.`
+      : `Listen carefully to the attached user voice recording, understand what they said, and respond in this exact format:
+[TRANSCRIPT]: <exact words spoken by the user>
+[REPLY]: <your helpful, open, respectful direct response without any profanity>`;
+
+  const combinedPrompt = `${dynamicSystemPrompt}\n\n${
+    patientContextPrefix ? `${patientContextPrefix}\n\n` : ''
+  }${
+    recentHistoryText ? `[سياق المحادثة السابقة:\n${recentHistoryText}]\n\n` : ''
+  }${audioInstruction}`;
+
+  for (const geminiModel of ['gemini-2.5-flash', 'gemini-2.0-flash']) {
+    const raw = await callServerAiProxy({
+      prompt: combinedPrompt,
+      inlineAudioBase64: audioBase64,
+      audioMimeType: audioMimeType || 'audio/webm',
+      model: geminiModel,
+    });
+
+    if (isValidCloudReply(raw)) {
+      const cleaned = sanitizeNoProfanity(cleanAssistantMarkdown(raw));
+      const trMatch = cleaned.match(/\[TRANSCRIPT\]\s*:\s*([\s\S]*?)(?=\[REPLY\]\s*:|$)/i);
+      const repMatch = cleaned.match(/\[REPLY\]\s*:\s*([\s\S]*)$/i);
+      const transcript = trMatch ? trMatch[1].trim() : '';
+      const reply = repMatch ? repMatch[1].trim() : cleaned.replace(/\[TRANSCRIPT\]\s*:.*\n?/i, '').trim();
+      return {
+        transcript: transcript && transcript !== 'غير واضح' ? transcript : '',
+        reply: reply || cleaned,
+      };
+    }
+  }
+
+  throw new Error('AUDIO_AI_UNAVAILABLE');
 }
 
 export interface VisionAnalysisResult {

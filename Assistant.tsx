@@ -16,11 +16,13 @@ import {
   extractAnswerPlainText,
   isDirectVerifiedMatch,
 } from './assistantLogic';
-import { askGemini, ChatMessage, cleanAssistantMarkdown, isCustomApiKey } from './geminiApi';
+import { askGemini, askGeminiWithAudio, ChatMessage, cleanAssistantMarkdown, isCustomApiKey } from './geminiApi';
 import {
   isVoiceRecognitionSupported,
   speakText,
-  startVoiceRecognition,
+  startDirectAudioRecording,
+  DirectAudioRecorderHandle,
+  isDirectAudioRecordingSupported,
   stopSpeech,
   VoiceRecognitionHandle,
 } from './speechService';
@@ -236,6 +238,7 @@ export default function Assistant() {
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
   const [voiceNote, setVoiceNote] = useState('');
   const stopListenRef = useRef<VoiceRecognitionHandle | null>(null);
+  const directRecRef = useRef<DirectAudioRecorderHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const forcedUploadCategoryRef = useRef<MedicalDocumentCategory | undefined>(undefined);
   const end = useRef<HTMLDivElement>(null);
@@ -698,52 +701,104 @@ export default function Assistant() {
     );
   }
 
-  function toggleVoiceMic() {
+  async function handleDirectAudioMessage(audioBase64: string, audioMimeType: string) {
+    setBusy(true);
+    setVoiceNote(isAr ? '⏳ الذكاء الاصطناعي بيسمع الريكورد ويترجمه ويرد عليك...' : '⏳ Processing your voice message...');
+    setMsgs((prev) => [
+      ...prev,
+      { id: `${Date.now()}-u`, who: 'me', text: isAr ? '🎙️ رسالة صوتية مسجلة...' : '🎙️ Voice message...' },
+    ]);
+    try {
+      const history: ChatMessage[] = msgs.slice(-6).map((m) => ({ who: m.who, text: m.text }));
+      const { transcript, reply } = await askGeminiWithAudio(audioBase64, audioMimeType, history, '', lang);
+      const cleanedReply = cleanAssistantMarkdown(reply);
+      setMsgs((prev) => {
+        const updated = [...prev];
+        for (let i = updated.length - 1; i >= 0; i--) {
+          if (updated[i].who === 'me' && updated[i].text.startsWith('🎙️')) {
+            if (transcript) updated[i] = { ...updated[i], text: `🎙️ ${transcript}` };
+            break;
+          }
+        }
+        return [...updated, { id: `${Date.now()}-b`, who: 'bot', text: cleanedReply }];
+      });
+      setVoiceNote('');
+      if (autoSpeak) {
+        speakText(cleanedReply, lang, 1.0);
+      }
+    } catch {
+      setVoiceNote('');
+      setMsgs((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-b`,
+          who: 'bot',
+          text: isAr
+            ? 'معلش معرفتش أسمع الريكورد بوضوح أو الاتصال بالإنترنت ضعيف. ممكن تسجل تاني أو تكتب سؤالك؟'
+            : 'Could not process the voice recording clearly. Please try again or type your question.',
+        },
+      ]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleVoiceMic() {
     if (listening) {
+      if (directRecRef.current) {
+        const rec = directRecRef.current;
+        directRecRef.current = null;
+        setListening(false);
+        setVoiceNote('');
+        rec.stopAndSend();
+        return;
+      }
       stopListenRef.current?.stop();
       stopListenRef.current = null;
       setListening(false);
+      setVoiceNote('');
       return;
     }
 
-    if (!isVoiceRecognitionSupported()) {
+    if (!isDirectAudioRecordingSupported()) {
       setVoiceNote(
         isAr
-          ? 'متصفحك الحالي مش بيدعم المايك المباشر. جرب تفتح من Chrome أو Edge أو Safari.'
-          : 'Your browser does not support Web Speech Recognition. Please use Chrome, Edge, or Safari.'
+          ? 'متصفحك الحالي مش بيدعم تسجيل المايك المباشر. جرب تفتح من Chrome أو التطبيق.'
+          : 'Your browser does not support direct microphone recording.'
       );
       return;
     }
 
-    stopListenRef.current?.stop();
+    directRecRef.current?.cancel();
     setVoiceNote(
       isAr
-        ? '🎙️ اتكلم دلوقتي بالعامية المصرية براحتك... أنا سامعك'
-        : '🎙️ Speak now... Listening for questions or health profile commands'
+        ? '🎙️ جاري تسجيل الريكورد مباشرة... اتكلم براحتك ولما تخلص اضغط على زر المايك تاني للإرسال'
+        : '🎙️ Recording directly... Speak naturally and tap the mic button again to send'
     );
     setListening(true);
 
-    stopListenRef.current = startVoiceRecognition(
-      lang,
-      (transcript) => {
-        stopListenRef.current = null;
+    directRecRef.current = await startDirectAudioRecording({
+      autoStopOnSilence: false,
+      maxDurationMs: 60000,
+      onAudioReady: (audioBase64, audioMimeType) => {
+        directRecRef.current = null;
         setListening(false);
         setVoiceNote('');
-        if (transcript.trim()) {
-          setQ(transcript);
-          ask(transcript, true);
-        }
+        handleDirectAudioMessage(audioBase64, audioMimeType);
       },
-      (errMsg) => {
-        stopListenRef.current = null;
+      onError: (errMsg) => {
+        directRecRef.current = null;
         setListening(false);
-        setVoiceNote(errMsg);
+        setVoiceNote(
+          errMsg === 'no-speech'
+            ? (isAr ? 'التسجيل قصير جداً أو مفيش صوت واضح، جرب تسجل تاني.' : 'Recording too short.')
+            : (isAr ? 'يرجى السماح بصلاحية المايكروفون لتسجيل الريكورد.' : errMsg)
+        );
       },
-      () => {
-        stopListenRef.current = null;
-        setListening(false);
-      }
-    );
+    });
+    if (!directRecRef.current) {
+      setListening(false);
+    }
   }
 
   const submit = (e: FormEvent) => {

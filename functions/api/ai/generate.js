@@ -3,9 +3,9 @@
  * Endpoint: POST /api/ai/generate
  * Supports:
  * 1. Google Gemini API Key (AIza...) with automatic live model discovery via /v1beta/models
- *    so it NEVER fails with 404 when Google renames or retires model versions.
- * 2. Cloudflare Workers AI native binding (context.env.AI -> @cf/meta/llama-3.2-11b-vision-instruct).
- * 3. Groq API Key (gsk_... -> meta-llama/llama-4-scout-17b-16e-instruct).
+ *    + Native Image Vision + Native Direct Audio Understanding (no Google Speech popup needed).
+ * 2. Cloudflare Workers AI native binding (context.env.AI -> Llama 3.2 Vision / Whisper Audio / Llama 3.1).
+ * 3. Groq API Key (gsk_... -> Llama 4 Scout Vision / Whisper Audio / Llama 3.3).
  */
 const ipWindowMap = new Map();
 const MAX_REQ_PER_IP_PER_MIN = 35;
@@ -30,9 +30,16 @@ function sanitizeEdgePromptPii(rawText) {
     .replace(/(?:اسم المريض|المريض|Patient Name|Name)\s*[:：-]\s*[^\n،,.]{2,40}/gi, '[REDACTED_PATIENT_NAME]');
 }
 
-async function discoverGoogleModels(apiKey) {
+function sanitizeProfanityOutput(text) {
+  const s = String(text || '');
+  const badWordsPattern =
+    /\b(fuck|shit|bitch|asshole|bastard|dick|pussy|whore|slut|cunt|motherfucker|كسمك|كس امك|ابن الكلب|ابن الوسخة|يا وسخ|يا شرموط|شرموطة|عرص|خول|متناك|منيوك|يلعن دين|قحبة)\b/gi;
+  return s.replace(badWordsPattern, '***');
+}
+
+async function discoverGoogleModels(apiKey, preferAudio = false) {
   const now = Date.now();
-  if (cachedDiscoveredModels && cachedDiscoveredModels.length > 0 && now - cachedModelsTimestamp < 600000) {
+  if (!preferAudio && cachedDiscoveredModels && cachedDiscoveredModels.length > 0 && now - cachedModelsTimestamp < 600000) {
     return cachedDiscoveredModels;
   }
   try {
@@ -48,13 +55,11 @@ async function discoverGoogleModels(apiKey) {
         if (!methods.includes('generateContent')) return false;
         const id = String(m?.name || '').replace(/^models\//, '').toLowerCase();
         if (!id) return false;
-        // Skip non-text/non-vision specialized endpoints
         if (
           id.includes('embedding') ||
           id.includes('imagen') ||
           id.includes('veo') ||
           id.includes('tts') ||
-          id.includes('audio') ||
           id.includes('aqa') ||
           id.includes('bisect') ||
           id.includes('thinking-exp') ||
@@ -62,21 +67,24 @@ async function discoverGoogleModels(apiKey) {
         ) {
           return false;
         }
+        // Skip audio-only native-audio-dialog models unless requested; standard Gemini Flash handles audio input natively
+        if (id.includes('native-audio')) return false;
         return true;
       })
       .map((m) => String(m.name).replace(/^models\//, ''));
 
-    // Score models so newest Flash / Lite / Gemma-3 Vision models come first, and deprecated 2.5-flash/2.0-flash go last
     const scoreModel = (id) => {
       const lower = id.toLowerCase();
       if (lower === 'gemini-2.0-flash' || lower === 'gemini-2.0-flash-001') return -50;
-      if (lower === 'gemini-2.5-flash') return -20; // often 404 for new accounts
+      if (lower === 'gemini-2.5-flash') return -20;
       let score = 0;
       if (lower.includes('gemini-3')) score += 100;
       if (lower.includes('flash-lite')) score += 90;
       if (lower.includes('gemini-2.5-flash-lite')) score += 95;
       if (lower.includes('gemini-2.5-flash-preview')) score += 80;
       if (lower.includes('flash')) score += 60;
+      // Gemma 3 doesn't support inline audio input well, so rank Gemini Flash above Gemma when audio is present
+      if (preferAudio && lower.includes('gemma')) score -= 80;
       if (lower.includes('gemma-3-27b-it')) score += 75;
       if (lower.includes('gemma-3-12b-it')) score += 70;
       if (lower.includes('pro')) score += 40;
@@ -85,7 +93,7 @@ async function discoverGoogleModels(apiKey) {
     };
 
     usable.sort((a, b) => scoreModel(b) - scoreModel(a));
-    if (usable.length > 0) {
+    if (!preferAudio && usable.length > 0) {
       cachedDiscoveredModels = usable;
       cachedModelsTimestamp = now;
     }
@@ -95,9 +103,36 @@ async function discoverGoogleModels(apiKey) {
   }
 }
 
-async function callCloudflareWorkersAi(aiBinding, cleanPrompt, inlineImageBase64) {
+async function transcribeAudioWithCloudflare(aiBinding, audioBase64) {
+  try {
+    const binaryString = atob(audioBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const res = await aiBinding.run('@cf/openai/whisper', {
+      audio: Array.from(bytes),
+    });
+    return String(res?.text || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+async function callCloudflareWorkersAi(aiBinding, cleanPrompt, inlineImageBase64, inlineAudioBase64) {
   try {
     const hasImage = Boolean(inlineImageBase64 && typeof inlineImageBase64 === 'string');
+    const hasAudio = Boolean(inlineAudioBase64 && typeof inlineAudioBase64 === 'string');
+
+    let effectivePrompt = cleanPrompt;
+    let transcript = '';
+    if (hasAudio) {
+      transcript = await transcribeAudioWithCloudflare(aiBinding, inlineAudioBase64);
+      if (transcript) {
+        effectivePrompt = `${cleanPrompt}\n\n[كلام المستخدم المسجل صوتياً]: "${transcript}"`;
+      }
+    }
+
     if (hasImage) {
       const binaryString = atob(inlineImageBase64);
       const bytes = new Uint8Array(binaryString.length);
@@ -105,19 +140,25 @@ async function callCloudflareWorkersAi(aiBinding, cleanPrompt, inlineImageBase64
         bytes[i] = binaryString.charCodeAt(i);
       }
       const response = await aiBinding.run('@cf/meta/llama-3.2-11b-vision-instruct', {
-        prompt: cleanPrompt,
+        prompt: effectivePrompt,
         image: Array.from(bytes),
-        max_tokens: 1200,
+        max_tokens: 1400,
       });
       const text = response?.response || response?.result?.response || '';
-      if (text) return { ok: true, text: String(text).trim(), model: '@cf/meta/llama-3.2-11b-vision-instruct' };
+      if (text) return { ok: true, text: sanitizeProfanityOutput(String(text).trim()), model: '@cf/meta/llama-3.2-11b-vision-instruct', transcript };
     } else {
       const response = await aiBinding.run('@cf/meta/llama-3.1-8b-instruct', {
-        prompt: cleanPrompt,
-        max_tokens: 1200,
+        messages: [
+          {
+            role: 'system',
+            content: 'أنت مساعد ذكي ومنفتح ومحترم جداً، تجيب على جميع الأسئلة بحرية وود باللهجة المصرية أو لغة المستخدم، وتمنع تماماً أي شتائم أو ألفاظ نابية.',
+          },
+          { role: 'user', content: effectivePrompt },
+        ],
+        max_tokens: 1400,
       });
       const text = response?.response || response?.result?.response || '';
-      if (text) return { ok: true, text: String(text).trim(), model: '@cf/meta/llama-3.1-8b-instruct' };
+      if (text) return { ok: true, text: sanitizeProfanityOutput(String(text).trim()), model: '@cf/meta/llama-3.1-8b-instruct', transcript };
     }
   } catch {
     // Fallback to next provider
@@ -125,8 +166,41 @@ async function callCloudflareWorkersAi(aiBinding, cleanPrompt, inlineImageBase64
   return { ok: false };
 }
 
-async function callGroqVisionOrText(groqKey, cleanPrompt, inlineImageBase64, mimeType) {
+async function callGroqVisionOrText(groqKey, cleanPrompt, inlineImageBase64, mimeType, inlineAudioBase64, audioMimeType) {
   const hasImage = Boolean(inlineImageBase64 && typeof inlineImageBase64 === 'string');
+  const hasAudio = Boolean(inlineAudioBase64 && typeof inlineAudioBase64 === 'string');
+
+  let effectivePrompt = cleanPrompt;
+  let transcript = '';
+
+  if (hasAudio) {
+    try {
+      const binaryString = atob(inlineAudioBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const ext = (audioMimeType || 'audio/webm').includes('mp4') ? 'm4a' : (audioMimeType || '').includes('wav') ? 'wav' : 'webm';
+      const formData = new FormData();
+      formData.append('file', new Blob([bytes], { type: audioMimeType || 'audio/webm' }), `voice.${ext}`);
+      formData.append('model', 'whisper-large-v3-turbo');
+      const trResp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${groqKey}` },
+        body: formData,
+      });
+      if (trResp.ok) {
+        const trData = await trResp.json();
+        transcript = String(trData?.text || '').trim();
+        if (transcript) {
+          effectivePrompt = `${cleanPrompt}\n\n[كلام المستخدم المسجل صوتياً]: "${transcript}"`;
+        }
+      }
+    } catch {
+      // Continue
+    }
+  }
+
   const candidateModels = hasImage
     ? [
         'meta-llama/llama-4-scout-17b-16e-instruct',
@@ -143,7 +217,7 @@ async function callGroqVisionOrText(groqKey, cleanPrompt, inlineImageBase64, mim
   for (const model of candidateModels) {
     const content = hasImage
       ? [
-          { type: 'text', text: cleanPrompt },
+          { type: 'text', text: effectivePrompt },
           {
             type: 'image_url',
             image_url: {
@@ -151,7 +225,7 @@ async function callGroqVisionOrText(groqKey, cleanPrompt, inlineImageBase64, mim
             },
           },
         ]
-      : cleanPrompt;
+      : effectivePrompt;
 
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -161,16 +235,22 @@ async function callGroqVisionOrText(groqKey, cleanPrompt, inlineImageBase64, mim
       },
       body: JSON.stringify({
         model,
-        messages: [{ role: 'user', content }],
-        temperature: 0.15,
-        max_completion_tokens: 1400,
+        messages: [
+          {
+            role: 'system',
+            content: 'أنت مساعد ذكي ومنفتح ومحترم جداً، ترد على جميع الأسئلة بحرية وذكاء باللهجة المصرية أو لغة المستخدم، وتلتزم تماماً بمنع أي شتائم أو ألفاظ نابية.',
+          },
+          { role: 'user', content },
+        ],
+        temperature: 0.25,
+        max_completion_tokens: 1500,
       }),
     });
 
     if (resp.ok) {
       const data = await resp.json();
       const text = data?.choices?.[0]?.message?.content || '';
-      return { ok: true, text: String(text).trim(), model };
+      return { ok: true, text: sanitizeProfanityOutput(String(text).trim()), model, transcript };
     }
     lastStatus = resp.status;
     lastErrorBody = await resp.text().catch(() => '');
@@ -206,8 +286,9 @@ export async function onRequestPost(context) {
 
   try {
     const body = await context.request.json();
-    const rawPrompt = String(body?.prompt || '').slice(0, 12000);
-    if (!rawPrompt) {
+    const hasAudio = Boolean(body?.inlineAudioBase64 && typeof body.inlineAudioBase64 === 'string');
+    const rawPrompt = String(body?.prompt || (hasAudio ? 'اسمع التسجيل الصوتي ده، افهم كلام المستخدم بالعامية المصرية أو لغته، ورد عليه مباشرة.' : '')).slice(0, 12000);
+    if (!rawPrompt && !hasAudio) {
       return new Response(JSON.stringify({ error: 'EMPTY_PROMPT' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
@@ -216,7 +297,7 @@ export async function onRequestPost(context) {
 
     const cleanPrompt = sanitizeEdgePromptPii(rawPrompt);
 
-    // 1. If the configured key is a Groq key (starts with gsk_), route to Groq Llama 4 Scout Vision
+    // 1. If the configured key is a Groq key (starts with gsk_), route to Groq
     const effectiveGroqKey = groqEnv.startsWith('gsk_')
       ? groqEnv
       : geminiEnv.startsWith('gsk_')
@@ -228,17 +309,19 @@ export async function onRequestPost(context) {
         effectiveGroqKey,
         cleanPrompt,
         body?.inlineImageBase64,
-        body?.mimeType
+        body?.mimeType,
+        body?.inlineAudioBase64,
+        body?.audioMimeType
       );
       if (groqRes.ok) {
-        return new Response(JSON.stringify({ text: groqRes.text, model: groqRes.model }), {
+        return new Response(JSON.stringify({ text: groqRes.text, model: groqRes.model, transcript: groqRes.transcript || '' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
         });
       }
     }
 
-    // 2. If a Google Gemini key (AIza...) is configured, auto-discover the exact models enabled on this key!
+    // 2. If a Google Gemini key (AIza...) is configured, auto-discover enabled models
     const effectiveGeminiKey = !effectiveGroqKey && key && key.length >= 15 ? key : '';
     let lastStatus = 502;
     let lastErrorBody = '';
@@ -253,15 +336,21 @@ export async function onRequestPost(context) {
           },
         });
       }
+      if (hasAudio) {
+        parts.push({
+          inline_data: {
+            mime_type: body.audioMimeType || 'audio/webm',
+            data: body.inlineAudioBase64.slice(0, 7500000),
+          },
+        });
+      }
 
-      const discovered = await discoverGoogleModels(effectiveGeminiKey);
+      const discovered = await discoverGoogleModels(effectiveGeminiKey, hasAudio);
       const fallbackModels = [
         'gemini-2.5-flash-lite',
         'gemini-2.5-flash-lite-preview-06-17',
         'gemini-3-flash-preview',
         'gemini-2.5-pro',
-        'gemma-3-27b-it',
-        'gemma-3-12b-it',
         'gemini-1.5-flash',
         'gemini-1.5-flash-latest',
         'gemini-2.5-flash',
@@ -278,7 +367,13 @@ export async function onRequestPost(context) {
           },
           body: JSON.stringify({
             contents: [{ parts }],
-            generationConfig: { temperature: 0.15, maxOutputTokens: 2500 },
+            safetySettings: [
+              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_LOW_AND_ABOVE' },
+              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_LOW_AND_ABOVE' },
+              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_LOW_AND_ABOVE' },
+              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+            ],
+            generationConfig: { temperature: 0.25, maxOutputTokens: 2500 },
           }),
         });
         if (upstream.ok) {
@@ -287,7 +382,7 @@ export async function onRequestPost(context) {
           const nonThought = rawParts.filter((p) => !p?.thought && typeof p?.text === 'string');
           const text = (nonThought.length > 0 ? nonThought : rawParts).map((p) => p?.text || '').join('\n').trim();
           if (text) {
-            return new Response(JSON.stringify({ text: String(text).trim(), model }), {
+            return new Response(JSON.stringify({ text: sanitizeProfanityOutput(String(text).trim()), model }), {
               status: 200,
               headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
             });
@@ -300,9 +395,14 @@ export async function onRequestPost(context) {
 
     // 3. Fallback to Cloudflare Workers AI native binding if attached (env.AI)
     if (aiBinding) {
-      const cfRes = await callCloudflareWorkersAi(aiBinding, cleanPrompt, body?.inlineImageBase64);
+      const cfRes = await callCloudflareWorkersAi(
+        aiBinding,
+        cleanPrompt,
+        body?.inlineImageBase64,
+        body?.inlineAudioBase64
+      );
       if (cfRes.ok) {
-        return new Response(JSON.stringify({ text: cfRes.text, model: cfRes.model }), {
+        return new Response(JSON.stringify({ text: cfRes.text, model: cfRes.model, transcript: cfRes.transcript || '' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
         });

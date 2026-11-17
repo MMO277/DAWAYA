@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useLang } from './i18n';
 import type { ReplyLink } from './types';
 import {
-  isVoiceRecognitionSupported,
+  DirectAudioRecorderHandle,
+  isDirectAudioRecordingSupported,
   requestMicrophonePermission,
   speakText,
-  startVoiceRecognition,
+  startDirectAudioRecording,
   stopSpeech,
-  VoiceRecognitionHandle,
 } from './speechService';
-import { askGemini, cleanAssistantMarkdown } from './geminiApi';
+import { askGemini, askGeminiWithAudio, cleanAssistantMarkdown } from './geminiApi';
 import {
   buildOpenEgyptianOfflineFallback,
   generateContextualSiteReply,
@@ -96,7 +96,7 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
   const [manualText, setManualText] = useState<string>('');
   const [audioWaveLevel, setAudioWaveLevel] = useState<number>(1);
 
-  const recogRef = useRef<VoiceRecognitionHandle | null>(null);
+  const directRecorderRef = useRef<DirectAudioRecorderHandle | null>(null);
   const timerRef = useRef<number | null>(null);
   const waveTimerRef = useRef<number | null>(null);
   const silenceTimerRef = useRef<number | null>(null);
@@ -171,85 +171,62 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Start speech recognition cycle
-  const startListeningCycle = () => {
+  // Start direct audio recording cycle (no Google Speech popup dialog)
+  const startListeningCycle = async () => {
     if (isMuted) return;
 
     cleanupSpeechEngine();
     setCallState('listening');
     setMicError(null);
-    setInterimText('');
+    setInterimText(isAr ? '🎙️ أنا سامعك دايركت... اتكلم براحتك وأول ما تسكت هرد عليك فوراً' : '🎙️ Listening directly... Speak naturally');
     currentTranscriptRef.current = '';
 
     playCallAudioTone('listen');
 
-    if (!isVoiceRecognitionSupported()) {
+    if (!isDirectAudioRecordingSupported()) {
       setMicError(
         isAr
-          ? 'المتصفح لا يدعم المايكروفون الصوتي المباشر. يمكنك استخدام خانة الكتابة السريعة أدناه.'
-          : 'Voice recognition is not supported in this browser. Please type your message below.'
+          ? 'المتصفح لا يدعم تسجيل المايكروفون المباشر. يمكنك استخدام خانة الكتابة السريعة أدناه.'
+          : 'Direct microphone recording is not supported in this browser. Please type below.'
       );
       setCallState('paused');
       return;
     }
 
     try {
-      recogRef.current = startVoiceRecognition(
-        lang,
-        (text, isFinal) => {
-          if (!text) return;
-
-          if (isFinal) {
-            currentTranscriptRef.current = text;
-            setTranscript(text);
-            setInterimText('');
-            // Auto submit speech after user finishes sentence
-            handlePatientSpeech(text);
-          } else {
-            // Live interim feedback as user speaks
-            currentTranscriptRef.current = text;
-            setInterimText(text);
-
-            // Auto-send debounce: if user stops speaking for 2.2 seconds, submit
-            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-            silenceTimerRef.current = window.setTimeout(() => {
-              if (currentTranscriptRef.current.trim()) {
-                handlePatientSpeech(currentTranscriptRef.current.trim());
-              }
-            }, 2200);
-          }
+      directRecorderRef.current = await startDirectAudioRecording({
+        autoStopOnSilence: true,
+        silenceDelayMs: 1750,
+        maxDurationMs: 45000,
+        onVolumeLevel: (lvl) => {
+          setAudioWaveLevel(Math.max(1, Math.min(5, Math.ceil(lvl / 20))));
         },
-        (err) => {
-          console.warn('Voice recognition error:', err);
-          if (err === 'not-allowed' || err === 'service-not-allowed') {
+        onSpeechDetected: () => {
+          setInterimText(isAr ? '🎙️ جاري الاستماع لصوتك مباشرة...' : '🎙️ Capturing your voice...');
+        },
+        onAudioReady: (audioBase64, audioMimeType) => {
+          directRecorderRef.current = null;
+          handlePatientAudio(audioBase64, audioMimeType);
+        },
+        onError: (err) => {
+          directRecorderRef.current = null;
+          if (err === 'NotAllowedError' || err === 'PermissionDeniedError' || err === 'not-allowed') {
             setMicError(
               isAr
-                ? 'يرجى السماح بالوصول للمايكروفون من إعدادات المتصفح لتتمكن من التحدث مع الطبيب.'
-                : 'Please allow microphone access in your browser settings to speak.'
+                ? 'يرجى السماح بالوصول للمايكروفون من إعدادات التطبيق أو المتصفح للتحدث دايركت.'
+                : 'Please allow microphone access to speak directly.'
             );
             setCallState('error');
           } else if (err === 'no-speech') {
-            // User did not speak yet, stay ready for tap
             setCallState('paused');
-          } else if (err === 'network') {
-            setMicError(
-              isAr
-                ? 'تعذر الاتصال بخدمة التعرف على الصوت. تحقق من الإنترنت أو استخدم خانة الكتابة أدناه.'
-                : 'Speech recognition network error. Please check connection or type below.'
-            );
-            setCallState('error');
+            setInterimText('');
+          } else {
+            setMicError(isAr ? 'تعذر التقاط الصوت. اضغط على المايك للتجربة مرة أخرى.' : 'Audio capture error. Tap mic to retry.');
+            setCallState('paused');
           }
         },
-        () => {
-          // onEnd: if finished listening without speech, set to ready state
-          if (currentTranscriptRef.current.trim()) {
-            handlePatientSpeech(currentTranscriptRef.current.trim());
-          }
-        },
-        { interim: true, continuous: false }
-      );
-    } catch (err: any) {
-      console.warn('Recognition start exception:', err);
+      });
+    } catch {
       setMicError(isAr ? 'تعذر تشغيل المايكروفون. اضغط على الزر للتجربة مرة أخرى.' : 'Microphone error. Tap to retry.');
       setCallState('error');
     }
@@ -261,11 +238,41 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
       silenceTimerRef.current = null;
     }
     try {
-      recogRef.current?.stop();
+      directRecorderRef.current?.cancel();
     } catch {
       /* ignore */
     }
-    recogRef.current = null;
+    directRecorderRef.current = null;
+  };
+
+  const handlePatientAudio = async (audioBase64: string, audioMimeType: string) => {
+    playCallAudioTone('send');
+    setInterimText('');
+    setCallState('thinking');
+    setMicError(null);
+    try {
+      const medsNotice = profile.currentMeds?.length ? `الأدوية الحالية: ${profile.currentMeds.join('، ')}.` : '';
+      const allergyNotice = profile.allergies?.length ? `الحساسيات المسجلة: ${profile.allergies.join('، ')}.` : '';
+      const ctx = [medsNotice, allergyNotice].filter(Boolean).join(' ');
+      const { transcript: heardText, reply } = await askGeminiWithAudio(audioBase64, audioMimeType, [], ctx, lang);
+      if (heardText) {
+        setTranscript(heardText);
+        setRecommendedLinks(matchSpecialtyClinicLinks(heardText).slice(0, 4));
+        setFollowUpPrompts(matchInteractiveTriagePrompts(heardText).slice(0, 3));
+      }
+      const cleanedReply = cleanAssistantMarkdown(reply);
+      setLastDoctorReply(cleanedReply);
+      setCallState('speaking');
+      speakText(cleanedReply, lang, 1.0, () => {
+        startListeningCycle();
+      });
+    } catch {
+      const msg = isAr
+        ? 'معلش معرفتش أسمع الرسالة الصوتية بوضوح أو الاتصال بالإنترنت ضعيف. ممكن تتكلم تاني أو تكتبلي تحت؟'
+        : 'Sorry, could not process your voice message clearly. Please speak again or type below.';
+      setLastDoctorReply(msg);
+      setCallState('paused');
+    }
   };
 
   // Handle patient speech or written input
@@ -377,11 +384,12 @@ export default function VoiceDoctorCallModal({ isOpen, onClose }: VoiceDoctorCal
 
   const handleMicButtonTap = () => {
     if (callState === 'listening') {
-      // User tapped while listening -> finish and submit current text immediately
-      if (currentTranscriptRef.current.trim()) {
-        handlePatientSpeech(currentTranscriptRef.current.trim());
+      // User tapped while listening -> stop recording and send audio immediately to AI
+      if (directRecorderRef.current) {
+        const rec = directRecorderRef.current;
+        directRecorderRef.current = null;
+        rec.stopAndSend();
       } else {
-        // Stop listening
         cleanupSpeechEngine();
         setCallState('paused');
       }

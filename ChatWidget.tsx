@@ -16,12 +16,14 @@ import {
   extractAnswerPlainText,
   isDirectVerifiedMatch,
 } from './assistantLogic';
-import { askGemini, ChatMessage, cleanAssistantMarkdown, isCustomApiKey } from './geminiApi';
+import { askGemini, askGeminiWithAudio, ChatMessage, cleanAssistantMarkdown, isCustomApiKey } from './geminiApi';
 import { ensureDawayaDatabaseLoaded, findDawayaIndexItemSync, getDawayaClassifiedAlternatives } from './dawayaDrugDatabaseService';
 import {
   isVoiceRecognitionSupported,
   speakText,
-  startVoiceRecognition,
+  startDirectAudioRecording,
+  DirectAudioRecorderHandle,
+  isDirectAudioRecordingSupported,
   stopSpeech,
   VoiceRecognitionHandle,
 } from './speechService';
@@ -132,6 +134,7 @@ export default function ChatWidget() {
   const [listening, setListening] = useState(false);
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
   const stopListenRef = useRef<VoiceRecognitionHandle | null>(null);
+  const directRecRef = useRef<DirectAudioRecorderHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -605,35 +608,78 @@ export default function ChatWidget() {
     );
   }
 
-  function toggleVoiceMic() {
+  async function handleDirectAudioMessage(audioBase64: string, audioMimeType: string) {
+    setBusy(true);
+    setMsgs((prev) => [
+      ...prev,
+      { id: `${Date.now()}-u`, who: 'me', text: isAr ? '🎙️ رسالة صوتية مسجلة...' : '🎙️ Voice message...' },
+    ]);
+    try {
+      const history: ChatMessage[] = msgs.slice(-6).map((m) => ({ who: m.who, text: m.text }));
+      const { transcript, reply } = await askGeminiWithAudio(audioBase64, audioMimeType, history, '', lang);
+      const cleanedReply = cleanAssistantMarkdown(reply);
+      setMsgs((prev) => {
+        const updated = [...prev];
+        for (let i = updated.length - 1; i >= 0; i--) {
+          if (updated[i].who === 'me' && updated[i].text.startsWith('🎙️')) {
+            if (transcript) updated[i] = { ...updated[i], text: `🎙️ ${transcript}` };
+            break;
+          }
+        }
+        return [...updated, { id: `${Date.now()}-b`, who: 'bot', text: cleanedReply }];
+      });
+      if (autoSpeak) {
+        speakText(cleanedReply, lang, 1.0);
+      }
+    } catch {
+      setMsgs((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-b`,
+          who: 'bot',
+          text: isAr
+            ? 'معلش معرفتش أسمع الريكورد بوضوح أو الاتصال بالإنترنت ضعيف. ممكن تسجل تاني أو تكتب سؤالك؟'
+            : 'Could not process the voice recording clearly. Please try again or type your question.',
+        },
+      ]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleVoiceMic() {
     if (listening) {
+      if (directRecRef.current) {
+        const rec = directRecRef.current;
+        directRecRef.current = null;
+        setListening(false);
+        rec.stopAndSend();
+        return;
+      }
       stopListenRef.current?.stop();
       stopListenRef.current = null;
       setListening(false);
       return;
     }
-    if (!isVoiceRecognitionSupported()) return;
-    stopListenRef.current?.stop();
+    if (!isDirectAudioRecordingSupported()) return;
+    directRecRef.current?.cancel();
     setListening(true);
-    stopListenRef.current = startVoiceRecognition(
-      lang,
-      (transcript) => {
-        stopListenRef.current = null;
+    directRecRef.current = await startDirectAudioRecording({
+      autoStopOnSilence: false,
+      maxDurationMs: 60000,
+      onAudioReady: (audioBase64, audioMimeType) => {
+        directRecRef.current = null;
         setListening(false);
-        if (transcript.trim()) {
-          setQ(transcript);
-          ask(transcript, true);
-        }
+        handleDirectAudioMessage(audioBase64, audioMimeType);
       },
-      () => {
-        stopListenRef.current = null;
+      onError: () => {
+        directRecRef.current = null;
         setListening(false);
       },
-      () => {
-        stopListenRef.current = null;
-        setListening(false);
-      }
-    );
+    });
+    if (!directRecRef.current) {
+      setListening(false);
+    }
   }
 
   const submit = (e: FormEvent) => {

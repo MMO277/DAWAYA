@@ -94,9 +94,9 @@ export const DAWAYA_CATEGORY_LABELS: Record<
     icon: '☀️',
   },
   dermatology_personal_care: {
-    ar: 'الأدوية الجلدية والعناية الطبية',
-    en: 'Dermatology & Medical Care',
-    icon: '✨',
+    ar: 'الأدوية الجلدية وغسولات وكريمات البشرة',
+    en: 'Dermatology, Facial Cleansers & Skincare',
+    icon: '🧴',
   },
   oncology_immunology: {
     ar: 'أدوية الأورام والمناعة',
@@ -323,7 +323,7 @@ let globalIndexLoaded = false;
 
 const IDB_NAME = 'dawaya_fast_idb_v1';
 const IDB_STORE = 'med_index_store';
-const IDB_KEY = 'full_26562_index_v1';
+const IDB_KEY = 'full_26597_index_v3';
 
 function readIndexFromIndexedDB(): Promise<DawayaCompactIndexItem[] | null> {
   if (typeof window === 'undefined' || !('indexedDB' in window)) return Promise.resolve(null);
@@ -646,9 +646,7 @@ export async function ensureDawayaDatabaseLoaded(): Promise<DawayaCompactIndexIt
 
       // 2) Otherwise fetch JSON once, pre-sort, and store in IndexedDB permanently
       const baseUrl = import.meta.env?.BASE_URL || './';
-      const res = await fetch(`${baseUrl}data/dawaya_medicines_search_index.json`, {
-        cache: 'force-cache',
-      });
+      const res = await fetch(`${baseUrl}data/dawaya_medicines_search_index.json?v=26597`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as DawayaCompactIndexItem[];
       const finalItems = applyLoadedData(data);

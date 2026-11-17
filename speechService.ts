@@ -449,3 +449,203 @@ export function speakText(
 export function stopSpeech(): void {
   sharedPlayer.stop();
 }
+
+export interface DirectAudioRecorderHandle {
+  stopAndSend: () => void;
+  cancel: () => void;
+}
+
+export function isDirectAudioRecordingSupported(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof navigator !== 'undefined' &&
+    Boolean(navigator.mediaDevices?.getUserMedia) &&
+    typeof MediaRecorder !== 'undefined'
+  );
+}
+
+export async function startDirectAudioRecording(options: {
+  autoStopOnSilence?: boolean;
+  silenceDelayMs?: number;
+  maxDurationMs?: number;
+  onAudioReady: (audioBase64: string, mimeType: string, durationMs: number) => void;
+  onError?: (err: string) => void;
+  onVolumeLevel?: (level: number) => void;
+  onSpeechDetected?: () => void;
+}): Promise<DirectAudioRecorderHandle | null> {
+  if (!isDirectAudioRecordingSupported()) {
+    options.onError?.('not-supported');
+    return null;
+  }
+
+  const bridge = getAndroidVoiceBridge();
+  if (bridge && typeof bridge.requestMicPermission === 'function') {
+    try {
+      bridge.requestMicPermission();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+  } catch (err: any) {
+    const msg = String(err?.name || err?.message || 'not-allowed');
+    options.onError?.(msg);
+    return null;
+  }
+
+  const mimeCandidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/mp4',
+    'audio/ogg;codecs=opus',
+  ];
+  const chosenMime =
+    mimeCandidates.find((m) => {
+      try {
+        return typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported(m);
+      } catch {
+        return false;
+      }
+    }) || '';
+
+  const recorder = chosenMime
+    ? new MediaRecorder(stream, { mimeType: chosenMime })
+    : new MediaRecorder(stream);
+
+  const chunks: BlobPart[] = [];
+  const startedAt = Date.now();
+  let cancelled = false;
+  let stopped = false;
+  let vadInterval: number | null = null;
+  let maxTimer: number | null = null;
+  let audioCtx: AudioContext | null = null;
+  let hasSpoken = false;
+  let lastSpeechAt = Date.now();
+
+  const cleanupResources = () => {
+    if (vadInterval !== null) {
+      window.clearInterval(vadInterval);
+      vadInterval = null;
+    }
+    if (maxTimer !== null) {
+      window.clearTimeout(maxTimer);
+      maxTimer = null;
+    }
+    try {
+      audioCtx?.close();
+    } catch {
+      /* ignore */
+    }
+    audioCtx = null;
+    stream.getTracks().forEach((t) => {
+      try {
+        t.stop();
+      } catch {
+        /* ignore */
+      }
+    });
+  };
+
+  recorder.ondataavailable = (ev) => {
+    if (ev.data && ev.data.size > 0) {
+      chunks.push(ev.data);
+    }
+  };
+
+  recorder.onstop = () => {
+    cleanupResources();
+    if (cancelled) return;
+    const durationMs = Date.now() - startedAt;
+    const finalMime = (recorder.mimeType || chosenMime || 'audio/webm').split(';')[0];
+    const blob = new Blob(chunks, { type: finalMime });
+    if (blob.size < 400 || durationMs < 250) {
+      options.onError?.('no-speech');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = String(reader.result || '');
+      const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+      if (!base64) {
+        options.onError?.('encode-failed');
+        return;
+      }
+      options.onAudioReady(base64, finalMime, durationMs);
+    };
+    reader.onerror = () => options.onError?.('encode-failed');
+    reader.readAsDataURL(blob);
+  };
+
+  const stopSafely = (shouldCancel: boolean) => {
+    if (stopped) return;
+    stopped = true;
+    cancelled = shouldCancel;
+    try {
+      if (recorder.state !== 'inactive') {
+        recorder.stop();
+      } else {
+        cleanupResources();
+      }
+    } catch {
+      cleanupResources();
+    }
+  };
+
+  // Voice Activity Detection (VAD) for direct hands-free calls without Google popup
+  if (options.autoStopOnSilence || options.onVolumeLevel) {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) {
+        audioCtx = new AudioCtx();
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const silenceDelay = options.silenceDelayMs ?? 1750;
+
+        vadInterval = window.setInterval(() => {
+          if (stopped) return;
+          analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+          const avg = sum / dataArray.length;
+          options.onVolumeLevel?.(Math.min(100, Math.round(avg * 2.2)));
+
+          if (avg > 9) {
+            if (!hasSpoken) {
+              hasSpoken = true;
+              options.onSpeechDetected?.();
+            }
+            lastSpeechAt = Date.now();
+          } else if (options.autoStopOnSilence && hasSpoken && Date.now() - lastSpeechAt >= silenceDelay) {
+            stopSafely(false);
+          }
+        }, 120);
+      }
+    } catch {
+      /* VAD optional */
+    }
+  }
+
+  const maxDur = options.maxDurationMs ?? 45000;
+  maxTimer = window.setTimeout(() => {
+    stopSafely(!hasSpoken && Boolean(options.autoStopOnSilence));
+  }, maxDur);
+
+  recorder.start(250);
+
+  return {
+    stopAndSend: () => stopSafely(false),
+    cancel: () => stopSafely(true),
+  };
+}

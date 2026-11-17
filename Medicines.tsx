@@ -543,6 +543,30 @@ export default function Medicines() {
                 }}
               />
             </label>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('dawaya_full_db');
+                setSelectedDawayaCat((prev) => (prev === 'dermatology_personal_care' ? 'all' : 'dermatology_personal_care'));
+                setPage(1);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 13px',
+                background: selectedDawayaCat === 'dermatology_personal_care' ? '#0d9488' : '#f0fdfa',
+                color: selectedDawayaCat === 'dermatology_personal_care' ? '#ffffff' : '#0f766e',
+                border: '1.5px solid #99f6e4',
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                borderRadius: '999px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              🧴 {isAr ? 'غسولات وكريمات البشرة' : 'Skincare & Cleansers'}
+            </button>
           </div>
         </div>
 
@@ -567,7 +591,7 @@ export default function Medicines() {
                 }}
                 modalTitle={isAr ? '🏥 اختر التخصص أو الفئة العلاجية' : 'Select Therapeutic Category'}
                 options={[
-                  { value: 'all', icon: '✨', label: isAr ? 'كل التخصصات والفئات (26,562)' : 'All Categories (26,562)' },
+                  { value: 'all', icon: '✨', label: isAr ? `كل التخصصات والفئات (${indexItems.length.toLocaleString()})` : `All Categories (${indexItems.length.toLocaleString()})` },
                   ...(Object.keys(DAWAYA_CATEGORY_LABELS) as DawayaTherapeuticCategory[]).map((catKey) => ({
                     value: catKey,
                     icon: DAWAYA_CATEGORY_LABELS[catKey].icon,
