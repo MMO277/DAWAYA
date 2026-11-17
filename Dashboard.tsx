@@ -1,3 +1,4 @@
+import { SubscriptionAndPlansPanel } from './SubscriptionAndPlansPanel';
 import { saveVisibilityConfig, useWhoCampaignAndVisibility, WHO_HEALTH_CAMPAIGNS } from './whoHealthCampaigns';
 import PartnerManagementCenter from './PartnerManagementCenter';
 import PharmacyOwnerDashboard from './PharmacyOwnerDashboard';
@@ -516,6 +517,7 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
 type AdminTab =
   | 'dawaya_db'
   | 'campaigns_themes'
+  | 'subscriptions_plans'
   | 'partners'
   | 'pharmacy_portal'
   | 'users'
@@ -675,6 +677,24 @@ export default function Dashboard() {
         </button>
 
         <button
+          className={tab === 'subscriptions_plans' ? 'on' : ''}
+          onClick={() => setTab('subscriptions_plans')}
+          style={{
+            borderRadius: '10px',
+            border: tab === 'subscriptions_plans' ? '2px solid var(--teal)' : '1px solid var(--line)',
+            background: tab === 'subscriptions_plans' ? 'var(--tint)' : 'var(--card-bg)',
+            padding: '8px 12px',
+            fontWeight: 800,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <span>💳</span>
+          <span>{tr(lang, 'الاشتراكات والباقات (المستخدمين والصيدليات)', 'Subscriptions & Plans')}</span>
+        </button>
+
+        <button
           className={tab === 'campaigns_themes' ? 'on' : ''}
           onClick={() => setTab('campaigns_themes')}
           style={{
@@ -820,6 +840,13 @@ export default function Dashboard() {
 
       {tab === 'dawaya_db' && <DawayaMedicineAdminManager uid={user.uid} role={role} />}
       {tab === 'campaigns_themes' && <WhoCampaignAndVisibilityAdminCard isAr={lang === 'ar'} />}
+      {tab === 'subscriptions_plans' && (
+        <div className="stack" style={{ gap: '16px' }}>
+          <WhoCampaignAndVisibilityAdminCard isAr={lang === 'ar'} />
+          <SubscriptionAndPlansPanel audience="user" isAr={lang === 'ar'} />
+          <SubscriptionAndPlansPanel audience="pharmacy" isAr={lang === 'ar'} />
+        </div>
+      )}
       {tab === 'partners' && <PartnerManagementCenter adminUid={user.uid} adminRole={role} />}
       {tab === 'pharmacy_portal' && <PharmacyOwnerDashboard />}
       {tab === 'users' && isSuperOrAdmin && <UsersTab myUid={user.uid} />}

@@ -1,3 +1,4 @@
+import { findDawayaIndexItemSync } from './dawayaDrugDatabaseService';
 
 // ── Rate Limiting & Anti-Flood Security Guard ──
 const AI_CALL_HISTORY: number[] = [];
@@ -1979,12 +1980,29 @@ export function parsePrescriptionTextDeterministically(
     }
   }
 
-  // Deterministic matching against all 206 Egyptian Commercial Products, 32 Active Ingredients & OCR Aliases
+  // Deterministic matching against all 26,572 DAWAYA medicines + 206 Commercial Products
   if (!matchedIngredientId || !detectedDrugName) {
     const matched = matchEgyptianDrugFromText(text);
     if (matched.matchedIngredientId) {
       if (!matchedIngredientId) matchedIngredientId = matched.matchedIngredientId;
       if (!detectedDrugName) detectedDrugName = matched.detectedDrugName;
+    }
+    if (!detectedDrugName) {
+      const found26k: string[] = [];
+      for (const rawLine of lines) {
+        const cleanL = rawLine.replace(/^(?:RX_[A-Z_]+|DRUG_[A-Z_]+):\s*/i, '').replace(/^[*•\-–\d.]+\s*/, '').trim();
+        if (cleanL.length >= 3 && !isUnreadableToken(cleanL) && !/^none$/i.test(cleanL)) {
+          const hit = findDawayaIndexItemSync(cleanL);
+          if (hit) {
+            const label = hit.a ? `${hit.a} (${hit.n})` : hit.n;
+            if (!found26k.includes(label)) found26k.push(label);
+            if (!matchedIngredientId) matchedIngredientId = hit.i;
+          }
+        }
+      }
+      if (found26k.length > 0) {
+        detectedDrugName = found26k.join(' + ');
+      }
     }
   }
   // If Gemini returned readable medicine lines without the RX_DRUG_NAME prefix, capture them directly
@@ -2199,18 +2217,11 @@ RX_CONTRADICTIONS: NONE`;
   const cloudOcrText = cloudOcrRes.status === 'fulfilled' ? cloudOcrRes.value : '';
   const zeroHintText = zeroHintRes.status === 'fulfilled' ? zeroHintRes.value : '';
 
-  const descriptiveFileName =
-    fileNameHint &&
-    !/^(camera-capture|image\.|img_|dsc_|screenshot|photo|whatsapp|pxl_|\d+)/i.test(fileNameHint.trim())
-      ? fileNameHint.replace(/\.[a-z0-9]+$/i, '')
-      : '';
-
   let combinedRaw = [
     prepared.nativeBarcode || '',
-    cloudOcrText,
     geminiText,
+    cloudOcrText,
     zeroHintText,
-    descriptiveFileName,
   ]
     .filter(Boolean)
     .join('\n')

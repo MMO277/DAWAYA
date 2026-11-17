@@ -459,6 +459,39 @@ export default function Layout({ children }: { children: ReactNode }) {
   const openAuthModal = authCtx.openAuthModal;
 
   const hamburgerBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Intercept https://wa.me/... links inside Android APK WebView so they never open a broken target="_blank" popup
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onWaClick = (ev: MouseEvent) => {
+      const target = (ev.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!target) return;
+      const href = target.getAttribute('href') || '';
+      if (!href.includes('wa.me/') && !href.includes('api.whatsapp.com')) return;
+      const bridge = (window as any).AndroidAlarmBridge;
+      const isAndroid = /Android/i.test(navigator.userAgent || '');
+      if (bridge || isAndroid) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (bridge && typeof bridge.openExternalUrl === 'function') {
+          bridge.openExternalUrl(href);
+          return;
+        }
+        // Convert https://wa.me/<phone>?text=... to whatsapp://send?phone=...&text=... handled by main WebView shouldOverrideUrlLoading
+        try {
+          const u = new URL(href);
+          const phone = u.pathname.replace(/^\/+/, '').replace(/[^0-9]/g, '');
+          const text = u.searchParams.get('text') || '';
+          const waUri = `whatsapp://send?${phone ? `phone=${phone}&` : ''}text=${encodeURIComponent(text)}`;
+          window.location.href = waUri;
+        } catch {
+          window.location.href = href;
+        }
+      }
+    };
+    document.addEventListener('click', onWaClick, true);
+    return () => document.removeEventListener('click', onWaClick, true);
+  }, []);
   const drawerCloseBtnRef = useRef<HTMLButtonElement>(null);
   const langMenuRef = useRef<HTMLDivElement>(null);
   const ribbonWrapRef = useRef<HTMLDivElement>(null);

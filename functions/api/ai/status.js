@@ -1,16 +1,26 @@
 /**
- * Cloudflare Pages Function (100% Free Tier - 100,000 req/day)
+ * Cloudflare Pages Function (100% Free Tier)
  * Endpoint: GET /api/ai/status
- * Reports whether GEMINI_API_KEY is configured in Cloudflare Pages Environment Variables
- * without ever exposing the key to the browser.
+ * Supports Google Gemini API keys, Groq API keys, and Cloudflare Workers AI binding.
  */
 export async function onRequestGet(context) {
-  const key = (context.env && context.env.GEMINI_API_KEY ? String(context.env.GEMINI_API_KEY) : '').trim();
+  const groqKey = (context.env?.GROQ_API_KEY ? String(context.env.GROQ_API_KEY) : '').trim();
+  const geminiKey = (context.env?.GEMINI_API_KEY ? String(context.env.GEMINI_API_KEY) : '').trim();
+  const hasCfAi = Boolean(context.env?.AI);
+  const activeKey = groqKey || geminiKey;
   return new Response(
     JSON.stringify({
-      configured: Boolean(key && key.length > 15),
-      provider: 'cloudflare_pages_free_edge',
-      allowedModels: ['gemini-2.5-flash', 'gemini-2.0-flash'],
+      configured: Boolean((activeKey && activeKey.length > 15) || hasCfAi),
+      provider: activeKey.startsWith('gsk_')
+        ? 'groq_llama4_vision'
+        : hasCfAi && !activeKey
+          ? 'cloudflare_workers_ai'
+          : 'cloudflare_pages_free_edge',
+      allowedModels: [
+        'auto-discovered-gemini-vision',
+        'meta-llama/llama-4-scout-17b-16e-instruct',
+        '@cf/meta/llama-3.2-11b-vision-instruct',
+      ],
     }),
     {
       status: 200,
