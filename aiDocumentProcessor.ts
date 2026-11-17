@@ -511,68 +511,56 @@ export function extractMultiplePrescriptionItemsFromText(
   const cleanText = (rawText || '').trim();
   if (!cleanText) return [];
 
-  const candidateSegments: string[] = [];
-  const lines = cleanText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  // First: parse deterministically using structured RX_* tags if present
+  const primaryParsed = parsePrescriptionTextDeterministically(cleanText);
+  if (primaryParsed.detectedDrugName) {
+    const individualDrugs = primaryParsed.detectedDrugName
+      .split(/\s*\+\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean);
 
-  // Check if text contains multiple distinct drug matches across lines
-  const lineDrugHits: { line: string; ingId: string; drugName: string }[] = [];
-  for (const line of lines) {
-    if (/^(RX_DOSE|RX_ROUTE|RX_FREQ|RX_DURATION_DAYS|RX_NOTES|RX_CONTRADICTIONS):/i.test(line)) {
-      continue;
-    }
-    const normLine = norm(line);
-    if (!normLine || normLine.length < 3) continue;
-
-    let matchedIng = '';
-    let matchedName = '';
-
-    for (const p of EGYPTIAN_COMMERCIAL_PRODUCTS) {
-      const tAr = norm(p.tradeNameAr);
-      const tEn = norm(p.tradeNameEn);
-      const firstAr = tAr.split(/\s+/)[0] || '';
-      const firstEn = tEn.split(/\s+/)[0] || '';
-      if (
-        (firstEn.length >= 4 && normLine.includes(firstEn)) ||
-        (firstAr.length >= 3 && normLine.includes(firstAr))
-      ) {
-        matchedIng = p.activeIngredientId;
-        matchedName = `${p.tradeNameAr} (${p.tradeNameEn})`;
-        break;
-      }
-    }
-
-    if (!matchedIng) {
-      for (const ing of ACTIVE_INGREDIENTS) {
-        const nAr = norm(ing.nameAr);
-        const nEn = norm(ing.nameEn);
-        if ((nEn.length >= 4 && normLine.includes(nEn)) || (nAr.length >= 3 && normLine.includes(nAr))) {
-          matchedIng = ing.id;
-          matchedName = `${ing.nameAr} (${ing.nameEn})`;
-          break;
-        }
-      }
+    if (individualDrugs.length <= 1) {
+      return [
+        {
+          ...(primaryParsed.matchedIngredientId ? { antibioticId: primaryParsed.matchedIngredientId } : {}),
+          medicineName: primaryParsed.detectedDrugName,
+          prescribedDose: primaryParsed.extractedDoseText || '',
+          route: primaryParsed.extractedRoute || '',
+          frequency: primaryParsed.extractedFrequencyKey || '',
+          durationDays: primaryParsed.extractedDurationDays,
+          ...(primaryParsed.extractedNotes ? { notes: primaryParsed.extractedNotes } : {}),
+          ...(primaryParsed.extractedCoMeds.length > 0 ? { coMedications: primaryParsed.extractedCoMeds } : {}),
+          captureMethod: 'ocr_upload',
+          isOcrUnverified: true,
+          rawExtractedText: primaryParsed.rawExtractedText,
+          ...(fileNameHint ? { imageFileName: fileNameHint } : {}),
+          unreadableFields: primaryParsed.unreadableFields,
+          createScheduleAlso: false,
+        },
+      ];
     }
 
-    if (!matchedIng) {
-      const dbHit = findDawayaIndexItemSync(line);
-      if (dbHit) {
-        matchedIng = dbHit.i;
-        matchedName = dbHit.a ? `${dbHit.a} (${dbHit.n})` : dbHit.n;
-      }
-    }
-
-    if (matchedIng && !lineDrugHits.some((h) => h.ingId === matchedIng)) {
-      lineDrugHits.push({ line, ingId: matchedIng, drugName: matchedName });
-    }
+    return individualDrugs.map((dName) => {
+      const hit = findDawayaIndexItemSync(dName);
+      return {
+        ...(hit ? { antibioticId: hit.i } : primaryParsed.matchedIngredientId ? { antibioticId: primaryParsed.matchedIngredientId } : {}),
+        medicineName: hit ? (hit.a ? `${hit.a} (${hit.n})` : hit.n) : dName,
+        prescribedDose: primaryParsed.extractedDoseText || (hit?.s || ''),
+        route: (hit?.r as any) || primaryParsed.extractedRoute || '',
+        frequency: primaryParsed.extractedFrequencyKey || '',
+        durationDays: primaryParsed.extractedDurationDays,
+        ...(primaryParsed.extractedNotes ? { notes: primaryParsed.extractedNotes } : {}),
+        captureMethod: 'ocr_upload',
+        isOcrUnverified: true,
+        rawExtractedText: primaryParsed.rawExtractedText,
+        ...(fileNameHint ? { imageFileName: fileNameHint } : {}),
+        unreadableFields: primaryParsed.unreadableFields,
+        createScheduleAlso: false,
+      };
+    });
   }
 
-  if (lineDrugHits.length > 1) {
-    for (const hit of lineDrugHits) {
-      candidateSegments.push(`RX_DRUG_ID: ${hit.ingId}\nRX_DRUG_NAME: ${hit.drugName}\n${hit.line}`);
-    }
-  } else {
-    candidateSegments.push(cleanText);
-  }
+  const candidateSegments: string[] = [cleanText];
 
   const results: AddPrescriptionItemArgs[] = [];
   for (const seg of candidateSegments) {
@@ -875,9 +863,12 @@ export function extractCultureAndSensitivityFindings(rawText: string): {
   }
 
   const isCultureReport =
-    /(culture|sensitivity|antibiogram|isolated organism|colony count|مزرعة|حساسية المضادات|ميكروب|بكتيريا)/i.test(
+    /(?:culture\s*(?:and|&)?\s*sensitivity|antibiogram|isolated\s+organism|colony\s+count|مزرعة\s*وحساسية|تحليل\s*مزرعة|نتيجة\s*المزرعة|الميكروب\s*المعزول)/i.test(
       text
     );
+  if (!isCultureReport) {
+    return { isCultureReport: false, sensitiveAntibiotics: [], resistantAntibiotics: [] };
+  }
 
   let organism: string | undefined;
   const orgMatch = text.match(
@@ -919,7 +910,7 @@ export function extractCultureAndSensitivityFindings(rawText: string): {
     const isSensitive =
       /\b(sensitive|susceptible)\b/i.test(line) ||
       /[:\s\t(-]+(S|S\+|S\+\+|\+\+\+)[\s\t)]*$/i.test(line) ||
-      /(حساس|فعال)/i.test(line);
+      /(حساس للمضاد|حساس\s*\(S\))/i.test(line);
     const isResistant =
       /\b(resistant|resistance)\b/i.test(line) ||
       /[:\s\t(-]+(R)[\s\t)]*$/i.test(line) ||
@@ -1192,14 +1183,11 @@ export function buildPrescriptionPricingAndAlternativesReport(
   };
 
   for (const item of extractedItems) {
-    if (item.medicineName) tryMatchText(item.medicineName);
-  }
-  for (const line of (rawText || '').split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (trimmed.length >= 3) {
-      tryMatchText(trimmed);
-      const words = trimmed.split(/[,،/|\-]+/).map((w) => w.trim()).filter((w) => w.length >= 3);
-      for (const w of words) tryMatchText(w);
+    if (item.medicineName) {
+      const parts = item.medicineName.split(/\s*\+\s*/).map((s) => s.trim()).filter(Boolean);
+      for (const p of parts) {
+        tryMatchText(p);
+      }
     }
   }
 
@@ -1330,8 +1318,12 @@ export async function analyzeUploadedMedicalDocument(params: {
     }
   }
 
-  // Also check if Gemini Vision can extract multi-drug lines, leaflet sections, or Culture S/R tables
-  if (hasApiKey() && (params.mimeType.startsWith('image/') || params.mimeType === 'application/pdf')) {
+  // Only run secondary leaflet/freeform Vision call if forcedCategory is 'leaflet' or primary Vision didn't already extract the drug
+  if (
+    hasApiKey() &&
+    (params.forcedCategory === 'leaflet' || !ocrResult.detectedDrugName) &&
+    (params.mimeType.startsWith('image/') || params.mimeType === 'application/pdf')
+  ) {
     try {
       const visionPrompt =
         params.forcedCategory === 'leaflet'

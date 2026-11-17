@@ -1103,16 +1103,18 @@ const ARABIC_TO_ENGLISH_INGREDIENT_MAP: Record<string, string> = {
   الوبيورينول: 'allopurinol',
 };
 
-const HANDWRITING_RX_SPELLING_MAP: Record<string, string> = {
-  disperlon: 'disprelone',
-  'disperlon d': 'disprelone-d',
-  'disprelone d': 'disprelone-d',
-  isotritinoin: 'isotretinoin',
-  acnesave: 'acnescave',
-  'acne save': 'acnescave',
-  levcet: 'levcet',
-  prettier: 'prettier emollient',
-};
+const NON_DRUG_STOP_WORDS = new Set([
+  'oral', 'topical', 'injection', 'suspension', 'tablet', 'tablets', 'tab', 'tabs',
+  'capsule', 'capsules', 'cap', 'caps', 'syrup', 'syr', 'cream', 'gel', 'ointment',
+  'drops', 'vial', 'ampoule', 'amp', 'wash', 'soap', 'lotion', 'solution', 'spray',
+  'mouthwash', 'daily', 'once', 'twice', 'thrice', 'once_daily', 'twice_daily',
+  'thrice_daily', 'four_times_daily', 'none', 'unknown', 'unreadable', 'missing',
+  'normal', 'care', 'medical', 'prescription', 'report', 'leaflet', 'result',
+  'قرص', 'أقراص', 'اقراص', 'كبسول', 'كبسولة', 'كبسولات', 'شراب', 'معلق', 'كريم',
+  'مرهم', 'جل', 'غسول', 'فموي', 'موضعي', 'حقن', 'امبول', 'أمبول', 'فيال', 'نقط',
+  'مرتين', 'ثلاث', 'اربع', 'يوميا', 'يومياً', 'مرات', 'ساعة', 'ساعات', 'فقط',
+  'شريط', 'علبة', 'عبوة', 'تركيز', 'مجم', 'جم', 'مل', 'صباحا', 'مساء', 'قبل', 'بعد',
+]);
 
 export function findDawayaIndexItemSync(queryOrId: string): DawayaCompactIndexItem | null {
   if (!globalIndexLoaded || !queryOrId) return null;
@@ -1120,70 +1122,88 @@ export function findDawayaIndexItemSync(queryOrId: string): DawayaCompactIndexIt
   if (!clean || clean.length < 3) return null;
   if (/[<>|]/.test(clean)) return null;
 
+  // Never match metadata tags like RX_ROUTE: oral or RX_FREQ: twice_daily
+  if (/^(?:rx_route|rx_freq|rx_dose|rx_duration_days|rx_contradictions|route|frequency|duration)\s*:/i.test(clean)) {
+    return null;
+  }
+  clean = clean.replace(/^(?:rx_drug_name|rx_drug_id|drug_name|drug_id|medicine_name)\s*:\s*/i, '').trim();
+  if (!clean || clean.length < 3 || NON_DRUG_STOP_WORDS.has(clean)) return null;
+
   const byId = indexByIdMap.get(clean);
   if (byId) return byId;
 
   const byBc = indexByBarcodeMap.get(clean);
   if (byBc) return byBc;
 
-  // Normalize common handwritten prescription spellings and strip leading bullets/R/
-  clean = clean
-    .replace(/^(?:r\/|rx:?|[-*•–]+)\s*/i, '')
-    .replace(/disperlon\s*d/g, 'disprelone-d')
-    .replace(/disprelone\s*d/g, 'disprelone-d')
-    .replace(/disperlon/g, 'disprelone')
-    .replace(/isotritinoin/g, 'isotretinoin')
-    .replace(/acnesave/g, 'acnescave')
-    .trim();
+  // If formatted as "Arabic Name (English Name)", extract both parts so we can match either accurately
+  const parenMatch = clean.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  const candidatesToTry = parenMatch
+    ? [parenMatch[2].trim(), parenMatch[1].trim(), clean]
+    : [clean];
 
-  if (HANDWRITING_RX_SPELLING_MAP[clean]) {
-    clean = HANDWRITING_RX_SPELLING_MAP[clean];
-  }
+  for (const rawCand of candidatesToTry) {
+    const c = rawCand
+      .replace(/^(?:r\/|rx:?|[-*•–\d.]+)\s*/i, '')
+      .trim();
+    if (!c || c.length < 3 || NON_DRUG_STOP_WORDS.has(c)) continue;
 
-  const normClean = norm(clean);
-  if (!normClean || normClean.length < 3) return null;
+    const byIdCand = indexByIdMap.get(c);
+    if (byIdCand) return byIdCand;
 
-  const byExactName = globalIndexItems.find(
-    (x) =>
-      x.n.toLowerCase() === clean ||
-      norm(x.a) === normClean ||
-      x.n.toLowerCase().startsWith(clean + ' ') ||
-      norm(x.a).startsWith(normClean + ' ')
-  );
-  if (byExactName) return byExactName;
+    const normC = norm(c);
+    if (!normC || normC.length < 3 || NON_DRUG_STOP_WORDS.has(normC)) continue;
 
-  // Fallback for prescription lines like "Disprelone-D 20mg tab", "Isotretinoin 20mg cap", "Levcet tab", "Acnescave Gel"
-  const strippedForm = clean
-    .replace(/(?:tab|tabs|tablet|tablets|cap|caps|capsule|capsules|gel|cream|ointment|syr|syrup|susp|suspension|amp|vial|wash|facial|soap|lotion|drops|قرص|أقراص|اقراص|كبسول|كبسولة|كريم|مرهم|جل|شراب|غسول|امبول|فيال)/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+    // 1) Exact full name match
+    const exactFull = globalIndexItems.find(
+      (x) => x.n.toLowerCase() === c || norm(x.a) === normC
+    );
+    if (exactFull) return exactFull;
 
-  if (strippedForm.length >= 4) {
+    // 2) Brand + Strength match (e.g., "flagyl 500 mg", "flamotal 600 mg", "فلاجيل 500 مجم", "فلاموتال 600")
+    const strippedForm = c
+      .replace(/\b(?:tab|tabs|tablet|tablets|cap|caps|capsule|capsules|f\.c\.|fc|s\.r\.|sr|gel|cream|ointment|syr|syrup|susp|suspension|amp|ampoule|vial|wash|facial|soap|lotion|drops|film|coated|قرص|أقراص|اقراص|كبسول|كبسولة|كبسولات|كريم|مرهم|جل|شراب|غسول|امبول|أمبول|فيال|مغلفة)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
     const tokens = strippedForm.split(' ').filter(Boolean);
-    const firstBrandToken = tokens[0] || '';
-    const strengthToken = tokens.find((t) => /^\d+(?:\.\d+)?(?:mg|gm|g|mcg|ml|%)?$/.test(t)) || '';
-    if (firstBrandToken.length >= 4 && !/^\d/.test(firstBrandToken)) {
-      const byBrandAndStrength = globalIndexItems.find((x) => {
+    const firstToken = tokens[0] || '';
+    if (firstToken.length >= 3 && !NON_DRUG_STOP_WORDS.has(firstToken) && !/^\d/.test(firstToken)) {
+      const strengthMatch = c.match(/(\d+(?:\.\d+)?)\s*(?:mg|gm|g|mcg|ml|%|مجم|جم|مل|ملجم)?/i);
+      const strengthNum = strengthMatch ? strengthMatch[1] : '';
+      const normFirst = norm(firstToken);
+      const mappedEnFirst = ARABIC_TO_ENGLISH_INGREDIENT_MAP[normFirst] || '';
+
+      const matchesBrand = (x: DawayaCompactIndexItem) => {
         const nLow = x.n.toLowerCase();
-        const brandMatches = nLow === firstBrandToken || nLow.startsWith(firstBrandToken + ' ') || nLow.startsWith(firstBrandToken + '-');
-        if (!brandMatches) return false;
-        if (strengthToken) {
-          const numOnly = strengthToken.replace(/[^\d.]/g, '');
-          return Boolean(numOnly && nLow.includes(numOnly));
-        }
-        return true;
-      });
-      if (byBrandAndStrength) return byBrandAndStrength;
+        const aNorm = norm(x.a);
+        const enHit =
+          nLow === firstToken ||
+          nLow.startsWith(firstToken + ' ') ||
+          nLow.startsWith(firstToken + '-');
+        const arHit =
+          normFirst.length >= 3 &&
+          (aNorm === normFirst || aNorm.startsWith(normFirst + ' '));
+        const mappedHit =
+          mappedEnFirst.length >= 3 &&
+          (nLow === mappedEnFirst || nLow.startsWith(mappedEnFirst + ' '));
+        return enHit || arHit || mappedHit;
+      };
+
+      if (strengthNum) {
+        const withStrength = globalIndexItems.find(
+          (x) => matchesBrand(x) && (x.n.toLowerCase().includes(strengthNum) || (x.s && x.s.includes(strengthNum)))
+        );
+        if (withStrength) return withStrength;
+      }
+
+      const byBrandOnly = globalIndexItems.find((x) => matchesBrand(x));
+      if (byBrandOnly) return byBrandOnly;
     }
   }
 
   return null;
 }
 
-/**
- * Normalizes active ingredient strings into a canonical sorted multi-ingredient key
- * so combination order differences match while single vs combination drugs NEVER falsely match.
- */
 export function canonicalizeIngredientKey(rawG: string): string {
   if (!rawG || rawG.startsWith('غير محدد') || rawG.startsWith('Unspecified')) return '';
   const parts = rawG

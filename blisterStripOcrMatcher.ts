@@ -168,6 +168,9 @@ export async function extractTextFromBlisterOrBoxImage(
   extractedText: string;
   detectedBarcode: string | null;
   dataUrl: string;
+  aiDetectedDrugName?: string;
+  aiMatchedId?: string | null;
+  aiSummary?: string;
 }> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -250,11 +253,23 @@ export async function extractTextFromBlisterOrBoxImage(
   const contrastDataUrl = cCtx ? contrastCanvas.toDataURL('image/jpeg', 0.88) : normalizedDataUrl;
 
   // 4. Try AI Vision Proxy if online
+  let aiDetectedDrugName = '';
+  let aiMatchedId: string | null = null;
+  let aiSummary = '';
   const base64Data = normalizedDataUrl.split(',')[1] || '';
   if (base64Data) {
     try {
       const aiRes = await analyzeMedicineImageWithVision(base64Data, 'image/jpeg', lang);
-      if (aiRes.detectedDrugName) collectedTexts.push(aiRes.detectedDrugName);
+      if (aiRes.detectedDrugName) {
+        aiDetectedDrugName = aiRes.detectedDrugName;
+        collectedTexts.unshift(aiRes.detectedDrugName);
+      }
+      if (aiRes.matchedIngredientId) {
+        aiMatchedId = aiRes.matchedIngredientId;
+      }
+      if (aiRes.summary) {
+        aiSummary = aiRes.summary;
+      }
       if (aiRes.rawExtractedText) collectedTexts.push(aiRes.rawExtractedText);
     } catch {
       /* offline or proxy unavailable */
@@ -292,5 +307,8 @@ export async function extractTextFromBlisterOrBoxImage(
     extractedText: collectedTexts.join(' ').trim(),
     detectedBarcode,
     dataUrl: normalizedDataUrl,
+    aiDetectedDrugName,
+    aiMatchedId,
+    aiSummary,
   };
 }

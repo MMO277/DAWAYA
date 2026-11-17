@@ -2179,29 +2179,47 @@ export function parsePrescriptionTextDeterministically(
     }
   }
 
-  // Special deterministic recognition for handwritten dermatology Rx patterns when Tesseract reads header/clinic tokens
-  if (
-    !detectedDrugName &&
-    (/(احسان جمال|إحسان جمال|قطور المحط|2761231|٢٧٦١٢٣١)/i.test(text) ||
-      (/(disperlon|disprelone)/i.test(text) && /(isotritinoin|isotretinoin|levcet|acnesave|acnescave)/i.test(text)))
-  ) {
-    matchedIngredientId = 'eg-17723';
-    detectedDrugName =
-      'ديسبريلون-د 20 مجم أقراص (Disprelone-D 20mg) + أيزوتريتينوين 20 مجم كبسول (Isotretinoin 20mg) + ليفست 5 مجم أقراص (Levcet 5mg) + غسول إينيزيو (Inizio Wash) + كريم مرطب بريتير (Prettier Emollient) + أكنيسكيف جل (Acnescave Gel)';
-    extractedDoseText =
-      'ديسبريلون: نصف قرص بعد الإفطار يومياً لمدة 15 يوم | أيزوتريتينوين: كبسولة بعد الغداء يومياً | ليفست: قرص قبل النوم يومياً | بريتير: دهان للوجه صباحاً وعصراً | أكنيسكيف: مسة خفيفة للحبوب بالظهر والصدر يومياً';
-    extractedRoute = 'oral';
-    extractedFrequencyKey = 'once_daily';
-    extractedDurationDays = 15;
-    extractedNotes =
-      'روشتة جلدية (د. إحسان جمال الدين تركي): 1) Disprelone-D 20mg tab: نصف قرص بعد الفطار يومياً لمدة 15 يوم. 2) Isotretinoin 20mg cap: كبسولة بعد الغداء يومياً. 3) Levcet tab: قرص قبل النوم يومياً. 4) Inizio Facial Wash: يدلك به الوجه مساءً لمدة دقيقتين ويشطف صباحاً، والظهر والصدر 10 دقائق مساءً. 5) Prettier Emollient: دهان للوجه صباحاً وعصراً. 6) Acnescave Gel: مسة خفيفة للحبوب بالظهر والصدر يومياً.';
+  // 1) If AI Vision extracted detectedDrugName via RX_DRUG_NAME:, resolve each drug against the 26,597 database
+  if (detectedDrugName) {
+    const drugParts = detectedDrugName
+      .split(/\s*\+\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const enrichedParts: string[] = [];
+    for (const part of drugParts) {
+      const hit = findDawayaIndexItemSync(part);
+      if (hit) {
+        if (!matchedIngredientId) matchedIngredientId = hit.i;
+        const label = hit.a ? `${hit.a} (${hit.n})` : hit.n;
+        if (!enrichedParts.includes(label)) enrichedParts.push(label);
+      } else {
+        const abxHit = matchEgyptianDrugFromText(part);
+        if (abxHit.matchedIngredientId) {
+          if (!matchedIngredientId) matchedIngredientId = abxHit.matchedIngredientId;
+          if (!enrichedParts.includes(abxHit.detectedDrugName)) enrichedParts.push(abxHit.detectedDrugName);
+        } else {
+          enrichedParts.push(part);
+        }
+      }
+    }
+    if (enrichedParts.length > 0) {
+      detectedDrugName = enrichedParts.join(' + ');
+    }
   }
 
-  // Deterministic matching: Search all 26,562 DAWAYA medicines FIRST, then fallback to strict 206 antibiotic catalog
-  if (!matchedIngredientId || !detectedDrugName) {
+  // 2) Only if detectedDrugName was NOT found via RX_DRUG_NAME:, scan non-metadata lines against the 26,597 database
+  if (!detectedDrugName) {
     const found26k: string[] = [];
     for (const rawLine of lines) {
-      const cleanL = rawLine.replace(/^(?:RX_[A-Z_]+|DRUG_[A-Z_]+):\s*/i, '').replace(/^[*•\-–\d.]+\s*/, '').trim();
+      const trimmedLine = rawLine.trim();
+      // NEVER scan RX_ROUTE, RX_DOSE, RX_FREQ, RX_DURATION_DAYS, RX_NOTES, RX_CONTRADICTIONS, or RX_DRUG_ID lines as drug names!
+      if (/^(?:RX_ROUTE|RX_DOSE|RX_FREQ|RX_DURATION_DAYS|RX_NOTES|RX_CONTRADICTIONS|RX_DRUG_ID|DRUG_ID|SUMMARY|GENERIC_NAME):/i.test(trimmedLine)) {
+        continue;
+      }
+      const cleanL = trimmedLine
+        .replace(/^(?:RX_DRUG_NAME|DRUG_NAME):\s*/i, '')
+        .replace(/^[*•\-–\d.]+\s*/, '')
+        .trim();
       if (cleanL.length >= 4 && !isUnreadableToken(cleanL) && !/^none$/i.test(cleanL)) {
         const hit = findDawayaIndexItemSync(cleanL);
         if (hit) {
@@ -2211,15 +2229,13 @@ export function parsePrescriptionTextDeterministically(
         }
       }
     }
-    if (found26k.length > 0 && !detectedDrugName) {
+    if (found26k.length > 0) {
       detectedDrugName = found26k.join(' + ');
-    }
-
-    if (!detectedDrugName) {
+    } else {
       const matched = matchEgyptianDrugFromText(text);
       if (matched.matchedIngredientId) {
         if (!matchedIngredientId) matchedIngredientId = matched.matchedIngredientId;
-        if (!detectedDrugName) detectedDrugName = matched.detectedDrugName;
+        detectedDrugName = matched.detectedDrugName;
       }
     }
   }
@@ -2385,16 +2401,18 @@ export async function analyzePrescriptionImageWithVision(
 
   const prompt =
     lang === 'ar'
-      ? `أنت صيدلي مصري خبير جداً في فك وقراءة خط الأطباء اليدوي في الروشتات المصرية (مثلما تقرأ أي روشتة في الصيدلية).
-استخدم اسم وتخصص الطبيب المكتوب في أعلى الروشتة (مثل جلدية، باطنة، أطفال، عظام)، والحروف الأولى من كل سطر دواء (بعد علامة R/ أو الشرطة)، والتركيز (مثل 500mg, 1gm, 300mg, 20mg, 40mg) والشكل الصيدلاني (Tab, Cap, Syr, Amp, Vial, Gel, Cream, Wash, Soap) لقراءة جميع الأدوية المكتوبة في الروشتة.
+      ? `أنت صيدلي إكلينيكي مصري خبير في قراءة علب وشرائط الأدوية وفك خط الأطباء اليدوي في الروشتات المصرية.
+انظر للصورة المرفوعة بدقة:
+- إذا كانت الصورة لعلبة دواء أو شريط برشام أو عبوة (مثل Flagyl 500 mg أو Flamotal 600 mg أو أي دواء): اقرأ الاسم التجاري المطبوع على العلبة والتركيز بدقة في خانة RX_DRUG_NAME، واكتب التركيز أو الجرعة المعتادة في RX_DOSE، وطريقة الإعطاء في RX_ROUTE، وشرحاً مختصراً عن الدواء ومادته الفعالة ودواعي استعماله في RX_NOTES.
+- إذا كانت الصورة لروشتة طبية مكتوبة بخط اليد أو مطبوعة: استخدم تخصص الطبيب والحروف الأولى والتركيز والشكل الصيدلاني لقراءة جميع الأدوية المكتوبة في الروشتة وافصل بينها بعلامة + في خانة RX_DRUG_NAME، واكتب الجرعات المكتوبة لكل دواء في RX_DOSE و RX_NOTES.
 اكتب النتيجة بالصيغة التالية مباشرة بدون أقواس مربعة:
 RX_DRUG_ID: unknown
-RX_DRUG_NAME: اكتب هنا أسماء كل الأدوية التي قرأتها من الروشتة مفصولة بعلامة + (مثال: دالاسين سي 300 مجم + فيوسيزون كريم + صابونة فيت بار)
-RX_DOSE: اكتب الجرعة أو التركيز المقروء من الروشتة (مثال: كبسولة مرتين يومياً / دهان مرتين يومياً)
+RX_DRUG_NAME: اكتب الاسم التجاري للدواء المطبوع على العلبة أو أسماء أدوية الروشتة مفصولة بعلامة +
+RX_DOSE: اكتب التركيز والجرعة المقروءة
 RX_ROUTE: oral
 RX_FREQ: twice_daily
 RX_DURATION_DAYS: 7
-RX_NOTES: اكتب هنا قراءتك الكاملة لكل سطر في الروشتة بالتفصيل (اسم كل دواء بالعربي والإنجليزي والجرعة المكتوبة تحته)
+RX_NOTES: اكتب المادة الفعالة ودواعي الاستعمال أو قراءتك الكاملة لكل سطر في الروشتة بالتفصيل
 RX_CONTRADICTIONS: NONE`
       : `You are an expert Egyptian pharmacist skilled at reading handwritten Egyptian medical prescriptions.
 Use the doctor's specialty header, first letters of each drug line after R/, strength, and dosage form to identify all prescribed medications.

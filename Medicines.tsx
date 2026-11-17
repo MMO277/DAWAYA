@@ -35,8 +35,11 @@ import {
 } from './dataAuditEngine';
 import {
   DAWAYA_CATEGORY_LABELS,
+  DawayaCompactIndexItem,
   DawayaTherapeuticCategory,
   decodeWarningMask,
+  findDawayaIndexItemSync,
+  getDawayaClassifiedAlternatives,
   searchDawayaIndex,
   useDawayaDrugDatabase,
 } from './dawayaDrugDatabaseService';
@@ -78,6 +81,89 @@ export default function Medicines() {
   const [sortBy, setSortBy] = useState<SortOption>('verified_first');
   const [page, setPage] = useState<number>(1);
   const [profileToast, setProfileToast] = useState<string>('');
+  const [aiBoxScanLoading, setAiBoxScanLoading] = useState<boolean>(false);
+  const [aiBoxScanResult, setAiBoxScanResult] = useState<{
+    previewUrl: string;
+    matchedItem: DawayaCompactIndexItem | null;
+    detectedName: string;
+    aiSummary: string;
+    alternatives: DawayaCompactIndexItem[];
+  } | null>(null);
+
+  async function handleAiMedicineImageFile(file: File) {
+    setAiBoxScanLoading(true);
+    setProfileToast(isAr ? '🤖 جاري قراءة صورة الدواء بالذكاء الاصطناعي والبحث في 26,562 دواء...' : '🤖 Analyzing medicine image with AI Vision...');
+    try {
+      const res = await extractTextFromBlisterOrBoxImage(file, lang);
+      let matchedItem: DawayaCompactIndexItem | null = null;
+      if (res.detectedBarcode) {
+        matchedItem = findDawayaIndexItemSync(res.detectedBarcode);
+      }
+      if (!matchedItem && res.aiMatchedId) {
+        matchedItem = findDawayaIndexItemSync(res.aiMatchedId);
+      }
+      if (!matchedItem && res.aiDetectedDrugName) {
+        matchedItem = findDawayaIndexItemSync(res.aiDetectedDrugName);
+      }
+      if (!matchedItem && res.extractedText) {
+        matchedItem = findDawayaIndexItemSync(res.extractedText);
+        if (!matchedItem) {
+          const cands = findCutBlisterStripCandidates(res.extractedText, indexItems, 3);
+          if (cands.length > 0) matchedItem = cands[0].item;
+        }
+      }
+
+      const alternatives = matchedItem
+        ? getDawayaClassifiedAlternatives(matchedItem, 4).exactEquivalents
+        : [];
+      const bestQuery = matchedItem
+        ? matchedItem.n.split(' ')[0]
+        : (res.aiDetectedDrugName || res.extractedText || '').replace(/\([^)]*\)/g, '').trim().split(/\s+/)[0] || '';
+
+      if (bestQuery) {
+        setActiveTab('dawaya_full_db');
+        setSelectedDawayaCat('all');
+        setSp({ q: bestQuery }, { replace: true });
+        setPage(1);
+      }
+
+      setAiBoxScanResult({
+        previewUrl: res.dataUrl,
+        matchedItem,
+        detectedName: matchedItem
+          ? `${matchedItem.a || matchedItem.n} (${matchedItem.n})`
+          : res.aiDetectedDrugName || bestQuery || (isAr ? 'لم يتضح الاسم على العلبة' : 'Name unclear'),
+        aiSummary:
+          res.aiSummary ||
+          (matchedItem
+            ? isAr
+              ? `المادة الفعالة: ${matchedItem.g || 'راجع العبوة'} — التركيز: ${matchedItem.s || ''} — الفئة: ${matchedItem.d || 'مستحضر دوائي معتمد'}`
+              : `Active Ingredient: ${matchedItem.g || 'See package'} — Strength: ${matchedItem.s || ''}`
+            : ''),
+        alternatives,
+      });
+
+      if (matchedItem || res.aiDetectedDrugName) {
+        setProfileToast(
+          isAr
+            ? `✅ تم التعرف بالذكاء الاصطناعي على: ${matchedItem ? matchedItem.a || matchedItem.n : res.aiDetectedDrugName}`
+            : `✅ AI recognized: ${matchedItem ? matchedItem.n : res.aiDetectedDrugName}`
+        );
+      } else {
+        setProfileToast(
+          isAr
+            ? '⚠️ لم تتضح الحروف في الصورة، جرب صورة أوضح لوش العلبة أو اكتب أول 3 حروف في البحث.'
+            : '⚠️ Could not read clear text from the image. Try a clearer photo or type the first 3 letters.'
+        );
+      }
+      window.setTimeout(() => setProfileToast(''), 4500);
+    } catch {
+      setProfileToast(isAr ? 'تعذر قراءة الصورة تلقائياً، جرب صورة أخرى أو اكتب اسم الدواء في البحث.' : 'Could not read image automatically.');
+      window.setTimeout(() => setProfileToast(''), 4000);
+    } finally {
+      setAiBoxScanLoading(false);
+    }
+  }
   const PAGE_SIZE = 24;
 
   useEffect(() => {
@@ -493,6 +579,34 @@ export default function Medicines() {
             <label
               className="btn small"
               style={{
+                background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
+                borderColor: '#10b981',
+                color: '#ffffff',
+                fontWeight: 900,
+                borderRadius: '999px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                margin: 0,
+              }}
+              title={isAr ? 'ارفع صورة علبة الدواء أو الشريط من موبايلك أو جهازك ليقرأها الذكاء الاصطناعي فوراً' : 'Upload a photo of a medicine box or strip from your device for instant AI recognition'}
+            >
+              📁 {aiBoxScanLoading ? (isAr ? 'جاري التحليل...' : 'Analyzing...') : isAr ? 'ارفع صورة العلبة / الدواء (AI)' : 'Upload Box / Drug Image (AI)'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/*"
+                style={{ display: 'none' }}
+                disabled={aiBoxScanLoading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  await handleAiMedicineImageFile(file);
+                }}
+              />
+            </label>
+            <label
+              className="btn small"
+              style={{
                 background: '#0D1F38',
                 borderColor: '#CFD29D',
                 color: '#CFD29D',
@@ -502,44 +616,20 @@ export default function Medicines() {
                 whiteSpace: 'nowrap',
                 margin: 0,
               }}
-              title={isAr ? 'صوّر شريط الدواء المقطوع أو العلبة لقراءة الاسم تلقائياً' : 'Snap a cut blister strip or box to read the name automatically'}
+              title={isAr ? 'صوّر شريط الدواء المقطوع أو العلبة بالكاميرا مباشرة' : 'Snap a cut blister strip or box with camera'}
             >
-              📷 {isAr ? 'صوّر الشريط المقطوع / العلبة' : 'Scan Strip / Box'}
+              📷 {isAr ? 'صوّر بالكاميرا' : 'Snap Camera'}
               <input
                 type="file"
                 accept="image/*"
                 capture="environment"
                 style={{ display: 'none' }}
+                disabled={aiBoxScanLoading}
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   e.target.value = '';
                   if (!file) return;
-                  setProfileToast(isAr ? '🔍 جارٍ قراءة الحروف المطبوعة على الشريط / العلبة...' : '🔍 Reading printed characters on strip/box...');
-                  try {
-                    const res = await extractTextFromBlisterOrBoxImage(file, lang);
-                    if (res.detectedBarcode) {
-                      setSp({ q: res.detectedBarcode }, { replace: true });
-                      setProfileToast(isAr ? `✅ تم التعرف على الباركود: ${res.detectedBarcode}` : `✅ Barcode detected: ${res.detectedBarcode}`);
-                      window.setTimeout(() => setProfileToast(''), 4000);
-                      return;
-                    }
-                    if (res.extractedText) {
-                      const cands = findCutBlisterStripCandidates(res.extractedText, indexItems, 3);
-                      const bestQuery = cands[0]?.item.n.split(' ')[0] || res.extractedText.split(/\s+/)[0] || '';
-                      if (bestQuery) {
-                        setSp({ q: bestQuery }, { replace: true });
-                        setPage(1);
-                        setProfileToast(isAr ? `✅ تم التعرف على الدواء من الشريط: ${cands[0]?.item.a || bestQuery}` : `✅ Matched medicine from strip: ${bestQuery}`);
-                        window.setTimeout(() => setProfileToast(''), 4000);
-                        return;
-                      }
-                    }
-                    setProfileToast(isAr ? 'يرجى تقريب الكاميرا من الحروف المطبوعة على الشريط أو كتابة أول 3 حروف بالبحث.' : 'Please move closer to the printed letters or type the first 3 letters.');
-                    window.setTimeout(() => setProfileToast(''), 4000);
-                  } catch {
-                    setProfileToast(isAr ? 'تعذر قراءة الصورة تلقائياً، يمكنك كتابة الحروف الظاهرة على الشريط في البحث.' : 'Could not read image automatically.');
-                    window.setTimeout(() => setProfileToast(''), 4000);
-                  }
+                  await handleAiMedicineImageFile(file);
                 }}
               />
             </label>
@@ -569,6 +659,123 @@ export default function Medicines() {
             </button>
           </div>
         </div>
+
+        {aiBoxScanResult && (
+          <div
+            style={{
+              marginBottom: '14px',
+              padding: '14px 16px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)',
+              border: '2px solid #0d9488',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flex: 1, minWidth: '220px' }}>
+                {aiBoxScanResult.previewUrl && (
+                  <img
+                    src={aiBoxScanResult.previewUrl}
+                    alt="Uploaded Medicine"
+                    style={{
+                      width: '74px',
+                      height: '74px',
+                      objectFit: 'cover',
+                      borderRadius: '10px',
+                      border: '2px solid #0d9488',
+                      background: '#fff',
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+                <div style={{ flex: 1 }}>
+                  <span className="badge approved" style={{ fontSize: '0.74rem', marginBottom: '4px', display: 'inline-block' }}>
+                    🤖 {isAr ? 'نتيجة قراءة الذكاء الاصطناعي لصورة الدواء' : 'AI Vision Medicine Recognition'}
+                  </span>
+                  <h3 style={{ margin: '0 0 4px', color: '#0f172a', fontSize: '1.08rem' }}>
+                    {aiBoxScanResult.detectedName}
+                  </h3>
+                  {aiBoxScanResult.matchedItem && (
+                    <div className="small" style={{ color: '#0369a1', fontWeight: 700 }}>
+                      🧪 {isAr ? 'المادة الفعالة: ' : 'Active Ingredient: '}
+                      {aiBoxScanResult.matchedItem.g || (isAr ? 'راجع العبوة' : 'See package')}
+                      {aiBoxScanResult.matchedItem.p ? ` • 💰 السعر الرسمي: ${aiBoxScanResult.matchedItem.p} ج.م` : ''}
+                    </div>
+                  )}
+                  {aiBoxScanResult.aiSummary && (
+                    <p className="small" style={{ margin: '6px 0 0', color: '#1e293b', lineHeight: 1.6 }}>
+                      {aiBoxScanResult.aiSummary}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn small ghost"
+                onClick={() => setAiBoxScanResult(null)}
+                style={{ padding: '4px 10px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {aiBoxScanResult.alternatives.length > 0 && (
+              <div style={{ fontSize: '0.82rem', color: '#065f46', background: '#ffffff', padding: '8px 12px', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
+                💡 <b>{isAr ? 'بدائل مصرية مطابقة 100% في المادة الفعالة والتركيز:' : '100% Bioequivalent Egyptian Alternatives:'}</b>{' '}
+                {aiBoxScanResult.alternatives.map((alt) => `${alt.a || alt.n} (${alt.p ? alt.p + ' ج.م' : ''})`).join(' ، ')}
+              </div>
+            )}
+
+            <div className="row wrapRow" style={{ gap: '8px' }}>
+              {aiBoxScanResult.matchedItem && (
+                <>
+                  <Link
+                    to={`/medicine/${aiBoxScanResult.matchedItem.i}`}
+                    className="btn small"
+                    style={{ background: '#0284c7', borderColor: '#0284c7', color: '#fff', fontWeight: 800, textDecoration: 'none' }}
+                  >
+                    📖 {isAr ? 'فتح صفحة الدواء الكاملة' : 'Open Drug Page'}
+                  </Link>
+                  <button
+                    type="button"
+                    className="btn small"
+                    style={{ background: '#059669', borderColor: '#059669', color: '#fff', fontWeight: 800 }}
+                    onClick={() =>
+                      handleAddMedicineToProfile(
+                        aiBoxScanResult.matchedItem!.i,
+                        aiBoxScanResult.matchedItem!.a,
+                        aiBoxScanResult.matchedItem!.n,
+                        aiBoxScanResult.matchedItem!.s
+                      )
+                    }
+                  >
+                    ➕ {isAr ? 'أضف لأدويتي في ملفي الصحي' : 'Add to My Medications'}
+                  </button>
+                  <Link
+                    to={`/cost-saver?prod=${encodeURIComponent(aiBoxScanResult.matchedItem.i)}`}
+                    className="btn small ghost"
+                    style={{ fontWeight: 800, textDecoration: 'none' }}
+                  >
+                    💰 {isAr ? 'حاسبة البديل الأرخص' : 'Cost Saver'}
+                  </Link>
+                </>
+              )}
+              <Link
+                to={`/assistant?q=${encodeURIComponent(
+                  isAr
+                    ? `اشرحلي كل حاجة عن دواء ${aiBoxScanResult.detectedName} وجرعته وتحذيراته`
+                    : `Explain ${aiBoxScanResult.detectedName} uses, dosage, and warnings`
+                )}`}
+                className="btn small ghost"
+                style={{ fontWeight: 800, textDecoration: 'none', borderColor: '#0d9488', color: '#0f766e' }}
+              >
+                🤖 {isAr ? 'اسأل المساعد الذكي عن هذا الدواء' : 'Ask AI Assistant'}
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Filters for Tab 1 (All 26,562 DAWAYA Medicines) */}
         {activeTab === 'dawaya_full_db' && (
