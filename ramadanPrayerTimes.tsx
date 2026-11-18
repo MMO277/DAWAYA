@@ -2,6 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { EGYPTIAN_GOVERNORATES } from './partnerTypes';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useSyncedHealthProfile } from './allergyData';
+import { playRamadanAdhanOrSuhurSound, scheduleRamadanAdhanAndSuhurAlarms } from './nativeAlarmService';
+
+function formatMinutesTo24h(totalMins: number): string {
+  const norm = ((totalMins % 1440) + 1440) % 1440;
+  const h24 = Math.floor(norm / 60);
+  const m = norm % 60;
+  return `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
 
 export interface GovCoordinate {
   lat: number;
@@ -148,46 +156,12 @@ export function EgyptGovernorateRamadanCountdown({
       return localStorage.getItem('dawaya_ramadan_alarm_enabled_v1') === '1';
     } catch { return false; }
   });
+  const [suhurLeadMin, setSuhurLeadMin] = useState<number>(() => {
+    try {
+      return Number(localStorage.getItem('dawaya_ramadan_suhur_lead_min_v1') || '30') || 30;
+    } catch { return 30; }
+  });
   const [alarmToast, setAlarmToast] = useState<string>('');
-
-  const playGentleChime = () => {
-    try {
-      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.18);
-      gain.gain.setValueAtTime(0.18, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.65);
-    } catch {}
-  };
-
-  const toggleRamadanAlarm = async () => {
-    const next = !alarmEnabled;
-    setAlarmEnabled(next);
-    try {
-      localStorage.setItem('dawaya_ramadan_alarm_enabled_v1', next ? '1' : '0');
-    } catch {}
-    if (next) {
-      playGentleChime();
-      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-        try { await Notification.requestPermission(); } catch {}
-      }
-      setAlarmToast(
-        isAr
-          ? '🔔 تم تفعيل منبه أدوية الإفطار والسحور حسب توقيت محافظتك!'
-          : '🔔 Iftar & Suhur medication alarm activated for your governorate!'
-      );
-      window.setTimeout(() => setAlarmToast(''), 4500);
-    }
-  };
 
   useEffect(() => {
     if (profile.governorateId && GOVERNORATE_COORDS[profile.governorateId]) {
@@ -268,20 +242,56 @@ export function EgyptGovernorateRamadanCountdown({
     const mins = Math.floor((diffSeconds % 3600) / 60);
     const secs = diffSeconds % 60;
 
+    const suhurTargetMins = fajrMinutes - suhurLeadMin;
     return {
       fajrStr: formatMinutesTo12h(fajrMinutes, isAr),
       maghribStr: formatMinutesTo12h(maghribMinutes, isAr),
+      suhurStr: formatMinutesTo12h(suhurTargetMins, isAr),
+      maghribHHMM: formatMinutesTo24h(maghribMinutes),
+      suhurHHMM: formatMinutesTo24h(suhurTargetMins),
       targetLabel: isAr ? targetLabelAr : targetLabelEn,
       doseAdvice: isAr ? doseAdviceAr : doseAdviceEn,
       countdownStr: `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`,
       isFastingNow,
     };
-  }, [govId, now, manualOffset, isAr]);
+  }, [govId, now, manualOffset, suhurLeadMin, isAr]);
 
   const govName = useMemo(() => {
     const found = EGYPTIAN_GOVERNORATES.find((g) => g.id === govId);
     return found ? (isAr ? found.nameAr : found.nameEn) : govId;
   }, [govId, isAr]);
+
+  useEffect(() => {
+    if (alarmEnabled) {
+      void scheduleRamadanAdhanAndSuhurAlarms(status.maghribHHMM, status.suhurHHMM, govName, isAr);
+    }
+  }, [alarmEnabled, status.maghribHHMM, status.suhurHHMM, govName, isAr]);
+
+  const handleSuhurLeadChange = (mins: number) => {
+    setSuhurLeadMin(mins);
+    try { localStorage.setItem('dawaya_ramadan_suhur_lead_min_v1', String(mins)); } catch {}
+  };
+
+  const toggleRamadanAlarm = async () => {
+    const next = !alarmEnabled;
+    setAlarmEnabled(next);
+    try {
+      localStorage.setItem('dawaya_ramadan_alarm_enabled_v1', next ? '1' : '0');
+    } catch {}
+    if (next) {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+        try { await Notification.requestPermission(); } catch {}
+      }
+      await scheduleRamadanAdhanAndSuhurAlarms(status.maghribHHMM, status.suhurHHMM, govName, isAr);
+      playRamadanAdhanOrSuhurSound('maghrib', isAr, govName);
+      setAlarmToast(
+        isAr
+          ? `🕌 تم تفعيل أذان المغرب (${status.maghribStr}) وتنبيه السحور (${status.suhurStr}) لمحافظة ${govName}!`
+          : `🕌 Maghrib Adhan (${status.maghribStr}) & Suhur alarm (${status.suhurStr}) activated!`
+      );
+      window.setTimeout(() => setAlarmToast(''), 5500);
+    }
+  };
 
   return (
     <div
@@ -454,6 +464,80 @@ export function EgyptGovernorateRamadanCountdown({
             : (isAr ? '🔔 تفعيل منبه أدوية الإفطار والسحور' : '🔔 Enable Iftar/Suhur Med Alarm')}
         </button>
       </div>
+      {/* Adhan & Suhur Sound Preview + Lead Time Bar */}
+      <div
+        className="row wrapRow"
+        style={{
+          marginTop: '8px',
+          padding: '8px 10px',
+          borderRadius: '10px',
+          background: 'rgba(15, 23, 42, 0.35)',
+          border: '1px solid rgba(251, 191, 36, 0.25)',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '8px',
+        }}
+      >
+        <div className="row wrapRow" style={{ gap: '6px', alignItems: 'center' }}>
+          <span className="small" style={{ color: '#fde68a', fontWeight: 800 }}>
+            {isAr ? `🌙 تنبيه السحور (${status.suhurStr}):` : `🌙 Suhur Alert (${status.suhurStr}):`}
+          </span>
+          {[20, 30, 45, 60].map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => handleSuhurLeadChange(m)}
+              style={{
+                background: suhurLeadMin === m ? '#fbbf24' : 'rgba(255,255,255,0.1)',
+                color: suhurLeadMin === m ? '#0f172a' : '#f8fafc',
+                border: '1px solid rgba(251,191,36,0.4)',
+                borderRadius: '999px',
+                padding: '3px 9px',
+                fontSize: '0.74rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              {isAr ? `قبل الفجر بـ ${m} د` : `${m}m pre-Fajr`}
+            </button>
+          ))}
+        </div>
+        <div className="row wrapRow" style={{ gap: '6px' }}>
+          <button
+            type="button"
+            onClick={() => playRamadanAdhanOrSuhurSound('maghrib', isAr, govName)}
+            style={{
+              background: 'rgba(16, 185, 129, 0.25)',
+              color: '#ecfdf5',
+              border: '1px solid rgba(52, 211, 153, 0.55)',
+              borderRadius: '999px',
+              padding: '4px 10px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            🔊 {isAr ? 'تجربة أذان المغرب (الله أكبر)' : 'Test Maghrib Adhan'}
+          </button>
+          <button
+            type="button"
+            onClick={() => playRamadanAdhanOrSuhurSound('suhur', isAr, govName)}
+            style={{
+              background: 'rgba(56, 189, 248, 0.22)',
+              color: '#e0f2fe',
+              border: '1px solid rgba(125, 211, 252, 0.55)',
+              borderRadius: '999px',
+              padding: '4px 10px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            🌙 {isAr ? 'تجربة منبه السحور' : 'Test Suhur Alert'}
+          </button>
+        </div>
+      </div>
+
       {alarmToast && (
         <div
           className="small"

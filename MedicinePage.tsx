@@ -32,6 +32,7 @@ import {
   dawayaRecordToMedicineMonograph,
   fetchFullDawayaMedicineById,
   findDawayaIndexItemSync,
+  getApproximateBatchPriceInfo,
   getDawayaClassifiedAlternatives,
   getDawayaIngredientEquivalents,
   getSmartClinicalRegimenForMedicine,
@@ -97,8 +98,10 @@ function MedicinePackageStudioCard({
     .slice(0, 16)
     .toUpperCase();
   const shortStr = (strength || '').slice(0, 12);
+  const isDevice = /device|strip|first aid|جهاز|شرائط|إسعاف/.test(formLow);
+  const isPumpOrWash = /wash|cleanser|shampoo|foam|spray|غسول|شامبو|سبراي/.test(formLow) || /wash|shampoo|غسول|شامبو/i.test(brandEn + ' ' + brandAr);
   const isSyrup = /syrup|susp|sol|oral drop|شراب|معلق|نقط/.test(formLow);
-  const isCream = /cream|oint|gel|lotion|topical|كريم|مرهم|جل|دهان/.test(formLow);
+  const isCream = /cream|oint|gel|lotion|topical|sunscreen|كريم|مرهم|جل|دهان|صن/.test(formLow);
   const isInj = /vial|amp|inj|infusion|حقن|أمبول|فيال/.test(formLow);
 
   return (
@@ -120,7 +123,35 @@ function MedicinePackageStudioCard({
       }}
     >
       <svg width="132" height="104" viewBox="0 0 132 104" fill="none" aria-hidden="true">
-        {isSyrup ? (
+        {isDevice ? (
+          <>
+            <rect x="24" y="14" width="84" height="78" rx="14" fill="#ffffff" stroke="#0284c7" strokeWidth="2.2" />
+            <rect x="34" y="24" width="64" height="34" rx="6" fill="#e0f2fe" stroke="#38bdf8" strokeWidth="1.5" />
+            <text x="66" y="42" textAnchor="middle" fill="#0D1F38" fontSize="8.5" fontWeight="900" fontFamily="system-ui, sans-serif">
+              {shortBrand.slice(0, 12)}
+            </text>
+            <text x="66" y="53" textAnchor="middle" fill="#0369a1" fontSize="7.2" fontWeight="800" fontFamily="system-ui, sans-serif">
+              {shortStr || 'DIGITAL'}
+            </text>
+            <circle cx="66" cy="74" r="9" fill={accentColor} />
+            <circle cx="66" cy="74" r="4" fill="#ffffff" />
+          </>
+        ) : isPumpOrWash ? (
+          <>
+            <path d="M58 10H74V22H58V10Z" fill="#0D1F38" />
+            <path d="M66 6H86L92 12" stroke="#0D1F38" strokeWidth="3.5" strokeLinecap="round" />
+            <rect x="38" y="22" width="56" height="72" rx="12" fill="#e0f2fe" stroke="#0284c7" strokeWidth="2" />
+            <rect x="44" y="36" width="44" height="42" rx="6" fill="#ffffff" />
+            <text x="66" y="55" textAnchor="middle" fill="#0D1F38" fontSize="8.2" fontWeight="900" fontFamily="system-ui, sans-serif">
+              {shortBrand.slice(0, 11)}
+            </text>
+            {shortStr && (
+              <text x="66" y="67" textAnchor="middle" fill="#0f766e" fontSize="7.2" fontWeight="800" fontFamily="system-ui, sans-serif">
+                {shortStr}
+              </text>
+            )}
+          </>
+        ) : isSyrup ? (
           <>
             {/* Bottle Cap & Amber Glass Syrup Bottle */}
             <rect x="48" y="8" width="36" height="12" rx="4" fill="#0D1F38" />
@@ -852,16 +883,42 @@ export default function MedicinePage() {
               boxShadow: '0 8px 22px rgba(19, 136, 102, 0.24)',
             }}
           >
-            <span style={{ fontSize: '0.75rem', color: '#CFD29D', fontWeight: 800 }}>
-              💰 {isAr ? 'السعر الرسمي بالسوق المصري' : 'Official Listed Price'}
-            </span>
-            <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#ffffff', lineHeight: 1.2 }}>
-              {currentPriceEgp
-                ? `${currentPriceEgp.toFixed(2)} ${isAr ? 'ج.م' : 'EGP'}`
-                : isAr
-                ? 'حسب العبوة'
-                : 'See Packages'}
-            </div>
+            {(() => {
+              const pInfo = idxItemSync ? getApproximateBatchPriceInfo(idxItemSync) : null;
+              const minB = pInfo?.minBatch;
+              const maxB = pInfo?.maxBatch;
+              return (
+                <>
+                  <span style={{ fontSize: '0.74rem', color: '#CFD29D', fontWeight: 800 }}>
+                    💰 {isAr ? 'السعر التقريبي في الصيدليات' : 'Approx. Pharmacy Price'}
+                  </span>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ffffff', lineHeight: 1.2 }}>
+                    {currentPriceEgp
+                      ? `~ ${currentPriceEgp.toFixed(0)} ${isAr ? 'ج.م' : 'EGP'}`
+                      : isAr
+                      ? 'حسب العبوة'
+                      : 'See Packages'}
+                  </div>
+                  {minB && maxB && minB < maxB && (
+                    <div
+                      style={{
+                        fontSize: '0.72rem',
+                        color: '#ecfdf5',
+                        background: 'rgba(255,255,255,0.14)',
+                        padding: '3px 9px',
+                        borderRadius: '999px',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {isAr ? `التشغيلات: ${minB} – ${maxB} ج.م` : `Batches: ${minB}–${maxB} EGP`}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '0.67rem', color: 'rgba(255,255,255,0.82)', marginTop: '2px', lineHeight: 1.3 }}>
+                    {isAr ? 'قد يختلف قليلاً حسب تاريخ تشغيلة العبوة' : 'May vary slightly by batch date'}
+                  </div>
+                </>
+              );
+            })()}
             {cheapestBioequivalent && (
               <button
                 type="button"

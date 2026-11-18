@@ -35,8 +35,13 @@ import {
 } from './dataAuditEngine';
 import {
   DAWAYA_CATEGORY_LABELS,
+  DAWAYA_PHARMACY_DEPARTMENTS,
   DawayaCompactIndexItem,
+  DawayaPharmacyDepartment,
   DawayaTherapeuticCategory,
+  classifyDawayaDepartment,
+  getApproximateBatchPriceInfo,
+  matchesDawayaSubcategory,
   decodeWarningMask,
   findDawayaIndexItemSync,
   getDawayaClassifiedAlternatives,
@@ -68,12 +73,18 @@ export default function Medicines() {
   const [sp, setSp] = useSearchParams();
   const q = sp.get('q') ?? '';
   const initialCatParam = (sp.get('cat') as DawayaTherapeuticCategory | null) || 'all';
+  const initialDeptParam = (sp.get('dept') as DawayaPharmacyDepartment | null) || 'all';
+  const initialSubParam = sp.get('sub') || 'all';
   const { items, error } = useApproved();
 
   const [activeTab, setActiveTab] = useState<ViewTab>('dawaya_full_db');
   const [selectedDawayaCat, setSelectedDawayaCat] = useState<DawayaTherapeuticCategory | 'all'>(
     initialCatParam
   );
+  const [selectedDept, setSelectedDept] = useState<DawayaPharmacyDepartment | 'all'>(
+    initialDeptParam
+  );
+  const [selectedSub, setSelectedSub] = useState<string>(initialSubParam);
   const [selectedIngFilter, setSelectedIngFilter] = useState<string>('all');
   const [selectedFormFilter, setSelectedFormFilter] = useState<string>('all');
   const [selectedRouteFilter, setSelectedRouteFilter] = useState<string>('all');
@@ -169,8 +180,16 @@ export default function Medicines() {
 
   useEffect(() => {
     const catParam = sp.get('cat') as DawayaTherapeuticCategory | null;
+    const deptParam = sp.get('dept') as DawayaPharmacyDepartment | null;
+    const subParam = sp.get('sub');
     if (catParam && catParam in DAWAYA_CATEGORY_LABELS) {
       setSelectedDawayaCat(catParam);
+      setActiveTab('dawaya_full_db');
+      setPage(1);
+    }
+    if (deptParam && DAWAYA_PHARMACY_DEPARTMENTS.some((d) => d.id === deptParam)) {
+      setSelectedDept(deptParam);
+      setSelectedSub(subParam || 'all');
       setActiveTab('dawaya_full_db');
       setPage(1);
     }
@@ -203,9 +222,9 @@ export default function Medicines() {
     [allCommercialProducts, activeTab]
   );
 
-  // 1. Filter & sort the 26,562 DAWAYA comprehensive medicine database
+  // 1. Filter & sort the 26,562+ DAWAYA comprehensive medicine & pharmacy database
   const filteredDawayaItems = useMemo(() => {
-    return searchDawayaIndex(
+    const base = searchDawayaIndex(
       indexItems,
       {
         query: q,
@@ -223,10 +242,17 @@ export default function Medicines() {
       },
       isAr
     );
+    if (selectedDept === 'all') return base;
+    return base.filter((item) => {
+      if (classifyDawayaDepartment(item) !== selectedDept) return false;
+      return matchesDawayaSubcategory(item, selectedDept, selectedSub);
+    });
   }, [
     indexItems,
     q,
     selectedDawayaCat,
+    selectedDept,
+    selectedSub,
     selectedFormFilter,
     selectedRouteFilter,
     selectedBarcodeFilter,
@@ -234,6 +260,11 @@ export default function Medicines() {
     sortBy,
     isAr,
   ]);
+
+  const activeDeptMeta = useMemo(
+    () => DAWAYA_PHARMACY_DEPARTMENTS.find((d) => d.id === selectedDept) || null,
+    [selectedDept]
+  );
 
   const dawayaTotalPages = Math.max(1, Math.ceil(filteredDawayaItems.length / PAGE_SIZE));
   const paginatedDawayaItems = useMemo(
@@ -803,6 +834,105 @@ export default function Medicines() {
           </div>
         )}
 
+        {/* 6 Pharmacy Departments + Dynamic Subcategories */}
+        {activeTab === 'dawaya_full_db' && (
+          <div
+            style={{
+              marginBottom: '12px',
+              padding: '12px 14px',
+              borderRadius: '14px',
+              background: 'rgba(13, 148, 136, 0.05)',
+              border: '1px solid rgba(13, 148, 136, 0.18)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}
+          >
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+              <button
+                type="button"
+                className={`btn small ${selectedDept === 'all' ? '' : 'ghost'}`}
+                onClick={() => {
+                  setSelectedDept('all');
+                  setSelectedSub('all');
+                  setSelectedDawayaCat('all');
+                  setPage(1);
+                }}
+              >
+                🏥 {isAr ? 'كل أقسام الصيدلية' : 'All Pharmacy Sections'}
+              </button>
+              {DAWAYA_PHARMACY_DEPARTMENTS.map((dept) => {
+                const isAct = selectedDept === dept.id;
+                return (
+                  <button
+                    key={dept.id}
+                    type="button"
+                    className={`btn small ${isAct ? '' : 'ghost'}`}
+                    style={
+                      isAct
+                        ? { background: '#0f766e', borderColor: '#0f766e', color: '#fff', fontWeight: 800 }
+                        : { fontWeight: 700 }
+                    }
+                    onClick={() => {
+                      setSelectedDept(dept.id);
+                      setSelectedSub('all');
+                      setSelectedDawayaCat('all');
+                      setPage(1);
+                    }}
+                  >
+                    {dept.icon} {isAr ? dept.ar : dept.en}
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeDeptMeta && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  paddingTop: '8px',
+                  borderTop: '1px dashed rgba(13, 148, 136, 0.25)',
+                }}
+              >
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                  {activeDeptMeta.subs.map((sub) => {
+                    const isSubAct = selectedSub === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSub(sub.id);
+                          setPage(1);
+                        }}
+                        style={{
+                          padding: '4px 11px',
+                          borderRadius: '999px',
+                          border: isSubAct ? '1.5px solid #0284c7' : '1px solid rgba(148, 163, 184, 0.45)',
+                          background: isSubAct ? '#e0f2fe' : '#ffffff',
+                          color: isSubAct ? '#0369a1' : '#334155',
+                          fontWeight: isSubAct ? 800 : 600,
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {isAr ? sub.ar : sub.en}
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="small muted" style={{ fontSize: '0.76rem' }}>
+                  {isAr ? activeDeptMeta.descAr : activeDeptMeta.descEn}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Filters for Tab 1 (All 26,562 DAWAYA Medicines) */}
         {activeTab === 'dawaya_full_db' && (
           <div
@@ -1026,6 +1156,8 @@ export default function Medicines() {
                 className="btn ghost small"
                 onClick={() => {
                   setSelectedDawayaCat('all');
+                  setSelectedDept('all');
+                  setSelectedSub('all');
                   setSelectedFormFilter('all');
                   setSelectedRouteFilter('all');
                   setSelectedBarcodeFilter('all');
@@ -1199,18 +1331,26 @@ export default function Medicines() {
                         </p>
 
                         <div className="dawaya-med-card-v3-meta-row">
-                          {item.p !== null && (
-                            <span className="dawaya-med-price-pill">
-                              {item.op && item.op !== item.p && (
-                                <s style={{ opacity: 0.6, fontSize: '0.76rem' }}>
-                                  {item.op.toFixed(0)}
-                                </s>
-                              )}
-                              <span>
-                                {Number.isInteger(item.p) ? item.p : item.p.toFixed(1)} {isAr ? 'ج.م' : 'EGP'}
+                          {(() => {
+                            const pInfo = getApproximateBatchPriceInfo(item);
+                            if (!pInfo.price) return null;
+                            return (
+                              <span
+                                className="dawaya-med-price-pill"
+                                title={isAr ? pInfo.noteAr : pInfo.noteEn}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}
+                              >
+                                <span>
+                                  ~ {Number.isInteger(pInfo.price) ? pInfo.price : pInfo.price.toFixed(1)} {isAr ? 'ج.م' : 'EGP'}
+                                </span>
+                                {pInfo.minBatch && pInfo.maxBatch && pInfo.minBatch < pInfo.maxBatch && (
+                                  <span style={{ fontSize: '0.72rem', opacity: 0.82, fontWeight: 700 }}>
+                                    ({isAr ? `تشغيلات: ${pInfo.minBatch}–${pInfo.maxBatch}` : `${pInfo.minBatch}–${pInfo.maxBatch}`})
+                                  </span>
+                                )}
                               </span>
-                            </span>
-                          )}
+                            );
+                          })()}
 
                           {hydrationReq && (
                             <span className="dawaya-med-hydration-chip" title={hydrationReq.reasonAr}>

@@ -1230,6 +1230,26 @@ export function startGlobalPhoneAlarmWatcher(getIsAr: () => boolean): void {
 
     const isAr = getIsAr();
 
+    // 0. Check Ramadan Maghrib Adhan & Suhur Alarm
+    try {
+      if (localStorage.getItem(RAMADAN_ALARM_ENABLED_KEY) === '1') {
+        const rawRamadan = localStorage.getItem(RAMADAN_TIMES_CACHE_KEY);
+        const lastRamadanFired = localStorage.getItem(RAMADAN_LAST_FIRED_KEY) || '';
+        if (rawRamadan && lastRamadanFired !== minuteStamp) {
+          const rTimes = JSON.parse(rawRamadan) as { maghribHHMM?: string; suhurHHMM?: string; govName?: string };
+          if (rTimes.maghribHHMM === currentHHMM) {
+            localStorage.setItem(RAMADAN_LAST_FIRED_KEY, minuteStamp);
+            playRamadanAdhanOrSuhurSound('maghrib', isAr, rTimes.govName || '');
+          } else if (rTimes.suhurHHMM === currentHHMM) {
+            localStorage.setItem(RAMADAN_LAST_FIRED_KEY, minuteStamp);
+            playRamadanAdhanOrSuhurSound('suhur', isAr, rTimes.govName || '');
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
     // 1. Check SmartDoseAlarmCard saved alarm
     try {
       const smartRaw = localStorage.getItem('aa_smart_dose_alarm_v1');
@@ -1322,4 +1342,173 @@ export async function scheduleMultipleNativeDoseAlarms(
     success: true,
     scheduledCount: validTimes.length,
   };
+}
+
+
+// ============================================================================
+// Ramadan Adhan (Maghrib) & Suhur Alarm Engine
+// ============================================================================
+const RAMADAN_ALARM_ENABLED_KEY = 'dawaya_ramadan_alarm_enabled_v1';
+const RAMADAN_TIMES_CACHE_KEY = 'dawaya_ramadan_times_v1';
+const RAMADAN_LAST_FIRED_KEY = 'dawaya_ramadan_last_fired_min_v1';
+
+export function playRamadanAdhanOrSuhurSound(
+  kind: 'maghrib' | 'suhur',
+  isAr = true,
+  govName = ''
+): void {
+  try {
+    const AudioCtx = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      // Hijaz-inspired spiritual chime for Maghrib Adhan, warm chime for Suhur
+      const notes =
+        kind === 'maghrib'
+          ? [293.66, 311.13, 392.0, 440.0, 392.0, 311.13, 293.66] // D4, Eb4, G4, A4, G4, Eb4, D4
+          : [349.23, 440.0, 523.25, 440.0, 587.33]; // F4, A4, C5, A4, D5
+      let t = ctx.currentTime + 0.04;
+      notes.forEach((freq, idx) => {
+        const dur = kind === 'maghrib' ? (idx === 3 || idx === 6 ? 0.65 : 0.36) : 0.34;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = kind === 'maghrib' ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.24, t + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + dur + 0.02);
+        t += dur * 0.92;
+      });
+    }
+  } catch {
+    /* ignore audio context restrictions */
+  }
+
+  try {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const text =
+        kind === 'maghrib'
+          ? isAr
+            ? `اللهُ أكبر، اللهُ أكبر. حان الآن موعد أذان المغرب${govName ? ` في محافظة ${govName}` : ''}. تقبل الله صيامكم، تذكر أخذ أدوية الإفطار بعد التمر والماء.`
+            : `Allahu Akbar, Allahu Akbar. It is time for Maghrib Adhan (Iftar). Remember to take your Iftar medications after water and dates.`
+          : isAr
+            ? `تنبيه السحور: اقترب أذان الفجر${govName ? ` في محافظة ${govName}` : ''}. حان الآن وقت وجبة السحور وشرب الماء وتناول أدوية السحور.`
+            : `Suhur Reminder: Fajr is approaching. Time for your Suhur meal, hydration, and scheduled Suhur medications.`;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = isAr ? 'ar-EG' : 'en-US';
+      utter.rate = 0.92;
+      utter.pitch = 1.0;
+      window.setTimeout(() => {
+        try {
+          window.speechSynthesis.speak(utter);
+        } catch {
+          /* ignore */
+        }
+      }, 650);
+    }
+  } catch {
+    /* ignore speech synthesis */
+  }
+
+  try {
+    const title =
+      kind === 'maghrib'
+        ? isAr
+          ? '🕌 الله أكبر، الله أكبر — أذان المغرب'
+          : '🕌 Allahu Akbar — Maghrib Adhan (Iftar)'
+        : isAr
+          ? '🌙 حان وقت السحور قبل أذان الفجر'
+          : '🌙 Suhur Time Before Fajr';
+    const body =
+      kind === 'maghrib'
+        ? isAr
+          ? 'تقبل الله صيامكم — افطر بتمر وماء ثم تناول أدوية الإفطار.'
+          : 'Break fast with water and dates, then take your Iftar medications.'
+        : isAr
+          ? 'قم وتسحّر واشرب ماءً كافياً ولا تنسَ أدوية السحور.'
+          : 'Time for Suhur meal, water, and your Suhur medications.';
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, tag: `ramadan_${kind}` });
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function scheduleRamadanAdhanAndSuhurAlarms(
+  maghribHHMM: string,
+  suhurHHMM: string,
+  govName: string,
+  isAr = true
+): Promise<{ scheduled: boolean }> {
+  try {
+    localStorage.setItem(
+      RAMADAN_TIMES_CACHE_KEY,
+      JSON.stringify({ maghribHHMM, suhurHHMM, govName, updatedAt: Date.now() })
+    );
+  } catch {
+    /* ignore */
+  }
+
+  const nextTriggerMillis = (hhmm: string): number => {
+    const [hh, mm] = hhmm.split(':').map(Number);
+    const target = new Date();
+    target.setHours(hh || 0, mm || 0, 0, 0);
+    if (target.getTime() <= Date.now()) {
+      target.setDate(target.getDate() + 1);
+    }
+    return target.getTime();
+  };
+
+  const bridge = getAndroidAlarmBridge();
+  if (bridge) {
+    try {
+      bridge.scheduleExactAlarm(
+        91001,
+        nextTriggerMillis(maghribHHMM),
+        isAr ? '🕌 الله أكبر، الله أكبر — أذان المغرب' : '🕌 Maghrib Adhan (Iftar)',
+        isAr ? `موعد الإفطار في ${govName} — تذكر أدوية الإفطار بعد التمر والماء` : `Iftar time in ${govName}`
+      );
+      bridge.scheduleExactAlarm(
+        91002,
+        nextTriggerMillis(suhurHHMM),
+        isAr ? '🌙 حان وقت السحور قبل أذان الفجر' : '🌙 Suhur Reminder',
+        isAr ? `قم وتسحّر في ${govName} واشرب الماء وتناول أدوية السحور` : `Suhur time in ${govName}`
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  try {
+    const plugin = getLocalNotificationsPlugin();
+    if (plugin && typeof plugin.schedule === 'function') {
+      await plugin.schedule({
+        notifications: [
+          {
+            id: 91001,
+            title: isAr ? '🕌 الله أكبر، الله أكبر — أذان المغرب' : '🕌 Maghrib Adhan (Iftar)',
+            body: isAr ? `تقبل الله صيامكم (${govName}) — تذكر أدوية الإفطار` : `Iftar time (${govName})`,
+            schedule: { at: new Date(nextTriggerMillis(maghribHHMM)), repeats: true, every: 'day', allowWhileIdle: true },
+            channelId: ALARM_CHANNEL_ID,
+          },
+          {
+            id: 91002,
+            title: isAr ? '🌙 حان وقت السحور قبل الفجر' : '🌙 Suhur Time Before Fajr',
+            body: isAr ? `قم وتسحّر واشرب الماء (${govName})` : `Suhur reminder (${govName})`,
+            schedule: { at: new Date(nextTriggerMillis(suhurHHMM)), repeats: true, every: 'day', allowWhileIdle: true },
+            channelId: ALARM_CHANNEL_ID,
+          },
+        ],
+      });
+    }
+  } catch {
+    /* ignore */
+  }
+  return { scheduled: true };
 }

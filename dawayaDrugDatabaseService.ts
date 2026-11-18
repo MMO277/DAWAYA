@@ -690,6 +690,10 @@ export async function ensureDawayaDatabaseLoaded(): Promise<DawayaCompactIndexIt
           }
         }
       }
+      const existingIds = new Set(merged.map((x) => x.i));
+      for (const dev of DAWAYA_MISSING_PHARMACY_DEVICES) {
+        if (!existingIds.has(dev.i)) merged.push(dev);
+      }
       fastPreSortVerifiedFirst(merged);
       globalIndexItems = merged;
       globalIndexLoaded = true;
@@ -2842,4 +2846,260 @@ export function getSmartClinicalRegimenForMedicine(
     aiReasonAr: '💡 مقترح الذكاء الاصطناعي حسب المادة الفعالة: مرتين يومياً (كل 12 ساعة: 8:00 ص • 8:00 م)',
     aiReasonEn: '💡 AI Clinical Suggestion: Twice daily (every 12 hours: 08:00 AM • 08:00 PM)',
   };
+}
+
+
+// ============================================================================
+// Pharmacy Departments, Subcategories, Missing Devices & Batch Price Range
+// ============================================================================
+export type DawayaPharmacyDepartment =
+  | 'medicines'
+  | 'skincare'
+  | 'haircare'
+  | 'vitamins'
+  | 'baby_oral'
+  | 'devices';
+
+export interface DawayaDepartmentSubcategory {
+  id: string;
+  ar: string;
+  en: string;
+}
+
+export interface DawayaDepartmentMeta {
+  id: DawayaPharmacyDepartment;
+  ar: string;
+  en: string;
+  icon: string;
+  descAr: string;
+  descEn: string;
+  subs: DawayaDepartmentSubcategory[];
+}
+
+export const DAWAYA_PHARMACY_DEPARTMENTS: DawayaDepartmentMeta[] = [
+  {
+    id: 'medicines',
+    ar: 'الأدوية العلاجية والروشتات',
+    en: 'Therapeutic Medicines & Rx',
+    icon: '💊',
+    descAr: 'الأدوية المسجلة والخاضعة للتسعيرة الجبرية لهيئة الدواء المصرية مقسمة بالتخصص.',
+    descEn: 'Registered prescription & OTC medicines grouped by specialty.',
+    subs: [
+      { id: 'all', ar: 'كل الأدوية العلاجية', en: 'All Medicines' },
+      { id: 'antibiotics', ar: 'المضادات الحيوية', en: 'Antibiotics' },
+      { id: 'cardio_dm', ar: 'الضغط والقلب والسكر', en: 'BP, Heart & Diabetes' },
+      { id: 'gastro', ar: 'المعدة والقولون', en: 'Stomach & GI' },
+      { id: 'pain_cold', ar: 'المسكنات والبرد والحساسية', en: 'Pain, Cold & Allergy' },
+    ],
+  },
+  {
+    id: 'skincare',
+    ar: 'الغسولات والعناية بالبشرة',
+    en: 'Cleansers & Skincare',
+    icon: '✨',
+    descAr: 'غسولات الوجه الطبية، واقيات الشمس (صن بلوك)، المرطبات، السيروم، وعلاج حب الشباب.',
+    descEn: 'Medical facial cleansers, sunscreens, moisturizers & serums.',
+    subs: [
+      { id: 'all', ar: 'كل منتجات البشرة', en: 'All Skincare' },
+      { id: 'facewash', ar: 'غسولات الوجه والمنظفات', en: 'Facial Cleansers' },
+      { id: 'sunscreen', ar: 'صن بلوك وواقي شمس', en: 'Sunscreens SPF+' },
+      { id: 'moisturizer_serum', ar: 'مرطبات وسيروم وكريمات', en: 'Moisturizers & Serums' },
+    ],
+  },
+  {
+    id: 'haircare',
+    ar: 'العناية بالشعر والشامبوهات',
+    en: 'Hair Care & Shampoos',
+    icon: '💆',
+    descAr: 'شامبوهات طبية للقشرة والتساقط، أمبولات الإنبات، اللوشن، والزيوت المغذية.',
+    descEn: 'Medical shampoos, anti-hairloss ampoules, sprays & oils.',
+    subs: [
+      { id: 'all', ar: 'كل منتجات الشعر', en: 'All Hair Care' },
+      { id: 'shampoo', ar: 'شامبوهات القشرة والفروة', en: 'Medical Shampoos' },
+      { id: 'hairloss', ar: 'علاج التساقط والأمبولات', en: 'Anti-Hairloss & Ampoules' },
+      { id: 'oils_serum', ar: 'زيوت وسيروم وحمام كريم', en: 'Oils, Serums & Masks' },
+    ],
+  },
+  {
+    id: 'vitamins',
+    ar: 'الفيتامينات والمكملات الغذائية',
+    en: 'Vitamins & Supplements',
+    icon: '☀️',
+    descAr: 'أوميجا 3، الحديد وعلاج الأنيميا، فيتامين د والكالسيوم، ومكملات المناعة والرياضيين.',
+    descEn: 'Omega 3, Iron, Vitamin D, Calcium & Immunity boosters.',
+    subs: [
+      { id: 'all', ar: 'كل الفيتامينات والمكملات', en: 'All Vitamins' },
+      { id: 'omega', ar: 'أوميجا 3 والذاكرة', en: 'Omega 3 & Brain' },
+      { id: 'iron', ar: 'الحديد والأنيميا والحمل', en: 'Iron & Anemia' },
+      { id: 'vitd_bones', ar: 'فيتامين د والعظام والمناعة', en: 'Vitamin D, Bones & Immunity' },
+    ],
+  },
+  {
+    id: 'baby_oral',
+    ar: 'الأم والطفل والفم والأسنان',
+    en: 'Baby Care & Oral Health',
+    icon: '👶',
+    descAr: 'ألبان الأطفال، كريمات الحفاضات والعناية بالبيبي، وغسولات ومعاجين الفم والأسنان.',
+    descEn: 'Infant formulas, baby care, mouthwashes & medical toothpastes.',
+    subs: [
+      { id: 'all', ar: 'كل منتجات الطفل والأسنان', en: 'All Baby & Oral' },
+      { id: 'milk', ar: 'ألبان الأطفال', en: 'Infant Formula' },
+      { id: 'baby_care', ar: 'عناية وكريمات الطفل', en: 'Baby Skincare & Diapers' },
+      { id: 'oral', ar: 'غسول الفم ومعجون الأسنان', en: 'Mouthwash & Dental' },
+    ],
+  },
+  {
+    id: 'devices',
+    ar: 'الأجهزة والمستلزمات والإسعافات',
+    en: 'Devices & First Aid Supplies',
+    icon: '🩺',
+    descAr: 'أجهزة قياس الضغط والسكر والشرائط، أجهزة البخار (نيبولايزر)، الترمومترات، والإسعافات الأولية.',
+    descEn: 'BP monitors, glucometers, strips, nebulizers & first aid kits.',
+    subs: [
+      { id: 'all', ar: 'كل الأجهزة والمستلزمات', en: 'All Devices & Supplies' },
+      { id: 'bp_glucose', ar: 'أجهزة الضغط والسكر والشرائط', en: 'BP & Glucose Monitors' },
+      { id: 'nebulizer_therm', ar: 'أجهزة البخار والترمومترات', en: 'Nebulizers & Thermometers' },
+      { id: 'firstaid', ar: 'الإسعافات الأولية والسرنجات', en: 'First Aid & Syringes' },
+    ],
+  },
+];
+
+export const DAWAYA_MISSING_PHARMACY_DEVICES: DawayaCompactIndexItem[] = [
+  { i: 'dev-omron-m2', n: 'Omron M2 Basic Digital Blood Pressure Monitor', a: 'جهاز قياس ضغط الدم الديجيتال أومرون M2', g: 'Upper Arm Automatic BP Monitor', c: 'Omron Healthcare', p: 2150, op: 1950, b: '4015672111011', f: 'Medical Device', r: 'Device', s: 'Automatic Arm Cuff', k: 'general_medicine', d: 'جهاز قياس ضغط الدم المنزلي المعتمد مع مؤشر انتظام ضربات القلب', w: 0, u: '1 Device', ch: 0, v: 1 },
+  { i: 'dev-omron-m3', n: 'Omron M3 Comfort Digital Blood Pressure Monitor', a: 'جهاز قياس ضغط الدم أومرون M3 كومفورت بالذكاء الاصطناعي للكف', g: 'IntelliWrap 360° Cuff BP Monitor', c: 'Omron Healthcare', p: 3250, op: 2950, b: '4015672111028', f: 'Medical Device', r: 'Device', s: '360° IntelliWrap Cuff', k: 'general_medicine', d: 'جهاز قياس ضغط دقيق بذاكرة لمستخدمين وكاشف رجفان أذيني', w: 0, u: '1 Device', ch: 0, v: 1 },
+  { i: 'dev-beurer-bm28', n: 'Beurer BM 28 Upper Arm Blood Pressure Monitor', a: 'جهاز قياس الضغط الألماني بيورير BM 28', g: 'German Digital BP Monitor', c: 'Beurer Germany', p: 1850, op: 1690, b: '4211125658243', f: 'Medical Device', r: 'Device', s: 'Universal Cuff 22-42cm', k: 'general_medicine', d: 'جهاز قياس ضغط ألماني الصنع مع تنبيه لعدم انتظام نبضات القلب', w: 0, u: '1 Device', ch: 0, v: 1 },
+  { i: 'dev-mercury-bp', n: 'Rossmax / Riester Mercurial Sphygmomanometer', a: 'جهاز قياس ضغط زئبقي كلاسيك مع السماعة الطبية', g: 'Classic Desk Mercury BP Monitor + Stethoscope', c: 'Rossmax / Riester', p: 1350, op: 1180, b: '4719860260015', f: 'Medical Device', r: 'Device', s: '0-300 mmHg', k: 'general_medicine', d: 'جهاز ضغط زئبقي عيادات ومنزلي عالي التحمل مع سماعة طبية', w: 0, u: '1 Set', ch: 0, v: 1 },
+  { i: 'dev-contour-plus-kit', n: 'Contour Plus One Blood Glucose Meter Kit', a: 'جهاز قياس سكر الدم كونتور بلس وان (مع 10 شرائط وقلم شك)', g: 'Smart Bluetooth Glucometer', c: 'Ascensia Diabetes Care', p: 780, op: 690, b: '5016003711005', f: 'Medical Device', r: 'Device', s: 'SmartLIGHT Accuracy', k: 'general_medicine', d: 'جهاز قياس السكر الدقيق بدون تكويد مع تنبيه فوري لنطاق السكر', w: 0, u: '1 Kit', ch: 0, v: 1 },
+  { i: 'dev-contour-strips-50', n: 'Contour Plus Blood Glucose Test Strips 50 pcs', a: 'شرائط قياس السكر كونتور بلس (عبوة 50 شريط)', g: 'Blood Glucose Test Strips', c: 'Ascensia Diabetes Care', p: 540, op: 495, b: '5016003712002', f: 'Test Strips', r: 'Device', s: '50 Strips', k: 'general_medicine', d: 'شرائط قياس سكر الدم لجهاز كونتور بلس وكوتور بلس وان', w: 0, u: '50 Strips', ch: 0, v: 1 },
+  { i: 'dev-accuchek-instant', n: 'Accu-Chek Instant Blood Glucose Monitor', a: 'جهاز قياس السكر أكيوتشيك إنستانت', g: 'Instant Blood Glucose Meter', c: 'Roche Diabetes Care', p: 820, op: 740, b: '4015630068258', f: 'Medical Device', r: 'Device', s: 'Target Range Indicator', k: 'general_medicine', d: 'جهاز قياس السكر بالدم من روش مع مؤشر لوني لمستوى السكر', w: 0, u: '1 Kit', ch: 0, v: 1 },
+  { i: 'dev-accuchek-strips-50', n: 'Accu-Chek Instant Test Strips 50 pcs', a: 'شرائط قياس السكر أكيوتشيك إنستانت (50 شريط)', g: 'Roche Glucose Test Strips', c: 'Roche Diabetes Care', p: 560, op: 510, b: '4015630068265', f: 'Test Strips', r: 'Device', s: '50 Strips', k: 'general_medicine', d: 'شرائط اختبار السكر الأصلية لجهاز أكيوتشيك إنستانت', w: 0, u: '50 Strips', ch: 0, v: 1 },
+  { i: 'dev-oncall-strips-50', n: 'On Call Plus Blood Glucose Test Strips 50 pcs', a: 'شرائط قياس السكر أون كول بلس الاقتصادية (50 شريط)', g: 'On Call Plus Glucose Strips', c: 'Acon Labs', p: 360, op: 320, b: '0845880010509', f: 'Test Strips', r: 'Device', s: '50 Strips', k: 'general_medicine', d: 'شرائط قياس السكر الاقتصادية لجهاز أون كول بلس', w: 0, u: '50 Strips', ch: 0, v: 1 },
+  { i: 'dev-nebulizer-rossmax', n: 'Rossmax NA100 Piston Nebulizer Compressor', a: 'جهاز جلسات البخار (نيبولايزر) روسمكس للمنزل والأطفال', g: 'Compressor Nebulizer System', c: 'Rossmax Swiss', p: 1450, op: 1290, b: '4719860261203', f: 'Medical Device', r: 'Device', s: 'Adult + Pediatric Masks', k: 'general_medicine', d: 'جهاز استنشاق البخار لعلاج حساسية الصدر والربو مع ماسك كبار وأطفال', w: 0, u: '1 Device', ch: 0, v: 1 },
+  { i: 'dev-nebulizer-omron', n: 'Omron NE-C28 Compressor Nebulizer', a: 'جهاز نيبولايزر أومرون C28 لجلسات الاستنشاق', g: 'High Efficiency Compressor Nebulizer', c: 'Omron Healthcare', p: 2450, op: 2200, b: '4015672103603', f: 'Medical Device', r: 'Device', s: 'V.V.T. Valve Tech', k: 'general_medicine', d: 'جهاز جلسات تنفس واستنشاق فائق الكفاءة لحساسية الصدر', w: 0, u: '1 Device', ch: 0, v: 1 },
+  { i: 'dev-thermometer-flex', n: 'Digital Flexible Tip Medical Thermometer', a: 'ترمومتر طبي ديجيتال بسن مرن لقياس الحرارة', g: 'Fast 10s Digital Thermometer', c: 'Rossmax / Beurer', p: 145, op: 120, b: '4719860262002', f: 'Medical Device', r: 'Device', s: 'Waterproof Flexible Tip', k: 'general_medicine', d: 'ترمومتر قياس حرارة رقمي سريع وآمن للأطفال والكبار', w: 0, u: '1 pc', ch: 0, v: 1 },
+  { i: 'dev-thermometer-ir', n: 'Infrared Forehead Non-Contact Thermometer', a: 'ترمومتر حراري بالليزر عن بُعد (أشعة تحت الحمراء)', g: 'Non-Contact IR Thermometer', c: 'Beurer / Jumper', p: 680, op: 610, b: '4211125795207', f: 'Medical Device', r: 'Device', s: '1-Second Reading', k: 'general_medicine', d: 'قياس حرارة الجبهة بدون تلامس للأطفال والرضع خلال ثانية واحدة', w: 0, u: '1 Device', ch: 0, v: 1 },
+  { i: 'dev-oximeter', n: 'Fingertip Pulse Oximeter SpO2 & Heart Rate', a: 'جهاز قياس نسبة الأكسجين بالدم والنبض (بالأصبع)', g: 'SpO2 & Pulse Rate Monitor', c: 'Rossmax / Contec', p: 520, op: 450, b: '6945040100126', f: 'Medical Device', r: 'Device', s: 'OLED Display', k: 'general_medicine', d: 'جهاز قياس تشبع الأكسجين في الدم ومعدل نبض القلب لمرضى الصدر', w: 0, u: '1 Device', ch: 0, v: 1 },
+  { i: 'aid-firstaid-kit', n: 'Complete Home & Car First Aid Kit 45 pcs', a: 'شنطة إسعافات أولية منزلية متكاملة (45 قطعة)', g: 'Emergency First Aid Supplies Kit', c: 'Egyptian Medical Supply', p: 320, op: 275, b: '6221099001101', f: 'First Aid Kit', r: 'Topical', s: '45 Pieces', k: 'general_medicine', d: 'تحتوي على شاش معقم، قطن طبي، بيتادين، رباط ضاغط، مقص، وبلاستر جروح', w: 0, u: '1 Kit', ch: 0, v: 1 },
+  { i: 'aid-betadine-120', n: 'Betadine Antiseptic Solution 120 ml (Povidone-Iodine 10%)', a: 'بيتادين محلول مطهر للجروح والحروق 120 مل', g: 'Povidone-Iodine 10%', c: 'Mundipharma / Nile', p: 68, op: 55, b: '6221034001204', f: 'Antiseptic Solution', r: 'Topical', s: '120 ml', k: 'anti_infectives', d: 'مطهر طبي واسع المجال للجروح السطحية وتطهير الجلد', w: 0, u: '120 ml', ch: 0, v: 1 },
+  { i: 'aid-cotton-gauze', n: 'Sterile Medical Gauze Swabs & Cotton Roll Pack', a: 'عبوة شاش طبي معقم + لفة قطن طبي صيدلي 100 جم', g: 'Sterile Cotton & Gauze', c: 'El-Nasr / Pharmaplast', p: 55, op: 45, b: '6221099002207', f: 'Medical Supply', r: 'Topical', s: '10x10cm + 100g', k: 'general_medicine', d: 'شاش معقم للغيار على الجروح مع قطن طبي نقي عالي الامتصاص', w: 0, u: '1 Pack', ch: 0, v: 1 },
+  { i: 'aid-koolfever-kids', n: 'Cooling Fever Gel Patches for Kids (4 Patches)', a: 'كمادات جل خافضة للحرارة للأطفال (4 لزقات)', g: 'Hydrogel Cooling Fever Patch', c: 'Pharmaplast / ByeBye-Fever', p: 65, op: 55, b: '6221099003303', f: 'Gel Patch', r: 'Topical', s: '8 Hours Cooling', k: 'general_medicine', d: 'لزقات جل فورية آمنة لخفض حرارة الأطفال وتخفيف الصداع لمدة 8 ساعات', w: 0, u: '4 Patches', ch: 0, v: 1 },
+];
+
+export function classifyDawayaDepartment(item: DawayaCompactIndexItem): DawayaPharmacyDepartment {
+  const txt = `${item.n} ${item.a} ${item.g} ${item.d} ${item.f}`.toLowerCase();
+  if (
+    item.i.startsWith('dev-') ||
+    item.i.startsWith('aid-') ||
+    /device|monitor|glucometer|nebulizer|thermometer|oximeter|strip|syringe|gauze|bandage|cotton|plaster|catheter|cannula|first aid|جهاز|شرائط|سرنج|شاش|قطن|رباط ضاغط|ترمومتر|نيبولايزر|كمادات|بيتادين|محلول عدسات/i.test(txt)
+  ) {
+    return 'devices';
+  }
+  if (
+    /infant formula|baby milk|diaper|pampers|cerelac|mouthwash|toothpaste|dental gel|oral|لبن اطفال|حليب للرضع|حفاض|معجون اسنان|غسول فم|مضمضه|بيبي|رضع/i.test(txt)
+  ) {
+    return 'baby_oral';
+  }
+  if (
+    /shampoo|hair|scalp|alopecia|dandruff|minoxidil|hairloss|شامبو|شعر|فروة|قشرة|تساقط/i.test(txt)
+  ) {
+    return 'haircare';
+  }
+  if (
+    /facial wash|face wash|cleanser|foaming|micellar|sunscreen|sunblock|sun care|spf|moisturiz|serum|hyaluronic|panthenol|whitening|acne|غسول|منظف وجه|صن بلوك|واقي شمس|مرطب|سيروم|تفتيح|حب الشباب|بشرة/i.test(txt) ||
+    (item.k === 'dermatology_personal_care' && /wash|lotion|cream|gel|scrub|soap|صابون|لوشن/i.test(txt))
+  ) {
+    return 'skincare';
+  }
+  if (item.k === 'vitamins_supplements') {
+    return 'vitamins';
+  }
+  return 'medicines';
+}
+
+export function matchesDawayaSubcategory(
+  item: DawayaCompactIndexItem,
+  dept: DawayaPharmacyDepartment,
+  subId: string
+): boolean {
+  if (!subId || subId === 'all') return true;
+  const txt = `${item.n} ${item.a} ${item.g} ${item.d} ${item.f}`.toLowerCase();
+
+  if (dept === 'medicines') {
+    if (subId === 'antibiotics') return item.k === 'antibiotics' || item.k === 'anti_infectives';
+    if (subId === 'cardio_dm') return item.k === 'cardiovascular' || item.k === 'endocrine_diabetes';
+    if (subId === 'gastro') return item.k === 'gastrointestinal';
+    if (subId === 'pain_cold') return item.k === 'analgesics_antipyretics' || item.k === 'respiratory_cold_allergy';
+  }
+  if (dept === 'skincare') {
+    if (subId === 'facewash') return /wash|cleanser|foam|micellar|soap|غسول|منظف|فوم|صابون/i.test(txt);
+    if (subId === 'sunscreen') return /sun|spf|uv|صن|شمس/i.test(txt);
+    if (subId === 'moisturizer_serum') return /serum|moistur|hyaluronic|panthenol|cream|lotion|gel|سيروم|مرطب|تفتيح|كريم/i.test(txt);
+  }
+  if (dept === 'haircare') {
+    if (subId === 'shampoo') return /shampoo|dandruff|شامبو|قشرة/i.test(txt);
+    if (subId === 'hairloss') return /ampoule|spray|lotion|minoxidil|fall|loss|تساقط|انبات|بخاخ|امبول/i.test(txt);
+    if (subId === 'oils_serum') return /oil|serum|mask|cream|زيت|سيروم|حمام كريم/i.test(txt);
+  }
+  if (dept === 'vitamins') {
+    if (subId === 'omega') return /omega|fish oil|dha|epa|ginkgo|memory|اوميجا|ذاكرة/i.test(txt);
+    if (subId === 'iron') return /iron|ferr|folic|anemia|حديد|انيميا|فوليك/i.test(txt);
+    if (subId === 'vitd_bones') return /vitamin d|cholecalciferol|calcium|zinc|vit c|immun|فيتامين د|كالسيوم|مناعة|زنك/i.test(txt);
+  }
+  if (dept === 'baby_oral') {
+    if (subId === 'milk') return /milk|formula|stage|لبن|حليب|مرحلة/i.test(txt);
+    if (subId === 'baby_care') return /diaper|baby|zinc|rash|حفاض|اطفال|التهاب/i.test(txt);
+    if (subId === 'oral') return /mouth|tooth|dental|oral|gum|فم|اسنان|مضمض|لثة/i.test(txt);
+  }
+  if (dept === 'devices') {
+    if (subId === 'bp_glucose') return /pressure|bp|glucose|strip|contour|accu|omron|beurer|ضغط|سكر|شرائط/i.test(txt);
+    if (subId === 'nebulizer_therm') return /nebulizer|thermometer|oximeter|بخار|نيبولايزر|ترمومتر|اكسجين/i.test(txt);
+    if (subId === 'firstaid') return /first aid|gauze|cotton|betadine|syringe|bandage|plaster|fever|اسعاف|شاش|قطن|بيتادين|سرنج|كمادات/i.test(txt);
+  }
+  return true;
+}
+
+export interface ApproximateBatchPriceInfo {
+  price: number | null;
+  minBatch: number | null;
+  maxBatch: number | null;
+  isCosmeticOrDevice: boolean;
+  noteAr: string;
+  noteEn: string;
+}
+
+export function getApproximateBatchPriceInfo(item: DawayaCompactIndexItem): ApproximateBatchPriceInfo {
+  const price = typeof item.p === 'number' && item.p > 0 ? item.p : null;
+  if (!price) {
+    return {
+      price: null,
+      minBatch: null,
+      maxBatch: null,
+      isCosmeticOrDevice: false,
+      noteAr: 'السعر غير مسجل حالياً — استعلم من الصيدلية',
+      noteEn: 'Price unlisted — check local pharmacy',
+    };
+  }
+  const dept = classifyDawayaDepartment(item);
+  const isCosmeticOrDevice = dept === 'skincare' || dept === 'haircare' || dept === 'devices' || dept === 'baby_oral';
+  const oldP = typeof item.op === 'number' && item.op > 0 && item.op < price ? item.op : null;
+
+  let minBatch: number;
+  let maxBatch: number;
+  if (isCosmeticOrDevice) {
+    minBatch = oldP && oldP >= price * 0.7 ? Math.round(oldP) : Math.max(1, Math.round(price * 0.92));
+    maxBatch = Math.round(price * 1.06);
+  } else {
+    minBatch = oldP && oldP >= price * 0.65 ? Math.round(oldP) : Math.max(1, Math.round(price * 0.88));
+    maxBatch = Math.round(price);
+  }
+
+  const noteAr = isCosmeticOrDevice
+    ? `سعر تقريبي بالصيدليات (~${price.toFixed(0)} ج.م) — يتراوح عادة بين ${minBatch} و${maxBatch} ج.م حسب الصيدلية والعروض.`
+    : `تسعيرة رسمية تقريبية (~${price.toFixed(0)} ج.م) — قد يتراوح بين ${minBatch} و${maxBatch} ج.م حسب تاريخ تشغيلة العبوة.`;
+
+  const noteEn = isCosmeticOrDevice
+    ? `Approx. pharmacy price (~${price.toFixed(0)} EGP), typically ${minBatch}–${maxBatch} EGP.`
+    : `Official EDA approx. price (~${price.toFixed(0)} EGP); batches may range ${minBatch}–${maxBatch} EGP.`;
+
+  return { price, minBatch, maxBatch, isCosmeticOrDevice, noteAr, noteEn };
 }
