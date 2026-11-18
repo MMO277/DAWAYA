@@ -1,5 +1,8 @@
 import { lastAiVisionDiagnostic } from './geminiApi';
 import { SmartNativeSelect } from './SmartChoiceSelect';
+import SmartDoseTimeCalibrator from './SmartDoseTimeCalibrator';
+import { calculateAutoDoseTimes, formatTime12Hour } from './trackerData';
+import { getSmartClinicalRegimenForMedicine } from './dawayaDrugDatabaseService';
 /**
  * AiActionConfirmationCard.tsx
  *
@@ -30,13 +33,46 @@ export default function AiActionConfirmationCard({
   const isAr = lang === 'ar';
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const f of proposal.fields) {
       init[f.key] = f.value;
     }
+    const medName = init.medicineName || init.drugName || '';
+    if (medName && (proposal.actionType === 'save_medical_document' || proposal.actionType === 'add_prescription' || proposal.actionType === 'add_medication')) {
+      const smartReg = getSmartClinicalRegimenForMedicine(medName);
+      if (!init.frequency) {
+        init.frequency = smartReg.frequencyKey;
+      }
+      if (!init.prescribedDose) {
+        init.prescribedDose = isAr ? smartReg.defaultDoseTextAr : smartReg.defaultDoseTextEn;
+      }
+      if (!init.durationDays && proposal.actionType !== 'add_medication') {
+        init.durationDays = String(smartReg.defaultDurationDays);
+      }
+      if (!init.route) {
+        init.route = smartReg.route;
+      }
+      if (!init.doseTimes) {
+        init.doseTimes = calculateAutoDoseTimes(
+          init.frequency === 'thrice_daily' || init.frequency === 'four_times_daily' ? '06:00' : smartReg.firstDoseTime,
+          init.frequency
+        ).join(', ');
+      }
+    }
     return init;
   });
+
+  const hasDoseScheduleCalibration =
+    proposal.fields.some((f) => f.key === 'frequency' || f.key === 'doseTimes' || f.key === 'newDoseTimes') ||
+    ((proposal.actionType === 'save_medical_document' || proposal.actionType === 'add_prescription' || proposal.actionType === 'add_medication') &&
+      Boolean(fieldValues.medicineName || fieldValues.drugName));
+
+  const parsedDoseTimes = (fieldValues.doseTimes || fieldValues.newDoseTimes || '')
+    .split(/[,\u060C]+/)
+    .map((s) => s.trim())
+    .filter((s) => /^\d{2}:\d{2}$/.test(s));
 
   const safety = proposal.safetyPreview;
   const safetyColors: Record<
@@ -54,7 +90,7 @@ export default function AiActionConfirmationCard({
     if (saving || proposal.status !== 'pending_confirmation') return;
     setSaving(true);
     try {
-      await onConfirm(proposal.id, editing ? fieldValues : undefined);
+      await onConfirm(proposal.id, fieldValues);
       setEditing(false);
     } finally {
       setSaving(false);
@@ -65,10 +101,11 @@ export default function AiActionConfirmationCard({
     switch (proposal.actionType) {
       case 'add_prescription':
       case 'update_prescription_status':
+      case 'save_medical_document':
         return {
-          to: '/prescription-radar',
-          labelAr: '📡 افتح رادار الروشتة',
-          labelEn: '📡 Open Prescription Radar',
+          to: '/patient-dashboard',
+          labelAr: '⏰ افتح لوحة المريض وجدول الجرعات',
+          labelEn: '⏰ Open Patient Dashboard & Schedule',
         };
       case 'create_reminder':
       case 'update_reminder':
@@ -98,11 +135,11 @@ export default function AiActionConfirmationCard({
         overflowX: 'hidden',
         background: '#ffffff',
         border: '1.5px solid #cbd5e1',
-        borderTop: '4px solid #0284c7',
-        borderRadius: '12px',
+        borderTop: '4px solid #138866',
+        borderRadius: '14px',
         padding: '12px 14px',
         marginTop: '8px',
-        boxShadow: '0 4px 14px rgba(15, 23, 42, 0.06)',
+        boxShadow: '0 6px 18px rgba(13, 31, 56, 0.08)',
         color: '#0f172a',
         fontSize: '0.88rem',
       }}
@@ -123,7 +160,7 @@ export default function AiActionConfirmationCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '1.25rem' }}>{proposal.icon}</span>
           <div>
-            <strong style={{ color: '#0b3c5d', fontSize: '0.93rem', display: 'block' }}>
+            <strong style={{ color: '#0D1F38', fontSize: '0.93rem', display: 'block' }}>
               {isAr ? proposal.titleAr : proposal.titleEn}
             </strong>
             <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
@@ -206,8 +243,8 @@ export default function AiActionConfirmationCard({
             </div>
             <div>
               {isAr
-                ? 'بص على البيانات اللي طلعناها تحت، ولو في حاجة محتاجة تظبيط دوس «تعديل» قبل ما تحفظ.'
-                : 'Review the extracted fields below and edit any unclear field before saving.'}
+                ? 'بص على البيانات ومواعيد الجرعات تحت، وتقدر تغير عدد المرات والساعات بضغطة واحدة قبل ما تحفظ.'
+                : 'Review extracted details and calibrate your daily dose times below before saving.'}
             </div>
           </div>
         </div>
@@ -250,9 +287,9 @@ export default function AiActionConfirmationCard({
         className="action-fields-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(115px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))',
           gap: '6px',
-          marginBottom: '10px',
+          marginBottom: '8px',
         }}
       >
         {proposal.fields.map((field) => {
@@ -301,9 +338,17 @@ export default function AiActionConfirmationCard({
                 field.inputType === 'select' && field.options ? (
                   <SmartNativeSelect
                     value={currentVal}
-                    onChange={(e) =>
-                      setFieldValues((prev) => ({ ...prev, [field.key]: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      const nextVal = e.target.value;
+                      setFieldValues((prev) => {
+                        const updated = { ...prev, [field.key]: nextVal };
+                        if (field.key === 'frequency' && nextVal) {
+                          const startH = nextVal === 'thrice_daily' || nextVal === 'four_times_daily' ? '06:00' : '08:00';
+                          updated.doseTimes = calculateAutoDoseTimes(startH, nextVal).join(', ');
+                        }
+                        return updated;
+                      });
+                    }}
                     style={{
                       width: '100%',
                       padding: '6px 8px',
@@ -356,24 +401,83 @@ export default function AiActionConfirmationCard({
             </div>
           );
         })}
+      </div>
 
-        {/* Source & Evidence Status Row */}
+      {/* Interactive Smart Dose Count & Clock Schedule Calibrator */}
+      {hasDoseScheduleCalibration && proposal.status === 'pending_confirmation' && (
+        <SmartDoseTimeCalibrator
+          medicineName={fieldValues.medicineName || fieldValues.drugName || ''}
+          frequency={fieldValues.frequency || 'twice_daily'}
+          doseTimes={parsedDoseTimes}
+          isAr={isAr}
+          compact
+          onChange={(nextFreq, nextTimes, suggestedDose, suggestedDur) => {
+            setFieldValues((prev) => ({
+              ...prev,
+              frequency: nextFreq,
+              doseTimes: nextTimes.join(', '),
+              newDoseTimes: nextTimes.join(', '),
+              ...(!prev.prescribedDose && suggestedDose ? { prescribedDose: suggestedDose } : {}),
+              ...(!prev.durationDays && suggestedDur ? { durationDays: String(suggestedDur) } : {}),
+            }));
+          }}
+        />
+      )}
+
+      {/* Display Confirmed Dose Times Badge Summary after Save */}
+      {hasDoseScheduleCalibration && proposal.status === 'confirmed_saved' && parsedDoseTimes.length > 0 && (
         <div
           style={{
+            background: '#f0fdf4',
+            border: '1px solid #86efac',
+            borderRadius: '10px',
+            padding: '8px 10px',
+            marginBottom: '10px',
             display: 'flex',
-            justifyContent: 'space-between',
+            alignItems: 'center',
             flexWrap: 'wrap',
             gap: '6px',
-            fontSize: '0.74rem',
-            color: '#64748b',
-            padding: '2px 4px',
           }}
         >
-          <span>
-            📌 <b>{isAr ? 'الحالة:' : 'Verification:'}</b>{' '}
-            {isAr ? proposal.verificationBadgeAr : proposal.verificationBadgeEn}
-          </span>
+          <strong style={{ fontSize: '0.78rem', color: '#166534' }}>
+            ⏰ {isAr ? 'مواعيد الجرعات اليومية المتسجلة:' : 'Scheduled Daily Dose Times:'}
+          </strong>
+          {parsedDoseTimes.map((t, i) => (
+            <span
+              key={i}
+              style={{
+                background: '#0D1F38',
+                color: '#CFD29D',
+                padding: '2px 9px',
+                borderRadius: '999px',
+                fontSize: '0.74rem',
+                fontWeight: 800,
+              }}
+            >
+              {isAr ? `الجرعة ${i + 1}: ` : `Dose ${i + 1}: `}
+              {formatTime12Hour(t, isAr)}
+            </span>
+          ))}
         </div>
+      )}
+
+      {/* Source & Evidence Status Row */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '6px',
+          fontSize: '0.74rem',
+          color: '#64748b',
+          padding: '2px 4px',
+          marginBottom: '8px',
+        }}
+      >
+        <span>
+          📌 <b>{isAr ? 'الحالة:' : 'Verification:'}</b>{' '}
+          {isAr ? proposal.verificationBadgeAr : proposal.verificationBadgeEn}
+        </span>
       </div>
 
       {/* Full Prescription WhatsApp Order Button (No Prices, Clean Medication + Form/Dose List) */}
@@ -426,12 +530,12 @@ export default function AiActionConfirmationCard({
             disabled={saving}
             onClick={handleConfirmClick}
             style={{
-              background: safety.status === 'urgent' ? '#dc2626' : '#0284c7',
+              background: safety.status === 'urgent' ? '#dc2626' : 'linear-gradient(135deg, #0D1F38 0%, #138866 100%)',
               color: '#fff',
-              fontWeight: 700,
-              padding: '7px 14px',
-              borderRadius: '8px',
-              fontSize: '0.84rem',
+              fontWeight: 800,
+              padding: '8px 16px',
+              borderRadius: '10px',
+              fontSize: '0.85rem',
               cursor: saving ? 'wait' : 'pointer',
             }}
           >
@@ -440,8 +544,8 @@ export default function AiActionConfirmationCard({
                 ? '⏳ بحفظهولك...'
                 : '⏳ Saving...'
               : isAr
-                ? '✅ أيوه، أكد واحفظ'
-                : '✅ Confirm and Save'}
+                ? '✅ أيوه، أكد واحفظ بالمواعيد دي'
+                : '✅ Confirm and Save Schedule'}
           </button>
 
           <button
@@ -461,8 +565,8 @@ export default function AiActionConfirmationCard({
                 ? '✔️ خلصت تعديل'
                 : '✔️ Done Editing'
               : isAr
-                ? '✏️ تعديل البيانات'
-                : '✏️ Edit'}
+                ? '✏️ تعديل النص'
+                : '✏️ Edit Text'}
           </button>
 
           <button

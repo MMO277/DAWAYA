@@ -28,6 +28,7 @@ import {
 import { evaluateMedicationSafety } from './medicationSafetyEngine';
 import {
   DAWAYA_CATEGORY_LABELS,
+  getSmartClinicalRegimenForMedicine,
   matchMedicationCandidatesFromDatabase,
   MedicationDatabaseMatchCandidate,
   searchDawayaIndex,
@@ -41,6 +42,7 @@ import {
   validateMedicalUploadFile,
 } from './aiDocumentProcessor';
 import { SmartNativeSelect } from './SmartChoiceSelect';
+import SmartDoseTimeCalibrator from './SmartDoseTimeCalibrator';
 import DawayaLogo from './DawayaLogo';
 import Disclaimer from './Disclaimer';
 import { tr } from './types';
@@ -98,6 +100,8 @@ export default function PatientDashboard() {
   const [reviewStartDate, setReviewStartDate] = useState(() => formatLocalDateYYYYMMDD());
   const [reviewDurationDays, setReviewDurationDays] = useState<number>(7);
   const [reviewFirstDoseTime, setReviewFirstDoseTime] = useState('08:00');
+  const [reviewDoseTimes, setReviewDoseTimes] = useState<string[]>(['08:00', '20:00']);
+  const [calibratingScheduleId, setCalibratingScheduleId] = useState<string | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewConfirmedByPatient, setReviewConfirmedByPatient] = useState(false);
   const [createScheduleOnConfirm, setCreateScheduleOnConfirm] = useState(true);
@@ -285,11 +289,17 @@ export default function PatientDashboard() {
           firstRx?.antibioticId ||
           ''
       );
+      const smartReg = detectedName ? getSmartClinicalRegimenForMedicine(detectedName) : null;
+      const effFreq = firstRx?.frequency || smartReg?.frequencyKey || 'twice_daily';
+      const effStart = effFreq === 'thrice_daily' || effFreq === 'four_times_daily' ? '06:00' : smartReg?.firstDoseTime || '08:00';
+      const effTimes = calculateAutoDoseTimes(effStart, effFreq);
       setReviewStrength(firstJsonMed?.strength || firstRx?.prescribedDose || '');
-      setReviewDose(firstRx?.prescribedDose || '');
-      setReviewFreq(firstRx?.frequency || 'twice_daily');
-      setReviewRoute(firstRx?.route || 'oral');
-      setReviewDurationDays(firstRx?.durationDays || 7);
+      setReviewDose(firstRx?.prescribedDose || (smartReg ? (isAr ? smartReg.defaultDoseTextAr : smartReg.defaultDoseTextEn) : ''));
+      setReviewFreq(effFreq);
+      setReviewFirstDoseTime(effTimes[0] || effStart);
+      setReviewDoseTimes(effTimes);
+      setReviewRoute(firstRx?.route || smartReg?.route || 'oral');
+      setReviewDurationDays(firstRx?.durationDays || smartReg?.defaultDurationDays || 7);
       setReviewNotes(firstRx?.notes || '');
       setReviewConfirmedByPatient(false);
 
@@ -396,10 +406,10 @@ export default function PatientDashboard() {
 
       if (reviewMedName.trim() && pendingAnalysis.category === 'prescription') {
         const rxId = `rx-${Date.now()}`;
-        const calculatedTimes = calculateAutoDoseTimes(
-          reviewFirstDoseTime || '08:00',
-          reviewFreq || 'twice_daily'
-        );
+        const calculatedTimes =
+          reviewDoseTimes && reviewDoseTimes.length > 0
+            ? reviewDoseTimes
+            : calculateAutoDoseTimes(reviewFirstDoseTime || '08:00', reviewFreq || 'twice_daily');
         const schId = `sch-${Date.now()}`;
 
         const savedRx: SavedPrescription = {
@@ -1226,6 +1236,20 @@ export default function PatientDashboard() {
                   </div>
                 </div>
 
+                <SmartDoseTimeCalibrator
+                  medicineName={reviewMedName}
+                  frequency={reviewFreq}
+                  doseTimes={reviewDoseTimes}
+                  isAr={isAr}
+                  onChange={(nextFreq, nextTimes, suggestedDose, suggestedDur) => {
+                    setReviewFreq(nextFreq);
+                    setReviewDoseTimes(nextTimes);
+                    if (nextTimes[0]) setReviewFirstDoseTime(nextTimes[0]);
+                    if (!reviewDose && suggestedDose) setReviewDose(suggestedDose);
+                    if (suggestedDur && !reviewDurationDays) setReviewDurationDays(suggestedDur);
+                  }}
+                />
+
                 <div style={{ display: 'grid', gap: '6px', marginTop: '4px' }}>
                   {pendingAnalysis.category === 'prescription' && (
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -1489,6 +1513,21 @@ export default function PatientDashboard() {
                       <div className="row wrapRow" style={{ gap: '6px' }}>
                         <button
                           type="button"
+                          className="btn small"
+                          style={{
+                            background: calibratingScheduleId === sch.id ? '#0D1F38' : '#138866',
+                            borderColor: '#138866',
+                            color: '#ffffff',
+                            fontWeight: 800,
+                          }}
+                          onClick={() =>
+                            setCalibratingScheduleId((prev) => (prev === sch.id ? null : sch.id))
+                          }
+                        >
+                          ⚙️ {isAr ? 'معايرة المرات والساعات' : 'Calibrate Doses & Times'}
+                        </button>
+                        <button
+                          type="button"
                           className="btn small ghost"
                           onClick={() => downloadScheduleIcs(sch, isAr)}
                         >
@@ -1522,6 +1561,75 @@ export default function PatientDashboard() {
                         )}
                       </div>
                     </div>
+
+                    {/* Visual Daily Dose Clock Badges */}
+                    {Array.isArray(sch.doseTimes) && sch.doseTimes.length > 0 && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '6px',
+                          padding: '6px 10px',
+                          borderRadius: '10px',
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                        }}
+                      >
+                        <span className="small" style={{ fontWeight: 800, color: '#0D1F38' }}>
+                          🕒 {isAr ? 'مواعيد الجرعات في اليوم:' : 'Daily Dose Times:'}
+                        </span>
+                        {sch.doseTimes.map((tStr, tIdx) => (
+                          <span
+                            key={tIdx}
+                            style={{
+                              background: 'linear-gradient(135deg, #0D1F38 0%, #138866 100%)',
+                              color: '#ffffff',
+                              padding: '3px 10px',
+                              borderRadius: '999px',
+                              fontSize: '0.76rem',
+                              fontWeight: 800,
+                            }}
+                          >
+                            {isAr ? `الجرعة ${tIdx + 1}: ` : `Dose ${tIdx + 1}: `}
+                            {formatTime12Hour(tStr, isAr)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Inline Smart Dose & Time Calibrator for this Schedule */}
+                    {calibratingScheduleId === sch.id && (
+                      <SmartDoseTimeCalibrator
+                        medicineName={sch.medicineName}
+                        frequency={sch.frequency}
+                        doseTimes={sch.doseTimes}
+                        isAr={isAr}
+                        compact
+                        onChange={(nextFreq, nextTimes) => {
+                          setSchedules((prev) =>
+                            prev.map((item) => {
+                              if (item.id !== sch.id) return item;
+                              const regeneratedDoses = generateScheduleDoses(
+                                item.id,
+                                item.startDate,
+                                nextTimes,
+                                item.durationDays,
+                                item.doses
+                              );
+                              return {
+                                ...item,
+                                frequency: nextFreq,
+                                firstDoseTime: nextTimes[0] || item.firstDoseTime,
+                                doseTimes: nextTimes,
+                                doses: regeneratedDoses,
+                                updatedAt: new Date().toISOString(),
+                              };
+                            })
+                          );
+                        }}
+                      />
+                    )}
 
                     {nextDose && sch.trackingStatus !== 'paused' && sch.trackingStatus !== 'discontinued' && (
                       <div

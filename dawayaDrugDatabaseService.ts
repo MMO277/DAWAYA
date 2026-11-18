@@ -2677,3 +2677,169 @@ export function matchMedicationCandidatesFromDatabase(params: {
         : `Please confirm the strength and dosage form for "${best.brandNameEn}" before saving.`,
   };
 }
+
+export interface SmartClinicalRegimen {
+  frequencyKey: 'once_daily' | 'twice_daily' | 'thrice_daily' | 'four_times_daily';
+  dosesPerDay: 1 | 2 | 3 | 4;
+  firstDoseTime: string;
+  defaultDoseTimes: string[];
+  defaultDoseTextAr: string;
+  defaultDoseTextEn: string;
+  defaultDurationDays: number;
+  route: 'oral' | 'suspension' | 'injection' | 'topical';
+  mealTimingAr: string;
+  mealTimingEn: string;
+  aiReasonAr: string;
+  aiReasonEn: string;
+}
+
+export function getSmartClinicalRegimenForMedicine(
+  queryOrItem: string | DawayaCompactIndexItem | null | undefined
+): SmartClinicalRegimen {
+  const item =
+    typeof queryOrItem === 'string'
+      ? findDawayaIndexItemSync(queryOrItem)
+      : queryOrItem || null;
+
+  const rawStr = typeof queryOrItem === 'string' ? queryOrItem.toLowerCase() : '';
+  const gLow = ((item?.g || '') + ' ' + rawStr).toLowerCase();
+  const fLow = ((item?.f || '') + ' ' + (item?.n || '') + ' ' + rawStr).toLowerCase();
+  const sText = item?.s || '';
+
+  let route: 'oral' | 'suspension' | 'injection' | 'topical' = 'oral';
+  if (/vial|amp|infusion|injection|فيال|امبول|أمبول|حقن|وريد|عضل/i.test(fLow)) {
+    route = 'injection';
+  } else if (/susp|syrup|syr|drops|شراب|معلق|نقط/i.test(fLow)) {
+    route = 'suspension';
+  } else if (/cream|gel|ointment|lotion|topical|spray|wash|soap|كريم|مرهم|جل|لوشن|موضعي|غسول|بخاخ/i.test(fLow)) {
+    route = 'topical';
+  }
+
+  const unitLabelAr =
+    route === 'topical'
+      ? 'دهان موضعي خفيف'
+      : route === 'suspension'
+        ? 'جرعة بالسرنجة الفموية'
+        : route === 'injection'
+          ? 'حقنة واحدة'
+          : /cap|كبسول/i.test(fLow)
+            ? 'كبسولة واحدة' + (sText ? ' (' + sText + ')' : '')
+            : /sachet|eff|فوار|كيس|أكياس/i.test(fLow)
+              ? 'كيس واحد على نصف كوب ماء' + (sText ? ' (' + sText + ')' : '')
+              : 'قرص واحد' + (sText ? ' (' + sText + ')' : '');
+
+  const unitLabelEn =
+    route === 'topical'
+      ? 'Thin topical layer'
+      : route === 'suspension'
+        ? 'Measured oral dose'
+        : route === 'injection'
+          ? '1 injection'
+          : /cap/i.test(fLow)
+            ? '1 capsule' + (sText ? ' (' + sText + ')' : '')
+            : '1 tablet' + (sText ? ' (' + sText + ')' : '');
+
+  // 1) Check 3-times-daily (every 8 hours: 06:00 AM, 02:00 PM, 10:00 PM) medications
+  if (
+    /(metronidazole|ibuprofen|diclofenac|ketoprofen|dexketoprofen|paracetamol|acetaminophen|nifuroxazide|chymotrypsin|trypsin|domperidone|metoclopramide|hyoscine|tiemonium|mebeverine|simethicone|amoxicillin(?!.*clav)|cephradine|cephalexin|cefadroxil|fusidic|clindamycin|pseudoephedrine|chlorpheniramine|guaiaphenesin|bromhexine|ambroxol|ivy|ميترونيدازول|ايبوبروفين|ديكلوفيناك|باراسيتامول|نيفوروكسازيد|اموكسيسيلين)/i.test(
+      gLow
+    ) &&
+    !/amoxicillin.*clav|clavulan/i.test(gLow)
+  ) {
+    const isNsaid = /(ibuprofen|diclofenac|ketoprofen|dexketoprofen)/i.test(gLow);
+    const isBeforeMeal = /(chymotrypsin|trypsin|domperidone|metoclopramide|mebeverine)/i.test(gLow);
+    const mealAr = isBeforeMeal
+      ? 'قبل الأكل بـ 30 إلى 60 دقيقة'
+      : isNsaid
+        ? 'بعد الأكل مباشرة لتفادي التهاب المعدة'
+        : 'بعد الأكل';
+    const mealEn = isBeforeMeal
+      ? '30-60 mins before meals'
+      : isNsaid
+        ? 'Immediately after meals to protect the stomach'
+        : 'After meals';
+    const dur = /(metronidazole|amoxicillin|cephalexin|clindamycin)/i.test(gLow) ? 7 : 5;
+
+    return {
+      frequencyKey: 'thrice_daily',
+      dosesPerDay: 3,
+      firstDoseTime: '06:00',
+      defaultDoseTimes: ['06:00', '14:00', '22:00'],
+      defaultDoseTextAr: unitLabelAr + ' — ' + mealAr,
+      defaultDoseTextEn: unitLabelEn + ' — ' + mealEn,
+      defaultDurationDays: dur,
+      route,
+      mealTimingAr: mealAr,
+      mealTimingEn: mealEn,
+      aiReasonAr: '💡 مقترح الذكاء الاصطناعي حسب المادة الفعالة: 3 مرات يومياً (كل 8 ساعات: 6:00 ص • 2:00 م • 10:00 م)',
+      aiReasonEn: '💡 AI Clinical Suggestion: 3 times daily (every 8 hours: 06:00 AM • 02:00 PM • 10:00 PM)',
+    };
+  }
+
+  // 2) Check Once-Daily (every 24 hours) medications
+  if (
+    /(azithromycin|levofloxacin|moxifloxacin|cefixime|ceftriaxone|cefdinir|pantoprazole|esomeprazole|omeprazole|lansoprazole|rabeprazole|bisoprolol|amlodipine|valsartan|telmisartan|losartan|candesartan|olmesartan|nebivolol|atenolol|ramipril|perindopril|lisinopril|empagliflozin|dapagliflozin|sitagliptin|glimepiride|gliclazide|atorvastatin|rosuvastatin|simvastatin|clopidogrel|apixaban|rivaroxaban|warfarin|cetirizine|levocetirizine|fexofenadine|loratadine|desloratadine|montelukast|levothyroxine|isotretinoin|adapalene|tamsulosin|finasteride|febuxostat|allopurinol|ازيثرومايسين|ليفوفلوكساسين|بانتوبرازول|ايزوميبرازول|اوميبرازول|بيسوبرولول|املوديبين|اتورفاستاتين|روزوفاستاتين|سيتيريزين|ليفوسيتيريزين|فيكسوفينادين|ليفوثيروكسين|ايزوتريتينوين)/i.test(
+      gLow
+    )
+  ) {
+    const isPpiOrThyroid = /(pantoprazole|esomeprazole|omeprazole|lansoprazole|rabeprazole|levothyroxine)/i.test(gLow);
+    const isEvening = /(atorvastatin|rosuvastatin|simvastatin|cetirizine|levocetirizine|loratadine|desloratadine|montelukast|adapalene|tamsulosin)/i.test(gLow);
+    const startT = isEvening ? '21:00' : '08:00';
+    const mealAr = isPpiOrThyroid
+      ? 'على معدة فارغة قبل الإفطار بـ 30 دقيقة'
+      : isEvening
+        ? 'مرة واحدة مساءً قبل النوم'
+        : 'مرة واحدة يومياً بعد الإفطار';
+    const mealEn = isPpiOrThyroid
+      ? 'On an empty stomach 30 mins before breakfast'
+      : isEvening
+        ? 'Once daily in the evening'
+        : 'Once daily after breakfast';
+    const dur = /azithromycin/i.test(gLow)
+      ? 3
+      : /(levofloxacin|moxifloxacin|cefixime|ceftriaxone|cefdinir|cetirizine|levocetirizine|fexofenadine)/i.test(gLow)
+        ? 7
+        : /(pantoprazole|esomeprazole|omeprazole|lansoprazole)/i.test(gLow)
+          ? 14
+          : 30;
+
+    return {
+      frequencyKey: 'once_daily',
+      dosesPerDay: 1,
+      firstDoseTime: startT,
+      defaultDoseTimes: [startT],
+      defaultDoseTextAr: unitLabelAr + ' — ' + mealAr,
+      defaultDoseTextEn: unitLabelEn + ' — ' + mealEn,
+      defaultDurationDays: dur,
+      route,
+      mealTimingAr: mealAr,
+      mealTimingEn: mealEn,
+      aiReasonAr: '💡 مقترح الذكاء الاصطناعي حسب المادة الفعالة: مرة واحدة يومياً (كل 24 ساعة — ' + (isEvening ? '9:00 مساءً' : '8:00 صباحاً') + ')',
+      aiReasonEn: '💡 AI Clinical Suggestion: Once daily (every 24 hours — ' + (isEvening ? '09:00 PM' : '08:00 AM') + ')',
+    };
+  }
+
+  // 3) Default / Twice-Daily (every 12 hours: 08:00 AM, 08:00 PM) medications
+  const dur = /(amoxicillin|clavulan|ampicillin|sulbactam|ciprofloxacin|norfloxacin|ofloxacin|cefuroxime|cefotaxime|clarithromycin|doxycycline|linezolid|nitrofurantoin|sulfamethoxazole|trimethoprim)/i.test(
+    gLow
+  )
+    ? 7
+    : /(metformin|vildagliptin|benfotiamine)/i.test(gLow)
+      ? 30
+      : 7;
+
+  return {
+    frequencyKey: 'twice_daily',
+    dosesPerDay: 2,
+    firstDoseTime: '08:00',
+    defaultDoseTimes: ['08:00', '20:00'],
+    defaultDoseTextAr: unitLabelAr + ' — بعد الأكل كل 12 ساعة',
+    defaultDoseTextEn: unitLabelEn + ' — After meals every 12 hours',
+    defaultDurationDays: dur,
+    route,
+    mealTimingAr: 'بعد الأكل',
+    mealTimingEn: 'After meals',
+    aiReasonAr: '💡 مقترح الذكاء الاصطناعي حسب المادة الفعالة: مرتين يومياً (كل 12 ساعة: 8:00 ص • 8:00 م)',
+    aiReasonEn: '💡 AI Clinical Suggestion: Twice daily (every 12 hours: 08:00 AM • 08:00 PM)',
+  };
+}

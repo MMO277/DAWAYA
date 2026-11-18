@@ -1,5 +1,6 @@
 import { PostOpeningExpiryTrackerCard } from './egyptianClinicalInnovations';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { ChangeEvent, useMemo, useState, useEffect } from 'react';
+import { extractTextFromBlisterOrBoxImage } from './blisterStripOcrMatcher';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
 import { tr } from './types';
@@ -108,6 +109,8 @@ export default function HomeMedicineCabinet() {
   });
 
   const [searchQ, setSearchQ] = useState('');
+  const [scanningBox, setScanningBox] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'expired' | 'valid' | 'drops_liquids'>('all');
 
   useEffect(() => {
@@ -124,6 +127,32 @@ export default function HomeMedicineCabinet() {
     if (!q || q.length < 2) return [];
     return searchDawayaIndex(indexItems, { query: q }, isAr).slice(0, 8);
   }, [searchQ, indexItems, isAr]);
+
+  const handleScanCabinetBoxImage = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || scanningBox) return;
+    setScanningBox(true);
+    setScanFeedback(isAr ? '🤖 جاري قراءة اسم الدواء من صورة العلبة أو الشريط...' : '🤖 Reading medicine from image...');
+    try {
+      const res = await extractTextFromBlisterOrBoxImage(file, lang);
+      const hit =
+        (res.detectedBarcode && findDawayaIndexItemSync(res.detectedBarcode)) ||
+        (res.aiMatchedId && findDawayaIndexItemSync(res.aiMatchedId)) ||
+        (res.aiDetectedDrugName && findDawayaIndexItemSync(res.aiDetectedDrugName)) ||
+        (res.extractedText && findDawayaIndexItemSync(res.extractedText));
+      if (hit) {
+        handleAddFromSearch(hit);
+        setScanFeedback(isAr ? `✅ تمت إضافة «${hit.a || hit.n}» إلى دولاب أدوية البيت بنجاح!` : `✅ Added "${hit.n}" to your Home Medicine Cabinet!`);
+      } else {
+        setScanFeedback(isAr ? '⚠️ تعذر التعرف التلقائي على العلبة — جرب صورة أوضح أو ابحث بالاسم.' : '⚠️ Could not identify medicine from image.');
+      }
+    } catch {
+      setScanFeedback(isAr ? '⚠️ حدث خطأ أثناء قراءة الصورة.' : '⚠️ Failed to read image.');
+    } finally {
+      setScanningBox(false);
+    }
+  };
 
   const handleAddFromSearch = (med: DawayaCompactIndexItem) => {
     const isLiquid = /drops|syrup|susp|solution|قطرة|شراب|نقط/i.test(`${med.f} ${med.n} ${med.a}`);
@@ -265,11 +294,47 @@ export default function HomeMedicineCabinet() {
         </div>
       </section>
 
-      {/* Add Medicine Search Bar */}
+      {/* Add Medicine Search Bar + AI Box/Strip Photo Upload */}
       <section className="card" style={{ position: 'relative' }}>
-        <b style={{ display: 'block', marginBottom: '6px', fontSize: '0.96rem', color: 'var(--navy)' }}>
-          🔍 {tr(lang, 'فرز شريط دواء مجهول: ابحث باسمه لإضافته وفحص دواعي استعماله وصلاحيته:', 'Search any medicine strip in your drawer to inspect use and safety:')}
-        </b>
+        <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <b style={{ fontSize: '0.96rem', color: 'var(--navy)' }}>
+            🔍 {tr(lang, 'فرز شريط أو علبة دواء: ابحث بالاسم أو ارفع صورته بالـ AI لإضافته وفحص صلاحيته:', 'Search or upload a photo of any medicine box/strip to inspect use & expiry:')}
+          </b>
+          <label
+            className="btn small"
+            style={{
+              background: 'linear-gradient(135deg, #0D1F38 0%, #138866 100%)',
+              color: '#ffffff',
+              fontWeight: 800,
+              cursor: scanningBox ? 'wait' : 'pointer',
+            }}
+          >
+            📷 {scanningBox ? tr(lang, 'جاري القراءة...', 'Scanning...') : tr(lang, 'صوّر أو ارفع صورة العلبة / الشريط', 'Upload Box / Strip Photo (AI)')}
+            <input
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              disabled={scanningBox}
+              onChange={handleScanCabinetBoxImage}
+            />
+          </label>
+        </div>
+        {scanFeedback && (
+          <div
+            style={{
+              marginBottom: '8px',
+              padding: '7px 11px',
+              borderRadius: '9px',
+              background: scanFeedback.startsWith('✅') ? '#ecfdf5' : '#eff6ff',
+              border: '1px solid #138866',
+              color: '#0D1F38',
+              fontSize: '0.82rem',
+              fontWeight: 800,
+            }}
+          >
+            {scanFeedback}
+          </div>
+        )}
         <input
           type="search"
           value={searchQ}

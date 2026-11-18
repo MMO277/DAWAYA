@@ -999,6 +999,12 @@ export function applyEditedFieldsToProposal<K extends AiActionType>(
     if (editedValues.prescribedDose !== undefined) first.prescribedDose = editedValues.prescribedDose;
     if (editedValues.route !== undefined) first.route = editedValues.route;
     if (editedValues.frequency !== undefined) first.frequency = editedValues.frequency;
+    if (editedValues.doseTimes !== undefined) {
+      first.doseTimes = editedValues.doseTimes
+        .split(/[,\u060C]+/)
+        .map((s: string) => s.trim())
+        .filter((s: string) => /^\d{2}:\d{2}$/.test(s));
+    }
     if (editedValues.durationDays !== undefined) {
       const n = parseInt(editedValues.durationDays, 10);
       first.durationDays = !isNaN(n) && n >= 1 ? n : null;
@@ -1019,6 +1025,12 @@ export function applyEditedFieldsToProposal<K extends AiActionType>(
       if (editedValues.medicineName !== undefined) rx.medicineName = editedValues.medicineName;
       if (editedValues.prescribedDose !== undefined) rx.prescribedDose = editedValues.prescribedDose;
       if (editedValues.frequency !== undefined) rx.frequency = editedValues.frequency;
+      if (editedValues.doseTimes !== undefined) {
+        rx.doseTimes = editedValues.doseTimes
+          .split(/[,\u060C]+/)
+          .map((s: string) => s.trim())
+          .filter((s: string) => /^\d{2}:\d{2}$/.test(s));
+      }
       if (editedValues.durationDays !== undefined) {
         const n = parseInt(editedValues.durationDays, 10);
         rx.durationDays = !isNaN(n) && n >= 1 ? n : null;
@@ -1543,6 +1555,7 @@ export async function executeConfirmedAiAction<K extends AiActionType>(params: {
         messageEn: `✅ Saved prescription (${addedRxList.map((r) => r.medicineName).join(', ')}) to your Prescription Radar account.`,
         updatedProfile: withAudit,
         updatedPrescriptions: nextPrescriptions,
+        updatedSchedules: nextSchedules,
         auditLogId: auditEntry.id,
       };
     }
@@ -1809,45 +1822,102 @@ export async function executeConfirmedAiAction<K extends AiActionType>(params: {
       let linkedRxId: string | undefined;
       let nextPrescriptions = [...prescriptions];
 
+      let nextSchedules = [...schedules];
+      let createdScheduleTimesSummaryAr = '';
+
       if (a.category === 'prescription' && rxList.length > 0 && a.saveExtractedPrescriptions !== false) {
-        for (const item of rxList) {
+        const rawFirstAny = (proposal.args as any)?.extractedPrescriptions?.[0];
+        const customTimesFromCard: string[] = Array.isArray(rawFirstAny?.doseTimes) ? rawFirstAny.doseTimes : [];
+
+        for (let idx = 0; idx < rxList.length; idx++) {
+          const item = rxList[idx];
           if (!item.medicineName) continue;
+          const effFreq = item.frequency || 'twice_daily';
+          const effDur = item.durationDays || 7;
+          const defaultStart = effFreq === 'thrice_daily' || effFreq === 'four_times_daily' ? '06:00' : '08:00';
+          const effDoseTimes =
+            idx === 0 && customTimesFromCard.length > 0
+              ? customTimesFromCard
+              : calculateAutoDoseTimes(defaultStart, effFreq);
+
           const valRes = validatePrescriptionInstructions(
             {
               antibioticId: item.antibioticId,
               medicineName: item.medicineName,
               prescribedDose: item.prescribedDose,
               route: item.route,
-              frequency: item.frequency,
-              durationDays: item.durationDays,
+              frequency: effFreq,
+              doseTimes: effDoseTimes,
+              durationDays: effDur,
               notes: item.notes,
-              isOcrUnverified: true,
-              verifiedByPatient: !item.unreadableFields || item.unreadableFields.length === 0,
+              isOcrUnverified: false,
+              verifiedByPatient: true,
             },
-            schedules,
+            nextSchedules,
             profile.allergies
           );
+          const rxId = `rx-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`;
+          const schId = `sch-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`;
+          const startDate = formatLocalDateYYYYMMDD();
+          const endDate = computeEndDate(startDate, effDur);
+          const generatedDoses = generateScheduleDoses(schId, startDate, effDoseTimes, effDur);
+
           const rxRecord: SavedPrescription = {
-            id: `rx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            id: rxId,
             ...(item.antibioticId ? { antibioticId: item.antibioticId } : {}),
             medicineName: item.medicineName,
-            prescribedDose: item.prescribedDose,
-            route: item.route,
-            frequency: item.frequency,
-            durationDays: item.durationDays,
+            prescribedDose: item.prescribedDose || 'حسب إرشادات الطبيب',
+            route: item.route || 'oral',
+            frequency: effFreq,
+            firstDoseTime: effDoseTimes[0] || defaultStart,
+            doseTimes: effDoseTimes,
+            startDate,
+            durationDays: effDur,
             ...(item.notes ? { notes: item.notes } : {}),
             captureMethod: 'ocr_upload',
             imageFileName: a.fileName,
-            isOcrUnverified: valRes.verificationStatus !== 'verified_by_patient',
-            verificationStatus: valRes.verificationStatus,
-            verifiedByPatient: valRes.verificationStatus === 'verified_by_patient',
-            clarificationFlags: valRes.flags,
+            isOcrUnverified: false,
+            verificationStatus: 'verified_by_patient',
+            verifiedByPatient: true,
+            verifiedAt: nowIso,
+            clarificationFlags: valRes.warningFlags,
+            linkedScheduleId: schId,
             createdAt: nowIso,
             updatedAt: nowIso,
           };
           if (!linkedRxId) linkedRxId = rxRecord.id;
           nextPrescriptions = [rxRecord, ...nextPrescriptions];
+
+          const newSchedule: TreatmentSchedule = {
+            id: schId,
+            prescriptionId: rxId,
+            ...(item.antibioticId ? { antibioticId: item.antibioticId } : {}),
+            medicineName: item.medicineName,
+            prescribedDose: item.prescribedDose || 'حسب إرشادات الطبيب',
+            route: item.route || 'oral',
+            frequency: effFreq,
+            firstDoseTime: effDoseTimes[0] || defaultStart,
+            doseTimes: effDoseTimes,
+            startDate,
+            durationDays: effDur,
+            endDate,
+            ...(item.notes ? { notes: item.notes } : {}),
+            captureMethod: 'ocr_upload',
+            verificationStatus: 'verified_by_patient',
+            verifiedByPatient: true,
+            verifiedAt: nowIso,
+            trackingStatus: 'active',
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            doses: generatedDoses,
+          };
+          nextSchedules = [newSchedule, ...nextSchedules];
+          if (idx === 0) {
+            createdScheduleTimesSummaryAr = ` وفعّلتلك جدول مواعيد الجرعات اليومي الساعة (${effDoseTimes.map((t) => formatTime12Hour(t, true)).join(' • ')})`;
+          }
         }
+        saveSchedules(nextSchedules, uid);
+        params.onSchedulesUpdated?.(nextSchedules);
         params.onPrescriptionsUpdated?.(nextPrescriptions);
       }
 
@@ -1895,7 +1965,7 @@ export async function executeConfirmedAiAction<K extends AiActionType>(params: {
         success: true,
         actionType: 'save_medical_document',
         messageAr: `✅ تمام، حفظتلك المستند الطبي «${a.title}» في ملفك الصحي${
-          linkedRxId ? ' وربطته برادار الروشتة' : ''
+          linkedRxId ? ' وربطته برادار الروشتة' + createdScheduleTimesSummaryAr : ''
         }. ${storageNoteAr}`,
         messageEn: `✅ Saved medical document "${a.title}" to your Health Profile${
           linkedRxId ? ' and linked it to Prescription Radar' : ''

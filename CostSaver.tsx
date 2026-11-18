@@ -1,7 +1,8 @@
 import { SmartPharmacyBillOptimizerCard } from './egyptianClinicalInnovations';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import SmartMedDoseReminderBadge from './SmartMedDoseReminderBadge';
-import { useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { extractTextFromBlisterOrBoxImage } from './blisterStripOcrMatcher';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
 import { pick, tr } from './types';
@@ -55,6 +56,8 @@ export default function CostSaver() {
 
   const [viewMode, setViewMode] = useState<'single' | 'basket'>('single');
   const [basketSearchQ, setBasketSearchQ] = useState('');
+  const [rxUploadBusy, setRxUploadBusy] = useState(false);
+  const [rxUploadMsg, setRxUploadMsg] = useState('');
 
   // Initial prescription basket with popular Egyptian prescribed medicines
   const [basket, setBasket] = useState<EgyptianCommercialProduct[]>(() => {
@@ -94,6 +97,63 @@ export default function CostSaver() {
     if (basket.some((b) => b.productId === prod.productId)) return;
     setBasket((prev) => [...prev, prod]);
     setBasketSearchQ('');
+  };
+
+  const handleAiCostSaverImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || rxUploadBusy) return;
+    setRxUploadBusy(true);
+    setRxUploadMsg(isAr ? '🤖 جاري قراءة صورة الدواء/الروشتة بالذكاء الاصطناعي وحساب البدائل الأرخص...' : '🤖 Analyzing image with AI...');
+    try {
+      const res = await extractTextFromBlisterOrBoxImage(file, lang);
+      const rawCandidates = [res.detectedBarcode, res.aiMatchedId, res.aiDetectedDrugName, res.extractedText]
+        .filter(Boolean)
+        .join('\n');
+      const parts = (res.aiDetectedDrugName || rawCandidates)
+        .split(/\s*\+\s*|\r?\n/)
+        .map((s) => s.trim())
+        .filter((s) => s.length >= 3);
+      const matchedProds: EgyptianCommercialProduct[] = [];
+      for (const pStr of parts) {
+        const hit = findDawayaIndexItemSync(pStr);
+        if (hit) {
+          const prod = dawayaIndexItemToCommercialProduct(hit);
+          if (!matchedProds.some((x) => x.productId === prod.productId)) {
+            matchedProds.push(prod);
+          }
+        }
+      }
+      if (matchedProds.length === 0) {
+        const fallbackHit = findDawayaIndexItemSync(rawCandidates);
+        if (fallbackHit) matchedProds.push(dawayaIndexItemToCommercialProduct(fallbackHit));
+      }
+      if (matchedProds.length > 0) {
+        if (viewMode === 'single' && matchedProds.length === 1) {
+          setSelectedProduct(matchedProds[0]);
+        } else {
+          setViewMode('basket');
+          setBasket((prev) => {
+            const next = [...prev];
+            for (const mp of matchedProds) {
+              if (!next.some((b) => b.productId === mp.productId)) next.unshift(mp);
+            }
+            return next;
+          });
+        }
+        setRxUploadMsg(
+          isAr
+            ? `✅ تم التعرف على (${matchedProds.map((m) => m.tradeNameAr).join(' + ')}) وحساب البدائل المصرية الأرخص!`
+            : `✅ Identified (${matchedProds.map((m) => m.tradeNameEn).join(' + ')}) and calculated cheaper equivalents!`
+        );
+      } else {
+        setRxUploadMsg(isAr ? '⚠️ لم نتمكن من قراءة اسم دواء واضح من الصورة — جرب صورة أوضح أو ابحث بالاسم.' : '⚠️ Could not identify a clear medicine name from image.');
+      }
+    } catch {
+      setRxUploadMsg(isAr ? '⚠️ تعذر تحليل الصورة، يرجى المحاولة مرة أخرى.' : '⚠️ Image analysis failed.');
+    } finally {
+      setRxUploadBusy(false);
+    }
   };
 
   const handleRemoveFromBasket = (productId: string) => {
@@ -237,11 +297,45 @@ export default function CostSaver() {
             >
               🛒 {tr(lang, `حاسبة وفر روشتة كاملة (${basket.length})`, `Rx Basket Optimizer (${basket.length})`)}
             </button>
+            <label
+              className="btn small"
+              style={{
+                background: 'linear-gradient(135deg, #0D1F38 0%, #138866 100%)',
+                color: '#fff',
+                fontWeight: 800,
+                cursor: rxUploadBusy ? 'wait' : 'pointer',
+              }}
+            >
+              📷 {rxUploadBusy ? tr(lang, 'جاري القراءة...', 'Scanning...') : tr(lang, 'ارفع صورة علبة / روشتة بالـ AI', 'Upload Box / Rx Photo (AI)')}
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                disabled={rxUploadBusy}
+                onChange={handleAiCostSaverImageUpload}
+              />
+            </label>
             <Link to="/medicines" className="btn ghost small">
               💊 {tr(lang, 'السجل الدوائي الكامل', 'Full Drug Registry')}
             </Link>
           </div>
         </div>
+        {rxUploadMsg && (
+          <div
+            style={{
+              marginTop: '10px',
+              padding: '8px 12px',
+              borderRadius: '10px',
+              background: rxUploadMsg.startsWith('✅') ? '#ecfdf5' : '#eff6ff',
+              border: '1px solid #138866',
+              color: '#0D1F38',
+              fontSize: '0.84rem',
+              fontWeight: 800,
+            }}
+          >
+            {rxUploadMsg}
+          </div>
+        )}
 
         {/* View Mode 2: Prescription Basket Optimizer Controls */}
         {viewMode === 'basket' && (

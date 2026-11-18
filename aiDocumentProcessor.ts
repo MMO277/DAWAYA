@@ -560,7 +560,11 @@ export function extractMultiplePrescriptionItemsFromText(
     });
   }
 
-  const candidateSegments: string[] = [cleanText];
+  const numberedLines = cleanText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => /^(?:\d+[.)\-]|[-*•–]|R\/)\s*[A-Za-z\u0600-\u06FF]/i.test(l));
+  const candidateSegments: string[] = numberedLines.length >= 2 ? numberedLines : [cleanText];
 
   const results: AddPrescriptionItemArgs[] = [];
   for (const seg of candidateSegments) {
@@ -999,8 +1003,8 @@ export function classifyAndSummarizeDocumentText(
     extractedFields.notes = ocrResult.extractedNotes;
   }
 
-  // Extract common lab values if present in text
-  const hbMatch = rawText.match(/(?:hb|hemoglobin|هيموجلوبين)[:\s]*(\d+(?:\.\d+)?)/i);
+  // Extract comprehensive lab values if present in text (Hb, WBC, Creatinine, CRP, HbA1c, TSH, Ferritin, Uric Acid, ALT, AST, Vitamin D)
+  const hbMatch = rawText.match(/(?:hb\b|hemoglobin|هيموجلوبين)[:\s]*(\d+(?:\.\d+)?)/i);
   if (hbMatch) extractedFields.hemoglobin = hbMatch[1];
   const wbcMatch = rawText.match(/(?:wbc|كرات الدم البيضاء)[:\s]*(\d+(?:[.,]\d+)?)/i);
   if (wbcMatch) extractedFields.wbc = wbcMatch[1];
@@ -1008,6 +1012,20 @@ export function classifyAndSummarizeDocumentText(
   if (creatMatch) extractedFields.serumCreatinine = creatMatch[1];
   const crpMatch = rawText.match(/(?:crp|سي آر بي)[:\s]*(\d+(?:\.\d+)?)/i);
   if (crpMatch) extractedFields.crp = crpMatch[1];
+  const hba1cMatch = rawText.match(/(?:hba1c|a1c|السكر التراكمي|الهيموجلوبين السكري)[:\s]*(\d+(?:\.\d+)?)\s*%?/i);
+  if (hba1cMatch) extractedFields.hba1c = hba1cMatch[1] + '%';
+  const tshMatch = rawText.match(/(?:\btsh\b|هرمون الغدة الدرقية)[:\s]*(\d+(?:\.\d+)?)/i);
+  if (tshMatch) extractedFields.tsh = tshMatch[1];
+  const ferritinMatch = rawText.match(/(?:ferritin|فيريتين|مخزون الحديد)[:\s]*(\d+(?:\.\d+)?)/i);
+  if (ferritinMatch) extractedFields.ferritin = ferritinMatch[1];
+  const uricMatch = rawText.match(/(?:uric\s*acid|حمض اليوريك|اليوريك)[:\s]*(\d+(?:\.\d+)?)/i);
+  if (uricMatch) extractedFields.uricAcid = uricMatch[1];
+  const vitDMatch = rawText.match(/(?:vitamin\s*d|25\s*\(?oh\)?\s*d|فيتامين\s*د)[:\s]*(\d+(?:\.\d+)?)/i);
+  if (vitDMatch) extractedFields.vitaminD = vitDMatch[1];
+  const altMatch = rawText.match(/(?:\balt\b|\bsgpt\b)[:\s]*(\d+(?:\.\d+)?)/i);
+  if (altMatch) extractedFields.alt = altMatch[1];
+  const astMatch = rawText.match(/(?:\bast\b|\bsgot\b)[:\s]*(\d+(?:\.\d+)?)/i);
+  if (astMatch) extractedFields.ast = astMatch[1];
 
   // Add Culture & Sensitivity fields if detected
   if (cultureFindings.organism) {

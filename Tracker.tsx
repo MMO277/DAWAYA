@@ -6,6 +6,7 @@ import {
 } from './medicationSafetyEngine';
 import { useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
 import SmartDoseAlarmCard from './SmartDoseAlarmCard';
+import SmartDoseTimeCalibrator from './SmartDoseTimeCalibrator';
 import { createPortal } from 'react-dom';
 import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -1829,66 +1830,20 @@ export default function Tracker() {
                   </div>
                 </div>
 
-                {/* First Dose Time + Number of Daily Doses -> Auto-calculates all times */}
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>
-                      <b>🕒 {isAr ? 'وقت بدء أول جرعة:' : 'First Dose Start Time:'} *</b>
-                    </label>
-                    <input
-                      type="time"
-                      value={firstDoseTime}
-                      onChange={(e) => handleFirstDoseTimeChange(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>
-                      <b>🔢 {isAr ? 'عدد الجرعات يومياً (يحسب المواعيد تلقائياً):' : 'Doses Per Day (Auto-Calculates Times):'} *</b>
-                    </label>
-                    <SmartChoiceSelect
-                      value={frequency}
-                      onChange={(val) => handleFrequencyChange(val)}
-                      placeholder={isAr ? '— اختر التكرار اليومي —' : '— Select Daily Frequency —'}
-                      modalTitle={isAr ? '🔢 عدد الجرعات يومياً (يحسب المواعيد تلقائياً)' : 'Doses Per Day'}
-                      options={[
-                        { value: 'once_daily', icon: '1️⃣', label: isAr ? 'جرعة واحدة يومياً (كل 24 ساعة)' : '1 dose daily (every 24h)', badge: isAr ? 'كل 24 ساعة' : 'Every 24h' },
-                        { value: 'twice_daily', icon: '2️⃣', label: isAr ? 'جرعتان يومياً (كل 12 ساعة)' : '2 doses daily (every 12h)', badge: isAr ? 'كل 12 ساعة' : 'Every 12h' },
-                        { value: 'thrice_daily', icon: '3️⃣', label: isAr ? '3 جرعات يومياً (كل 8 ساعات)' : '3 doses daily (every 8h)', badge: isAr ? 'كل 8 ساعات' : 'Every 8h' },
-                        { value: 'four_times_daily', icon: '4️⃣', label: isAr ? '4 جرعات يومياً (كل 6 ساعات)' : '4 doses daily (every 6h)', badge: isAr ? 'كل 6 ساعات' : 'Every 6h' },
-                      ]}
-                    />
-                  </div>
-                </div>
-
-                {doseTimes.length > 0 && (
-                  <div className="form-group">
-                    <label>
-                      <b>
-                        ✨{' '}
-                        {isAr
-                          ? 'مواعيد الجرعات المحسوبة تلقائياً خلال اليوم:'
-                          : 'Auto-Calculated Scheduled Dose Times:'}
-                      </b>
-                    </label>
-                    <div className="dose-times-grid">
-                      {doseTimes.map((time, idx) => (
-                        <div key={idx} className="time-input-group">
-                          <small>
-                            {isAr ? `الجرعة ${idx + 1}` : `Dose ${idx + 1}`} ({formatTime12Hour(time, isAr)}):
-                          </small>
-                          <input
-                            type="time"
-                            value={time}
-                            onChange={(e) => handleTimeChange(idx, e.target.value)}
-                            required
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Interactive Smart Dose Count & Clock Schedule Calibrator */}
+                <SmartDoseTimeCalibrator
+                  medicineName={medName}
+                  frequency={frequency || 'twice_daily'}
+                  doseTimes={doseTimes}
+                  isAr={isAr}
+                  onChange={(nextFreq, nextTimes, suggestedDose, suggestedDur) => {
+                    setFrequency(nextFreq);
+                    setDoseTimes(nextTimes);
+                    if (nextTimes[0]) setFirstDoseTime(nextTimes[0]);
+                    if (!prescribedDose && suggestedDose) setPrescribedDose(suggestedDose);
+                    if (durationDays === '' && suggestedDur) setDurationDays(suggestedDur);
+                  }}
+                />
 
                 <div className="form-row">
                   <div className="form-group">
