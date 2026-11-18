@@ -1351,41 +1351,94 @@ export async function scheduleMultipleNativeDoseAlarms(
 const RAMADAN_ALARM_ENABLED_KEY = 'dawaya_ramadan_alarm_enabled_v1';
 const RAMADAN_TIMES_CACHE_KEY = 'dawaya_ramadan_times_v1';
 const RAMADAN_LAST_FIRED_KEY = 'dawaya_ramadan_last_fired_min_v1';
+const RAMADAN_RECITER_KEY = 'dawaya_ramadan_adhan_reciter_v1';
 
-export function playRamadanAdhanOrSuhurSound(
-  kind: 'maghrib' | 'suhur',
-  isAr = true,
-  govName = ''
-): void {
+export interface RamadanAdhanReciter {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  url: string;
+}
+
+export const RAMADAN_ADHAN_RECITERS: RamadanAdhanReciter[] = [
+  {
+    id: 'alafasy',
+    nameAr: 'الشيخ مشاري راشد العفاسي',
+    nameEn: 'Mishary Rashid Alafasy',
+    url: 'https://cdn.jsdelivr.net/gh/Kiwifu/adhan-mp3@main/Mishary_Al_Afasy_-_HQ_(%D9%85%D8%B4%D8%A7%D8%B1%D9%8A_%D8%A7%D9%84%D8%B9%D9%81%D8%A7%D8%B3%D9%8A).mp3',
+  },
+  {
+    id: 'makkah',
+    nameAr: 'أذان الحرم المكي (علي بن أحمد ملا)',
+    nameEn: 'Makkah Haram (Ali Mulla)',
+    url: 'https://cdn.jsdelivr.net/gh/Kiwifu/adhan-mp3@main/Ali_Ibn_Ahmad_Mala_HQ.mp3',
+  },
+  {
+    id: 'abdulbasit',
+    nameAr: 'الشيخ عبد الباسط عبد الصمد (مصر)',
+    nameEn: 'Abdulbasit Abdusamad (Egypt)',
+    url: 'https://cdn.jsdelivr.net/gh/Kiwifu/adhan-mp3@main/Abdulbasit_Abdusamad_5_-_Cairo_(%D8%B9%D8%A8%D8%AF_%D8%A7%D9%84%D8%A8%D8%A7%D8%B3%D8%B7_%D8%B9%D8%A8%D8%AF_%D8%A7%D9%84%D8%B5%D9%85%D8%AF_-_%D8%A7%D9%84%D9%82%D8%A7%D9%87%D8%B1%D8%A9).mp3',
+  },
+  {
+    id: 'refaat',
+    nameAr: 'الشيخ محمد رفعت (إذاعة القاهرة)',
+    nameEn: 'Muhammad Refaat (Cairo)',
+    url: 'https://cdn.jsdelivr.net/gh/Kiwifu/adhan-mp3@main/Muhammad_Refaat_-_Cairo_(%D9%85%D8%AD%D9%85%D8%AF_%D8%B1%D9%81%D8%B9%D8%AA_-_%D8%A7%D9%84%D9%82%D8%A7%D9%87%D8%B1%D8%A9).mp3',
+  },
+  {
+    id: 'toubar',
+    nameAr: 'الشيخ نصر الدين طوبار',
+    nameEn: 'Nasreddine Toubar',
+    url: 'https://cdn.jsdelivr.net/gh/Kiwifu/adhan-mp3@main/Nasreddine_Toubar_(%D9%86%D8%B5%D8%B1_%D8%A7%D9%84%D8%AF%D9%8A%D9%86_%D8%B7%D9%88%D8%A8%D8%A7%D8%B1).mp3',
+  },
+];
+
+let activeRamadanAudio: HTMLAudioElement | null = null;
+
+export function stopRamadanAdhanAudio(): void {
+  try {
+    if (activeRamadanAudio) {
+      activeRamadanAudio.pause();
+      activeRamadanAudio.currentTime = 0;
+      activeRamadanAudio = null;
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function playFallbackAdhanOrSuhurChime(kind: 'maghrib' | 'suhur', isAr: boolean, govName: string): void {
   try {
     const AudioCtx = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext ||
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (AudioCtx) {
       const ctx = new AudioCtx();
-      // Hijaz-inspired spiritual chime for Maghrib Adhan, warm chime for Suhur
       const notes =
         kind === 'maghrib'
-          ? [293.66, 311.13, 392.0, 440.0, 392.0, 311.13, 293.66] // D4, Eb4, G4, A4, G4, Eb4, D4
-          : [349.23, 440.0, 523.25, 440.0, 587.33]; // F4, A4, C5, A4, D5
+          ? [293.66, 311.13, 392.0, 440.0, 392.0, 311.13, 293.66]
+          : [523.25, 659.25, 783.99, 659.25, 783.99];
       let t = ctx.currentTime + 0.04;
-      notes.forEach((freq, idx) => {
-        const dur = kind === 'maghrib' ? (idx === 3 || idx === 6 ? 0.65 : 0.36) : 0.34;
+      notes.forEach((freq) => {
+        const dur = 0.28;
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = kind === 'maghrib' ? 'triangle' : 'sine';
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, t);
         gain.gain.setValueAtTime(0.001, t);
-        gain.gain.linearRampToValueAtTime(0.24, t + 0.05);
+        gain.gain.linearRampToValueAtTime(0.22, t + 0.04);
         gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(t);
         osc.stop(t + dur + 0.02);
-        t += dur * 0.92;
+        t += dur * 0.9;
       });
     }
   } catch {
-    /* ignore audio context restrictions */
+    /* ignore */
   }
 
   try {
@@ -1394,25 +1447,65 @@ export function playRamadanAdhanOrSuhurSound(
       const text =
         kind === 'maghrib'
           ? isAr
-            ? `اللهُ أكبر، اللهُ أكبر. حان الآن موعد أذان المغرب${govName ? ` في محافظة ${govName}` : ''}. تقبل الله صيامكم، تذكر أخذ أدوية الإفطار بعد التمر والماء.`
-            : `Allahu Akbar, Allahu Akbar. It is time for Maghrib Adhan (Iftar). Remember to take your Iftar medications after water and dates.`
+            ? `الله أكبر، الله أكبر. حان الآن موعد أذان المغرب${govName ? ` في محافظة ${govName}` : ''}. تقبل الله صيامكم.`
+            : `Allahu Akbar, Allahu Akbar. It is time for Maghrib Adhan.`
           : isAr
-            ? `تنبيه السحور: اقترب أذان الفجر${govName ? ` في محافظة ${govName}` : ''}. حان الآن وقت وجبة السحور وشرب الماء وتناول أدوية السحور.`
-            : `Suhur Reminder: Fajr is approaching. Time for your Suhur meal, hydration, and scheduled Suhur medications.`;
+            ? `تنبيه السحور: حان الآن وقت السحور قبل أذان الفجر${govName ? ` في محافظة ${govName}` : ''}. قم وتسحر واشرب الماء ولا تنسَ أدوية السحور.`
+            : `Suhur Reminder: Time for Suhur before Fajr. Drink water and take your Suhur medications.`;
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = isAr ? 'ar-EG' : 'en-US';
-      utter.rate = 0.92;
-      utter.pitch = 1.0;
+      utter.rate = 0.94;
       window.setTimeout(() => {
         try {
           window.speechSynthesis.speak(utter);
         } catch {
           /* ignore */
         }
-      }, 650);
+      }, 450);
     }
   } catch {
-    /* ignore speech synthesis */
+    /* ignore */
+  }
+}
+
+export function playRamadanAdhanOrSuhurSound(
+  kind: 'maghrib' | 'suhur',
+  isAr = true,
+  govName = '',
+  reciterIdOverride?: string
+): void {
+  stopRamadanAdhanAudio();
+
+  if (kind === 'maghrib') {
+    let reciterId = reciterIdOverride || 'alafasy';
+    if (!reciterIdOverride) {
+      try {
+        reciterId = localStorage.getItem(RAMADAN_RECITER_KEY) || 'alafasy';
+      } catch {
+        /* ignore */
+      }
+    }
+    const reciter = RAMADAN_ADHAN_RECITERS.find((r) => r.id === reciterId) || RAMADAN_ADHAN_RECITERS[0];
+    try {
+      const audio = new Audio(reciter.url);
+      audio.crossOrigin = 'anonymous';
+      audio.volume = 0.95;
+      activeRamadanAudio = audio;
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {
+          playFallbackAdhanOrSuhurChime('maghrib', isAr, govName);
+        });
+      }
+      audio.onerror = () => {
+        playFallbackAdhanOrSuhurChime('maghrib', isAr, govName);
+      };
+    } catch {
+      playFallbackAdhanOrSuhurChime('maghrib', isAr, govName);
+    }
+  } else {
+    // Suhur: Standard wake-up alarm chime + Arabic reminder to wake up for Suhur
+    playFallbackAdhanOrSuhurChime('suhur', isAr, govName);
   }
 
   try {
@@ -1420,7 +1513,7 @@ export function playRamadanAdhanOrSuhurSound(
       kind === 'maghrib'
         ? isAr
           ? '🕌 الله أكبر، الله أكبر — أذان المغرب'
-          : '🕌 Allahu Akbar — Maghrib Adhan (Iftar)'
+          : '🕌 Allahu Akbar — Maghrib Adhan'
         : isAr
           ? '🌙 حان وقت السحور قبل أذان الفجر'
           : '🌙 Suhur Time Before Fajr';

@@ -690,30 +690,7 @@ export default function Medicines() {
                 }}
               />
             </label>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('dawaya_full_db');
-                setSelectedDawayaCat((prev) => (prev === 'dermatology_personal_care' ? 'all' : 'dermatology_personal_care'));
-                setPage(1);
-              }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 13px',
-                background: selectedDawayaCat === 'dermatology_personal_care' ? '#0d9488' : '#f0fdfa',
-                color: selectedDawayaCat === 'dermatology_personal_care' ? '#ffffff' : '#0f766e',
-                border: '1.5px solid #99f6e4',
-                fontWeight: 800,
-                fontSize: '0.82rem',
-                borderRadius: '999px',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              🧴 {isAr ? 'غسولات وكريمات البشرة' : 'Skincare & Cleansers'}
-            </button>
+
           </div>
         </div>
 
@@ -834,53 +811,148 @@ export default function Medicines() {
           </div>
         )}
 
-        {/* 6 Pharmacy Departments + Dynamic Subcategories */}
+        {/* 6 Pharmacy Departments — Style 2: Compact 3x2 Rounded-Square Grid */}
         {activeTab === 'dawaya_full_db' && (
-          <div
-            style={{
-              marginBottom: '12px',
-              padding: '12px 14px',
-              borderRadius: '14px',
-              background: 'rgba(13, 148, 136, 0.05)',
-              border: '1px solid rgba(13, 148, 136, 0.18)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px',
-            }}
-          >
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+          <div style={{ marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingInline: '2px' }}>
+              <b style={{ fontSize: '0.98rem', color: '#0D1F38' }}>
+                {isAr ? 'الفئات والأقسام' : 'Pharmacy Categories'}
+              </b>
               <button
                 type="button"
-                className={`btn small ${selectedDept === 'all' ? '' : 'ghost'}`}
                 onClick={() => {
                   setSelectedDept('all');
                   setSelectedSub('all');
                   setSelectedDawayaCat('all');
                   setPage(1);
                 }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: selectedDept === 'all' ? '#0f766e' : '#0284c7',
+                  fontWeight: 800,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  padding: '2px 6px',
+                }}
               >
-                🏥 {isAr ? 'كل أقسام الصيدلية' : 'All Pharmacy Sections'}
+                {selectedDept === 'all'
+                  ? (isAr ? '✓ معروض الكل' : '✓ Showing All')
+                  : (isAr ? 'عرض الكل ↺' : 'Show All ↺')}
               </button>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                gap: '10px',
+              }}
+            >
               {DAWAYA_PHARMACY_DEPARTMENTS.map((dept) => {
                 const isAct = selectedDept === dept.id;
+                const shortTitle =
+                  dept.id === 'medicines' ? (isAr ? 'الأدوية' : 'Medicines') :
+                  dept.id === 'skincare' ? (isAr ? 'البشرة' : 'Skincare') :
+                  dept.id === 'haircare' ? (isAr ? 'الشعر' : 'Hair Care') :
+                  dept.id === 'vitamins' ? (isAr ? 'الفيتامينات' : 'Vitamins') :
+                  dept.id === 'baby_oral' ? (isAr ? 'الطفل والأسنان' : 'Baby & Oral') :
+                  (isAr ? 'الأجهزة الطبية' : 'Devices');
+
+                const renderVectorIcon = (strokeCol: string) => {
+                  if (dept.id === 'medicines') {
+                    return (
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={strokeCol} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="4" y="8" width="16" height="8" rx="4" transform="rotate(-35 12 12)" />
+                        <line x1="9.5" y1="9.5" x2="14.5" y2="14.5" />
+                      </svg>
+                    );
+                  }
+                  if (dept.id === 'skincare') {
+                    return (
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={strokeCol} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="7" y="8" width="10" height="12" rx="3" />
+                        <path d="M10 8V5h4v3M9 4h7" />
+                        <path d="M10 13h4" />
+                      </svg>
+                    );
+                  }
+                  if (dept.id === 'haircare') {
+                    return (
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={strokeCol} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M8 8h8l1 12H7L8 8z" />
+                        <path d="M10 8V5h4v3" />
+                        <circle cx="12" cy="14" r="2" />
+                      </svg>
+                    );
+                  }
+                  if (dept.id === 'vitamins') {
+                    return (
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={strokeCol} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="6" y="7" width="12" height="13" rx="3" />
+                        <path d="M8 4h8v3H8z" />
+                        <path d="M12 11v5M9.5 13.5h5" />
+                      </svg>
+                    );
+                  }
+                  if (dept.id === 'baby_oral') {
+                    return (
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={strokeCol} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 7h6v13H9z" />
+                        <path d="M10 7c0-2.5 4-2.5 4 0" />
+                        <line x1="11" y1="11" x2="13" y2="11" />
+                        <line x1="11" y1="14" x2="13" y2="14" />
+                      </svg>
+                    );
+                  }
+                  return (
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={strokeCol} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="5" y="4" width="14" height="16" rx="3" />
+                      <rect x="8" y="7" width="8" height="5" rx="1" />
+                      <circle cx="12" cy="16" r="1.5" />
+                    </svg>
+                  );
+                };
+
                 return (
                   <button
                     key={dept.id}
                     type="button"
-                    className={`btn small ${isAct ? '' : 'ghost'}`}
-                    style={
-                      isAct
-                        ? { background: '#0f766e', borderColor: '#0f766e', color: '#fff', fontWeight: 800 }
-                        : { fontWeight: 700 }
-                    }
                     onClick={() => {
-                      setSelectedDept(dept.id);
+                      setSelectedDept((prev) => (prev === dept.id ? 'all' : dept.id));
                       setSelectedSub('all');
                       setSelectedDawayaCat('all');
                       setPage(1);
                     }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '7px',
+                      padding: '13px 6px',
+                      borderRadius: '16px',
+                      background: isAct ? '#0f766e' : '#eefaf6',
+                      color: isAct ? '#ffffff' : '#0D1F38',
+                      border: isAct ? '2px solid #0f766e' : '1.5px solid #d1fae5',
+                      boxShadow: isAct
+                        ? '0 8px 18px rgba(15, 118, 110, 0.25)'
+                        : '0 3px 10px rgba(15, 23, 42, 0.04)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
                   >
-                    {dept.icon} {isAr ? dept.ar : dept.en}
+                    {renderVectorIcon(isAct ? '#ffffff' : '#0f766e')}
+                    <span
+                      style={{
+                        fontSize: '0.82rem',
+                        fontWeight: 800,
+                        lineHeight: 1.2,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {shortTitle}
+                    </span>
                   </button>
                 );
               })}
@@ -890,44 +962,40 @@ export default function Medicines() {
               <div
                 style={{
                   display: 'flex',
-                  flexWrap: 'wrap',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
                   gap: '8px',
-                  paddingTop: '8px',
-                  borderTop: '1px dashed rgba(13, 148, 136, 0.25)',
+                  overflowX: 'auto',
+                  paddingBottom: '4px',
+                  WebkitOverflowScrolling: 'touch',
                 }}
               >
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                  {activeDeptMeta.subs.map((sub) => {
-                    const isSubAct = selectedSub === sub.id;
-                    return (
-                      <button
-                        key={sub.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSub(sub.id);
-                          setPage(1);
-                        }}
-                        style={{
-                          padding: '4px 11px',
-                          borderRadius: '999px',
-                          border: isSubAct ? '1.5px solid #0284c7' : '1px solid rgba(148, 163, 184, 0.45)',
-                          background: isSubAct ? '#e0f2fe' : '#ffffff',
-                          color: isSubAct ? '#0369a1' : '#334155',
-                          fontWeight: isSubAct ? 800 : 600,
-                          fontSize: '0.78rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {isAr ? sub.ar : sub.en}
-                      </button>
-                    );
-                  })}
-                </div>
-                <span className="small muted" style={{ fontSize: '0.76rem' }}>
-                  {isAr ? activeDeptMeta.descAr : activeDeptMeta.descEn}
-                </span>
+                {activeDeptMeta.subs.map((sub) => {
+                  const isSubAct = selectedSub === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSub(sub.id);
+                        setPage(1);
+                      }}
+                      style={{
+                        padding: '6px 13px',
+                        borderRadius: '999px',
+                        border: isSubAct ? '1.5px solid #0f766e' : '1px solid #cbd5e1',
+                        background: isSubAct ? '#0f766e' : '#ffffff',
+                        color: isSubAct ? '#ffffff' : '#334155',
+                        fontWeight: isSubAct ? 800 : 600,
+                        fontSize: '0.79rem',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {isAr ? sub.ar : sub.en}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

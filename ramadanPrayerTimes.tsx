@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { EGYPTIAN_GOVERNORATES } from './partnerTypes';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useSyncedHealthProfile } from './allergyData';
-import { playRamadanAdhanOrSuhurSound, scheduleRamadanAdhanAndSuhurAlarms } from './nativeAlarmService';
+import {
+  RAMADAN_ADHAN_RECITERS,
+  playRamadanAdhanOrSuhurSound,
+  scheduleRamadanAdhanAndSuhurAlarms,
+  stopRamadanAdhanAudio,
+} from './nativeAlarmService';
 
 function formatMinutesTo24h(totalMins: number): string {
   const norm = ((totalMins % 1440) + 1440) % 1440;
@@ -161,6 +166,11 @@ export function EgyptGovernorateRamadanCountdown({
       return Number(localStorage.getItem('dawaya_ramadan_suhur_lead_min_v1') || '30') || 30;
     } catch { return 30; }
   });
+  const [reciterId, setReciterId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('dawaya_ramadan_adhan_reciter_v1') || 'alafasy';
+    } catch { return 'alafasy'; }
+  });
   const [alarmToast, setAlarmToast] = useState<string>('');
 
   useEffect(() => {
@@ -266,6 +276,11 @@ export function EgyptGovernorateRamadanCountdown({
       void scheduleRamadanAdhanAndSuhurAlarms(status.maghribHHMM, status.suhurHHMM, govName, isAr);
     }
   }, [alarmEnabled, status.maghribHHMM, status.suhurHHMM, govName, isAr]);
+
+  const handleReciterChange = (id: string) => {
+    setReciterId(id);
+    try { localStorage.setItem('dawaya_ramadan_adhan_reciter_v1', id); } catch {}
+  };
 
   const handleSuhurLeadChange = (mins: number) => {
     setSuhurLeadMin(mins);
@@ -503,9 +518,20 @@ export function EgyptGovernorateRamadanCountdown({
           ))}
         </div>
         <div className="row wrapRow" style={{ gap: '6px' }}>
+          <SmartNativeSelect
+            value={reciterId}
+            title={isAr ? 'اختر صوت المؤذن لأذان المغرب' : 'Select Adhan Muezzin'}
+            onChange={(e) => handleReciterChange(e.target.value)}
+          >
+            {RAMADAN_ADHAN_RECITERS.map((r) => (
+              <option key={r.id} value={r.id}>
+                {isAr ? `🎙️ ${r.nameAr}` : r.nameEn}
+              </option>
+            ))}
+          </SmartNativeSelect>
           <button
             type="button"
-            onClick={() => playRamadanAdhanOrSuhurSound('maghrib', isAr, govName)}
+            onClick={() => playRamadanAdhanOrSuhurSound('maghrib', isAr, govName, reciterId)}
             style={{
               background: 'rgba(16, 185, 129, 0.25)',
               color: '#ecfdf5',
@@ -534,6 +560,22 @@ export function EgyptGovernorateRamadanCountdown({
             }}
           >
             🌙 {isAr ? 'تجربة منبه السحور' : 'Test Suhur Alert'}
+          </button>
+          <button
+            type="button"
+            onClick={() => stopRamadanAdhanAudio()}
+            style={{
+              background: 'rgba(239, 68, 68, 0.22)',
+              color: '#fecaca',
+              border: '1px solid rgba(248, 113, 113, 0.5)',
+              borderRadius: '999px',
+              padding: '4px 10px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            ⏹️ {isAr ? 'إيقاف الصوت' : 'Stop Audio'}
           </button>
         </div>
       </div>
