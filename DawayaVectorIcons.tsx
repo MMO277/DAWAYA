@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchDrugImageByBarcode, getCachedDrugImageUrl } from './dawayaDrugDatabaseService';
+import { fetchDrugImageByBarcode, fetchDrugImageFromWikipedia, getCachedDrugImageUrl, loadDawayaImageMap } from './dawayaDrugDatabaseService';
 import React from 'react';
 
 export interface VectorIconProps {
@@ -392,94 +392,97 @@ export function DawayaRouteVectorIcon({
  * 3D High-Detail Realistic Medicine Packaging & Dosage Form Illustration
  * Matches the realistic 3D product box + pills/bottle mockup aesthetic.
  */
+function getRealDosageFormPhotoUrl(form?: string): string {
+  const f = (form || 'tablet').toLowerCase();
+  if (/cream|oint|gel|lotion|wash|shampoo|topical|soap|toner|كريم|مرهم|جل|غسول|شامبو/.test(f)) {
+    return 'https://www.cosmapay.com/storage/bepanthen-cream-800x800.webp';
+  }
+  if (/vial|amp|inj|infusion|حقن|أمبول|فيال/.test(f)) {
+    return 'https://dkud4u09qff41.cloudfront.net/Products/8f940eb8-81d0-4e08-8730-18efc94f06f6.jpeg';
+  }
+  if (/drop|spray|eye|ear|nasal|نقط|قطرة|بخاخ/.test(f)) {
+    return 'https://dkud4u09qff41.cloudfront.net/Products/42462444-f6f2-401b-9c40-8b358158e632.jpeg';
+  }
+  if (/syrup|susp|sol|شراب|معلق/.test(f)) {
+    return 'https://upload.wikimedia.org/wikipedia/commons/e/e5/Cough_medicine.jpg';
+  }
+  if (/cap|softgel|كبسول/.test(f)) {
+    return 'https://upload.wikimedia.org/wikipedia/commons/2/2f/Fish_Oil_Capsules.jpg';
+  }
+  return 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Biogesic_branded_paracetamol_500mg_%28500_side%29.jpg/320px-Biogesic_branded_paracetamol_500mg_%28500_side%29.jpg';
+}
+
 export function Realistic3DMedicineThumb({
   form,
   size = 64,
   medId,
   brandNameEn,
   barcode,
+  genericName,
 }: {
   form?: string;
   size?: number;
   medId?: string;
   brandNameEn?: string;
   barcode?: string;
+  genericName?: string;
 }) {
   const [imgUrl, setImgUrl] = useState<string | null>(() =>
-    getCachedDrugImageUrl(medId, brandNameEn, barcode)
+    getCachedDrugImageUrl(medId, brandNameEn, barcode, genericName)
   );
   const [imgFailed, setImgFailed] = useState(false);
 
   useEffect(() => {
+    let alive = true;
     setImgFailed(false);
-    const cached = getCachedDrugImageUrl(medId, brandNameEn, barcode);
+    const cached = getCachedDrugImageUrl(medId, brandNameEn, barcode, genericName);
     if (cached) {
       setImgUrl(cached);
       return;
     }
     setImgUrl(null);
-    if (barcode && barcode.replace(/\D/g, '').length >= 8) {
-      let alive = true;
-      void fetchDrugImageByBarcode(barcode).then((fetched) => {
-        if (alive && fetched) setImgUrl(fetched);
-      });
-      return () => {
-        alive = false;
-      };
-    }
-  }, [medId, brandNameEn, barcode]);
+    void loadDawayaImageMap().then(async () => {
+      if (!alive) return;
+      const afterMap = getCachedDrugImageUrl(medId, brandNameEn, barcode, genericName);
+      if (afterMap) {
+        setImgUrl(afterMap);
+        return;
+      }
+      if (barcode && barcode.replace(/\D/g, '').length >= 8) {
+        const fetchedBc = await fetchDrugImageByBarcode(barcode);
+        if (alive && fetchedBc) {
+          setImgUrl(fetchedBc);
+          return;
+        }
+      }
+      const fetchedWiki = await fetchDrugImageFromWikipedia(brandNameEn, genericName);
+      if (alive && fetchedWiki) {
+        setImgUrl(fetchedWiki);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [medId, brandNameEn, barcode, genericName]);
 
   useEffect(() => {
     const onDbUpdate = () => {
-      const updated = getCachedDrugImageUrl(medId, brandNameEn, barcode);
+      const updated = getCachedDrugImageUrl(medId, brandNameEn, barcode, genericName);
       if (updated) {
         setImgFailed(false);
         setImgUrl(updated);
       }
     };
     window.addEventListener('dawaya_db_updated', onDbUpdate);
-    return () => window.removeEventListener('dawaya_db_updated', onDbUpdate);
-  }, [medId, brandNameEn, barcode]);
+    window.addEventListener('dawaya-full-db-updated', onDbUpdate);
+    return () => {
+      window.removeEventListener('dawaya_db_updated', onDbUpdate);
+      window.removeEventListener('dawaya-full-db-updated', onDbUpdate);
+    };
+  }, [medId, brandNameEn, barcode, genericName]);
 
-  if (imgUrl && !imgFailed) {
-    return (
-      <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: 14,
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
-          padding: 4,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          overflow: 'hidden',
-        }}
-      >
-        <img
-          src={imgUrl}
-          alt={brandNameEn || 'Medicine package'}
-          loading="lazy"
-          onError={() => setImgFailed(true)}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            borderRadius: 10,
-            display: 'block',
-          }}
-        />
-      </div>
-    );
-  }
-
-  const f = (form || 'tablet').toLowerCase();
-  const isSyrup = /syrup|susp|sol|oral drop|شراب|معلق|نقط/.test(f);
-  const isCream = /cream|oint|gel|lotion|wash|shampoo|topical|كريم|مرهم|جل|غسول|شامبو/.test(f);
-  const isInj = /vial|amp|inj|infusion|حقن|أمبول|فيال/.test(f);
-  const isDevice = /device|strip|first aid|جهاز|شرائط|إسعاف/.test(f);
+  const fallbackRealPhoto = getRealDosageFormPhotoUrl(form);
+  const displaySrc = !imgFailed && imgUrl ? imgUrl : fallbackRealPhoto;
 
   return (
     <div
@@ -487,59 +490,37 @@ export function Realistic3DMedicineThumb({
         width: size,
         height: size,
         borderRadius: 14,
-        background: '#eefaf6',
-        border: '1px solid #cceee3',
+        background: '#ffffff',
+        border: '1px solid #e2e8f0',
+        padding: 4,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
+        overflow: 'hidden',
       }}
     >
-      <svg
-        width={Math.round(size * 0.46)}
-        height={Math.round(size * 0.46)}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="#0f766e"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        {isDevice ? (
-          <>
-            <rect x="5" y="4" width="14" height="16" rx="3" />
-            <rect x="8" y="7" width="8" height="5" rx="1" />
-            <circle cx="12" cy="16" r="1.4" />
-          </>
-        ) : isSyrup ? (
-          <>
-            <path d="M9 3h6v3H9z" />
-            <path d="M7 9a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9z" />
-            <path d="M10 12h4" />
-          </>
-        ) : isCream ? (
-          <>
-            <rect x="7" y="7" width="10" height="13" rx="3" />
-            <path d="M10 7V4h4v3" />
-            <path d="M10 12h4" />
-          </>
-        ) : isInj ? (
-          <>
-            <path d="M18 3l3 3" />
-            <path d="M17 4l-9 9-4 4v3h3l4-4 9-9" />
-            <path d="M11 10l3 3" />
-          </>
-        ) : (
-          <>
-            <rect x="4" y="8" width="16" height="8" rx="4" transform="rotate(-35 12 12)" />
-            <line x1="9.5" y1="9.5" x2="14.5" y2="14.5" />
-          </>
-        )}
-      </svg>
+      <img
+        src={displaySrc}
+        alt={brandNameEn || 'Medicine package'}
+        loading="lazy"
+        onError={() => {
+          if (!imgFailed && imgUrl) {
+            setImgFailed(true);
+          }
+        }}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          borderRadius: 10,
+          display: 'block',
+        }}
+      />
     </div>
   );
 }
+
 
 export function CleanUiIcon({
   name,

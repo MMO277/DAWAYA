@@ -34,6 +34,7 @@ import {
   fetchFullDawayaMedicineById,
   findDawayaIndexItemSync,
   getApproximateBatchPriceInfo,
+  compressDrugPhotoToDataUrl,
   saveCustomDrugImage,
   getDawayaClassifiedAlternatives,
   getDawayaIngredientEquivalents,
@@ -269,6 +270,7 @@ function MedicinePackageStudioCard({
 
 export default function MedicinePage() {
   const { id = '' } = useParams();
+  const medId = id;
   const { t, lang } = useLang();
   const isAr = lang === 'ar';
   const { profile, setProfile } = useSyncedHealthProfile();
@@ -794,6 +796,7 @@ export default function MedicinePage() {
                 medId={medId}
                 brandNameEn={dawayaRecord?.brandNameEn || idxItemSync?.n || m.genericName.en || name}
                 barcode={idxItemSync?.b || ''}
+                genericName={dawayaRecord?.genericName || idxItemSync?.g || m.genericName.en || ''}
               />
               <label
                 style={{
@@ -816,16 +819,16 @@ export default function MedicinePage() {
                   type="file"
                   accept="image/*"
                   style={{ display: 'none' }}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     e.target.value = '';
                     if (!file || !medId) return;
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      const dataUrl = String(reader.result || '');
-                      if (dataUrl) saveCustomDrugImage(medId, dataUrl);
-                    };
-                    reader.readAsDataURL(file);
+                    const dataUrl = await compressDrugPhotoToDataUrl(file, 420);
+                    if (dataUrl) {
+                      saveCustomDrugImage(medId, dataUrl, true);
+                      setActionToast(isAr ? '✅ تم حفظ وضغط صورة العلبة بنجاح!' : '✅ Package photo saved!');
+                      window.setTimeout(() => setActionToast(''), 3500);
+                    }
                   }}
                 />
               </label>

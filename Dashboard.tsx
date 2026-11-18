@@ -19,6 +19,7 @@ import CommercialCatalogTab from './CommercialCatalogEditor';
 import SurveyQuizManagerTab from './SurveyQuizEditor';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import { UnslopIcon } from './UnslopIcons';
+import { Realistic3DMedicineThumb } from './DawayaVectorIcons';
 import {
   DawayaMedicineAdminManager,
   DawayaContentAndArticlesAdmin,
@@ -28,7 +29,7 @@ import {
 
 import { EGYPTIAN_GOVERNORATES } from './partnerTypes';
 import { evaluateComprehensiveSymptomAndClinicTriage } from './aiConversationContext';
-import { searchDawayaIndex, useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
+import { compressDrugPhotoToDataUrl, getCachedDrugImageUrl, getDrugImagesCoverageStats, loadDawayaImageMap, saveCustomDrugImage, searchDawayaIndex, useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
 
 
 function WhoCampaignAndVisibilityAdminCard({ isAr }: { isAr: boolean }) {
@@ -541,6 +542,7 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
 
 type AdminTab =
   | 'dawaya_db'
+  | 'drug_images'
   | 'campaigns_themes'
   | 'subscriptions_plans'
   | 'partners'
@@ -554,6 +556,167 @@ type AdminTab =
   | 'research'
   | 'impact'
   | 'quiz';
+
+function AdminDrugImagesPanel() {
+  const { lang } = useLang();
+  const isAr = lang === 'ar';
+  const { items: indexItems } = useDawayaDrugDatabase();
+  const [query, setQuery] = useState('');
+  const [onlyMissing, setOnlyMissing] = useState(true);
+  const [urlInputs, setUrlInputs] = useState<Record<string, string>>({});
+  const [toast, setToast] = useState('');
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    void loadDawayaImageMap().then(() => setTick((t) => t + 1));
+    const onUpd = () => setTick((t) => t + 1);
+    window.addEventListener('dawaya_db_updated', onUpd);
+    return () => window.removeEventListener('dawaya_db_updated', onUpd);
+  }, []);
+
+  const stats = useMemo(() => {
+    void tick;
+    return getDrugImagesCoverageStats();
+  }, [indexItems.length, tick]);
+
+  const filtered = useMemo(() => {
+    void tick;
+    const q = query.trim().toLowerCase();
+    const out = [];
+    for (let i = 0; i < indexItems.length; i++) {
+      const it = indexItems[i];
+      if (onlyMissing && getCachedDrugImageUrl(it.i, it.n, it.b)) continue;
+      if (q) {
+        const hay = `${it.n} ${it.a} ${it.b} ${it.g}`.toLowerCase();
+        if (!hay.includes(q)) continue;
+      }
+      out.push(it);
+      if (out.length >= 30) break;
+    }
+    return out;
+  }, [indexItems, query, onlyMissing, tick]);
+
+  return (
+    <section className="card stack" style={{ padding: '18px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <div>
+          <h2 style={{ margin: '0 0 4px' }}>🖼️ {isAr ? 'إدارة صور الأدوية والعلب الأصلية' : 'Medicine Package Images Manager'}</h2>
+          <p className="small muted" style={{ margin: 0 }}>
+            {isAr
+              ? 'ارفع صورة العلبة أو الصق رابطها المباشر ليتم حفظها سحابياً وظهورها لجميع المستخدمين فوراً.'
+              : 'Upload or paste package image URLs to sync across all users.'}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <span className="badge" style={{ background: '#ecfdf5', color: '#065f46', fontWeight: 800 }}>
+            ✅ {isAr ? `متوفر: ${stats.withImage.toLocaleString()}` : `Covered: ${stats.withImage.toLocaleString()}`}
+          </span>
+          <span className="badge" style={{ background: '#fef3c7', color: '#92400e', fontWeight: 800 }}>
+            ⏳ {isAr ? `ناقص: ${stats.missing.toLocaleString()}` : `Missing: ${stats.missing.toLocaleString()}`}
+          </span>
+          <span className="badge" style={{ background: '#eff6ff', color: '#1e40af', fontWeight: 800 }}>
+            ☁️ {isAr ? `مرفوع سحابياً: ${stats.cloudOverrides}` : `Cloud: ${stats.cloudOverrides}`}
+          </span>
+        </div>
+      </div>
+
+      {toast && (
+        <div style={{ padding: '10px 14px', borderRadius: '10px', background: '#ecfdf5', color: '#065f46', fontWeight: 800 }}>
+          {toast}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={isAr ? 'ابحث باسم الدواء أو الباركود أو المادة الفعالة...' : 'Search by name, barcode, or ingredient...'}
+          style={{ flex: '1 1 240px' }}
+        />
+        <button
+          type="button"
+          className="btn outline"
+          onClick={() => setOnlyMissing((v) => !v)}
+          style={{
+            background: onlyMissing ? '#0d9488' : 'transparent',
+            color: onlyMissing ? '#fff' : 'var(--ink)',
+            borderColor: '#0d9488',
+          }}
+        >
+          {onlyMissing
+            ? (isAr ? '🔍 عرض الأدوية بدون صورة فقط' : 'Missing Images Only')
+            : (isAr ? '📋 عرض جميع الأدوية' : 'All Medicines')}
+        </button>
+      </div>
+
+      <div className="stack" style={{ gap: '10px' }}>
+        {filtered.map((item) => (
+          <div
+            key={item.i}
+            className="subcard"
+            style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}
+          >
+            <Realistic3DMedicineThumb form={item.f} size={56} medId={item.i} brandNameEn={item.n} barcode={item.b} />
+            <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{item.a || item.n}</div>
+              <div className="small muted" dir="ltr" style={{ textAlign: isAr ? 'right' : 'left' }}>{item.n}</div>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', flex: '1 1 260px' }}>
+              <input
+                type="url"
+                dir="ltr"
+                value={urlInputs[item.i] || ''}
+                onChange={(e) => setUrlInputs((prev) => ({ ...prev, [item.i]: e.target.value }))}
+                placeholder="https://..."
+                style={{ flex: '1 1 150px', fontSize: '0.82rem' }}
+              />
+              <button
+                type="button"
+                className="btn"
+                style={{ padding: '6px 12px', fontSize: '0.82rem' }}
+                onClick={() => {
+                  const u = (urlInputs[item.i] || '').trim();
+                  if (!u.startsWith('http')) return;
+                  saveCustomDrugImage(item.i, u, true);
+                  setToast(isAr ? `✅ تم حفظ صورة ${item.a || item.n} سحابياً` : `✅ Saved ${item.n}`);
+                  window.setTimeout(() => setToast(''), 3000);
+                }}
+              >
+                {isAr ? 'حفظ الرابط' : 'Save URL'}
+              </button>
+              <label
+                className="btn outline"
+                style={{ padding: '6px 12px', fontSize: '0.82rem', cursor: 'pointer', margin: 0 }}
+              >
+                📷 {isAr ? 'رفع صورة' : 'Upload'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!file) return;
+                    const dataUrl = await compressDrugPhotoToDataUrl(file, 420);
+                    if (dataUrl) {
+                      saveCustomDrugImage(item.i, dataUrl, true);
+                      setToast(isAr ? `✅ تم ضغط وحفظ صورة ${item.a || item.n} سحابياً` : `✅ Uploaded ${item.n}`);
+                      window.setTimeout(() => setToast(''), 3000);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <p className="small muted">{isAr ? 'لا توجد نتائج مطابقة لهذا البحث.' : 'No matching items.'}</p>
+        )}
+      </div>
+    </section>
+  );
+}
 
 export default function Dashboard() {
   const { t, lang } = useLang();
@@ -611,6 +774,23 @@ export default function Dashboard() {
           paddingBottom: '10px',
         }}
       >
+        <button
+          className={tab === 'drug_images' ? 'on' : ''}
+          onClick={() => setTab('drug_images')}
+          style={{
+            borderRadius: '10px',
+            border: tab === 'drug_images' ? '2px solid var(--teal)' : '1px solid var(--line)',
+            background: tab === 'drug_images' ? 'var(--tint)' : 'var(--card-bg)',
+            padding: '8px 12px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <span>🖼️</span>
+          <span>{tr(lang, 'صور الأدوية والعلب', 'Medicine Images')}</span>
+        </button>
+
         <button
           className={tab === 'dawaya_db' ? 'on' : ''}
           onClick={() => setTab('dawaya_db')}
@@ -864,6 +1044,7 @@ export default function Dashboard() {
       </div>
 
       {tab === 'dawaya_db' && <DawayaMedicineAdminManager uid={user.uid} role={role} />}
+      {tab === 'drug_images' && <AdminDrugImagesPanel />}
       {tab === 'campaigns_themes' && <WhoCampaignAndVisibilityAdminCard isAr={lang === 'ar'} />}
       {tab === 'subscriptions_plans' && (
         <div className="stack" style={{ gap: '16px' }}>

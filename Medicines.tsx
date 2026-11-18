@@ -1379,7 +1379,7 @@ export default function Medicines() {
 
                     {/* Main Body: Realistic 3D Packaging Thumb + Title + Active Ingredient + Price Pill */}
                     <div className="dawaya-med-card-v3-body">
-                      <Realistic3DMedicineThumb form={item.f} size={68} medId={item.i} brandNameEn={item.n} barcode={item.b} />
+                      <Realistic3DMedicineThumb form={item.f} size={68} medId={item.i} brandNameEn={item.n} barcode={item.b} genericName={item.g} />
 
                       <div className="dawaya-med-card-v3-info">
                         <h3 className="dawaya-med-card-v3-title">
@@ -1607,7 +1607,7 @@ export default function Medicines() {
                     </div>
 
                     <div className="dawaya-med-card-v3-body">
-                      <Realistic3DMedicineThumb form={p.dosageForm} size={68} />
+                      <Realistic3DMedicineThumb form={p.dosageForm} size={68} medId={p.productId} brandNameEn={p.tradeNameEn} barcode={p.barcode} genericName={p.scientificComposition} />
 
                       <div className="dawaya-med-card-v3-info">
                         <h3 className="dawaya-med-card-v3-title">

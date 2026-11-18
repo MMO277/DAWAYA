@@ -533,6 +533,7 @@ export function applyLivePriceDeltaMap(
 
   if (appliedCount > 0 && typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
+    window.dispatchEvent(new CustomEvent('dawaya_db_updated'));
   }
   return appliedCount;
 }
@@ -578,6 +579,7 @@ export function saveAdminMedicineOverride(item: DawayaCompactIndexItem): void {
       }
     }
     window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
+    window.dispatchEvent(new CustomEvent('dawaya_db_updated'));
   } catch {
     /* ignore quota */
   }
@@ -706,6 +708,7 @@ export async function ensureDawayaDatabaseLoaded(): Promise<DawayaCompactIndexIt
       startDawayaLivePriceSync();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
+    window.dispatchEvent(new CustomEvent('dawaya_db_updated'));
       }
       return globalIndexItems;
     };
@@ -2088,6 +2091,59 @@ export function searchDawayaIndex(
 /**
  * React Hook for accessing the full 26,562 DAWAYA medicine database anywhere in the platform
  */
+
+const WIKI_IMAGE_CACHE_KEY = 'dawaya_wiki_image_cache_v1';
+
+export async function fetchDrugImageFromWikipedia(
+  brandNameEn?: string,
+  genericName?: string
+): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  const candidates: string[] = [];
+  if (brandNameEn) {
+    const firstWord = brandNameEn.trim().split(/\s+/)[0].replace(/[^a-zA-Z0-9-]/g, '');
+    if (firstWord.length >= 5) candidates.push(firstWord);
+  }
+  if (genericName && !genericName.includes('غير محدد')) {
+    const firstGen = genericName.split(/[+|/,;()]/)[0].trim().replace(/[^a-zA-Z0-9\s-]/g, '');
+    if (firstGen.length >= 5 && !candidates.includes(firstGen)) candidates.push(firstGen);
+  }
+  if (candidates.length === 0) return null;
+
+  try {
+    const raw = localStorage.getItem(WIKI_IMAGE_CACHE_KEY);
+    const cache = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    for (const term of candidates) {
+      const key = term.toLowerCase();
+      if (cache[key]) {
+        if (cache[key] !== 'NONE') return cache[key];
+        continue;
+      }
+      try {
+        const res = await fetch(
+          `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term.replace(/\s+/g, '_'))}`
+        );
+        if (res.ok) {
+          const data = (await res.json()) as { thumbnail?: { source?: string } };
+          const src = data?.thumbnail?.source || '';
+          if (src.startsWith('http') && !src.toLowerCase().endsWith('.svg')) {
+            cache[key] = src;
+            localStorage.setItem(WIKI_IMAGE_CACHE_KEY, JSON.stringify(cache));
+            return src;
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+      cache[key] = 'NONE';
+      localStorage.setItem(WIKI_IMAGE_CACHE_KEY, JSON.stringify(cache));
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 export function useDawayaDrugDatabase(eagerLoad = true) {
   const [indexItems, setIndexItems] = useState<DawayaCompactIndexItem[]>(() => globalIndexItems);
   const [loaded, setLoaded] = useState<boolean>(() => globalIndexLoaded);
@@ -2300,6 +2356,7 @@ export async function syncMarketPricesFromText(
     }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
+    window.dispatchEvent(new CustomEvent('dawaya_db_updated'));
     }
   } else {
     lastPriceSyncIso = nowIso;
@@ -3117,51 +3174,166 @@ interface DawayaImageMapData {
   byKeyword: Record<string, string>;
 }
 
+const CLOUD_DRUG_IMAGES_DOC = 'drug_images_overrides';
 let globalImageMap: DawayaImageMapData | null = null;
+let globalSortedKeywords: Array<[string, string]> = [];
+let globalCloudDrugImages: Record<string, string> = {};
 let globalImageMapPromise: Promise<DawayaImageMapData> | null = null;
+let cloudImageSyncStarted = false;
+
+function notifyDrugImagesUpdated(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
+  window.dispatchEvent(new CustomEvent('dawaya_db_updated'));
+}
+
+function startCloudDrugImagesSync(): void {
+  if (cloudImageSyncStarted || !configured || !db) return;
+  cloudImageSyncStarted = true;
+  try {
+    onSnapshot(
+      doc(db, 'systemSettings', CLOUD_DRUG_IMAGES_DOC),
+      (snap) => {
+        if (snap.exists()) {
+          const imgs = snap.data()?.images;
+          if (imgs && typeof imgs === 'object') {
+            globalCloudDrugImages = imgs as Record<string, string>;
+            notifyDrugImagesUpdated();
+          }
+        }
+      },
+      () => {
+        /* ignore offline */
+      }
+    );
+  } catch {
+    /* ignore */
+  }
+}
 
 export async function loadDawayaImageMap(): Promise<DawayaImageMapData> {
+  startCloudDrugImagesSync();
   if (globalImageMap) return globalImageMap;
   if (globalImageMapPromise) return globalImageMapPromise;
   globalImageMapPromise = (async () => {
     try {
       const baseUrl = import.meta.env?.BASE_URL || './';
-      const res = await fetch(`${baseUrl}data/dawaya_drug_images.json?v=1`);
+      const res = await fetch(`${baseUrl}data/dawaya_drug_images.json?v=2`);
       if (res.ok) {
         const json = (await res.json()) as Partial<DawayaImageMapData>;
         globalImageMap = {
           byId: json.byId || {},
           byKeyword: json.byKeyword || {},
         };
+        globalSortedKeywords = Object.entries(globalImageMap.byKeyword).sort(
+          (a, b) => b[0].length - a[0].length
+        );
+        notifyDrugImagesUpdated();
         return globalImageMap;
       }
     } catch {
       /* ignore */
     }
     globalImageMap = { byId: {}, byKeyword: {} };
+    globalSortedKeywords = [];
     return globalImageMap;
   })();
   return globalImageMapPromise;
 }
 
-export function saveCustomDrugImage(medId: string, dataUrl: string): void {
-  if (!medId || !dataUrl || typeof window === 'undefined') return;
+export async function compressDrugPhotoToDataUrl(file: File, maxDim = 420): Promise<string> {
+  const rawUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  if (!rawUrl) return '';
+  try {
+    const img = new Image();
+    img.src = rawUrl;
+    await new Promise((res, rej) => {
+      img.onload = res;
+      img.onerror = rej;
+    });
+    let w = img.width || maxDim;
+    let h = img.height || maxDim;
+    if (w > maxDim || h > maxDim) {
+      if (w > h) {
+        h = Math.round((h * maxDim) / w);
+        w = maxDim;
+      } else {
+        w = Math.round((w * maxDim) / h);
+        h = maxDim;
+      }
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return rawUrl;
+    ctx.drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', 0.78);
+  } catch {
+    return rawUrl;
+  }
+}
+
+export function saveCustomDrugImage(medId: string, dataUrlOrUrl: string, syncToCloud = true): void {
+  if (!medId || !dataUrlOrUrl || typeof window === 'undefined') return;
   try {
     const raw = localStorage.getItem(CUSTOM_DRUG_IMAGES_KEY);
     const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
-    map[medId] = dataUrl;
+    map[medId] = dataUrlOrUrl;
     localStorage.setItem(CUSTOM_DRUG_IMAGES_KEY, JSON.stringify(map));
-    window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
+    globalCloudDrugImages[medId] = dataUrlOrUrl;
+    notifyDrugImagesUpdated();
   } catch {
     /* ignore quota errors */
   }
+  if (syncToCloud && configured && db && dataUrlOrUrl.length < 180000) {
+    setDoc(
+      doc(db, 'systemSettings', CLOUD_DRUG_IMAGES_DOC),
+      {
+        images: { [medId]: dataUrlOrUrl },
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    ).catch(() => {});
+  }
+}
+
+export function getDrugImagesCoverageStats(): {
+  total: number;
+  withImage: number;
+  missing: number;
+  cloudOverrides: number;
+} {
+  const items = globalIndexItems || [];
+  let withImage = 0;
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (getCachedDrugImageUrl(it.i, it.n, it.b)) {
+      withImage++;
+    }
+  }
+  return {
+    total: items.length,
+    withImage,
+    missing: Math.max(0, items.length - withImage),
+    cloudOverrides: Object.keys(globalCloudDrugImages).length,
+  };
 }
 
 export function getCachedDrugImageUrl(
   medId?: string,
   brandNameEn?: string,
-  barcode?: string
+  barcode?: string,
+  genericName?: string
 ): string | null {
+  if (medId && globalCloudDrugImages[medId]) {
+    return globalCloudDrugImages[medId];
+  }
   if (typeof window !== 'undefined' && medId) {
     try {
       const customRaw = localStorage.getItem(CUSTOM_DRUG_IMAGES_KEY);
@@ -3180,10 +3352,12 @@ export function getCachedDrugImageUrl(
     }
     if (brandNameEn) {
       const low = brandNameEn.toLowerCase();
-      for (const [kw, url] of Object.entries(globalImageMap.byKeyword)) {
+      for (let i = 0; i < globalSortedKeywords.length; i++) {
+        const [kw, url] = globalSortedKeywords[i];
         if (low.includes(kw)) return url;
       }
     }
+
   }
 
   if (typeof window !== 'undefined' && barcode) {

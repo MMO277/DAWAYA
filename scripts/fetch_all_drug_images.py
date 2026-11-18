@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """
-DAWAYA Bulk Image URL Collector (scripts/fetch_all_drug_images.py)
-------------------------------------------------------------------
-Multi-threaded collector that scans all 26,615+ DAWAYA items and enriches
-`public/data/dawaya_drug_images.json` with real product image URLs from:
-  1. Open Beauty Facts & Open Food Facts (by EAN/UPC barcode)
-  2. Wikimedia Commons / Wikipedia REST API (by brand / active ingredient)
-  3. Brand keyword propagation across matching SKUs
+DAWAYA Official Egyptian Pharmacy Image Collector (scripts/fetch_all_drug_images.py)
+-----------------------------------------------------------------------------------
+Fetches ONLY exact, authentic Egyptian pharmacy package photos for the remaining
+unmapped products in `public/data/dawaya_medicines_search_index.json` using:
+  1. dwaprices.com (official Egyptian drug price & package photo directory)
+  2. egyptiandrugstore.com (Egyptian Drug Store product catalog)
+  3. Open Beauty Facts / Open Food Facts (exact EAN-13 barcode lookup)
 
-Runs automatically on GitHub Actions (.github/workflows/fetch-drug-images.yml)
-or locally via: python3 scripts/fetch_all_drug_images.py
+Runs automatically on GitHub Actions (.github/workflows/fetch-drug-images.yml).
 """
 import concurrent.futures
 import json
@@ -24,15 +23,17 @@ INDEX_PATH = os.path.join("public", "data", "dawaya_medicines_search_index.json"
 IMAGES_PATH = os.path.join("public", "data", "dawaya_drug_images.json")
 
 LOCK = threading.Lock()
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 
 
-def http_get_json(url: str, timeout: float = 5.0):
-    req = urllib.request.Request(
-        url,
-        headers={"User-Agent": "DAWAYA-Pharmacy-Catalog/2.0 (https://dawaya.pages.dev)"},
-    )
+def http_get_text(url: str, timeout: float = 8.0) -> str:
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        return resp.read().decode("utf-8", errors="ignore")
+
+
+def http_get_json(url: str, timeout: float = 6.0):
+    return json.loads(http_get_text(url, timeout=timeout))
 
 
 def fetch_barcode_image(barcode: str) -> str:
@@ -54,18 +55,48 @@ def fetch_barcode_image(barcode: str) -> str:
     return ""
 
 
-def fetch_wikimedia_brand_image(brand_token: str) -> str:
-    if not brand_token or len(brand_token) < 4:
+def fetch_dwaprices_image(trade_name_en: str) -> str:
+    clean = re.sub(r"\s+", " ", (trade_name_en or "").strip())
+    if len(clean) < 3:
         return ""
     try:
-        q = urllib.parse.quote(brand_token)
-        data = http_get_json(f"https://en.wikipedia.org/api/rest_v1/page/summary/{q}")
-        thumb = (data.get("thumbnail") or {}).get("source") or ""
-        if thumb.startswith("http") and not thumb.endswith(".svg"):
-            return thumb
+        # Search using the first 2-3 meaningful brand tokens
+        tokens = [t for t in clean.split(" ") if len(t) >= 2][:3]
+        q = urllib.parse.quote(" ".join(tokens))
+        html = http_get_text(f"https://dwaprices.com/search.php?search={q}", timeout=7.0)
+        # Extract uploaded package photo path (upload/<digits>.(png|jpg|jpeg|webp))
+        m = re.search(r"(https?://(?:www\.)?dwaprices\.com/)?(upload/\d+\.(?:png|jpg|jpeg|webp))", html, re.I)
+        if m:
+            img_path = m.group(2)
+            # Ignore generic site logo / placeholder
+            if "1776442041" not in img_path:
+                return f"https://dwaprices.com/{img_path}"
     except (urllib.error.URLError, TimeoutError, ValueError):
         pass
     return ""
+
+
+def fetch_egyptiandrugstore_image(trade_name_en: str) -> str:
+    clean = re.sub(r"\s+", " ", (trade_name_en or "").strip())
+    if len(clean) < 4:
+        return ""
+    try:
+        tokens = [t for t in clean.split(" ") if len(t) >= 3][:2]
+        if not tokens:
+            return ""
+        q = urllib.parse.quote(" ".join(tokens))
+        html = http_get_text(f"https://egyptiandrugstore.com/index.php?route=product/search&search={q}", timeout=7.0)
+        m = re.search(r"https://egyptiandrugstore\.com/image/cache/[^\"'\s>]+\.(?:png|jpg|jpeg|webp)", html, re.I)
+        if m:
+            return m.group(0)
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        pass
+    return ""
+
+
+def save_store(img_store: dict):
+    with open(IMAGES_PATH, "w", encoding="utf-8") as f:
+        json.dump(img_store, f, ensure_ascii=False, separators=(",", ":"))
 
 
 def main():
@@ -79,83 +110,40 @@ def main():
         img_store = {"version": 1, "byId": {}, "byKeyword": {}}
 
     by_id = img_store.setdefault("byId", {})
-    by_kw = img_store.setdefault("byKeyword", {})
 
-    # 1. Propagate existing keyword matches first
-    for item in items:
-        iid = item.get("i", "")
-        if not iid or iid in by_id:
-            continue
-        name_l = (item.get("n") or "").lower()
-        for kw, url in by_kw.items():
-            if kw in name_l:
-                by_id[iid] = url
-                break
+    todo = [it for it in items if it.get("i") and it["i"] not in by_id]
+    print(f"Starting authentic package image collection for {len(todo)} unmapped products...")
 
-    # 2. Fetch barcode images in parallel for all unmapped barcoded items
-    barcoded_todo = [
-        it for it in items
-        if it.get("i") and it["i"] not in by_id and len("".join(c for c in (it.get("b") or "") if c.isdigit())) >= 8
-    ]
+    # Process up to 3,500 items per workflow run so it finishes cleanly within 30 mins and saves incrementally
+    batch = todo[:3500]
+    added = 0
 
-    added_barcode = 0
+    def worker(it):
+        iid = it["i"]
+        bc = it.get("b", "")
+        name = it.get("n", "")
+        url = ""
+        if bc and len("".join(c for c in bc if c.isdigit())) >= 8:
+            url = fetch_barcode_image(bc)
+        if not url:
+            url = fetch_dwaprices_image(name)
+        if not url:
+            url = fetch_egyptiandrugstore_image(name)
+        return iid, url
 
-    def worker_barcode(it):
-        url = fetch_barcode_image(it.get("b", ""))
-        return it["i"], url
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
-        for idx_num, (iid, url) in enumerate(pool.map(worker_barcode, barcoded_todo), 1):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
+        for idx_num, (iid, url) in enumerate(pool.map(worker, batch), 1):
             if url:
                 with LOCK:
                     by_id[iid] = url
-                    added_barcode += 1
-            if idx_num % 250 == 0:
+                    added += 1
+            if idx_num % 200 == 0:
                 with LOCK:
-                    with open(IMAGES_PATH, "w", encoding="utf-8") as f:
-                        json.dump(img_store, f, ensure_ascii=False, indent=2)
-                print(f"Barcode progress: {idx_num}/{len(barcoded_todo)} (found {added_barcode})")
+                    save_store(img_store)
+                print(f"Progress: {idx_num}/{len(batch)} | New authentic photos found: {added}")
 
-    # 3. Enrich top unmapped brands via Wikipedia/Wikimedia summary thumbnails
-    brand_tokens = []
-    seen_tokens = set(by_kw.keys())
-    for it in items:
-        if it.get("i") in by_id:
-            continue
-        first_word = re.sub(r"[^a-z0-9]", "", (it.get("n") or "").strip().lower().split(" ")[0])
-        if len(first_word) >= 5 and first_word not in seen_tokens:
-            seen_tokens.add(first_word)
-            brand_tokens.append(first_word)
-        if len(brand_tokens) >= 400:
-            break
-
-    added_brand = 0
-
-    def worker_brand(tok):
-        return tok, fetch_wikimedia_brand_image(tok)
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-        for tok, url in pool.map(worker_brand, brand_tokens):
-            if url:
-                with LOCK:
-                    by_kw[tok] = url
-                    added_brand += 1
-
-    # Propagate newly discovered brand keywords across all 26,615+ items
-    for item in items:
-        iid = item.get("i", "")
-        if not iid or iid in by_id:
-            continue
-        name_l = (item.get("n") or "").lower()
-        for kw, url in by_kw.items():
-            if kw in name_l:
-                by_id[iid] = url
-                break
-
-    with open(IMAGES_PATH, "w", encoding="utf-8") as f:
-        json.dump(img_store, f, ensure_ascii=False, indent=2)
-
-    print(f"Completed! Total mapped IDs: {len(by_id)}, barcode hits: {added_barcode}, brand hits: {added_brand}")
+    save_store(img_store)
+    print(f"Done! Total authentic mapped IDs: {len(by_id)} (+{added} new)")
 
 
 if __name__ == "__main__":
