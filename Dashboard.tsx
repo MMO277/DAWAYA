@@ -6,7 +6,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { Role, useAuth, isStaffOrAdminRole } from './auth';
+import { Role, useAuth, isStaffOrAdminRole } from './authContext';
 import { useLang } from './i18n';
 import { fetchAll, removeMedicine, seedStarter, setStatus, validateForApproval } from './medicinesApi';
 import { Medicine, pick, Status, STATUSES, tr } from './types';
@@ -140,11 +140,36 @@ function WhoCampaignAndVisibilityAdminCard({ isAr }: { isAr: boolean }) {
                     textAlign: 'start',
                   }}
                 >
-                  <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>{c.icon}</span>
-                  <span style={{ fontSize: '0.78rem', fontWeight: active ? 900 : 700, lineHeight: 1.3, flex: 1 }}>
-                    {isAr ? c.titleAr : c.titleEn}
-                  </span>
-                  {active && <span style={{ fontSize: '0.85rem' }}>✅</span>}
+                  <span style={{ fontSize: "1.35rem", flexShrink: 0 }}>{c.icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: "0.78rem", fontWeight: active ? 900 : 700, lineHeight: 1.3, display: "block" }}>
+                      {isAr ? c.titleAr : c.titleEn}
+                    </span>
+                    <span style={{ fontSize: "0.68rem", color: c.accentColor, fontWeight: 800, display: "block", marginTop: "2px" }}>
+                      {c.visualKind === "ramadan"
+                        ? (isAr ? "🎏 زينة وفوانيس رمضان وهلال" : "🎏 Lanterns & Crescent")
+                        : c.visualKind === "eid_adha"
+                        ? (isAr ? "🐑 خرفان العيد المتحركة وفوانيس" : "🐑 Animated Sheep & Lanterns")
+                        : c.visualKind === "eid_fitr"
+                        ? (isAr ? "🎈 بلالين ملونة وألعاب نارية" : "🎈 Balloons & Fireworks")
+                        : c.visualKind === "pink_ribbon"
+                        ? (isAr ? "🎀 شرائط وردية مجسمة وزهور" : "🎀 3D Pink Ribbons & Blossoms")
+                        : c.visualKind === "heart_ecg"
+                        ? (isAr ? "💓 قلب نابض ثلاثي الأبعاد وتخطيط ECG" : "💓 3D Beating Heart & ECG")
+                        : c.visualKind === "diabetes_ring"
+                        ? (isAr ? "🔵 حلقة السكري الزرقاء وقطرة الحماية" : "🔵 Blue Diabetes Ring & Drop")
+                        : c.visualKind === "kidney_care"
+                        ? (isAr ? "💧 مجسم الكلى وقطرات المياه النقية" : "💧 3D Kidneys & Water Drops")
+                        : c.visualKind === "lungs_breath"
+                        ? (isAr ? "🫁 رئتان مضيئتان ونسمات أكسجين" : "🫁 3D Healthy Lungs & Breeze")
+                        : c.visualKind === "baby_mom"
+                        ? (isAr ? "🍼 ببرونة وبلالين أطفال وزينة" : "🍼 Baby Bottle & Pastel Balloons")
+                        : c.visualKind === "brain_mental"
+                        ? (isAr ? "🧠 مجسم المخ العصبي المضيء ونجوم" : "🧠 3D Neural Brain & Stars")
+                        : (isAr ? "🛡️ درع الحماية الطبي المضيء وزينة" : "🛡️ 3D Medical Shield & Garland")}
+                    </span>
+                  </div>
+                  {active && <span style={{ fontSize: "0.85rem" }}>✅</span>}
                 </button>
               );
             })}

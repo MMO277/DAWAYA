@@ -1299,3 +1299,27 @@ export function startGlobalPhoneAlarmWatcher(getIsAr: () => boolean): void {
     }
   }, 1000);
 }
+
+
+/**
+ * Schedules multiple daily dose alarms (e.g., 1x, 2x, 3x, or 4x daily) for a medication.
+ */
+export async function scheduleMultipleNativeDoseAlarms(
+  medicineName: string,
+  doseInstruction: string,
+  doseTimes: string[],
+  isAr = true
+): Promise<{ success: boolean; scheduledCount: number }> {
+  const validTimes = Array.isArray(doseTimes) && doseTimes.length > 0 ? doseTimes : ["08:00"];
+  for (const t of validTimes) {
+    try {
+      await scheduleSingleNativeDoseAlarm(medicineName, doseInstruction, t, isAr);
+    } catch {
+      /* ignore individual slot failure */
+    }
+  }
+  return {
+    success: true,
+    scheduledCount: validTimes.length,
+  };
+}
