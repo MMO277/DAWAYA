@@ -1,3 +1,4 @@
+import { Realistic3DMedicineThumb } from './DawayaVectorIcons';
 import SmartDoseTimeCalibrator from './SmartDoseTimeCalibrator';
 import { scheduleMultipleNativeDoseAlarms } from './nativeAlarmService';
 import { MedicineDriverAndInjectionBanner } from './egyptianClinicalInnovations';
@@ -33,6 +34,7 @@ import {
   fetchFullDawayaMedicineById,
   findDawayaIndexItemSync,
   getApproximateBatchPriceInfo,
+  saveCustomDrugImage,
   getDawayaClassifiedAlternatives,
   getDawayaIngredientEquivalents,
   getSmartClinicalRegimenForMedicine,
@@ -785,13 +787,49 @@ export default function MedicinePage() {
         >
           {/* Left/Start: 3D Package Visual + Title & Metadata */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', flex: '1 1 420px', flexWrap: 'wrap' }}>
-            <MedicinePackageStudioCard
-              brandEn={dawayaRecord?.brandNameEn || idxItemSync?.n || m.genericName.en || name}
-              brandAr={dawayaRecord?.brandNameAr || idxItemSync?.a || name}
-              strength={dawayaRecord?.strength || idxItemSync?.s}
-              dosageForm={dawayaRecord?.dosageForm || idxItemSync?.f}
-              manufacturer={dawayaRecord?.manufacturer || idxItemSync?.c}
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              <Realistic3DMedicineThumb
+                form={dawayaRecord?.dosageForm || idxItemSync?.f}
+                size={136}
+                medId={medId}
+                brandNameEn={dawayaRecord?.brandNameEn || idxItemSync?.n || m.genericName.en || name}
+                barcode={idxItemSync?.b || ''}
+              />
+              <label
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '5px 11px',
+                  borderRadius: '999px',
+                  background: '#eefaf6',
+                  border: '1px solid #99f6e4',
+                  color: '#0f766e',
+                  fontSize: '0.74rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+                title={isAr ? 'رفع أو تصوير صورة العلبة الحقيقية' : 'Upload real package photo'}
+              >
+                📷 {isAr ? 'أضف صورة العلبة' : 'Add Pack Photo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!file || !medId) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const dataUrl = String(reader.result || '');
+                      if (dataUrl) saveCustomDrugImage(medId, dataUrl);
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
+            </div>
 
             <div style={{ flex: '1 1 240px', minWidth: 0 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>

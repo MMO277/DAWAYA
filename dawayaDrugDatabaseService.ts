@@ -678,6 +678,7 @@ export async function ensureDawayaDatabaseLoaded(): Promise<DawayaCompactIndexIt
     return globalIndexLoadingPromise;
   }
 
+  void loadDawayaImageMap();
   globalIndexLoadingPromise = (async () => {
     const applyLoadedData = (rawItems: DawayaCompactIndexItem[]) => {
       const overrides = loadAdminCustomOverrides();
@@ -3102,4 +3103,144 @@ export function getApproximateBatchPriceInfo(item: DawayaCompactIndexItem): Appr
     : `Official EDA approx. price (~${price.toFixed(0)} EGP); batches may range ${minBatch}–${maxBatch} EGP.`;
 
   return { price, minBatch, maxBatch, isCosmeticOrDevice, noteAr, noteEn };
+}
+
+
+// ============================================================================
+// Real Product Image Resolution (JSON Map + Barcode OpenBeautyFacts + Custom)
+// ============================================================================
+const CUSTOM_DRUG_IMAGES_KEY = 'dawaya_custom_drug_images_v1';
+const BARCODE_IMAGE_CACHE_KEY = 'dawaya_barcode_img_cache_v1';
+
+interface DawayaImageMapData {
+  byId: Record<string, string>;
+  byKeyword: Record<string, string>;
+}
+
+let globalImageMap: DawayaImageMapData | null = null;
+let globalImageMapPromise: Promise<DawayaImageMapData> | null = null;
+
+export async function loadDawayaImageMap(): Promise<DawayaImageMapData> {
+  if (globalImageMap) return globalImageMap;
+  if (globalImageMapPromise) return globalImageMapPromise;
+  globalImageMapPromise = (async () => {
+    try {
+      const baseUrl = import.meta.env?.BASE_URL || './';
+      const res = await fetch(`${baseUrl}data/dawaya_drug_images.json?v=1`);
+      if (res.ok) {
+        const json = (await res.json()) as Partial<DawayaImageMapData>;
+        globalImageMap = {
+          byId: json.byId || {},
+          byKeyword: json.byKeyword || {},
+        };
+        return globalImageMap;
+      }
+    } catch {
+      /* ignore */
+    }
+    globalImageMap = { byId: {}, byKeyword: {} };
+    return globalImageMap;
+  })();
+  return globalImageMapPromise;
+}
+
+export function saveCustomDrugImage(medId: string, dataUrl: string): void {
+  if (!medId || !dataUrl || typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(CUSTOM_DRUG_IMAGES_KEY);
+    const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    map[medId] = dataUrl;
+    localStorage.setItem(CUSTOM_DRUG_IMAGES_KEY, JSON.stringify(map));
+    window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
+  } catch {
+    /* ignore quota errors */
+  }
+}
+
+export function getCachedDrugImageUrl(
+  medId?: string,
+  brandNameEn?: string,
+  barcode?: string
+): string | null {
+  if (typeof window !== 'undefined' && medId) {
+    try {
+      const customRaw = localStorage.getItem(CUSTOM_DRUG_IMAGES_KEY);
+      if (customRaw) {
+        const customMap = JSON.parse(customRaw) as Record<string, string>;
+        if (customMap[medId]) return customMap[medId];
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (globalImageMap) {
+    if (medId && globalImageMap.byId[medId]) {
+      return globalImageMap.byId[medId];
+    }
+    if (brandNameEn) {
+      const low = brandNameEn.toLowerCase();
+      for (const [kw, url] of Object.entries(globalImageMap.byKeyword)) {
+        if (low.includes(kw)) return url;
+      }
+    }
+  }
+
+  if (typeof window !== 'undefined' && barcode) {
+    const clean = barcode.replace(/\D/g, '');
+    if (clean.length >= 8) {
+      try {
+        const bRaw = localStorage.getItem(BARCODE_IMAGE_CACHE_KEY);
+        if (bRaw) {
+          const bMap = JSON.parse(bRaw) as Record<string, string>;
+          if (bMap[clean] && bMap[clean] !== 'NONE') return bMap[clean];
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  return null;
+}
+
+export async function fetchDrugImageByBarcode(barcode?: string): Promise<string | null> {
+  if (!barcode || typeof window === 'undefined') return null;
+  const clean = barcode.replace(/\D/g, '');
+  if (clean.length < 8) return null;
+
+  try {
+    const bRaw = localStorage.getItem(BARCODE_IMAGE_CACHE_KEY);
+    const bMap = bRaw ? (JSON.parse(bRaw) as Record<string, string>) : {};
+    if (bMap[clean]) {
+      return bMap[clean] === 'NONE' ? null : bMap[clean];
+    }
+
+    for (const domain of ['world.openbeautyfacts.org', 'world.openfoodfacts.org']) {
+      try {
+        const res = await fetch(
+          `https://${domain}/api/v0/product/${clean}.json?fields=image_front_url,image_url`
+        );
+        if (!res.ok) continue;
+        const data = (await res.json()) as {
+          status?: number;
+          product?: { image_front_url?: string; image_url?: string };
+        };
+        const img = data?.product?.image_front_url || data?.product?.image_url || '';
+        if (data?.status === 1 && img.startsWith('http')) {
+          bMap[clean] = img;
+          localStorage.setItem(BARCODE_IMAGE_CACHE_KEY, JSON.stringify(bMap));
+          return img;
+        }
+      } catch {
+        /* try next */
+      }
+    }
+
+    bMap[clean] = 'NONE';
+    localStorage.setItem(BARCODE_IMAGE_CACHE_KEY, JSON.stringify(bMap));
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
