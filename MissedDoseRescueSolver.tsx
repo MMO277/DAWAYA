@@ -3,6 +3,13 @@ import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
 import { tr } from './types';
 import { speakText } from './speechService';
+import { useSyncedHealthProfile } from './allergyData';
+import { formatTime12Hour, useSyncedSchedules } from './trackerData';
+import {
+  getSmartClinicalRegimenForMedicine,
+  searchDawayaIndex,
+  useDawayaDrugDatabase,
+} from './dawayaDrugDatabaseService';
 import Disclaimer from './Disclaimer';
 
 export type DrugFamilyKey =
@@ -70,10 +77,10 @@ export const MISSED_DOSE_FAMILIES: Record<DrugFamilyKey, DrugFamilyData> = {
   antibiotic: {
     id: 'antibiotic',
     icon: '💊',
-    nameAr: 'المضادات الحيوية (الأقراص والشراب والكبسول)',
-    nameEn: 'Antibiotics',
+    nameAr: 'المضادات الحيوية والمطهرات المعوية (أقراص وشراب وكبسول)',
+    nameEn: 'Antibiotics & Antimicrobials',
     badgeAr: 'الحفاظ على تركيز الدواء في الدم لقتل البكتيريا ومنع المناعة',
-    commonBrandsAr: 'أوجمنتين (Augmentin)، هاي بيوتك، كيورام، زيثروماكس، سيبروفار، سيفوتاكس',
+    commonBrandsAr: 'أوجمنتين (Augmentin)، هاي بيوتك، كيورام، زيثروماكس، سيبروفار، فلاجيل (Flagyl)',
     timingCriticality: 'high_hours',
     scenarios: [
       {
@@ -82,7 +89,7 @@ export const MISSED_DOSE_FAMILIES: Record<DrugFamilyKey, DrugFamilyData> = {
         actionBadgeAr: '🟢 خذ الجرعة الآن واضبط مواعيدك القادمة',
         severityColor: '#16a34a',
         actionTitleAr: 'خذ الجرعة فوراً وواصل كل 12 أو 8 ساعات',
-        immediateStepAr: 'تناول الجرعة المنسية فوراً الآن مع كوب ماء كامل بعد الأكل، ثم اضبط ميعاد الجرعة التالية بحيث تفصل بينها وبين هذه الجرعة بالمدة المقررة (مثلاً 12 ساعة لو مرتين يومياً).',
+        immediateStepAr: 'تناول الجرعة المنسية فوراً الآن مع كوب ماء كامل، ثم اضبط ميعاد الجرعة التالية بحيث تفصل بينها وبين هذه الجرعة بالمدة المقررة (مثلاً 8 ساعات لو 3 مرات يومياً أو 12 ساعة لو مرتين يومياً).',
         strictlyForbiddenAr: 'ممنوع تماماً مضاعفة الجرعة القادمة بأخذ قرصين معاً لتعويض الجرعة المنسية!',
         whenToWorryAr: 'لو حدث قيء خلال 30 دقيقة من بلع القرص، يُعاد تناول الجرعة مرة أخرى.',
       },
@@ -102,8 +109,8 @@ export const MISSED_DOSE_FAMILIES: Record<DrugFamilyKey, DrugFamilyData> = {
   blood_pressure: {
     id: 'blood_pressure',
     icon: '🫀',
-    nameAr: 'أدوية ضغط الدم والقلب (حاصرات بيتا ومثبطات ACE)',
-    nameEn: 'Blood Pressure & Heart Medications',
+    nameAr: 'أدوية ضغط الدم والقلب والكوليسترول والمعدة',
+    nameEn: 'Blood Pressure, Heart & Daily Chronic Medications',
     badgeAr: 'منع الارتداد المفاجئ لضغط الدم أو ضربات القلب',
     commonBrandsAr: 'كونكور (Concor)، إكسفورج (Exforge)، تريتايس، أملوديبين، كابتوبريل، ناتريليكس',
     timingCriticality: 'high_hours',
@@ -164,12 +171,12 @@ export const MISSED_DOSE_FAMILIES: Record<DrugFamilyKey, DrugFamilyData> = {
       },
       {
         id: 'insulin-basal-missed',
-        hoursLateLabelAr: 'أنسولين قاعدي طويل المفعول (لانتوس / ليفيمير / تريسيبا)',
+        hoursLateLabelAr: 'أنسولين قاعدي طويل المفعول (لانتوس / ليفيمير / تريسيبا) أو أقراص جلوكوفاج',
         actionBadgeAr: '🟢 خذه فور تذكره أو عدّل موعد الغد تدريجياً',
         severityColor: '#16a34a',
-        actionTitleAr: 'احقن الجرعة فوراً وتابع قياس السكر',
-        immediateStepAr: 'احقن الجرعة القاعدية المعتادة فور تذكرها، واجعل موعد الغد متأخراً بساعة أو ساعتين للرجوع تدريجياً لموعدك الثابت.',
-        strictlyForbiddenAr: 'ممنوع حقن جرعة مضاعفة تحت أي ظرف.',
+        actionTitleAr: 'خذ الجرعة فوراً وتابع قياس السكر',
+        immediateStepAr: 'في حالة أقراص الجلوكوفاج (الميتفورمين) خذ القرص مع الوجبة الحالية؛ وفي الأنسولين القاعدي احقن الجرعة المعتادة فور تذكرها لو باقي أكثر من 8 ساعات على موعدها القادم.',
+        strictlyForbiddenAr: 'ممنوع مضاعفة الجرعة تحت أي ظرف.',
         whenToWorryAr: 'راقب قراءات السكر كل 4 ساعات.',
       },
     ],
@@ -220,12 +227,121 @@ export const MISSED_DOSE_FAMILIES: Record<DrugFamilyKey, DrugFamilyData> = {
   },
 };
 
+function inferFamilyFromMedicineText(text: string): DrugFamilyKey {
+  const low = text.toLowerCase();
+  if (/yasmin|gynera|marvelon|cerazette|microlut|contracep|desogestrel|ethinyl|levonorgestrel|ياسمين|جينيرا|مارفيلون|سيرازيت|ميكرولوت|منع الحمل/.test(low)) {
+    return 'birth_control';
+  }
+  if (/eltroxin|euthyrox|levothyroxine|thyroid|التروكسين|إلتروكسين|ايثيروكس|غدة|ليـفوثيروكسين/.test(low)) {
+    return 'thyroid_eltroxin';
+  }
+  if (/eliquis|xarelto|pradaxa|marevan|warfarin|apixaban|rivaroxaban|dabigatran|clopidogrel|plavix|اليكويس|إليكويس|زاريلتو|ماريفان|وارفارين|سيولة|بلافيكس/.test(low)) {
+    return 'anticoagulant_blood_thinner';
+  }
+  if (/predsol|prednisolone|prednisone|dexamethasone|hydrocortisone|betamethasone|solupred|hostacortin|بريدسول|بريدنيزولون|ديكساميثازون|كورتيزون|سولوبريد/.test(low)) {
+    return 'steroid_cortisone';
+  }
+  if (/insulin|lantus|mixtard|novorapid|humalog|glargine|metformin|glucophage|amaryl|glimepiride|gliclazide|diamicron|januvia|forxiga|jardiance|انسولين|أنسولين|جلوكوفاج|ميتفورمين|اماريل|أماريل|دياميكرون|جانوفيا|فورسيجا|جارديانس|سكر/.test(low)) {
+    return 'insulin_diabetes';
+  }
+  if (/amoxicillin|augmentin|hibiotic|curam|azithromycin|zithromax|ciprofloxacin|cipro|levofloxacin|tavanic|metronidazole|flagyl|ceftriaxone|cefotax|cefuroxime|zinnat|doxycycline|vibramycin|linezolid|تافانيك|سيبرو|فلاجيل|اوجمنتين|أوجمنتين|هاي بيوتك|كيورام|زيثروماكس|مضاد/.test(low)) {
+    return 'antibiotic';
+  }
+  return 'blood_pressure';
+}
+
+function computeNextDoseHoursRemaining(doseTimes: string[]): { nextSlot: string; hoursRemaining: number } | null {
+  if (!Array.isArray(doseTimes) || doseTimes.length === 0) return null;
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  let bestSlot = doseTimes[0];
+  let minDiffMinutes = 24 * 60 + 1;
+
+  for (const slot of doseTimes) {
+    const [hh, mm] = slot.split(':').map((n) => parseInt(n, 10));
+    if (isNaN(hh)) continue;
+    const slotMinutes = hh * 60 + (isNaN(mm) ? 0 : mm);
+    let diff = slotMinutes - nowMinutes;
+    if (diff <= 0) diff += 24 * 60;
+    if (diff < minDiffMinutes) {
+      minDiffMinutes = diff;
+      bestSlot = slot;
+    }
+  }
+
+  return {
+    nextSlot: bestSlot,
+    hoursRemaining: Math.round((minDiffMinutes / 60) * 10) / 10,
+  };
+}
+
 export default function MissedDoseRescueSolver() {
   const { lang } = useLang();
   const isAr = lang === 'ar';
+  const { schedules } = useSyncedSchedules();
+  const { profile } = useSyncedHealthProfile();
+  const { indexItems } = useDawayaDrugDatabase();
 
   const [selectedFamilyId, setSelectedFamilyId] = useState<DrugFamilyKey>('birth_control');
+  const [medSearchQuery, setMedSearchQuery] = useState<string>('');
+  const [selectedMedContext, setSelectedMedContext] = useState<{
+    name: string;
+    doseTimes: string[];
+    frequencyKey: string;
+  } | null>(null);
+
   const family = MISSED_DOSE_FAMILIES[selectedFamilyId];
+
+  const searchMatches = useMemo(() => {
+    if (!medSearchQuery.trim()) return [];
+    return searchDawayaIndex(indexItems, { query: medSearchQuery }, isAr).slice(0, 6);
+  }, [medSearchQuery, indexItems, isAr]);
+
+  const userSavedMeds = useMemo(() => {
+    const list: Array<{ name: string; doseTimes: string[]; frequencyKey: string; rawText: string }> = [];
+    const seen = new Set<string>();
+
+    for (const sch of schedules || []) {
+      const k = sch.medicineName.trim().toLowerCase();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      const reg = getSmartClinicalRegimenForMedicine(sch.medicineName);
+      list.push({
+        name: sch.medicineName,
+        doseTimes: Array.isArray(sch.doseTimes) && sch.doseTimes.length > 0 ? sch.doseTimes : reg.defaultDoseTimes,
+        frequencyKey: sch.frequency || reg.frequencyKey,
+        rawText: `${sch.medicineName} ${sch.antibioticId || ''}`,
+      });
+    }
+
+    for (const pm of profile.medications || []) {
+      if (pm.status && pm.status !== 'active') continue;
+      const k = (pm.drugName || '').trim().toLowerCase();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      const reg = getSmartClinicalRegimenForMedicine(pm.drugName);
+      list.push({
+        name: pm.drugName,
+        doseTimes: reg.defaultDoseTimes,
+        frequencyKey: pm.frequency || reg.frequencyKey,
+        rawText: `${pm.drugName} ${pm.activeIngredients || ''}`,
+      });
+    }
+
+    return list;
+  }, [schedules, profile.medications]);
+
+  const handleSelectMedicineForRescue = (name: string, rawText: string, doseTimes: string[], frequencyKey: string) => {
+    const detectedFam = inferFamilyFromMedicineText(rawText);
+    setSelectedFamilyId(detectedFam);
+    setSelectedMedContext({ name, doseTimes, frequencyKey });
+    setMedSearchQuery('');
+  };
+
+  const nextDoseCalc = useMemo(
+    () => (selectedMedContext ? computeNextDoseHoursRemaining(selectedMedContext.doseTimes) : null),
+    [selectedMedContext]
+  );
 
   return (
     <main className="wrap" style={{ maxWidth: '1160px', margin: '0 auto', padding: '16px' }}>
@@ -261,10 +377,149 @@ export default function MissedDoseRescueSolver() {
         <p style={{ margin: 0, opacity: 0.94, lineHeight: 1.65, maxWidth: '880px' }}>
           {tr(
             lang,
-            'اختر نوع الدواء (حبة منع الحمل، مضاد حيوي، دواء ضغط، أنسولين، غدة، كورتيزون، أو سيولة) لتعرف فوراً: هل تبلعها الآن؟ هل تتخطاها؟ هل تضاعف الجرعة؟ وما هي علامات الخطر بالساعة.',
-            'Select your drug family to get instant clinical guidance: whether to take the missed dose now, skip it, or adjust timing without toxic double-dosing.'
+            'اختر دواءك من جدولك الحالي أو ابحث باسمه من 26,562 دواء مصري، ليحسب لك الموقع كم ساعة متبقية على جرعتك القادمة ويحدد لك فوراً: هل تبلعها الآن أم تتخطاها بأمان.',
+            'Select your medication from your active schedule or search 26,562 Egyptian drugs to calculate hours remaining to your next dose and get instant clinical guidance.'
           )}
         </p>
+      </section>
+
+      {/* Personal Active Medications & 26,562 Medicine Search Bar */}
+      <section
+        className="card"
+        style={{
+          borderRadius: '20px',
+          border: '1.5px solid #cbd5e1',
+          background: '#ffffff',
+          padding: '18px 20px',
+          marginBottom: '20px',
+        }}
+      >
+        {userSavedMeds.length > 0 && (
+          <div style={{ marginBottom: '14px' }}>
+            <div style={{ fontSize: '0.86rem', fontWeight: 900, color: '#0D1F38', marginBottom: '8px' }}>
+              ⏰ {isAr ? 'أدويتك ومنبهاتك المسجلة حالياً — اضغط على الدواء الذي نسيت جرعته:' : 'Your Active Scheduled Medications — Tap the missed medicine:'}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {userSavedMeds.map((um, idx) => {
+                const isSelectedMed = selectedMedContext?.name === um.name;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelectMedicineForRescue(um.name, um.rawText, um.doseTimes, um.frequencyKey)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '999px',
+                      border: isSelectedMed ? '2px solid #dc2626' : '1.5px solid #138866',
+                      background: isSelectedMed ? '#fef2f2' : '#f0fdf4',
+                      color: isSelectedMed ? '#991b1b' : '#065f46',
+                      fontWeight: 800,
+                      fontSize: '0.84rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    💊 {um.name}{' '}
+                    <span style={{ opacity: 0.85, fontSize: '0.75rem' }}>
+                      ({um.doseTimes.map((t) => formatTime12Hour(t, isAr)).join(' • ')})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.86rem', fontWeight: 900, color: '#0D1F38', marginBottom: '6px' }}>
+            🔍 {isAr ? 'أو ابحث باسم أي دواء في مصر (26,562+ دواء) لمعرفة قاعدة نسيان جرعته:' : 'Or search any medicine in Egypt (26,562+ drugs) to check its missed-dose rule:'}
+          </label>
+          <input
+            type="search"
+            value={medSearchQuery}
+            onChange={(e) => setMedSearchQuery(e.target.value)}
+            placeholder={isAr ? 'مثال: فلاجيل، أوجمنتين، كونكور، إلتروكسين، جلوكوفاج، ماريفان، ياسمين...' : 'e.g., Flagyl, Augmentin, Concor, Eltroxin, Glucophage...'}
+            style={{
+              width: '100%',
+              padding: '11px 14px',
+              borderRadius: '12px',
+              border: '1.5px solid #94a3b8',
+              fontSize: '0.92rem',
+              fontWeight: 700,
+            }}
+          />
+          {searchMatches.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+              {searchMatches.map((it) => {
+                const reg = getSmartClinicalRegimenForMedicine(it);
+                return (
+                  <button
+                    key={it.i}
+                    type="button"
+                    className="chip"
+                    onClick={() =>
+                      handleSelectMedicineForRescue(
+                        isAr ? `${it.a || it.n} (${it.s})` : `${it.n} (${it.s})`,
+                        `${it.n} ${it.a} ${it.g} ${it.d}`,
+                        reg.defaultDoseTimes,
+                        reg.frequencyKey
+                      )
+                    }
+                  >
+                    💊 {isAr ? it.a || it.n : it.n} ({it.s})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Personalized Real-Time Clock Calculation Box when a specific medicine is selected */}
+        {selectedMedContext && nextDoseCalc && (
+          <div
+            style={{
+              marginTop: '14px',
+              padding: '14px 16px',
+              borderRadius: '16px',
+              background: nextDoseCalc.hoursRemaining >= 3 ? '#f0fdf4' : '#fffbeb',
+              border: nextDoseCalc.hoursRemaining >= 3 ? '2px solid #16a34a' : '2px solid #d97706',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
+            <div>
+              <strong style={{ color: '#0D1F38', fontSize: '0.98rem', display: 'block', marginBottom: '4px' }}>
+                ⏱️ حساب التوقيت الفوري لدواء «{selectedMedContext.name}»:
+              </strong>
+              <span style={{ fontSize: '0.88rem', color: '#1e293b', fontWeight: 700, display: 'block' }}>
+                مواعيد الجرعات اليومية: <b>{selectedMedContext.doseTimes.map((t) => formatTime12Hour(t, isAr)).join(' • ')}</b> — الجرعة القادمة الساعة{' '}
+                <b>{formatTime12Hour(nextDoseCalc.nextSlot, isAr)}</b> (متبقي حوالي <b>{nextDoseCalc.hoursRemaining} ساعة</b>).
+              </span>
+              <span
+                style={{
+                  fontSize: '0.88rem',
+                  fontWeight: 900,
+                  color: nextDoseCalc.hoursRemaining >= 3 ? '#166534' : '#b45309',
+                  display: 'block',
+                  marginTop: '4px',
+                }}
+              >
+                {nextDoseCalc.hoursRemaining >= 3
+                  ? '🟢 القرار السريري: باقي وقت كافٍ على الجرعة التالية — يمكنك أخذ الجرعة المنسية الآن (مع مراعاة تعليمات الأكل بالأسفل).'
+                  : '🟡 القرار السريري: الجرعة التالية قريبة جداً (أقل من 3 ساعات) — تخطَّ الجرعة المنسية وخذ القادمة في موعدها دون مضاعفة!'}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn small ghost"
+              onClick={() => setSelectedMedContext(null)}
+            >
+              ✕ {isAr ? 'مسح' : 'Clear'}
+            </button>
+          </div>
+        )}
       </section>
 
       {/* Drug Family Selector Grid */}

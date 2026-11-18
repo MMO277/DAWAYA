@@ -4,7 +4,7 @@ import { useLang } from './i18n';
 import { tr } from './types';
 import { speakText } from './speechService';
 import { useSyncedHealthProfile } from './allergyData';
-import { useSyncedSchedules } from './trackerData';
+import { formatFrequencyLabel, formatTime12Hour, useSyncedSchedules } from './trackerData';
 import Disclaimer from './Disclaimer';
 
 export type MedicalSpecialtyClinic =
@@ -241,8 +241,60 @@ export default function DoctorVisitPrep() {
 
   const template = SPECIALTY_PREP_TEMPLATES[selectedSpecialty];
 
+  const patientDisplayName = profile.displayName || profile.fullName || 'مريض منصة دوايا';
+
+  const formattedAllergies = useMemo(() => {
+    if (!profile.allergies || profile.allergies.length === 0) return 'لا توجد';
+    return profile.allergies.map((a) => a.drugName || a.allergenKey).filter(Boolean).join('، ') || 'لا توجد';
+  }, [profile.allergies]);
+
+  const formattedMedicationsList = useMemo(() => {
+    const items: string[] = [];
+    const seen = new Set<string>();
+
+    for (const s of schedules || []) {
+      const k = s.medicineName.trim().toLowerCase();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      const times =
+        Array.isArray(s.doseTimes) && s.doseTimes.length > 0
+          ? ` [${s.doseTimes.map((t) => formatTime12Hour(t, isAr)).join(' • ')}]`
+          : '';
+      items.push(`${s.medicineName} (${s.prescribedDose || formatFrequencyLabel(s.frequency, isAr)})${times}`);
+    }
+
+    for (const m of profile.medications || []) {
+      if (m.status && m.status !== 'active') continue;
+      const k = (m.drugName || '').trim().toLowerCase();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      items.push(`${m.drugName}${m.prescribedDose ? ` (${m.prescribedDose})` : ''}`);
+    }
+
+    for (const am of profile.activeMedications || []) {
+      const k = (am.drugName || '').trim().toLowerCase();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      items.push(`${am.drugName}${am.doseOrStrength ? ` (${am.doseOrStrength})` : ''}`);
+    }
+
+    return items;
+  }, [schedules, profile.medications, profile.activeMedications, isAr]);
+
   const handlePrint = () => {
     if (typeof window !== 'undefined') window.print();
+  };
+
+  const handleShareWhatsApp = () => {
+    const questionsList = [
+      ...template.essentialQuestionsToAskAr,
+      ...(userCustomQuestion.trim() ? [userCustomQuestion.trim()] : []),
+    ]
+      .map((q, idx) => `${idx + 1}. ${q}`)
+      .join('\n');
+
+    const text = `📋 *بطاقة تحضير كشف الطبيب — ${template.nameAr}*\n👤 *المريض:* ${patientDisplayName}${profile.age ? ` (${profile.age})` : ''}\n🩺 *الشكوى الحالية:* ${patientChiefComplaint || 'فحص ومتابعة'} (${symptomDuration})\n🚨 *الحساسية الدوائية:* ${formattedAllergies}\n💊 *الأدوية الحالية:* ${formattedMedicationsList.length > 0 ? formattedMedicationsList.join(' • ') : 'لا توجد'}\n\n❓ *الأسئلة الهامة للطبيب:*\n${questionsList}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -261,7 +313,7 @@ export default function DoctorVisitPrep() {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
           <span style={{ background: 'rgba(255,255,255,0.2)', padding: '6px 14px', borderRadius: '30px', fontSize: '0.84rem', fontWeight: 800, color: '#e0f2fe' }}>
-            📋 {tr(lang, 'مُحضّر كشف العيادة الذكي وزيارة الطبيب', 'Smart Doctor Visit & Clinical Consultation Prep')}
+            📋 {tr(lang, 'مُحضّر كشف العيادة وزيارة الطبيب', 'Smart Doctor Visit & Clinical Consultation Prep')}
           </span>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <Link to="/clinics" className="btn small" style={{ background: 'rgba(255,255,255,0.18)', color: '#ffffff', fontWeight: 800, textDecoration: 'none', borderRadius: '20px' }}>
@@ -279,7 +331,7 @@ export default function DoctorVisitPrep() {
         <p style={{ margin: 0, opacity: 0.94, lineHeight: 1.65, maxWidth: '880px' }}>
           {tr(
             lang,
-            'اختر تخصص العيادة واكتب شكوتك، ليولد لك النظام وثيقة مطبوعة أو محفوظة على تليفونك فيها شكوتك، أدويتك الحالية، قياساتك، وأهم 5 أسئلة طبية لازم تسألها للدكتور قبل ما تخرج من العيادة.',
+            'اختر تخصص العيادة واكتب شكوتك، ليجهز لك الموقع ورقة كشف منظمة قابلة للطباعة أو الحفظ على واتساب فيها شكوتك، أدويتك ومواعيدها، وأهم 5 أسئلة طبية تسألها للدكتور.',
             'Select your clinic specialty to instantly generate a tailored consultation sheet with your chief complaints, current medications, and the top 5 questions to ask your physician.'
           )}
         </p>
@@ -318,7 +370,7 @@ export default function DoctorVisitPrep() {
       {/* Input Complaint Form (no-print) */}
       <section className="card no-print" style={{ borderRadius: '20px', padding: '20px', border: '1.5px solid #cbd5e1', marginBottom: '22px' }}>
         <h2 style={{ margin: '0 0 12px', color: '#0D1F38', fontSize: '1.18rem', fontWeight: 900 }}>
-          ✍️ الخطوة الأخيرة: سجل شكواك الحالية لتظهر في التقرير المطبوع للطبيب:
+          ✍️ سجل شكواك الحالية لتظهر في ورقة الكشف للطبيب:
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px', marginBottom: '14px' }}>
           <div>
@@ -372,14 +424,28 @@ export default function DoctorVisitPrep() {
           boxShadow: '0 10px 30px rgba(0,0,0,0.06)',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0D1F38', paddingBottom: '14px', marginBottom: '18px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '2px solid #0D1F38', paddingBottom: '14px', marginBottom: '18px' }}>
           <div>
-            <div style={{ fontSize: '0.78rem', color: '#0f766e', fontWeight: 800 }}>منصة دوايا الرقمية • بطاقة كشف العيادة الذكية</div>
+            <div style={{ fontSize: '0.78rem', color: '#0f766e', fontWeight: 800 }}>منصة دوايا الرقمية • بطاقة تحضير كشف العيادة</div>
             <h2 style={{ margin: '2px 0 0', color: '#0D1F38', fontSize: '1.35rem', fontWeight: 900 }}>
               {template.icon} تقرير مُحضّر زيارة: {template.nameAr}
             </h2>
           </div>
-          <div className="no-print">
+          <div className="no-print" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleShareWhatsApp}
+              className="btn"
+              style={{
+                background: '#16a34a',
+                color: '#ffffff',
+                fontWeight: 900,
+                borderRadius: '12px',
+                padding: '9px 16px',
+              }}
+            >
+              📲 إرسال عبر واتساب
+            </button>
             <button
               type="button"
               onClick={handlePrint}
@@ -399,10 +465,15 @@ export default function DoctorVisitPrep() {
 
         {/* Patient Summary Header Box */}
         <div style={{ background: '#f8fafc', padding: '14px 18px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '18px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', fontSize: '0.9rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(175px, 1fr))', gap: '10px', fontSize: '0.9rem' }}>
             <div>
-              <span style={{ color: '#64748b', fontSize: '0.78rem', display: 'block' }}>اسم المريض:</span>
-              <strong style={{ color: '#0D1F38' }}>{profile.name || 'مريض منصة دوايا'}</strong>
+              <span style={{ color: '#64748b', fontSize: '0.78rem', display: 'block' }}>اسم المريض والبيانات:</span>
+              <strong style={{ color: '#0D1F38' }}>
+                {patientDisplayName}
+                {profile.age ? ` • ${profile.age}` : ''}
+                {profile.weightKg ? ` • ${profile.weightKg} كجم` : ''}
+                {profile.bloodType ? ` (${profile.bloodType})` : ''}
+              </strong>
             </div>
             <div>
               <span style={{ color: '#64748b', fontSize: '0.78rem', display: 'block' }}>الشكوى الرئيسية المسجلة:</span>
@@ -415,9 +486,7 @@ export default function DoctorVisitPrep() {
             <div>
               <span style={{ color: '#64748b', fontSize: '0.78rem', display: 'block' }}>الحساسية الدوائية المسجلة:</span>
               <strong style={{ color: (profile.allergies || []).length > 0 ? '#dc2626' : '#16a34a' }}>
-                {(profile.allergies || []).length > 0
-                  ? profile.allergies.map((a) => a.drugName || a.allergen).join('، ')
-                  : 'لا توجد'}
+                {formattedAllergies}
               </strong>
             </div>
           </div>
@@ -479,11 +548,9 @@ export default function DoctorVisitPrep() {
         </div>
 
         {/* Section 4: Current Medications Compact List */}
-        <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e2e8f0', fontSize: '0.84rem', color: '#475569' }}>
-          <b>أدويتك الحالية المسجلة في السجل الطبي:</b>{' '}
-          {(schedules || []).length > 0 || (profile.medications || []).length > 0
-            ? [...(schedules || []).map((s) => `${s.medicineName} (${s.prescribedDose})`), ...(profile.medications || []).map((m) => m.drugName)].join(' • ')
-            : 'لا توجد أدوية مسجلة'}
+        <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e2e8f0', fontSize: '0.86rem', color: '#475569' }}>
+          <b>💊 أدويتك ومواعيد جرعاتك الحالية المسجلة في السجل الطبي:</b>{' '}
+          {formattedMedicationsList.length > 0 ? formattedMedicationsList.join(' • ') : 'لا توجد أدوية مسجلة حالياً'}
         </div>
       </article>
 

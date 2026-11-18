@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
 import { tr } from './types';
 import { speakText } from './speechService';
+import { useSyncedHealthProfile } from './allergyData';
+import { useSyncedSchedules } from './trackerData';
 import Disclaimer from './Disclaimer';
 
 export type FoodCategoryKey =
@@ -174,9 +176,21 @@ export const FOOD_DRUG_RULES: FoodDrugRule[] = [
 export default function FoodDrugInteractionChecker() {
   const { lang } = useLang();
   const isAr = lang === 'ar';
+  const { profile } = useSyncedHealthProfile();
+  const { schedules } = useSyncedSchedules();
 
   const [selectedCategory, setSelectedCategory] = useState<FoodCategoryKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Match patient's active medications against FOOD_DRUG_RULES
+  const personalMatchedMedNames = useMemo(() => {
+    const names = [
+      ...(schedules || []).map((s) => s.medicineName),
+      ...(profile.medications || []).filter((m) => !m.status || m.status === 'active').map((m) => m.drugName),
+      ...(profile.activeMedications || []).map((m) => m.drugName),
+    ].filter(Boolean);
+    return Array.from(new Set(names));
+  }, [schedules, profile.medications, profile.activeMedications]);
 
   const filteredRules = useMemo(() => {
     return FOOD_DRUG_RULES.filter((r) => {
@@ -236,6 +250,29 @@ export default function FoodDrugInteractionChecker() {
 
       {/* Search & Quick Food Category Filter */}
       <section className="card" style={{ borderRadius: '18px', padding: '18px', marginBottom: '20px', border: '1.5px solid #cbd5e1' }}>
+        {personalMatchedMedNames.length > 0 && (
+          <div style={{ marginBottom: '12px', padding: '10px 14px', borderRadius: '14px', background: '#f0fdf4', border: '1.5px solid #86efac' }}>
+            <div style={{ fontSize: '0.84rem', fontWeight: 900, color: '#065f46', marginBottom: '6px' }}>
+              💊 {isAr ? 'أدويتك المسجلة حالياً — اضغط على أي دواء لفحص الأكل والشرب معه:' : 'Your Registered Medications — Tap to filter food interactions:'}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {personalMatchedMedNames.map((mName, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className="chip"
+                  onClick={() => {
+                    setSelectedCategory('all');
+                    setSearchQuery(mName.split(' (')[0].split(' ')[0]);
+                  }}
+                >
+                  🔍 {mName}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <input
           type="search"
           value={searchQuery}

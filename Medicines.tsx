@@ -40,6 +40,7 @@ import {
   decodeWarningMask,
   findDawayaIndexItemSync,
   getDawayaClassifiedAlternatives,
+  getSmartClinicalRegimenForMedicine,
   searchDawayaIndex,
   useDawayaDrugDatabase,
 } from './dawayaDrugDatabaseService';
@@ -92,7 +93,7 @@ export default function Medicines() {
 
   async function handleAiMedicineImageFile(file: File) {
     setAiBoxScanLoading(true);
-    setProfileToast(isAr ? '🤖 جاري قراءة صورة الدواء بالذكاء الاصطناعي والبحث في 26,562 دواء...' : '🤖 Analyzing medicine image with AI Vision...');
+    setProfileToast(isAr ? '📷 جاري قراءة بيانات علبة الدواء ومطابقتها مع 26,562 مستحضر...' : '🤖 Analyzing medicine image with AI Vision...');
     try {
       const res = await extractTextFromBlisterOrBoxImage(file, lang);
       let matchedItem: DawayaCompactIndexItem | null = null;
@@ -146,7 +147,7 @@ export default function Medicines() {
       if (matchedItem || res.aiDetectedDrugName) {
         setProfileToast(
           isAr
-            ? `✅ تم التعرف بالذكاء الاصطناعي على: ${matchedItem ? matchedItem.a || matchedItem.n : res.aiDetectedDrugName}`
+            ? `✅ تم التعرف على الدواء من الصورة: ${matchedItem ? matchedItem.a || matchedItem.n : res.aiDetectedDrugName}`
             : `✅ AI recognized: ${matchedItem ? matchedItem.n : res.aiDetectedDrugName}`
         );
       } else {
@@ -325,25 +326,50 @@ export default function Medicines() {
 
   function handleAddMedicineToProfile(medId: string, nameAr: string, nameEn: string, strength: string) {
     const label = isAr ? nameAr || nameEn : nameEn || nameAr;
+    const reg = getSmartClinicalRegimenForMedicine(nameEn || nameAr || medId);
+    const todayStr = new Date().toISOString().slice(0, 10);
     setProfile((prev) => {
-      const existing = prev.activeMedications || [];
-      if (existing.some((m) => m.resolvedDrugId === medId || m.drugName === label)) {
-        return prev;
-      }
+      const existingActive = prev.activeMedications || [];
+      const nextActive = existingActive.some((m) => m.resolvedDrugId === medId || m.drugName === label)
+        ? existingActive
+        : [
+            {
+              id: `med-${Date.now()}`,
+              drugName: label,
+              resolvedDrugId: medId,
+              doseOrStrength: strength || undefined,
+              evidenceStatus: "patient_reported" as const,
+              source: "manual_entry" as const,
+              addedAt: new Date().toISOString(),
+            },
+            ...existingActive,
+          ];
+
+      const existingMeds = prev.medications || [];
+      const nextMeds = existingMeds.some((m) => m.drugName === label)
+        ? existingMeds.map((m) => (m.drugName === label ? { ...m, status: "active" as const } : m))
+        : [
+            {
+              id: `med-rec-${Date.now()}`,
+              drugName: label,
+              activeIngredients: "",
+              prescribedDose: strength || (isAr ? reg.defaultDoseTextAr : reg.defaultDoseTextEn),
+              dosageAndFrequency: strength || "",
+              route: reg.route || "oral",
+              frequency: reg.frequencyKey || "twice_daily",
+              startDate: todayStr,
+              status: "active" as const,
+              isOngoing: true,
+              source: "manual_entry" as const,
+              createdAt: new Date().toISOString(),
+            },
+            ...existingMeds,
+          ];
+
       return {
         ...prev,
-        activeMedications: [
-          {
-            id: `med-${Date.now()}`,
-            drugName: label,
-            resolvedDrugId: medId,
-            doseOrStrength: strength || undefined,
-            evidenceStatus: 'patient_reported',
-            source: 'manual_entry',
-            addedAt: new Date().toISOString(),
-          },
-          ...existing,
-        ],
+        activeMedications: nextActive,
+        medications: nextMeds,
       };
     });
     setProfileToast(

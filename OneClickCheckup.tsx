@@ -1,5 +1,5 @@
 import { SmartNativeSelect } from './SmartChoiceSelect';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
 import { pick, tr } from './types';
@@ -12,10 +12,13 @@ import {
   DawayaCompactIndexItem,
   decodeWarningMask,
   getDawayaIngredientEquivalents,
+  getSmartClinicalRegimenForMedicine,
   searchDawayaIndex,
   useDawayaDrugDatabase,
 } from './dawayaDrugDatabaseService';
 import { getClinicalProProfile } from './clinicalProData';
+import { useSyncedSchedules } from './trackerData';
+import { scheduleMultipleNativeDoseAlarms } from './nativeAlarmService';
 import FindMedicationPanel from './FindMedicationPanel';
 import SmartDoseAlarmCard from './SmartDoseAlarmCard';
 import Mechanism3DViewer from './Mechanism3DViewer';
@@ -27,10 +30,12 @@ export default function OneClickCheckup() {
   const [searchParams] = useSearchParams();
   const initialMedParam = searchParams.get('med') || 'amoxicillin-clavulanic-acid';
   const { indexItems } = useDawayaDrugDatabase();
+  const { addSchedule } = useSyncedSchedules();
 
   // Universal 26,562 DAWAYA Medicine Search state
   const [dawayaQuery, setDawayaQuery] = useState('');
   const [selectedDawayaItem, setSelectedDawayaItem] = useState<DawayaCompactIndexItem | null>(null);
+  const [scheduleSavedToast, setScheduleSavedToast] = useState<string>('');
 
   const dawayaResults = useMemo(() => {
     if (!dawayaQuery.trim()) return [];
@@ -71,7 +76,27 @@ export default function OneClickCheckup() {
   const [takesWarfarin, setTakesWarfarin] = useState(false);
   const [hasPenicillinAllergy, setHasPenicillinAllergy] = useState(false);
   const [wakeUpHour, setWakeUpHour] = useState<number>(8);
-  const [intervalHours, setIntervalHours] = useState<8 | 12 | 24>(12);
+  const [intervalHours, setIntervalHours] = useState<6 | 8 | 12 | 24>(12);
+
+  // Auto-calibrate intervalHours and wakeUpHour whenever selected medicine changes
+  useEffect(() => {
+    const target = selectedDawayaItem || activePkg?.tradeNameEn || selectedIngredientId;
+    if (!target) return;
+    const reg = getSmartClinicalRegimenForMedicine(target);
+    if (reg.frequencyKey === 'once_daily') {
+      setIntervalHours(24);
+      setWakeUpHour(8);
+    } else if (reg.frequencyKey === 'thrice_daily') {
+      setIntervalHours(8);
+      setWakeUpHour(6);
+    } else if (reg.frequencyKey === 'four_times_daily') {
+      setIntervalHours(6);
+      setWakeUpHour(6);
+    } else {
+      setIntervalHours(12);
+      setWakeUpHour(8);
+    }
+  }, [selectedDawayaItem, activePkg?.productId, selectedIngredientId]);
 
   // Compute cheaper bioequivalent generic from either selectedDawayaItem (26,562 DB) or activePkg
   const { cheapestGeneric, savingsEgp, savingsPct } = useMemo(() => {
@@ -197,7 +222,7 @@ export default function OneClickCheckup() {
 
   // Compute 24h clock dose slots
   const doseTimes = useMemo(() => {
-    const count = intervalHours === 8 ? 3 : intervalHours === 12 ? 2 : 1;
+    const count = intervalHours === 6 ? 4 : intervalHours === 8 ? 3 : intervalHours === 12 ? 2 : 1;
     const slots: string[] = [];
     for (let i = 0; i < count; i++) {
       const h = (wakeUpHour + i * intervalHours) % 24;
@@ -214,6 +239,52 @@ export default function OneClickCheckup() {
   const displayedBarcode = selectedDawayaItem ? selectedDawayaItem.b : activePkg?.barcode;
   const displayedPrice = selectedDawayaItem ? selectedDawayaItem.p : activePkg?.priceEgp;
   const displayedLinkId = selectedDawayaItem ? selectedDawayaItem.i : selectedIngredientId;
+
+  const handleSaveClockToSchedule = () => {
+    const medTitle = `${isAr ? displayedBrandAr : displayedBrandEn}${displayedStrength ? ` (${displayedStrength})` : ''}`;
+    const freqKey =
+      intervalHours === 24
+        ? 'once_daily'
+        : intervalHours === 8
+          ? 'thrice_daily'
+          : intervalHours === 6
+            ? 'four_times_daily'
+            : 'twice_daily';
+    const reg = getSmartClinicalRegimenForMedicine(selectedDawayaItem || medTitle);
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    addSchedule(
+      {
+        antibioticId: selectedDawayaItem ? selectedDawayaItem.i : selectedIngredientId,
+        medicineName: medTitle,
+        prescribedDose: isAr ? reg.defaultDoseTextAr : reg.defaultDoseTextEn,
+        route: reg.route || 'oral',
+        frequency: freqKey,
+        durationDays: reg.defaultDurationDays || 7,
+        startDate: todayStr,
+        firstDoseTime: doseTimes[0] || '08:00',
+        doseTimes,
+        verificationStatus: 'verified_by_patient',
+        captureMethod: 'manual_entry',
+        notes: isAr ? reg.aiReasonAr.replace(/🤖\s*اقتراح الذكاء الدوائي:\s*/g, '') : reg.aiReasonEn,
+      },
+      'schedule_created_from_prescription'
+    );
+
+    void scheduleMultipleNativeDoseAlarms(
+      medTitle,
+      isAr ? reg.defaultDoseTextAr : reg.defaultDoseTextEn,
+      doseTimes,
+      isAr
+    );
+
+    setScheduleSavedToast(
+      isAr
+        ? `✅ تم حفظ وتفعيل مواعيد (${medTitle}) في جدولك اليومي ومنبه الموبايل (${doseTimes.join(' • ')})!`
+        : `✅ Activated daily schedule & alarms for (${medTitle}) at (${doseTimes.join(' • ')})!`
+    );
+    window.setTimeout(() => setScheduleSavedToast(''), 4500);
+  };
 
   return (
     <main className="wrap" dir={isAr ? 'rtl' : 'ltr'} style={{ paddingBottom: '48px' }}>
@@ -246,7 +317,7 @@ export default function OneClickCheckup() {
               <h1 style={{ margin: '8px 0 4px', color: '#fff', fontSize: '1.65rem' }}>
                 {tr(
                   lang,
-                  'لوحة الفحص الذكي الشامل لأي دواء في السوق المصري في شاشة واحدة',
+                  'لوحة الفحص الشامل لأي دواء في السوق المصري في شاشة واحدة',
                   'One-Click Complete Medication Checkup Dashboard'
                 )}
               </h1>
@@ -550,19 +621,19 @@ export default function OneClickCheckup() {
                 padding: '16px',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
                 <b style={{ fontSize: '1rem', color: '#0f172a' }}>
                   🕒 {tr(lang, 'ساعة مواعيد الجرعات الـ 24 ساعة', '24-Hour Dose Schedule')}
                 </b>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  {([8, 12, 24] as const).map((h) => (
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {([6, 8, 12, 24] as const).map((h) => (
                     <button
                       key={h}
                       type="button"
                       onClick={() => setIntervalHours(h)}
                       style={{
                         background: intervalHours === h ? '#138866' : '#e2e8f0',
-                        color: intervalHours === h ? '#101E36' : '#334155',
+                        color: intervalHours === h ? '#ffffff' : '#334155',
                         border: 'none',
                         borderRadius: '6px',
                         padding: '4px 8px',
@@ -610,7 +681,7 @@ export default function OneClickCheckup() {
                         key={t}
                         style={{
                           background: idx === 0 ? '#138866' : '#101E36',
-                          color: idx === 0 ? '#101E36' : '#fff',
+                          color: '#fff',
                           padding: '5px 11px',
                           borderRadius: '99px',
                           fontSize: '0.82rem',
@@ -622,8 +693,8 @@ export default function OneClickCheckup() {
                       </span>
                     ))}
                   </div>
-                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span className="small">{tr(lang, 'وقت الاستيقاظ:', 'Wake-up:')}</span>
+                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span className="small">{tr(lang, 'أول جرعة صباحاً:', 'First dose:')}</span>
                     <input
                       type="number"
                       min={5}
@@ -636,6 +707,29 @@ export default function OneClickCheckup() {
                   </div>
                 </div>
               </div>
+
+              <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleSaveClockToSchedule}
+                  className="btn small"
+                  style={{
+                    flex: 1,
+                    background: 'linear-gradient(135deg, #0D1F38 0%, #138866 100%)',
+                    color: '#ffffff',
+                    fontWeight: 900,
+                    borderRadius: '10px',
+                    border: 'none',
+                  }}
+                >
+                  🔔 {tr(lang, 'حفظ وتفعيل هذه المواعيد في جدولي ومنبهي', 'Save & Activate Schedule Alarms')}
+                </button>
+              </div>
+              {scheduleSavedToast && (
+                <div style={{ marginTop: '8px', padding: '8px 10px', borderRadius: '8px', background: '#dcfce7', color: '#166534', fontSize: '0.8rem', fontWeight: 800 }}>
+                  {scheduleSavedToast}
+                </div>
+              )}
             </div>
           </div>
 

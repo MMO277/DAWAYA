@@ -1,6 +1,7 @@
+import SmartDoseTimeCalibrator from './SmartDoseTimeCalibrator';
+import { scheduleMultipleNativeDoseAlarms } from './nativeAlarmService';
 import { MedicineDriverAndInjectionBanner } from './egyptianClinicalInnovations';
 import { EdaCounterfeitRadarCard } from './edaCounterfeitRadar';
-import SmartMedDoseReminderBadge from './SmartMedDoseReminderBadge';
 import {
   evaluateMedicationSafety,
   evaluateOccupationalDrugSafety,
@@ -33,6 +34,7 @@ import {
   findDawayaIndexItemSync,
   getDawayaClassifiedAlternatives,
   getDawayaIngredientEquivalents,
+  getSmartClinicalRegimenForMedicine,
   recordRecentlyViewedMedicine,
 } from './dawayaDrugDatabaseService';
 
@@ -70,12 +72,174 @@ const PRO_ORDER: TextField[] = [
   'patientEducation',
 ];
 
+function MedicinePackageStudioCard({
+  brandEn,
+  brandAr,
+  strength,
+  dosageForm,
+  manufacturer,
+  accentColor = '#138866',
+}: {
+  brandEn: string;
+  brandAr: string;
+  strength?: string;
+  dosageForm?: string;
+  manufacturer?: string;
+  accentColor?: string;
+}) {
+  const formLow = (dosageForm || 'tablet').toLowerCase();
+  const shortBrand = (brandEn || brandAr || 'DAWAYA')
+    .replace(/\([^)]*\)/g, '')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .join(' ')
+    .slice(0, 16)
+    .toUpperCase();
+  const shortStr = (strength || '').slice(0, 12);
+  const isSyrup = /syrup|susp|sol|oral drop|شراب|معلق|نقط/.test(formLow);
+  const isCream = /cream|oint|gel|lotion|topical|كريم|مرهم|جل|دهان/.test(formLow);
+  const isInj = /vial|amp|inj|infusion|حقن|أمبول|فيال/.test(formLow);
+
+  return (
+    <div
+      style={{
+        width: '158px',
+        minHeight: '142px',
+        borderRadius: '18px',
+        background: 'linear-gradient(145deg, #f8fafc 0%, #ecfdf5 100%)',
+        border: '1.5px solid #cbd5e1',
+        padding: '12px 10px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        flexShrink: 0,
+        boxShadow: '0 8px 20px rgba(13, 31, 56, 0.08)',
+      }}
+    >
+      <svg width="132" height="104" viewBox="0 0 132 104" fill="none" aria-hidden="true">
+        {isSyrup ? (
+          <>
+            {/* Bottle Cap & Amber Glass Syrup Bottle */}
+            <rect x="48" y="8" width="36" height="12" rx="4" fill="#0D1F38" />
+            <path
+              d="M42 28C42 22.5 46.5 20 52 20H80C85.5 20 90 22.5 90 28V88C90 92.4 86.4 96 82 96H50C45.6 96 42 92.4 42 88V28Z"
+              fill="#b45309"
+              stroke="#78350f"
+              strokeWidth="2"
+            />
+            <rect x="44" y="38" width="44" height="42" rx="4" fill="#ffffff" />
+            <rect x="44" y="38" width="44" height="8" rx="2" fill={accentColor} />
+            <text x="66" y="57" textAnchor="middle" fill="#0D1F38" fontSize="8.2" fontWeight="900" fontFamily="system-ui, sans-serif">
+              {shortBrand.slice(0, 11)}
+            </text>
+            {shortStr && (
+              <text x="66" y="68" textAnchor="middle" fill="#0f766e" fontSize="7.2" fontWeight="800" fontFamily="system-ui, sans-serif">
+                {shortStr}
+              </text>
+            )}
+          </>
+        ) : isCream ? (
+          <>
+            {/* Topical Cream Tube */}
+            <path d="M24 28H92L84 84H32L24 28Z" fill="#ffffff" stroke="#94a3b8" strokeWidth="2" />
+            <rect x="24" y="22" width="68" height="8" rx="2" fill={accentColor} />
+            <rect x="46" y="84" width="24" height="12" rx="3" fill="#0D1F38" />
+            <rect x="30" y="38" width="56" height="10" rx="3" fill={accentColor} fillOpacity="0.16" />
+            <text x="58" y="46" textAnchor="middle" fill="#0D1F38" fontSize="8.5" fontWeight="900" fontFamily="system-ui, sans-serif">
+              {shortBrand.slice(0, 12)}
+            </text>
+            {shortStr && (
+              <text x="58" y="60" textAnchor="middle" fill="#0f766e" fontSize="7.5" fontWeight="800" fontFamily="system-ui, sans-serif">
+                {shortStr}
+              </text>
+            )}
+          </>
+        ) : isInj ? (
+          <>
+            {/* Carton + Glass Vial */}
+            <rect x="14" y="18" width="68" height="72" rx="8" fill="#ffffff" stroke="#94a3b8" strokeWidth="2" />
+            <rect x="14" y="18" width="14" height="72" rx="6" fill={accentColor} />
+            <text x="53" y="44" textAnchor="middle" fill="#0D1F38" fontSize="8" fontWeight="900" fontFamily="system-ui, sans-serif">
+              {shortBrand.slice(0, 10)}
+            </text>
+            {shortStr && (
+              <text x="53" y="56" textAnchor="middle" fill="#0f766e" fontSize="7.2" fontWeight="800" fontFamily="system-ui, sans-serif">
+                {shortStr}
+              </text>
+            )}
+            <rect x="92" y="28" width="24" height="10" rx="3" fill="#0284c7" />
+            <rect x="88" y="38" width="32" height="52" rx="6" fill="#e0f2fe" stroke="#0284c7" strokeWidth="1.8" />
+            <rect x="90" y="52" width="28" height="24" rx="2" fill="#ffffff" />
+          </>
+        ) : (
+          <>
+            {/* 3D Medicine Carton Box + Silver Blister Pack + Capsules */}
+            <rect x="10" y="16" width="84" height="62" rx="8" fill="#ffffff" stroke="#94a3b8" strokeWidth="1.8" />
+            <path d="M10 24C10 19.58 13.58 16 18 16H26V78H18C13.58 78 10 74.42 10 70V24Z" fill={accentColor} />
+            <rect x="30" y="24" width="56" height="13" rx="3.5" fill="#f1f5f9" />
+            <text x="58" y="33.5" textAnchor="middle" fill="#0D1F38" fontSize="8.2" fontWeight="900" fontFamily="system-ui, sans-serif">
+              {shortBrand.slice(0, 12)}
+            </text>
+            {shortStr && (
+              <rect x="32" y="42" width="42" height="12" rx="6" fill={accentColor} fillOpacity="0.15" />
+            )}
+            {shortStr && (
+              <text x="53" y="50.5" textAnchor="middle" fill="#065f46" fontSize="7.2" fontWeight="900" fontFamily="system-ui, sans-serif">
+                {shortStr}
+              </text>
+            )}
+            <rect x="32" y="60" width="34" height="4" rx="2" fill="#cbd5e1" />
+            <rect x="32" y="67" width="24" height="3.5" rx="1.75" fill="#e2e8f0" />
+
+            {/* Blister Strip on Right */}
+            <g transform="rotate(6 86 24)">
+              <rect x="82" y="22" width="38" height="58" rx="6" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1.5" />
+              <circle cx="93" cy="34" r="4.5" fill="#ffffff" stroke="#64748b" strokeWidth="1.2" />
+              <circle cx="109" cy="34" r="4.5" fill="#ffffff" stroke="#64748b" strokeWidth="1.2" />
+              <circle cx="93" cy="50" r="4.5" fill="#ffffff" stroke="#64748b" strokeWidth="1.2" />
+              <circle cx="109" cy="50" r="4.5" fill="#ffffff" stroke="#64748b" strokeWidth="1.2" />
+              <circle cx="93" cy="66" r="4.5" fill="#ffffff" stroke="#64748b" strokeWidth="1.2" />
+              <circle cx="109" cy="66" r="4.5" fill="#ffffff" stroke="#64748b" strokeWidth="1.2" />
+            </g>
+
+            {/* Foreground Capsule */}
+            <g transform="rotate(-12 36 86)">
+              <rect x="20" y="80" width="34" height="13" rx="6.5" fill="#ffffff" stroke="#94a3b8" strokeWidth="1.4" />
+              <path d="M20 86.5C20 82.9 22.9 80 26.5 80H37V93H26.5C22.9 93 20 90.1 20 86.5Z" fill={accentColor} />
+            </g>
+          </>
+        )}
+      </svg>
+      {manufacturer && (
+        <span
+          style={{
+            fontSize: '0.66rem',
+            fontWeight: 800,
+            color: '#475569',
+            textAlign: 'center',
+            maxWidth: '140px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            marginTop: '2px',
+          }}
+        >
+          🏭 {manufacturer}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function MedicinePage() {
   const { id = '' } = useParams();
   const { t, lang } = useLang();
   const isAr = lang === 'ar';
   const { profile, setProfile } = useSyncedHealthProfile();
-  const { schedules } = useSyncedSchedules();
+  const { schedules, addSchedule } = useSyncedSchedules();
   const { isProMode, setProMode } = useClinicalProMode();
   const { user } = useAuth();
   const { products: liveCatalogProducts } = useLiveDrugCatalog();
@@ -83,6 +247,12 @@ export default function MedicinePage() {
   const [addingPkg, setAddingPkg] = useState(false);
   const [dawayaRecord, setDawayaRecord] = useState<DawayaMedicineRecord | null>(null);
   const [actionToast, setActionToast] = useState<string>('');
+  const [calFrequency, setCalFrequency] = useState<string>('');
+  const [calDoseTimes, setCalDoseTimes] = useState<string[]>([]);
+  const [calDoseText, setCalDoseText] = useState<string>('');
+  const [calDurationDays, setCalDurationDays] = useState<number>(7);
+  const [activeBottomTab, setActiveBottomTab] = useState<'order_pharmacy' | 'scientific_monograph' | 'authenticity_qr'>('order_pharmacy');
+
   const [inWatchlist, setInWatchlist] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -94,51 +264,19 @@ export default function MedicinePage() {
     }
   });
 
-  const handleToggleWatchlist = () => {
-    const medTitle = dawayaRecord
-      ? (isAr ? dawayaRecord.brandNameAr : dawayaRecord.brandNameEn)
-      : name;
-    try {
-      const raw = localStorage.getItem('dawaya_shortage_watchlist_v1');
-      const prev = raw ? JSON.parse(raw) : [];
-      let next: Array<{ id: string; name: string; price: number | null; date: string }>;
-      if (inWatchlist) {
-        next = prev.filter((x: { id: string }) => x.id !== id);
-        setInWatchlist(false);
-        setActionToast(
-          isAr
-            ? `ℹ️ تم إلغاء تتبع (${medTitle}) من قائمة النواقص.`
-            : `ℹ️ Removed (${medTitle}) from shortage watchlist.`
-        );
-      } else {
-        next = [
-          {
-            id,
-            name: medTitle,
-            price: dawayaRecord?.priceEgp ?? null,
-            date: new Date().toISOString().slice(0, 10),
-          },
-          ...prev.filter((x: { id: string }) => x.id !== id),
-        ].slice(0, 30);
-        setInWatchlist(true);
-        setActionToast(
-          isAr
-            ? `🔔 تم تفعيل التنبيه! ستتلقى إشعاراً فور رصد توفر (${medTitle}) أو تحديث سعره في السوق.`
-            : `🔔 Watchlist active! You will be notified when (${medTitle}) is in stock or repriced.`
-        );
-      }
-      localStorage.setItem('dawaya_shortage_watchlist_v1', JSON.stringify(next));
-    } catch {
-      /* ignore */
+  useEffect(() => {
+    if (isProMode) {
+      setActiveBottomTab('scientific_monograph');
     }
-    window.setTimeout(() => setActionToast(''), 4500);
-  };
+  }, [isProMode]);
 
   const [m, setM] = useState<Medicine | null | undefined>(() => findLocalMedicine(id) ?? undefined);
 
   useEffect(() => {
     let active = true;
     setDawayaRecord(null);
+    setCalFrequency('');
+    setCalDoseTimes([]);
     const localMed = findLocalMedicine(id);
     if (localMed) {
       setM(localMed);
@@ -177,7 +315,7 @@ export default function MedicinePage() {
   const dawayaEquivalents = useMemo(() => {
     const idxItem = findDawayaIndexItemSync(id);
     if (!idxItem) return [];
-    return getDawayaIngredientEquivalents(idxItem, 10);
+    return getDawayaIngredientEquivalents(idxItem, 12);
   }, [id, dawayaRecord]);
 
   const cheapestBioequivalent = useMemo(() => {
@@ -259,7 +397,6 @@ export default function MedicinePage() {
     [m, dawayaRecord, profile, schedules]
   );
 
-  // Additional direct check against dawayaRecord.warningsFlags & user profile conditions
   const personalProfileFlagMatches = useMemo(() => {
     if (!dawayaRecord?.warningsFlags || !profile) return [];
     const alerts: string[] = [];
@@ -318,6 +455,48 @@ export default function MedicinePage() {
   const name = pick(m.genericName, lang);
   const uses = pick(m.approvedUses, lang).split('\n')[0];
   const displayOrder = isProMode ? PRO_ORDER : PATIENT_ORDER;
+  const idxItemSync = findDawayaIndexItemSync(id);
+  const currentPriceEgp = dawayaRecord?.priceEgp ?? idxItemSync?.p ?? (commercialPackages[0]?.priceEgp || null);
+
+  const handleToggleWatchlist = () => {
+    const medTitle = dawayaRecord
+      ? (isAr ? dawayaRecord.brandNameAr : dawayaRecord.brandNameEn)
+      : name;
+    try {
+      const raw = localStorage.getItem('dawaya_shortage_watchlist_v1');
+      const prev = raw ? JSON.parse(raw) : [];
+      let next: Array<{ id: string; name: string; price: number | null; date: string }>;
+      if (inWatchlist) {
+        next = prev.filter((x: { id: string }) => x.id !== id);
+        setInWatchlist(false);
+        setActionToast(
+          isAr
+            ? `ℹ️ تم إلغاء تتبع (${medTitle}) من قائمة النواقص.`
+            : `ℹ️ Removed (${medTitle}) from shortage watchlist.`
+        );
+      } else {
+        next = [
+          {
+            id,
+            name: medTitle,
+            price: currentPriceEgp,
+            date: new Date().toISOString().slice(0, 10),
+          },
+          ...prev.filter((x: { id: string }) => x.id !== id),
+        ].slice(0, 30);
+        setInWatchlist(true);
+        setActionToast(
+          isAr
+            ? `🔔 تم تفعيل التنبيه! ستتلقى إشعاراً فور رصد توفر (${medTitle}) أو تحديث سعره.`
+            : `🔔 Watchlist active! You will be notified when (${medTitle}) is in stock.`
+        );
+      }
+      localStorage.setItem('dawaya_shortage_watchlist_v1', JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+    window.setTimeout(() => setActionToast(''), 4500);
+  };
 
   const handleAddCurrentMedication = () => {
     const medTitle = dawayaRecord
@@ -325,38 +504,161 @@ export default function MedicinePage() {
         ? dawayaRecord.brandNameAr
         : dawayaRecord.brandNameEn
       : name;
+    const reg = getSmartClinicalRegimenForMedicine(dawayaRecord?.brandNameEn || m.genericName.en || medTitle);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const doseStr = calDoseText || dawayaRecord?.strength || (isAr ? reg.defaultDoseTextAr : reg.defaultDoseTextEn);
+    const freqKey = calFrequency || reg.frequencyKey || 'twice_daily';
+
     setProfile((prev) => {
-      const existing = prev.medications || [];
-      if (existing.some((x) => x.drugName === medTitle)) {
-        return prev;
-      }
+      const existingMeds = prev.medications || [];
+      const alreadyInMeds = existingMeds.some((x) => x.drugName === medTitle);
+      const nextMeds = alreadyInMeds
+        ? existingMeds.map((x) => (x.drugName === medTitle ? { ...x, status: 'active' as const } : x))
+        : [
+            {
+              id: `med-${Date.now()}`,
+              drugName: medTitle,
+              activeIngredients: dawayaRecord?.genericName || m.activeIngredients.en || '',
+              prescribedDose: doseStr,
+              dosageAndFrequency: doseStr,
+              route: reg.route || 'oral',
+              frequency: freqKey,
+              startDate: todayStr,
+              status: 'active' as const,
+              indicationOrReason: '',
+              isOngoing: true,
+              source: 'manual_entry' as const,
+              createdAt: new Date().toISOString(),
+            },
+            ...existingMeds,
+          ];
+
+      const existingActive = prev.activeMedications || [];
+      const alreadyInActive = existingActive.some((x) => x.resolvedDrugId === m.id || x.drugName === medTitle);
+      const nextActive = alreadyInActive
+        ? existingActive
+        : [
+            {
+              id: `act-${Date.now()}`,
+              drugName: medTitle,
+              resolvedDrugId: m.id,
+              doseOrStrength: doseStr,
+              evidenceStatus: 'patient_reported' as const,
+              source: 'manual_entry' as const,
+              addedAt: new Date().toISOString(),
+            },
+            ...existingActive,
+          ];
+
       return {
         ...prev,
-        medications: [
-          {
-            id: `med-${Date.now()}`,
-            drugName: medTitle,
-            activeIngredients: dawayaRecord?.genericName || m.activeIngredients.en || '',
-            dosageAndFrequency: dawayaRecord?.strength || '',
-            indicationOrReason: '',
-            isOngoing: true,
-            source: 'manual_entry',
-            createdAt: new Date().toISOString(),
-          },
-          ...existing,
-        ],
+        medications: nextMeds,
+        activeMedications: nextActive,
       };
     });
     setActionToast(
       isAr
-        ? `✅ تمت إضافة (${medTitle}) إلى قائمة أدويتك الحالية في ملفك الصحي.`
-        : `✅ Added (${medTitle}) to your current medications in Health Profile.`
+        ? `✅ تمت إضافة (${medTitle}) إلى قائمة أدويتك الحالية في ملفك الصحي ولوحة المريض.`
+        : `✅ Added (${medTitle}) to your active medications in Health Profile.`
     );
     window.setTimeout(() => setActionToast(''), 4000);
   };
 
+  const handleActivateCalibratedSchedule = () => {
+    const medTitle = dawayaRecord
+      ? isAr
+        ? dawayaRecord.brandNameAr
+        : dawayaRecord.brandNameEn
+      : name;
+    const reg = getSmartClinicalRegimenForMedicine(dawayaRecord?.brandNameEn || m.genericName.en || medTitle);
+    const freqKey = calFrequency || reg.frequencyKey || 'twice_daily';
+    const times = calDoseTimes.length > 0 ? calDoseTimes : reg.defaultDoseTimes;
+    const doseStr = calDoseText || dawayaRecord?.strength || (isAr ? reg.defaultDoseTextAr : reg.defaultDoseTextEn);
+    const dur = calDurationDays || reg.defaultDurationDays || 7;
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    addSchedule(
+      {
+        antibioticId: m.id,
+        medicineName: medTitle,
+        prescribedDose: doseStr,
+        route: reg.route || 'oral',
+        frequency: freqKey,
+        durationDays: dur,
+        startDate: todayStr,
+        firstDoseTime: times[0] || '08:00',
+        doseTimes: times,
+        verificationStatus: 'verified_by_patient',
+        captureMethod: 'manual_entry',
+        notes: isAr ? reg.aiReasonAr.replace(/🤖\s*اقتراح الذكاء الدوائي:\s*/g, '') : reg.aiReasonEn,
+      },
+      'schedule_created_from_prescription'
+    );
+
+    void scheduleMultipleNativeDoseAlarms(medTitle, doseStr, times, isAr);
+    handleAddCurrentMedication();
+
+    setActionToast(
+      isAr
+        ? `🔔 تم تفعيل مواعيد (${medTitle}) في جدولك اليومي ومنبه الموبايل (${times.join(' • ')})!`
+        : `🔔 Activated daily schedule & alarms for (${medTitle}) at (${times.join(' • ')})!`
+    );
+    window.setTimeout(() => setActionToast(''), 5000);
+  };
+
+  const drugTokens = [
+    name || '',
+    dawayaRecord?.brandNameAr || '',
+    dawayaRecord?.brandNameEn || '',
+    dawayaRecord?.genericName || '',
+    m.id || '',
+  ];
+  const hydrationReq = evaluateDrugHydrationRequirement(drugTokens);
+  const splitMeal = evaluatePillSplittingAndMealProtocol(drugTokens, dawayaRecord?.dosageForm);
+  const reboundAlert = evaluateSuddenStopReboundRisk(drugTokens, dawayaRecord?.therapeuticClass);
+  const occAlerts = evaluateOccupationalDrugSafety(
+    [
+      pick(m.genericName, 'ar') || '',
+      pick(m.activeIngredients, 'ar') || '',
+      dawayaRecord?.brandNameAr || '',
+      dawayaRecord?.genericName || '',
+      m.id || '',
+    ],
+    profile.occupation,
+    profile.factoryEnvironmentHazards,
+    profile.workEnvironmentNotes
+  );
+
+  const findingsList = Array.isArray(safetyAssessment?.findings) ? safetyAssessment!.findings : [];
+  const hasSafetyIssues = findingsList.length > 0 || personalProfileFlagMatches.length > 0 || occAlerts.length > 0;
+  const combinedSafetyLines: string[] = [
+    ...findingsList.map((f) => `${pick(f.title, lang)} — ${pick(f.reason, lang)}`),
+    ...personalProfileFlagMatches,
+    ...occAlerts.map((oa) => (isAr ? oa.warningAr : oa.warningEn)),
+  ];
+
+  const whatsappOrderUrl = `https://wa.me/?text=${encodeURIComponent(
+    (() => {
+      const arTitle = dawayaRecord?.brandNameAr || idxItemSync?.a || name;
+      const enTitle = dawayaRecord?.brandNameEn || idxItemSync?.n || '';
+      const str = dawayaRecord?.strength || idxItemSync?.s || '';
+      const formRaw = (dawayaRecord?.dosageForm || idxItemSync?.f || '').toLowerCase();
+      const formAr =
+        formRaw.includes('tab') ? 'أقراص' :
+        formRaw.includes('cap') ? 'كبسولات' :
+        formRaw.includes('susp') || formRaw.includes('syr') ? 'شراب' :
+        formRaw.includes('inj') || formRaw.includes('vial') || formRaw.includes('amp') ? 'حقن / أمبول' :
+        formRaw.includes('cream') || formRaw.includes('oint') || formRaw.includes('topical') ? 'دهان موضعي / كريم' :
+        formRaw.includes('drop') ? 'نقط / قطرة' : 'عبوة دوائية';
+      const area = [profile.districtVillage, profile.cityCenter].filter(Boolean).join(' - ');
+      return isAr
+        ? `السلام عليكم، أستفسر عن توفر هذا الدواء عبر منصة دوايا:\n💊 الدواء: ${arTitle}${enTitle ? ` (${enTitle})` : ''}\n📦 الشكل والتركيز: ${formAr}${str ? ` (${str})` : ''}${area ? `\n📍 المنطقة / القرية: ${area}` : ''}\nبرجاء إفادتي بتوفره، شكراً لحضرتك.`
+        : `Hello, inquiring about availability via DAWAYA:\n💊 Medication: ${enTitle || arTitle}\n📦 Form & Strength: ${str || formRaw}${area ? `\n📍 Area: ${area}` : ''}`;
+    })()
+  )}`;
+
   return (
-    <main className="wrap stack">
+    <main className="wrap stack" style={{ gap: '18px' }}>
       {actionToast && (
         <div
           className="notice"
@@ -364,909 +666,674 @@ export default function MedicinePage() {
             background: '#101E36',
             color: '#9AE8E8',
             borderColor: '#138866',
-            fontWeight: 700,
+            fontWeight: 800,
+            borderRadius: '14px',
           }}
         >
           {actionToast}{' '}
-          <Link to="/health-profile" style={{ color: '#138866', marginInlineStart: '8px' }}>
+          <Link to="/health-profile" style={{ color: '#34d399', marginInlineStart: '8px' }}>
             {isAr ? 'عرض ملفي الصحي ←' : 'Open Health Profile →'}
           </Link>
         </div>
       )}
 
-      {/* Top Navigation & Integrated Platform Action Bar */}
-      <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link to="/medicines">← {t('navMedicines')}</Link>
-        <div className="row wrapRow" style={{ gap: '8px' }}>
+      {/* Compact Top Bar: Back Link + Patient/Clinician Mode Switch */}
+      <div
+        className="row wrapRow"
+        style={{
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '10px',
+        }}
+      >
+        <Link
+          to="/medicines"
+          className="btn small ghost"
+          style={{ fontWeight: 800, borderRadius: '999px' }}
+        >
+          {isAr ? '→ العودة لموسوعة الأدوية' : '← Back to Medicines'}
+        </Link>
+
+        <div style={{ display: 'inline-flex', background: 'var(--tint, #f1f5f9)', padding: '4px', borderRadius: '999px', border: '1px solid var(--line, #cbd5e1)' }}>
+          <button
+            type="button"
+            onClick={() => setProMode(false)}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '999px',
+              border: 'none',
+              background: !isProMode ? '#138866' : 'transparent',
+              color: !isProMode ? '#ffffff' : 'var(--ink, #0D1F38)',
+              fontWeight: 800,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+            }}
+          >
+            👤 {tr(lang, 'وضع المريض المبسّط', 'Patient View')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setProMode(true)}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '999px',
+              border: 'none',
+              background: isProMode ? '#0D1F38' : 'transparent',
+              color: isProMode ? '#CFD29D' : 'var(--ink, #0D1F38)',
+              fontWeight: 800,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+            }}
+          >
+            🩺 {tr(lang, 'وضع الطبيب والصيدلي', 'Clinical Pro View')}
+          </button>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════════
+          BLOCK 1: UNIFIED MEDICINE HERO CARD (First Thing the Patient Sees!)
+          ══════════════════════════════════════════════════════════════════════════ */}
+      <header
+        className="card"
+        style={{
+          borderRadius: '24px',
+          border: '2px solid #138866',
+          background: 'var(--card-bg, #ffffff)',
+          padding: '22px',
+          boxShadow: '0 12px 32px rgba(13, 31, 56, 0.08)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '18px',
+          }}
+        >
+          {/* Left/Start: 3D Package Visual + Title & Metadata */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', flex: '1 1 420px', flexWrap: 'wrap' }}>
+            <MedicinePackageStudioCard
+              brandEn={dawayaRecord?.brandNameEn || idxItemSync?.n || m.genericName.en || name}
+              brandAr={dawayaRecord?.brandNameAr || idxItemSync?.a || name}
+              strength={dawayaRecord?.strength || idxItemSync?.s}
+              dosageForm={dawayaRecord?.dosageForm || idxItemSync?.f}
+              manufacturer={dawayaRecord?.manufacturer || idxItemSync?.c}
+            />
+
+            <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                {dawayaRecord && (
+                  <span className="badge" style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', fontWeight: 800 }}>
+                    {DAWAYA_CATEGORY_LABELS[dawayaRecord.therapeuticClass]?.icon}{' '}
+                    {isAr
+                      ? DAWAYA_CATEGORY_LABELS[dawayaRecord.therapeuticClass]?.ar
+                      : DAWAYA_CATEGORY_LABELS[dawayaRecord.therapeuticClass]?.en}
+                  </span>
+                )}
+                {ingMeta && (
+                  <span
+                    className="badge"
+                    style={{
+                      background: ingMeta.whoAccessGroup === 'Access' ? '#dcfce7' : ingMeta.whoAccessGroup === 'Reserve' ? '#fee2e2' : '#fef3c7',
+                      color: ingMeta.whoAccessGroup === 'Access' ? '#166534' : ingMeta.whoAccessGroup === 'Reserve' ? '#991b1b' : '#92400e',
+                      fontWeight: 800,
+                    }}
+                  >
+                    WHO AWaRe: {ingMeta.whoAccessGroup}
+                  </span>
+                )}
+              </div>
+
+              <h1 style={{ margin: '0 0 4px', fontSize: 'clamp(1.35rem, 3vw, 1.85rem)', lineHeight: 1.3, color: 'var(--ink, #0D1F38)' }}>
+                {name}
+              </h1>
+              {dawayaRecord?.brandNameEn && isAr && (
+                <div dir="ltr" style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0f766e', textAlign: 'right', marginBottom: '6px' }}>
+                  {dawayaRecord.brandNameEn}
+                </div>
+              )}
+              <p className="small muted" style={{ margin: '0 0 12px', lineHeight: 1.5 }}>
+                {uses || pick(m.drugClass, lang)}
+              </p>
+
+              {/* 4 Clean Info Pills Grid */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))',
+                  gap: '8px',
+                }}
+              >
+                <div style={{ background: 'var(--tint, #f8fafc)', padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--line, #e2e8f0)' }}>
+                  <span className="small muted" style={{ display: 'block', fontSize: '0.72rem' }}>
+                    🧪 {isAr ? 'المادة الفعالة:' : 'Active Ingredient:'}
+                  </span>
+                  <strong style={{ fontSize: '0.84rem', color: 'var(--ink, #0D1F38)', wordBreak: 'break-word' }}>
+                    {dawayaRecord?.genericName || idxItemSync?.g || pick(m.activeIngredients, lang) || '—'}
+                  </strong>
+                </div>
+
+                <div style={{ background: 'var(--tint, #f8fafc)', padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--line, #e2e8f0)' }}>
+                  <span className="small muted" style={{ display: 'block', fontSize: '0.72rem' }}>
+                    💊 {isAr ? 'التركيز والشكل:' : 'Strength & Form:'}
+                  </span>
+                  <strong style={{ fontSize: '0.84rem', color: 'var(--ink, #0D1F38)' }}>
+                    {[dawayaRecord?.strength || idxItemSync?.s, dawayaRecord?.dosageForm || idxItemSync?.f].filter(Boolean).join(' • ') || 'عبوة قياسية'}
+                  </strong>
+                </div>
+
+                <div style={{ background: 'var(--tint, #f8fafc)', padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--line, #e2e8f0)' }}>
+                  <span className="small muted" style={{ display: 'block', fontSize: '0.72rem' }}>
+                    🏭 {isAr ? 'الشركة المصنعة:' : 'Manufacturer:'}
+                  </span>
+                  <strong style={{ fontSize: '0.84rem', color: 'var(--ink, #0D1F38)' }}>
+                    {dawayaRecord?.manufacturer || idxItemSync?.c || (brands[0]?.brandName ? pick(brands[0].brandName, lang) : 'معتمد بوزارة الصحة')}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right/End: Prominent Official Price & Quick Savings Callout */}
+          <div
+            style={{
+              background: 'linear-gradient(145deg, #0D1F38 0%, #138866 100%)',
+              color: '#ffffff',
+              borderRadius: '18px',
+              padding: '16px 20px',
+              minWidth: '205px',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              gap: '4px',
+              boxShadow: '0 8px 22px rgba(19, 136, 102, 0.24)',
+            }}
+          >
+            <span style={{ fontSize: '0.75rem', color: '#CFD29D', fontWeight: 800 }}>
+              💰 {isAr ? 'السعر الرسمي بالسوق المصري' : 'Official Listed Price'}
+            </span>
+            <div style={{ fontSize: '1.65rem', fontWeight: 900, color: '#ffffff', lineHeight: 1.2 }}>
+              {currentPriceEgp
+                ? `${currentPriceEgp.toFixed(2)} ${isAr ? 'ج.م' : 'EGP'}`
+                : isAr
+                ? 'حسب العبوة'
+                : 'See Packages'}
+            </div>
+            {cheapestBioequivalent && (
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById('dawaya-alternatives-box');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                style={{
+                  marginTop: '6px',
+                  background: '#CFD29D',
+                  color: '#0D1F38',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '5px 12px',
+                  fontSize: '0.76rem',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                }}
+              >
+                💡 {isAr ? `متاح بديل أرخص بـ ${cheapestBioequivalent.savedEgp.toFixed(0)} ج.م ↓` : `Save ${cheapestBioequivalent.savedEgp.toFixed(0)} EGP ↓`}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Single Unified Personal Safety Strip (No duplicate cards!) */}
+        <div
+          style={{
+            marginTop: '16px',
+            padding: '12px 16px',
+            borderRadius: '14px',
+            background: hasSafetyIssues ? '#fef2f2' : '#f0fdf4',
+            border: hasSafetyIssues ? '1.5px solid #ef4444' : '1.5px solid #10b981',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flex: 1 }}>
+            <span style={{ fontSize: '1.3rem' }}>{hasSafetyIssues ? '⚠️' : '✅'}</span>
+            <div>
+              <strong style={{ color: hasSafetyIssues ? '#991b1b' : '#065f46', fontSize: '0.92rem', display: 'block' }}>
+                {hasSafetyIssues
+                  ? isAr
+                    ? 'تنبيه أمان دوائي مع ملفك الصحي أو أدويتك المسجلة:'
+                    : 'Safety Alert Detected with Your Saved Health Profile:'
+                  : isAr
+                  ? 'فحص الأمان مع ملفك الصحي: لا يوجد تعارض مع أدويتك أو حساسيتك المسجلة'
+                  : 'Safety Check: Safe with your saved medications and allergies'}
+              </strong>
+              {hasSafetyIssues && combinedSafetyLines.length > 0 ? (
+                <ul style={{ margin: '4px 0 0', paddingInlineStart: '18px', color: '#991b1b', fontSize: '0.82rem', fontWeight: 700 }}>
+                  {combinedSafetyLines.slice(0, 3).map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="small muted">
+                  {isAr
+                    ? 'يتم فحص أي دواء تفتحه تلقائياً مع حساسيتك وأدويتك وحالتك الصحية وطبيعة عملك.'
+                    : 'Automatically screened against your recorded allergies, active meds, and occupation.'}
+                </span>
+              )}
+            </div>
+          </div>
+          <Link
+            to="/health-profile"
+            className="btn small ghost"
+            style={{
+              borderRadius: '999px',
+              borderColor: hasSafetyIssues ? '#dc2626' : '#059669',
+              color: hasSafetyIssues ? '#991b1b' : '#065f46',
+              fontWeight: 800,
+            }}
+          >
+            {isAr ? 'ملفي الصحي ←' : 'My Profile →'}
+          </Link>
+        </div>
+
+        {/* Streamlined Primary Action Bar */}
+        <div
+          style={{
+            marginTop: '14px',
+            paddingTop: '14px',
+            borderTop: '1px solid var(--line, #e2e8f0)',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '8px',
+          }}
+        >
+          <button
+            type="button"
+            className="btn small"
+            style={{ background: '#0D1F38', borderColor: '#0D1F38', color: '#ffffff', fontWeight: 900 }}
+            onClick={handleAddCurrentMedication}
+          >
+            ➕ {isAr ? 'أضف لأدويتي الحالية' : 'Add to My Medications'}
+          </button>
+
           <button
             type="button"
             className="btn small"
             style={{ background: '#138866', borderColor: '#138866', color: '#ffffff', fontWeight: 900 }}
             onClick={() => {
-              const el = document.getElementById('dawaya-order-from-pharmacy-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              const el = document.getElementById('dawaya-dose-calibrator-box');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }}
           >
-            🛵 {isAr ? 'اطلب الدواء من أقرب صيدلية حالاً' : 'Order from Nearest Pharmacy'}
+            ⏰ {isAr ? 'ضبط مواعيد الجرعات والمنبه' : 'Calibrate Dose Schedule'}
           </button>
+
+          {dawayaEquivalents.length > 0 && (
+            <button
+              type="button"
+              className="btn small ghost"
+              style={{ borderColor: '#138866', color: '#0f766e', fontWeight: 900 }}
+              onClick={() => {
+                const el = document.getElementById('dawaya-alternatives-box');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+            >
+              🔄 {isAr ? `البدائل والمثائل (${dawayaEquivalents.length})` : `Alternatives (${dawayaEquivalents.length})`}
+            </button>
+          )}
+
           <a
-            href={`https://wa.me/?text=${encodeURIComponent(
-              (() => {
-                const idx = findDawayaIndexItemSync(id);
-                const arTitle = dawayaRecord?.brandNameAr || idx?.a || name;
-                const enTitle = dawayaRecord?.brandNameEn || idx?.n || '';
-                const str = dawayaRecord?.strength || idx?.s || '';
-                const formRaw = (dawayaRecord?.dosageForm || idx?.f || '').toLowerCase();
-                const formAr =
-                  formRaw.includes('tab') ? 'أقراص' :
-                  formRaw.includes('cap') ? 'كبسولات' :
-                  formRaw.includes('susp') || formRaw.includes('syr') ? 'شراب' :
-                  formRaw.includes('inj') || formRaw.includes('vial') || formRaw.includes('amp') ? 'حقن / أمبول' :
-                  formRaw.includes('cream') || formRaw.includes('oint') || formRaw.includes('topical') ? 'دهان موضعي / كريم' :
-                  formRaw.includes('drop') ? 'نقط / قطرة' : 'عبوة دوائية';
-                const area = [profile.districtVillage, profile.cityCenter].filter(Boolean).join(' - ');
-                return isAr
-                  ? `السلام عليكم، أستفسر عن توفر هذا الدواء عبر منصة دوايا:\n💊 الدواء: ${arTitle}${enTitle ? ` (${enTitle})` : ''}\n📦 الشكل والتركيز: ${formAr}${str ? ` (${str})` : ''}${area ? `\n📍 المنطقة / القرية: ${area}` : ''}\nبرجاء إفادتي بتوفره، شكراً لحضرتك.`
-                  : `Hello, inquiring about availability via DAWAYA:\n💊 Medication: ${enTitle || arTitle}\n📦 Form & Strength: ${str || formRaw}${area ? `\n📍 Area: ${area}` : ''}`;
-              })()
-            )}`}
+            href={whatsappOrderUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="btn small"
             style={{ background: '#16a34a', borderColor: '#16a34a', color: '#ffffff', fontWeight: 900 }}
           >
-            💬 {isAr ? 'اطلب عبر واتساب برسالة جاهزة' : 'WhatsApp Order Ready'}
+            💬 {isAr ? 'اطلب عبر واتساب' : 'Order via WhatsApp'}
           </a>
+
           <button
             type="button"
             className="btn small ghost"
-            style={{ fontWeight: 800 }}
-            onClick={handleAddCurrentMedication}
+            onClick={() => {
+              setActiveBottomTab('order_pharmacy');
+              window.setTimeout(() => {
+                const el = document.getElementById('dawaya-bottom-tabs-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 50);
+            }}
           >
-            ➕ {isAr ? 'أضف لأدويتي الحالية' : 'Add to My Medications'}
+            🛵 {isAr ? 'اطلب من صيدلية قريبة' : 'Find Nearby Pharmacy'}
           </button>
-          <Link to={`/tracker?med=${encodeURIComponent(name)}`} className="btn small ghost">
-            {isAr ? 'ضبط منبه جرعات' : 'Set Reminder'}
-          </Link>
+
           <button
             type="button"
             className="btn small ghost"
             onClick={handleToggleWatchlist}
             style={inWatchlist ? { background: '#138866', color: '#fff', borderColor: '#138866' } : { borderColor: '#d97706', color: '#b45309' }}
-            title={isAr ? 'تتبع توفر هذا الدواء وسعره عند النقص' : 'Watch for stock & price updates'}
           >
             {inWatchlist ? '🔔 ' + (isAr ? 'قيد المتابعة ✓' : 'Watching ✓') : '🔔 ' + (isAr ? 'أبلغني عند التوفر' : 'Notify If Available')}
           </button>
-          <Link to={`/daily-schedule?med=${encodeURIComponent(name)}`} className="btn ghost small">
-            {tr(lang, 'جدول مواعيد الجرعات', 'Dose Schedule')}
-          </Link>
-          <Link to="/prescription-radar" className="btn ghost small">
-            {isAr ? 'فحص في رادار الروشتة' : 'Prescription Radar'}
-          </Link>
-          <Link to={`/allergy-checker?q=${encodeURIComponent(m.id)}`} className="btn ghost small">
-            {isAr ? 'فحص الحساسية والأمان' : 'Allergy & Safety Check'}
-          </Link>
-          <a
-            href={`https://wa.me/?text=${encodeURIComponent(
-              isAr
-                ? `💊 النشرة الدوائية والبدائل لـ (${name}) على منصة دوايا | DAWAYA:\nhttps://dawaya.pages.dev/#/medicine/${m.id}`
-                : `💊 Drug monograph & bioequivalent generics for (${name}) on DAWAYA:\nhttps://dawaya.pages.dev/#/medicine/${m.id}`
-            )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn ghost small"
-            style={{ color: '#138866', borderColor: 'rgba(19, 136, 102, 0.4)' }}
-          >
-            {isAr ? 'مشاركة عبر واتساب' : 'Share on WhatsApp'}
-          </a>
-        </div>
-      </div>
-
-      {/* Instant Top Personal Medication Safety & Interaction Card (Feature 2) */}
-      {safetyAssessment && (() => {
-        const findingsList = Array.isArray(safetyAssessment.findings) ? safetyAssessment.findings : [];
-        const hasEngineIssues =
-          findingsList.length > 0 ||
-          personalProfileFlagMatches.length > 0;
-
-        const savedMedsCount = (profile.medications?.length || 0) + (schedules?.length || 0);
-        const savedAllergiesCount = profile.allergies?.length || 0;
-
-        const issueLines: string[] = [];
-        findingsList.forEach((f) => {
-          issueLines.push(pick(f.title, lang) + ' — ' + pick(f.reason, lang));
-        });
-        personalProfileFlagMatches.forEach((pf) => issueLines.push(pf));
-
-        return (
-          <section
-            className="card"
-            style={{
-              background: hasEngineIssues
-                ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(245, 158, 11, 0.14) 100%)'
-                : 'linear-gradient(135deg, rgba(16, 185, 129, 0.11) 0%, rgba(13, 148, 136, 0.15) 100%)',
-              border: hasEngineIssues ? '2px solid #dc2626' : '2px solid #10b981',
-              borderRadius: '18px',
-              padding: '15px 18px',
-              display: 'grid',
-              gap: '8px',
-              boxShadow: hasEngineIssues
-                ? '0 8px 22px rgba(220, 38, 38, 0.14)'
-                : '0 8px 22px rgba(16, 185, 129, 0.12)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '1.45rem' }} aria-hidden="true">
-                  {hasEngineIssues ? '⚠️' : '✅'}
-                </span>
-                <div>
-                  <strong
-                    style={{
-                      fontSize: '1rem',
-                      display: 'block',
-                      color: hasEngineIssues ? '#b91c1c' : '#065f46',
-                    }}
-                  >
-                    {hasEngineIssues
-                      ? isAr
-                        ? 'احذر: تم رصد تعارض أو تحذير مع أدويتك أو ملفك الصحي المسجل!'
-                        : 'Warning: Interaction or safety alert detected with your saved Health Profile!'
-                      : isAr
-                      ? 'فحص الأمان التلقائي: هذا الدواء آمن مع أدويتك وحساسيتك المسجلة'
-                      : 'Automatic Safety Check: Safe with your saved medications and allergies'}
-                  </strong>
-                  <span className="small muted">
-                    {savedMedsCount > 0 || savedAllergiesCount > 0
-                      ? isAr
-                        ? `تمت مراجعة هذا الدواء تلقائياً مع (${savedMedsCount}) أدوية حالية و(${savedAllergiesCount}) حساسية مسجلة في حسابك.`
-                        : `Automatically screened against (${savedMedsCount}) active medications and (${savedAllergiesCount}) allergies in your profile.`
-                      : isAr
-                      ? 'لم تسجل أدويتك أو حساسيتك بعد — أضفها في ملفك الصحي ليتم فحص أي دواء تفتحه تلقائياً.'
-                      : 'Add your active medications and allergies in your Health Profile for automatic screening.'}
-                  </span>
-                </div>
-              </div>
-
-              <Link
-                to="/health-profile"
-                className="btn small ghost"
-                style={{
-                  borderRadius: '999px',
-                  borderColor: hasEngineIssues ? '#dc2626' : '#059669',
-                  color: hasEngineIssues ? '#b91c1c' : '#065f46',
-                  fontWeight: 800,
-                }}
-              >
-                {isAr ? 'تحديث أدويتي وملفي الصحي ←' : 'Update Health Profile →'}
-              </Link>
-            </div>
-
-            {hasEngineIssues && issueLines.length > 0 && (
-              <ul style={{ margin: '4px 0 0', paddingInlineStart: '22px', color: '#991b1b', fontWeight: 700, fontSize: '0.86rem' }}>
-                {issueLines.slice(0, 4).map((line, idx) => (
-                  <li key={idx} style={{ marginBottom: '4px' }}>{line}</li>
-                ))}
-              </ul>
-            )}
-          </section>
-        );
-      })()}
-
-      {/* Smart Bioequivalent Generic Savings Banner */}
-      {cheapestBioequivalent && (
-        <section
-          className="card"
-          style={{
-            background: 'linear-gradient(135deg, rgba(19, 136, 102, 0.12) 0%, rgba(207, 210, 157, 0.18) 100%)',
-            border: '1.5px solid #138866',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '10px',
-          }}
-        >
-          <div>
-            <b style={{ color: '#0D1F38', fontSize: '0.96rem', display: 'block' }}>
-              💡{' '}
-              {isAr
-                ? `متوفر مثيل مصري مرخص متطابق 100% في المادة الفعالة والتركيز والشكل الصيدلي بتوفير ${cheapestBioequivalent.savedEgp.toFixed(2)} ج.م (${cheapestBioequivalent.savedPct}%)!`
-                : `100% Bioequivalent Licensed Generic Available — Save ${cheapestBioequivalent.savedEgp.toFixed(2)} EGP (${cheapestBioequivalent.savedPct}%)!`}
-            </b>
-            <span className="small muted">
-              {isAr
-                ? `المثيل الأرخص: ${cheapestBioequivalent.item.a} (${cheapestBioequivalent.item.n}) بسعر ${cheapestBioequivalent.item.p?.toFixed(2)} ج.م بدلاً من ${cheapestBioequivalent.currentPrice.toFixed(2)} ج.م — استشر الصيدلي قبل الاستبدال.`
-                : `Cheaper Equivalent: ${cheapestBioequivalent.item.n} at ${cheapestBioequivalent.item.p?.toFixed(2)} EGP instead of ${cheapestBioequivalent.currentPrice.toFixed(2)} EGP — consult your pharmacist.`}
-            </span>
-          </div>
-          <Link
-            to={`/medicine/${cheapestBioequivalent.item.i}`}
-            className="btn small"
-            style={{ background: '#138866', color: '#fff', whiteSpace: 'nowrap' }}
-          >
-            {isAr ? 'عرض البديل الأرخص ←' : 'View Cheaper Generic →'}
-          </Link>
-        </section>
-      )}
-
-      {/* Smart Mandatory Water Intake & Hydration Guard */}
-      {(() => {
-        const drugTokens = [
-          name || '',
-          dawayaRecord?.brandNameAr || '',
-          dawayaRecord?.brandNameEn || '',
-          dawayaRecord?.genericName || '',
-          m.id || '',
-        ];
-        const hydrationReq = evaluateDrugHydrationRequirement(drugTokens);
-        if (!hydrationReq) return null;
-
-        return (
-          <section
-            className="card"
-            style={{
-              background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.1) 0%, rgba(14, 165, 233, 0.16) 100%)',
-              border: '2px solid #0284c7',
-              borderRadius: '18px',
-              padding: '16px 18px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '14px',
-              boxShadow: '0 8px 22px rgba(2, 132, 199, 0.12)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: '240px' }}>
-              <div
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '14px',
-                  background: '#0284c7',
-                  color: '#ffffff',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.65rem',
-                  flexShrink: 0,
-                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
-                }}
-              >
-                💧
-              </div>
-              <div>
-                <strong style={{ fontSize: '1rem', display: 'block', color: '#0369a1', marginBottom: '4px' }}>
-                  {isAr ? hydrationReq.titleAr : hydrationReq.titleEn}
-                </strong>
-                <p className="small" style={{ margin: 0, lineHeight: 1.55, fontWeight: 600 }}>
-                  {isAr ? hydrationReq.reasonAr : hydrationReq.reasonEn}
-                </p>
-              </div>
-            </div>
-
-            <Link
-              to={`/tracker?med=${encodeURIComponent(name)}&hydration=2cups`}
-              className="btn small"
-              style={{
-                background: '#0284c7',
-                borderColor: '#0284c7',
-                color: '#ffffff',
-                fontWeight: 800,
-                borderRadius: '999px',
-                padding: '9px 18px',
-                whiteSpace: 'nowrap',
-                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
-              }}
-            >
-              {isAr ? 'ضبط منبه الجرعة + شرب الماء' : 'Set Dose + Water Alarm'}
-            </Link>
-          </section>
-        );
-      })()}
-
-      {/* Smart Pill Splitting & Meal Timing Protocol + Sudden Stop Rebound Guard (Enterprise SVG UI) */}
-      {(() => {
-        const drugTokens = [
-          name || '',
-          dawayaRecord?.brandNameAr || '',
-          dawayaRecord?.brandNameEn || '',
-          dawayaRecord?.genericName || '',
-          m.id || '',
-        ];
-        const splitMeal = evaluatePillSplittingAndMealProtocol(
-          drugTokens,
-          dawayaRecord?.dosageForm
-        );
-        const reboundAlert = evaluateSuddenStopReboundRisk(
-          drugTokens,
-          dawayaRecord?.therapeuticClass
-        );
-
-        const isSplitForbidden =
-          splitMeal.splittingStatus === 'forbidden_sr_ec' ||
-          splitMeal.splittingStatus === 'capsule_no_open';
-
-        return (
-          <div className="stack" style={{ gap: '12px' }}>
-            {/* Dual Protocol Grid: Pill Splitting & Meal Timing */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                gap: '12px',
-              }}
-            >
-              {/* Card 1: Pill Splitting & Administration Integrity */}
-              <div
-                className="card"
-                style={{
-                  padding: '16px 18px',
-                  borderRadius: '18px',
-                  border: isSplitForbidden
-                    ? '1.5px solid #ef4444'
-                    : '1.5px solid #10b981',
-                  background: isSplitForbidden
-                    ? 'rgba(239, 68, 68, 0.04)'
-                    : 'rgba(16, 185, 129, 0.04)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  gap: '10px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <div
-                    style={{
-                      width: '44px',
-                      height: '44px',
-                      borderRadius: '12px',
-                      background: isSplitForbidden
-                        ? 'rgba(239, 68, 68, 0.12)'
-                        : 'rgba(16, 185, 129, 0.12)',
-                      color: isSplitForbidden ? '#dc2626' : '#059669',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {isSplitForbidden ? (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="9" />
-                        <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
-                      </svg>
-                    ) : (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="8.5" />
-                        <line x1="6" y1="12" x2="18" y2="12" strokeDasharray="2.5 2.5" />
-                      </svg>
-                    )}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                      <span
-                        style={{
-                          fontSize: '0.74rem',
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.03em',
-                          color: isSplitForbidden ? '#dc2626' : '#059669',
-                        }}
-                      >
-                        {isAr ? 'دليل تقسيم القرص وطريقة البلع' : 'Pill Splitting & Integrity'}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 800,
-                          padding: '2px 10px',
-                          borderRadius: '999px',
-                          background: isSplitForbidden ? '#fee2e2' : '#dcfce7',
-                          color: isSplitForbidden ? '#991b1b' : '#166534',
-                        }}
-                      >
-                        {splitMeal.splittingBadgeAr}
-                      </span>
-                    </div>
-                    <strong style={{ fontSize: '0.96rem', display: 'block', marginBottom: '4px' }}>
-                      {isAr ? splitMeal.splittingTitleAr : splitMeal.splittingTitleEn}
-                    </strong>
-                    <p className="small" style={{ margin: 0, lineHeight: 1.55, opacity: 0.88 }}>
-                      {isAr ? splitMeal.splittingReasonAr : splitMeal.splittingReasonEn}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 2: Optimal Meal Timing Protocol */}
-              <div
-                className="card"
-                style={{
-                  padding: '16px 18px',
-                  borderRadius: '18px',
-                  border: '1.5px solid #0284c7',
-                  background: 'rgba(2, 132, 199, 0.04)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  gap: '10px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <div
-                    style={{
-                      width: '44px',
-                      height: '44px',
-                      borderRadius: '12px',
-                      background: 'rgba(2, 132, 199, 0.12)',
-                      color: '#0284c7',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="9" />
-                      <polyline points="12 7 12 12 15.5 14" />
-                    </svg>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                      <span
-                        style={{
-                          fontSize: '0.74rem',
-                          fontWeight: 800,
-                          color: '#0284c7',
-                        }}
-                      >
-                        {isAr ? 'التوقيت المثالي مع الطعام' : 'Optimal Meal Timing'}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 800,
-                          padding: '2px 10px',
-                          borderRadius: '999px',
-                          background: '#e0f2fe',
-                          color: '#0369a1',
-                        }}
-                      >
-                        {splitMeal.mealBadgeAr}
-                      </span>
-                    </div>
-                    <strong style={{ fontSize: '0.96rem', display: 'block', marginBottom: '4px' }}>
-                      {isAr ? splitMeal.mealTitleAr : splitMeal.mealTitleEn}
-                    </strong>
-                    <p className="small" style={{ margin: 0, lineHeight: 1.55, opacity: 0.88 }}>
-                      {isAr ? splitMeal.mealReasonAr : splitMeal.mealReasonEn}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 3: Sudden Stop & Rebound Risk Warning Guard */}
-            {reboundAlert && (
-              <div
-                className="card"
-                style={{
-                  padding: '16px 18px',
-                  borderRadius: '18px',
-                  border:
-                    reboundAlert.riskLevel === 'critical_rebound'
-                      ? '1.5px solid #dc2626'
-                      : '1.5px solid #d97706',
-                  background:
-                    reboundAlert.riskLevel === 'critical_rebound'
-                      ? 'rgba(220, 38, 38, 0.05)'
-                      : 'rgba(217, 119, 6, 0.05)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <div
-                    style={{
-                      width: '44px',
-                      height: '44px',
-                      borderRadius: '12px',
-                      background:
-                        reboundAlert.riskLevel === 'critical_rebound'
-                          ? 'rgba(220, 38, 38, 0.14)'
-                          : 'rgba(217, 119, 6, 0.14)',
-                      color:
-                        reboundAlert.riskLevel === 'critical_rebound'
-                          ? '#dc2626'
-                          : '#b45309',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-                    </svg>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                      <strong
-                        style={{
-                          fontSize: '0.98rem',
-                          color:
-                            reboundAlert.riskLevel === 'critical_rebound'
-                              ? '#b91c1c'
-                              : '#b45309',
-                        }}
-                      >
-                        {isAr ? reboundAlert.categoryTitleAr : reboundAlert.categoryTitleEn}
-                      </strong>
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 800,
-                          padding: '3px 10px',
-                          borderRadius: '999px',
-                          background:
-                            reboundAlert.riskLevel === 'critical_rebound'
-                              ? '#fee2e2'
-                              : '#fef3c7',
-                          color:
-                            reboundAlert.riskLevel === 'critical_rebound'
-                              ? '#991b1b'
-                              : '#92400e',
-                        }}
-                      >
-                        {reboundAlert.badgeAr}
-                      </span>
-                    </div>
-                    <p className="small" style={{ margin: '0 0 8px', lineHeight: 1.6, fontWeight: 600 }}>
-                      {isAr ? reboundAlert.reboundDangerAr : reboundAlert.reboundDangerEn}
-                    </p>
-                    <div
-                      style={{
-                        padding: '8px 12px',
-                        borderRadius: '10px',
-                        background: 'rgba(16, 185, 129, 0.1)',
-                        border: '1px solid rgba(16, 185, 129, 0.3)',
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
-                      }}
-                    >
-                      <b>{isAr ? 'القاعدة الآمنة للإيقاف:' : 'Safe Discontinuation Rule:'}</b>{' '}
-                      {isAr ? reboundAlert.safeDiscontinuationAr : reboundAlert.safeDiscontinuationEn}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* Clinical Pro Mode vs Patient Mode Toggle Bar */}
-      <section className="pro-mode-toggle-banner">
-        <div className="pro-mode-toggle-info">
-          <span className="pro-mode-badge-icon" aria-hidden="true">
-            {isProMode ? '🩺' : '👤'}
-          </span>
-          <div>
-            <b className="pro-mode-title">
-              {isProMode
-                ? tr(
-                    lang,
-                    'الوضع الإكلينيكي للأطباء والصيادلة (Clinical Pro Mode مفعّل)',
-                    'Clinical Pro Mode Active (Physicians & Pharmacists View)'
-                  )
-                : tr(
-                    lang,
-                    'وضع المريض والجمهور (شرح مبسط وإرشادات عملية)',
-                    'Patient & Public Mode (Simplified Guidance & Safe Use)'
-                  )}
-            </b>
-            <span className="pro-mode-sub">
-              {isProMode
-                ? tr(
-                    lang,
-                    'يعرض المكونات الفعالة، التحذيرات المرضية، التداخلات، ومؤشرات الحركية الدوائية.',
-                    'Displaying active ingredients, clinical warnings, interactions, and PK/PD parameters.'
-                  )
-                : tr(
-                    lang,
-                    'يعرض الاستخدامات، التحذيرات، الآثار الجانبية، طريقة الحفظ، والبدائل المتاحة.',
-                    'Displaying uses, warnings, side effects, storage instructions, and equivalents.'
-                  )}
-            </span>
-          </div>
-        </div>
-
-        <div className="pro-mode-switch-group" role="group">
-          <button
-            type="button"
-            className={`pro-mode-switch-btn${!isProMode ? ' active-patient' : ''}`}
-            onClick={() => setProMode(false)}
-          >
-            <span aria-hidden="true">👤</span>
-            <span>{tr(lang, 'وضع المريض', 'Patient Mode')}</span>
-          </button>
-          <button
-            type="button"
-            className={`pro-mode-switch-btn${isProMode ? ' active-doctor' : ''}`}
-            onClick={() => setProMode(true)}
-          >
-            <span aria-hidden="true">🩺</span>
-            <span>{tr(lang, 'الوضع الإكلينيكي للطبيب', 'Clinical Pro Mode')}</span>
-          </button>
-        </div>
-      </section>
-
-      {/* Medicine Overview Header */}
-      <header className="med-head card" style={{ borderTop: '4px solid #138866' }}>
-        <div className="row wrapRow" style={{ alignItems: 'center', gap: '10px' }}>
-          <h1 style={{ margin: 0 }}>{name}</h1>
-          {ingMeta && (
-            <span
-              className="badge"
-              style={{
-                background:
-                  ingMeta.whoAccessGroup === 'Access'
-                    ? '#dcfce7'
-                    : ingMeta.whoAccessGroup === 'Reserve'
-                    ? '#fee2e2'
-                    : '#fef3c7',
-                color:
-                  ingMeta.whoAccessGroup === 'Access'
-                    ? '#166534'
-                    : ingMeta.whoAccessGroup === 'Reserve'
-                    ? '#991b1b'
-                    : '#92400e',
-                fontWeight: 700,
-              }}
-            >
-              WHO AWaRe: {ingMeta.whoAccessGroup} ({ingMeta.atcCode})
-            </span>
-          )}
-          {dawayaRecord && (
-            <span className="badge" style={{ background: '#E0F7FA', color: '#008B99', fontWeight: 800 }}>
-              {DAWAYA_CATEGORY_LABELS[dawayaRecord.therapeuticClass]?.icon}{' '}
-              {isAr
-                ? DAWAYA_CATEGORY_LABELS[dawayaRecord.therapeuticClass]?.ar
-                : DAWAYA_CATEGORY_LABELS[dawayaRecord.therapeuticClass]?.en}
-            </span>
-          )}
-        </div>
-        <p className="muted" style={{ margin: '6px 0' }}>{pick(m.drugClass, lang)}</p>
-
-        {/* Overview Metadata Grid for DAWAYA 26,562 Records */}
-        {dawayaRecord && (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: '10px',
-              margin: '12px 0',
-              padding: '12px',
-              background: 'var(--tint)',
-              borderRadius: '12px',
-            }}
-          >
-            <div>
-              <span className="small muted">{isAr ? 'المادة الفعالة:' : 'Active Ingredient(s):'}</span>
-              <div style={{ fontWeight: 800 }}>{dawayaRecord.genericName}</div>
-            </div>
-            <div>
-              <span className="small muted">{isAr ? 'التركيز والشكل:' : 'Strength & Form:'}</span>
-              <div style={{ fontWeight: 800 }}>
-                {dawayaRecord.strength} • {dawayaRecord.dosageForm}
-              </div>
-            </div>
-            <div>
-              <span className="small muted">{isAr ? 'السعر الرسمي:' : 'Listed Price:'}</span>
-              <div style={{ fontWeight: 800, color: '#15803d' }}>
-                {dawayaRecord.priceEgp
-                  ? `${dawayaRecord.priceEgp.toFixed(2)} ${isAr ? 'ج.م' : 'EGP'}`
-                  : isAr
-                  ? 'غير محدد بالمصدر'
-                  : 'Unspecified'}
-              </div>
-            </div>
-            <div>
-              <span className="small muted">{isAr ? 'الشركة والباركود:' : 'Company & Barcode:'}</span>
-              <div style={{ fontWeight: 800 }}>
-                {dawayaRecord.manufacturer} {dawayaRecord.barcode ? `(${dawayaRecord.barcode})` : ''}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="meta">
-          <StatusBadge status={m.status} />
-          <span>
-            {t('lastReviewed')}: <b>{m.lastReviewed || '2026-10-14'}</b>
-          </span>
-          {m.reviewedBy && (
-            <span>
-              {t('reviewedBy')}: <b>{m.reviewedBy}</b>
-            </span>
-          )}
         </div>
       </header>
 
-      {/* EDA Counterfeit & Package Authenticity Radar Card */}
-      <EdaCounterfeitRadarCard
-        medicineNameAr={dawayaRecord?.brandNameAr || name}
-        medicineNameEn={dawayaRecord?.brandNameEn || m.genericName.en || name}
-        genericName={dawayaRecord?.genericName || m.activeIngredients.en}
-        officialBarcode={dawayaRecord?.barcode}
-        isAr={isAr}
-      />
-
-      <MedicineDriverAndInjectionBanner
-        medicineNameAr={dawayaRecord?.brandNameAr || name}
-        medicineNameEn={dawayaRecord?.brandNameEn || m.genericName.en || name}
-        genericName={dawayaRecord?.genericName || m.activeIngredients.en}
-        dosageForm={dawayaRecord?.dosageForm}
-        isAr={isAr}
-      />
-
-      {/* 7-Condition Clinical Warning Matrix (For all 26,562 DAWAYA Records) */}
-      {dawayaRecord && (
-        <section className="card stack" style={{ borderInlineStart: '5px solid #D97706' }}>
-          <h2 style={{ margin: 0 }}>
-            ⚠️ {isAr ? 'مصفوفة التحذيرات السريرية والحالات الخاصة' : 'Clinical Condition Warnings & Precautions Matrix'}
-          </h2>
-          <p className="small" style={{ margin: 0 }}>
-            {isAr ? dawayaRecord.warningsSummaryAr : dawayaRecord.warningsSummaryEn}
-          </p>
+      {/* ══════════════════════════════════════════════════════════════════════════
+          BLOCK 2: DEDICATED ALTERNATIVES & BIOEQUIVALENT GENERICS BOX
+          ══════════════════════════════════════════════════════════════════════════ */}
+      {(dawayaEquivalents.length > 0 || commercialPackages.length > 0) && (
+        <section
+          id="dawaya-alternatives-box"
+          className="card"
+          style={{
+            scrollMarginTop: '80px',
+            borderRadius: '24px',
+            border: '2px solid #0d9488',
+            background: 'linear-gradient(180deg, #ffffff 0%, #f0fdfa 100%)',
+            padding: '22px',
+            boxShadow: '0 10px 28px rgba(13, 148, 136, 0.1)',
+          }}
+        >
+          {/* Header of Alternatives Box */}
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))',
-              gap: '8px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              flexWrap: 'wrap',
+              gap: '12px',
+              marginBottom: '16px',
             }}
           >
-            {[
-              { key: 'pregnancy', icon: '🤰', ar: 'الحمل', en: 'Pregnancy', flag: dawayaRecord.warningsFlags.pregnancy },
-              { key: 'lactation', icon: '🤱', ar: 'الرضاعة الطبيعية', en: 'Lactation', flag: dawayaRecord.warningsFlags.lactation },
-              { key: 'bp', icon: '🩺', ar: 'ارتفاع ضغط الدم', en: 'High Blood Pressure', flag: dawayaRecord.warningsFlags.highBloodPressure },
-              { key: 'dm', icon: '🩸', ar: 'مرض السكري', en: 'Diabetes', flag: dawayaRecord.warningsFlags.diabetes },
-              { key: 'heart', icon: '❤️', ar: 'أمراض القلب', en: 'Heart Disease', flag: dawayaRecord.warningsFlags.heart },
-              { key: 'kidney', icon: '🫘', ar: 'أمراض الكلى', en: 'Kidney Disease', flag: dawayaRecord.warningsFlags.kidney },
-              { key: 'liver', icon: '🧪', ar: 'أمراض الكبد', en: 'Liver Disease', flag: dawayaRecord.warningsFlags.liver },
-            ].map((w) => (
-              <div
-                key={w.key}
+            <div>
+              <span
                 style={{
-                  padding: '10px 12px',
-                  borderRadius: '12px',
-                  background: w.flag ? 'rgba(220, 38, 38, 0.09)' : 'var(--tint)',
-                  border: w.flag ? '1.5px solid #EF4444' : '1px solid var(--line)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
+                  display: 'inline-block',
+                  background: '#ccfbf1',
+                  color: '#0f766e',
+                  border: '1px solid #5eead4',
+                  padding: '4px 12px',
+                  borderRadius: '999px',
+                  fontSize: '0.76rem',
+                  fontWeight: 900,
+                  marginBottom: '6px',
                 }}
               >
-                <span style={{ fontSize: '1.3rem' }}>{w.icon}</span>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: '0.84rem' }}>{isAr ? w.ar : w.en}</div>
-                  <div
-                    style={{
-                      fontSize: '0.74rem',
-                      fontWeight: 700,
-                      color: w.flag ? '#DC2626' : '#059669',
-                    }}
-                  >
-                    {w.flag
-                      ? isAr
-                        ? '⚠️ يحذر / إشراف طبي'
-                        : '⚠️ Caution Advised'
-                      : isAr
-                      ? 'لا يوجد تحذير خاص مسجل'
-                      : 'No special flag'}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* CLINICAL PRO MODE PANEL (Shown when Doctor/Pharmacist Mode is active on Antibiotic Monographs) */}
-      {isProMode && clinicalPro && (
-        <section className="card clinical-pro-panel">
-          <div className="clinical-pro-header">
-            <div>
-              <span className="clinical-pro-kicker">
-                🩺 {tr(lang, 'مرجع الأطباء والصيادلة الإكلينيكي', 'Physician & Clinical Pharmacist Reference')}
+                🔄 {isAr ? 'مربع البدائل والمثائل المعتمدة بنفس المادة الفعالة' : 'Verified Same-Ingredient Equivalents & Generics'}
               </span>
-              <h2 style={{ margin: '4px 0 0' }}>
-                {tr(
-                  lang,
-                  `الخصائص الفارماكولوجية الدقيقة وتعديلات الجرعات الكلوية (${name})`,
-                  `Clinical Pharmacology, PK/PD & Renal Dosing (${name})`
-                )}
-              </h2>
-            </div>
-            {ingMeta && <code className="clinical-atc-pill">ATC: {ingMeta.atcCode}</code>}
-          </div>
-
-          <div className="clinical-pkpd-grid">
-            <div className="clinical-pkpd-card">
-              <span className="pkpd-label">{tr(lang, 'فترة نصف العمر (Half-Life)', 'Elimination Half-Life')}</span>
-              <strong className="pkpd-val" dir="ltr">{clinicalPro.pkpd.halfLife}</strong>
-            </div>
-            <div className="clinical-pkpd-card">
-              <span className="pkpd-label">{tr(lang, 'الإتاحة الحيوية (Bioavailability)', 'Oral Bioavailability')}</span>
-              <strong className="pkpd-val" dir="ltr">{clinicalPro.pkpd.bioavailability}</strong>
-            </div>
-            <div className="clinical-pkpd-card">
-              <span className="pkpd-label">{tr(lang, 'الارتباط ببروتين البلازما', 'Protein Binding')}</span>
-              <strong className="pkpd-val" dir="ltr">{clinicalPro.pkpd.proteinBinding}</strong>
-            </div>
-            <div className="clinical-pkpd-card">
-              <span className="pkpd-label">{tr(lang, 'مؤشر الفعالية (PK/PD Driver)', 'PK/PD Target Driver')}</span>
-              <strong className="pkpd-val">{pick(clinicalPro.pkpd.pkpdDriver, lang)}</strong>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Centralized Medication Safety Engine Assessment Card for this Medicine + User Profile */}
-      {safetyAssessment && (
-        <section
-          className={`card result-card ${
-            safetyAssessment.overallStatus === 'urgent_review'
-              ? 'severe'
-              : safetyAssessment.overallStatus === 'warning_review' ||
-                  safetyAssessment.overallStatus === 'caution_verify' ||
-                  safetyAssessment.overallStatus === 'incomplete_check'
-                ? 'moderate'
-                : 'safe'
-          }`}
-          style={{ padding: '16px 20px' }}
-        >
-          <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-            <div>
-              <strong>
-                🛡️{' '}
+              <h2 style={{ margin: 0, fontSize: '1.28rem', color: '#0D1F38', fontWeight: 900 }}>
                 {isAr
-                  ? 'تقييم محرك الأمان الدوائي المركزي (DAWAYA Safety Engine) مع ملفك الصحي:'
-                  : 'DAWAYA Central Medication Safety Engine Assessment Against Your Profile:'}
-              </strong>
-              <p className="small" style={{ margin: '4px 0 0' }}>
-                {pick(safetyAssessment.completeness.summaryBanner, lang)}
+                  ? `البدائل والمثائل المتطابقة لـ (${name}) في السوق المصري`
+                  : `Bioequivalent Generics & Alternatives for (${name})`}
+              </h2>
+              <p className="small muted" style={{ margin: '4px 0 0' }}>
+                {isAr
+                  ? 'جميع الأدوية في هذا المربع تحتوي على نفس المادة الفعالة ومرتبة من الأقل سعراً لتوفير فاتورة العلاج (استشر الصيدلي عند الاستبدال):'
+                  : 'All medicines below contain the exact same active ingredient sorted by lowest price:'}
               </p>
             </div>
-            <div className="row wrapRow" style={{ gap: '6px' }}>
-              <Link to="/health-profile" className="btn-secondary small">
-                👤 {isAr ? 'ملفي الصحي' : 'My Profile'}
-              </Link>
-              <Link to="/prescription-radar" className="btn small">
-                {isAr ? 'فحص روشتة كاملة' : 'Full Rx Check'}
-              </Link>
-            </div>
+
+            <Link
+              to={`/cost-saver?q=${encodeURIComponent(dawayaRecord?.brandNameEn || name)}`}
+              className="btn small"
+              style={{
+                background: '#0D1F38',
+                color: '#CFD29D',
+                borderRadius: '12px',
+                fontWeight: 900,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              💰 {isAr ? 'مقارنة الروشتة الكاملة في حاسبة التوفير ←' : 'Open Full Cost Saver →'}
+            </Link>
           </div>
 
-          {safetyAssessment.findings.length > 0 && (
-            <div className="stack" style={{ gap: '8px', marginTop: '10px' }}>
-              {safetyAssessment.findings.map((f) => (
-                <div
-                  key={f.id}
+          {/* Cheapest Bioequivalent Spotlight Banner inside the Box */}
+          {cheapestBioequivalent && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #0D1F38 0%, #065f46 100%)',
+                color: '#ffffff',
+                borderRadius: '18px',
+                padding: '14px 18px',
+                marginBottom: '16px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+                border: '1.5px solid #34d399',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span
                   style={{
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    background: 'var(--card-bg)',
-                    border: '1px solid var(--line)',
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: '#CFD29D',
+                    color: '#0D1F38',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.35rem',
+                    fontWeight: 900,
+                    flexShrink: 0,
                   }}
                 >
-                  <div style={{ fontWeight: 700 }}>{pick(f.title, lang)}</div>
-                  <p className="small" style={{ margin: '4px 0' }}>
-                    {pick(f.reason, lang)}
-                  </p>
-                  <p className="small" style={{ margin: 0 }}>
-                    <b>{isAr ? 'التوجيه:' : 'Next Step:'}</b> {pick(f.nextStep, lang)}
-                  </p>
+                  🏆
+                </span>
+                <div>
+                  <div style={{ fontSize: '0.78rem', color: '#a7f3d0', fontWeight: 800 }}>
+                    {isAr
+                      ? `أرخص مثيل مطابق 100% — يوفر لك ${cheapestBioequivalent.savedEgp.toFixed(2)} ج.م (${cheapestBioequivalent.savedPct}%)`
+                      : `Best Value Equivalent — Save ${cheapestBioequivalent.savedEgp.toFixed(2)} EGP (${cheapestBioequivalent.savedPct}%)`}
+                  </div>
+                  <strong style={{ fontSize: '1.05rem', color: '#ffffff', display: 'block' }}>
+                    {isAr ? cheapestBioequivalent.item.a || cheapestBioequivalent.item.n : cheapestBioequivalent.item.n}{' '}
+                    <span style={{ color: '#CFD29D', fontSize: '0.9rem' }}>
+                      ({cheapestBioequivalent.item.p?.toFixed(2)} {isAr ? 'ج.م' : 'EGP'} بدلاً من {cheapestBioequivalent.currentPrice.toFixed(2)} {isAr ? 'ج.م' : 'EGP'})
+                    </span>
+                  </strong>
+                </div>
+              </div>
+              <Link
+                to={`/medicine/${cheapestBioequivalent.item.i}`}
+                className="btn small"
+                style={{
+                  background: '#10b981',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '999px',
+                  fontWeight: 900,
+                }}
+              >
+                {isAr ? 'فتح صفحة المثيل الأرخص ←' : 'View Cheapest Generic →'}
+              </Link>
+            </div>
+          )}
+
+          {/* Sleek Card Grid of Alternatives */}
+          {dawayaEquivalents.length > 0 ? (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(255px, 1fr))',
+                gap: '12px',
+              }}
+            >
+              {dawayaEquivalents.map((eq, idx) => {
+                const isCheaper =
+                  currentPriceEgp && eq.p && eq.p < currentPriceEgp - 0.5;
+                const savedAmount =
+                  isCheaper && currentPriceEgp && eq.p ? currentPriceEgp - eq.p : 0;
+                const savedPercent =
+                  savedAmount > 0 && currentPriceEgp
+                    ? Math.round((savedAmount / currentPriceEgp) * 100)
+                    : 0;
+
+                return (
+                  <div
+                    key={eq.i}
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '16px',
+                      border: idx === 0 && isCheaper ? '2px solid #10b981' : '1.5px solid #cbd5e1',
+                      padding: '14px 16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                      boxShadow: '0 4px 12px rgba(13, 31, 56, 0.04)',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                        <span
+                          style={{
+                            fontSize: '0.7rem',
+                            fontWeight: 900,
+                            padding: '2px 9px',
+                            borderRadius: '999px',
+                            background: isCheaper ? '#dcfce7' : '#f1f5f9',
+                            color: isCheaper ? '#166534' : '#475569',
+                            border: isCheaper ? '1px solid #86efac' : '1px solid #cbd5e1',
+                          }}
+                        >
+                          {isCheaper
+                            ? isAr
+                              ? `💚 أوفر بـ ${savedAmount.toFixed(0)} ج.م (${savedPercent}%)`
+                              : `Save ${savedPercent}%`
+                            : isAr
+                            ? '💊 مثيل بنفس المادة الفعالة'
+                            : 'Same Active Ingredient'}
+                        </span>
+
+                        <span
+                          style={{
+                            background: '#0D1F38',
+                            color: '#CFD29D',
+                            padding: '3px 10px',
+                            borderRadius: '999px',
+                            fontSize: '0.8rem',
+                            fontWeight: 900,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {eq.p ? `${eq.p.toFixed(2)} ${isAr ? 'ج.م' : 'EGP'}` : '—'}
+                        </span>
+                      </div>
+
+                      <strong style={{ fontSize: '1rem', color: '#0D1F38', display: 'block', lineHeight: 1.35 }}>
+                        {isAr ? eq.a || eq.n : eq.n}
+                      </strong>
+                      <div dir="ltr" style={{ fontSize: '0.78rem', color: '#0f766e', fontWeight: 700, textAlign: isAr ? 'right' : 'left' }}>
+                        {eq.n}
+                      </div>
+
+                      <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '0.76rem', color: '#475569', fontWeight: 700 }}>
+                        {eq.s && (
+                          <span style={{ background: '#f8fafc', padding: '2px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                            ⚖️ {eq.s}
+                          </span>
+                        )}
+                        {eq.f && (
+                          <span style={{ background: '#f8fafc', padding: '2px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                            📦 {eq.f}
+                          </span>
+                        )}
+                        {eq.c && (
+                          <span style={{ background: '#f8fafc', padding: '2px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                            🏭 {eq.c}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '6px', paddingTop: '8px', borderTop: '1px dashed #e2e8f0' }}>
+                      <Link
+                        to={`/medicine/${eq.i}`}
+                        className="btn small"
+                        style={{
+                          flex: 1,
+                          background: '#138866',
+                          borderColor: '#138866',
+                          color: '#ffffff',
+                          fontWeight: 800,
+                          textAlign: 'center',
+                          borderRadius: '10px',
+                          padding: '6px 10px',
+                        }}
+                      >
+                        {isAr ? 'عرض البديل ←' : 'View Generic →'}
+                      </Link>
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(
+                          isAr
+                            ? `السلام عليكم، أستفسر عن توفر الدواء البديل: ${eq.a || eq.n} (${eq.n}) تركيز ${eq.s || ''}`
+                            : `Inquiring about generic alternative: ${eq.n} (${eq.s || ''})`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn small ghost"
+                        style={{
+                          borderRadius: '10px',
+                          padding: '6px 10px',
+                          borderColor: '#16a34a',
+                          color: '#15803d',
+                          fontWeight: 800,
+                        }}
+                        title={isAr ? 'اطلب هذا البديل عبر واتساب' : 'Order via WhatsApp'}
+                      >
+                        💬
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(255px, 1fr))',
+                gap: '12px',
+              }}
+            >
+              {commercialPackages.map((pkg) => (
+                <div
+                  key={pkg.productId}
+                  style={{
+                    background: '#ffffff',
+                    borderRadius: '16px',
+                    border: '1.5px solid #cbd5e1',
+                    padding: '14px 16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span className="small muted">{pkg.manufacturer}</span>
+                      <span style={{ background: '#0D1F38', color: '#CFD29D', padding: '2px 9px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 900 }}>
+                        {pkg.priceEgp ? `${pkg.priceEgp.toFixed(2)} ${isAr ? 'ج.م' : 'EGP'}` : '—'}
+                      </span>
+                    </div>
+                    <strong style={{ fontSize: '0.98rem', color: '#0D1F38', display: 'block' }}>
+                      {isAr ? pkg.tradeNameAr : pkg.tradeNameEn}
+                    </strong>
+                    <div className="small muted">
+                      {pkg.strength} • {pick(pkg.dosageFormLabel, lang)}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1274,270 +1341,466 @@ export default function MedicinePage() {
         </section>
       )}
 
-      {/* Prominent QR & Barcode Card */}
-      <section className="card highlight-card qr-top-card">
-        <div className="qr-top-flex">
-          <div>
-            <h2>📱 {isAr ? 'رمز QR للمشاركة وباركود العلبة المعتمد' : 'Medicine QR & Official Barcode'}</h2>
-            <p className="small muted">
-              {isAr
-                ? 'امسح رمز QR لفتح ومشاركة صفحة الدواء على هاتفك فوراً، أو استخدم صفحة «مسح الباركود و QR» لمطابقة العلبة.'
-                : 'Scan this QR code to view and share this medicine page, or use the Scan page to match carton barcodes.'}
-            </p>
-            {brands.length > 0 && brands[0].barcode && (
-              <div style={{ marginTop: '8px' }}>
-                <span className="small muted">{isAr ? 'باركود العلبة المسجل: ' : 'Registered Carton Barcode: '}</span>
-                <code style={{ fontSize: '1.05rem', fontWeight: 600 }}>{brands[0].barcode}</code>
-              </div>
-            )}
-          </div>
-          <div className="qr-box-preview">
-            <QRBlock id={m.id} name={name} />
-          </div>
-        </div>
-      </section>
-
-      {uses && (
-        <section className="notice quick">
-          <strong>{t('quickSummary')}: </strong>
-          {uses}
-        </section>
-      )}
-
-      <section className="alert urgent">
-        <strong>{t('urgentTitle')} </strong>
-        {t('urgentText')}
-      </section>
-
-      <div className="med-grid">
-        <div className="stack">
-          {/* Same-Ingredient Equivalents from the 26,562 DAWAYA Database */}
-          {dawayaEquivalents.length > 0 && (
-            <section className="card highlight-card">
-              <h2 style={{ margin: '0 0 8px' }}>
-                🔄{' '}
-                {isAr
-                  ? `البدائل والمثائل التي تحتوي على نفس المادة الفعالة في موسوعة دوايا (${dawayaEquivalents.length})`
-                  : `Same Active Ingredient Equivalents in DAWAYA Database (${dawayaEquivalents.length})`}
-              </h2>
-              <p className="small muted" style={{ marginTop: 0 }}>
-                {isAr
-                  ? 'مستحضرات مسجلة تحتوي على نفس التركيبة الفعالة مرتبة من الأقل سعراً إلى الأعلى. لا تستبدل أي دواء موصوف دون استشارة الطبيب أو الصيدلي:'
-                  : 'Registered preparations sharing the same active ingredient composition sorted by price. Never switch prescribed medication without consulting your pharmacist or doctor:'}
-              </p>
-              <div className="tablewrap">
-                <table className="tbl">
-                  <thead>
-                    <tr>
-                      <th>{isAr ? 'الاسم التجاري' : 'Brand Name'}</th>
-                      <th>{isAr ? 'التركيز والشكل' : 'Strength & Form'}</th>
-                      <th>{isAr ? 'الشركة' : 'Company'}</th>
-                      <th>{isAr ? 'السعر المسجل' : 'Price (EGP)'}</th>
-                      <th>{isAr ? 'عرض' : 'View'}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dawayaEquivalents.map((eq) => (
-                      <tr key={eq.i}>
-                        <td>
-                          <b>{isAr ? eq.a : eq.n}</b>
-                          <div className="small muted" dir="ltr">{eq.n}</div>
-                        </td>
-                        <td>{eq.s || '—'} ({eq.f})</td>
-                        <td>{eq.c || '—'}</td>
-                        <td>
-                          <b style={{ color: '#15803d' }}>
-                            {eq.p ? `${eq.p.toFixed(2)} ${isAr ? 'ج.م' : 'EGP'}` : '—'}
-                          </b>
-                        </td>
-                        <td>
-                          <Link to={`/medicine/${eq.i}`} className="btn small ghost">
-                            {isAr ? 'التفاصيل' : 'Open'}
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
-
-          {/* Interactive 3D Mechanism Viewer (for Antibiotic Monographs) */}
-          {ingMeta && (
-            <Mechanism3DViewer
-              medicineId={m.id}
-              medicineTitle={pick(m.genericName, lang)}
-              scientificName={pick(m.activeIngredients, 'en')}
-            />
-          )}
-
-          {/* Find This Medication Partner Network Section */}
-          <div id="dawaya-order-from-pharmacy-section" style={{ scrollMarginTop: '80px' }}>
-            <FindMedicationPanel activeIngredientId={m.id} />
-          </div>
-
-          {/* Commercial Packages Table for Antibiotic Monographs */}
-          {commercialPackages.length > 0 && (
-            <section className="card highlight-card">
-              <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-                <h2 style={{ margin: 0 }}>
-                  🇪🇬{' '}
-                  {isAr
-                    ? `جميع العبوات والمستحضرات المسجلة في السوق المصري (${commercialPackages.length} عبوة)`
-                    : `Registered Commercial Packages in Egypt (${commercialPackages.length})`}
-                </h2>
-                <Link to={`/cost-saver?ing=${encodeURIComponent(m.id)}`} className="btn small" style={{ background: '#0d9488' }}>
-                  💰 {tr(lang, 'احسب التوفير والبديل الأرخص ←', 'Calculate Cheapest Generic →')}
-                </Link>
-              </div>
-              <div className="tablewrap" style={{ marginTop: '10px' }}>
-                <table className="tbl">
-                  <thead>
-                    <tr>
-                      <th>{isAr ? 'الاسم التجاري' : 'Trade Name'}</th>
-                      <th>{isAr ? 'التركيز والشكل' : 'Strength & Form'}</th>
-                      <th>{isAr ? 'العبوة والشركة' : 'Package & Maker'}</th>
-                      <th>{isAr ? 'السعر الرسمي' : 'Price (EGP)'}</th>
-                      <th>{isAr ? 'الباركود الخطي' : 'Barcode'}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {commercialPackages.map((pkg) => (
-                      <tr key={pkg.productId}>
-                        <td>
-                          <b>{isAr ? pkg.tradeNameAr : pkg.tradeNameEn}</b>
-                          <div className="small muted">{isAr ? pkg.tradeNameEn : pkg.tradeNameAr}</div>
-                        </td>
-                        <td>
-                          <span dir="ltr"><b>{pkg.strength}</b></span>
-                          <div className="small muted">{pick(pkg.dosageFormLabel, lang)}</div>
-                        </td>
-                        <td>
-                          <div>{pick(pkg.packDetails, lang)}</div>
-                          <div className="small muted">{pkg.manufacturer}</div>
-                        </td>
-                        <td>
-                          <b style={{ color: '#15803d' }}>
-                            {pkg.priceEgp ? `${pkg.priceEgp.toFixed(2)} ${isAr ? 'ج.م' : 'EGP'}` : '—'}
-                          </b>
-                        </td>
-                        <td dir="ltr">
-                          {pkg.barcode ? <code>{pkg.barcode}</code> : <span className="small muted">—</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
-
-          
-      {/* 4-Question Street-Arabic Simplified Patient Leaflet (مترجم النشرة بالعامية المبسطة) */}
+      {/* ══════════════════════════════════════════════════════════════════════════
+          BLOCK 3: SIMPLIFIED PATIENT GUIDE + PILL/MEAL/WATER RULES + 7 CONDITIONS
+          ══════════════════════════════════════════════════════════════════════════ */}
       <section
-        className="card"
+        className="card stack"
         style={{
-          background: 'linear-gradient(135deg, rgba(13, 31, 56, 0.04) 0%, rgba(19, 136, 102, 0.08) 100%)',
-          borderRadius: '18px',
-          border: '1.5px solid #138866',
+          borderRadius: '22px',
+          border: '1.5px solid #cbd5e1',
+          padding: '22px',
+          gap: '16px',
         }}
       >
-        <div className="head" style={{ marginBottom: '10px' }}>
-          <div>
-            <span className="badge" style={{ background: '#138866', color: '#fff', fontWeight: 800, marginBottom: '6px' }}>
-              {isAr ? 'النشرة الدوائية المبسطة لراحة بالك' : 'Simplified Patient Leaflet'}
-            </span>
-            <h2 style={{ margin: 0, fontSize: '1.18rem', color: '#0D1F38' }}>
-              📖 {isAr ? `نشرة (${name}) في 4 إجابات حاسمة بدون تعقيد مصطلحات:` : `Monograph of (${name}) in 4 Simple Answers:`}
-            </h2>
-          </div>
+        <div>
+          <span className="badge" style={{ background: '#138866', color: '#fff', fontWeight: 800, marginBottom: '6px' }}>
+            📖 {isAr ? 'الخلاصة الطبية المبسطة للمريض' : 'Simplified Patient Guide'}
+          </span>
+          <h2 style={{ margin: 0, fontSize: '1.22rem', color: 'var(--ink, #0D1F38)' }}>
+            {isAr ? `كل ما يهمك عن (${name}) في 4 نقاط واضحة:` : `Essential Guide for (${name}) in 4 Simple Points:`}
+          </h2>
         </div>
 
+        {/* 4 Simple Answers Grid */}
         <div className="grid">
-          <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--white)', border: '1px solid var(--line)', borderInlineStart: '4px solid #138866' }}>
-            <b style={{ color: '#0D1F38', fontSize: '0.94rem', display: 'block', marginBottom: '4px' }}>
+          <div style={{ padding: '14px', borderRadius: '14px', background: 'var(--tint, #f8fafc)', border: '1px solid var(--line, #e2e8f0)', borderInlineStart: '4px solid #138866' }}>
+            <b style={{ color: 'var(--ink, #0D1F38)', fontSize: '0.94rem', display: 'block', marginBottom: '4px' }}>
               🎯 1. {isAr ? 'الدواء ده بيعالج إيه بالظبط؟' : '1. What is this medicine used for?'}
             </b>
-            <p className="small" style={{ margin: 0 }}>
+            <p className="small" style={{ margin: 0, lineHeight: 1.6 }}>
               {uses || (isAr ? m.approvedUses.ar : m.approvedUses.en)}
             </p>
           </div>
 
-          <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--white)', border: '1px solid var(--line)', borderInlineStart: '4px solid #0891b2' }}>
-            <b style={{ color: '#0D1F38', fontSize: '0.94rem', display: 'block', marginBottom: '4px' }}>
+          <div style={{ padding: '14px', borderRadius: '14px', background: 'var(--tint, #f8fafc)', border: '1px solid var(--line, #e2e8f0)', borderInlineStart: '4px solid #0284c7' }}>
+            <b style={{ color: 'var(--ink, #0D1F38)', fontSize: '0.94rem', display: 'block', marginBottom: '4px' }}>
               ⏱️ 2. {isAr ? 'آخده إمتى وإزاي؟ (قبل ولا بعد الأكل؟)' : '2. When and how should I take it?'}
             </b>
-            <p className="small" style={{ margin: 0 }}>
-              {isAr ? m.dosingReference.ar : m.dosingReference.en}
+            <p className="small" style={{ margin: 0, lineHeight: 1.6 }}>
+              {isAr ? splitMeal.mealTitleAr : splitMeal.mealTitleEn} — {isAr ? m.dosingReference.ar : m.dosingReference.en}
             </p>
           </div>
 
-          <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--white)', border: '1px solid var(--line)', borderInlineStart: '4px solid #d97706' }}>
+          <div style={{ padding: '14px', borderRadius: '14px', background: 'var(--tint, #f8fafc)', border: '1px solid var(--line, #e2e8f0)', borderInlineStart: '4px solid #d97706' }}>
             <b style={{ color: '#b45309', fontSize: '0.94rem', display: 'block', marginBottom: '4px' }}>
               🔔 3. {isAr ? 'لو نسيت الجرعة.. أتصرف إزاي؟' : '3. What if I miss a dose?'}
             </b>
-            <p className="small" style={{ margin: 0 }}>
+            <p className="small" style={{ margin: 0, lineHeight: 1.6 }}>
               {isAr
-                ? 'لو تذكرتها قبل موعد الجرعة التالية بعدة ساعات خذها فوراً؛ أما إذا اقترب موعد الجرعة القادمة فتجاهل الجرعة المنسية ولا تضاعف الجرعة نهائياً لتفادي أي تسمم كبدي أو هبوط.'
-                : 'Take the missed dose as soon as you remember unless it is almost time for your next scheduled dose. Never double up to make up for a missed dose.'}
+                ? 'لو تذكرتها قبل موعد الجرعة التالية بعدة ساعات خذها فوراً؛ أما إذا اقترب موعد الجرعة القادمة فتجاوز المنسية ولا تضاعف الجرعة أبداً.'
+                : 'Take as soon as you remember unless your next dose is near. Never double the dose.'}
             </p>
           </div>
 
-          <div style={{ padding: '14px', borderRadius: '12px', background: 'var(--white)', border: '1px solid var(--line)', borderInlineStart: '4px solid #dc2626' }}>
+          <div style={{ padding: '14px', borderRadius: '14px', background: 'var(--tint, #f8fafc)', border: '1px solid var(--line, #e2e8f0)', borderInlineStart: '4px solid #dc2626' }}>
             <b style={{ color: '#991b1b', fontSize: '0.94rem', display: 'block', marginBottom: '4px' }}>
-              ⛔ 4. {isAr ? 'مين في البيت ممنوع يلمس الدواء ده؟' : '4. Who should strictly avoid this medicine?'}
+              ⛔ 4. {isAr ? 'موانع الاستخدام والتحذيرات الهامة:' : '4. Who should avoid this medicine?'}
             </b>
-            <p className="small" style={{ margin: 0 }}>
+            <p className="small" style={{ margin: 0, lineHeight: 1.6 }}>
               {isAr ? m.contraindications.ar : m.contraindications.en}
             </p>
           </div>
         </div>
+
+        {/* Compact Administration & Precautions Strip (Pill Splitting + Hydration + Rebound) */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '10px',
+          }}
+        >
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: '14px',
+              background: splitMeal.splittingStatus === 'forbidden_sr_ec' || splitMeal.splittingStatus === 'capsule_no_open' ? '#fef2f2' : '#f0fdf4',
+              border: splitMeal.splittingStatus === 'forbidden_sr_ec' || splitMeal.splittingStatus === 'capsule_no_open' ? '1px solid #fca5a5' : '1px solid #86efac',
+            }}
+          >
+            <div style={{ fontSize: '0.74rem', fontWeight: 900, color: '#0f766e', marginBottom: '2px' }}>
+              💊 {splitMeal.splittingBadgeAr}
+            </div>
+            <strong style={{ fontSize: '0.88rem', color: '#0D1F38', display: 'block' }}>
+              {isAr ? splitMeal.splittingTitleAr : splitMeal.splittingTitleEn}
+            </strong>
+            <span className="small muted">{isAr ? splitMeal.splittingReasonAr : splitMeal.splittingReasonEn}</span>
+          </div>
+
+          {hydrationReq && (
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: '14px',
+                background: '#f0f9ff',
+                border: '1px solid #bae6fd',
+              }}
+            >
+              <div style={{ fontSize: '0.74rem', fontWeight: 900, color: '#0369a1', marginBottom: '2px' }}>
+                💧 {isAr ? 'إرشاد شرب الماء مع الجرعة' : 'Hydration Rule'}
+              </div>
+              <strong style={{ fontSize: '0.88rem', color: '#0D1F38', display: 'block' }}>
+                {isAr ? hydrationReq.titleAr : hydrationReq.titleEn}
+              </strong>
+              <span className="small muted">{isAr ? hydrationReq.reasonAr : hydrationReq.reasonEn}</span>
+            </div>
+          )}
+
+          {reboundAlert && (
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: '14px',
+                background: '#fffbeb',
+                border: '1px solid #fde68a',
+              }}
+            >
+              <div style={{ fontSize: '0.74rem', fontWeight: 900, color: '#b45309', marginBottom: '2px' }}>
+                ⚠️ {reboundAlert.badgeAr}
+              </div>
+              <strong style={{ fontSize: '0.88rem', color: '#92400e', display: 'block' }}>
+                {isAr ? reboundAlert.categoryTitleAr : reboundAlert.categoryTitleEn}
+              </strong>
+              <span className="small muted">{isAr ? reboundAlert.safeDiscontinuationAr : reboundAlert.safeDiscontinuationEn}</span>
+            </div>
+          )}
+        </div>
+
+        <MedicineDriverAndInjectionBanner
+          medicineNameAr={dawayaRecord?.brandNameAr || name}
+          medicineNameEn={dawayaRecord?.brandNameEn || m.genericName.en || name}
+          genericName={dawayaRecord?.genericName || m.activeIngredients.en}
+          dosageForm={dawayaRecord?.dosageForm}
+          isAr={isAr}
+        />
+
+        {/* Compact 7-Condition Warning Matrix */}
+        {dawayaRecord && (
+          <div style={{ paddingTop: '10px', borderTop: '1px solid var(--line, #e2e8f0)' }}>
+            <strong style={{ fontSize: '0.92rem', color: 'var(--ink, #0D1F38)', display: 'block', marginBottom: '8px' }}>
+              🛡️ {isAr ? 'موقف الدواء مع الحالات الصحية الـ 7 الخاصة:' : '7-Condition Clinical Precautions:'}
+            </strong>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                gap: '8px',
+              }}
+            >
+              {[
+                { key: 'pregnancy', icon: '🤰', ar: 'الحمل', en: 'Pregnancy', flag: dawayaRecord.warningsFlags.pregnancy },
+                { key: 'lactation', icon: '🤱', ar: 'الرضاعة', en: 'Lactation', flag: dawayaRecord.warningsFlags.lactation },
+                { key: 'bp', icon: '🩺', ar: 'ضغط الدم', en: 'Blood Pressure', flag: dawayaRecord.warningsFlags.highBloodPressure },
+                { key: 'dm', icon: '🩸', ar: 'السكري', en: 'Diabetes', flag: dawayaRecord.warningsFlags.diabetes },
+                { key: 'heart', icon: '❤️', ar: 'القلب', en: 'Heart', flag: dawayaRecord.warningsFlags.heart },
+                { key: 'kidney', icon: '🫘', ar: 'الكلى', en: 'Kidney', flag: dawayaRecord.warningsFlags.kidney },
+                { key: 'liver', icon: '🧪', ar: 'الكبد', en: 'Liver', flag: dawayaRecord.warningsFlags.liver },
+              ].map((w) => (
+                <div
+                  key={w.key}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: '10px',
+                    background: w.flag ? 'rgba(220, 38, 38, 0.08)' : 'var(--tint, #f8fafc)',
+                    border: w.flag ? '1.5px solid #ef4444' : '1px solid var(--line, #e2e8f0)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <span style={{ fontSize: '1.15rem' }}>{w.icon}</span>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '0.78rem' }}>{isAr ? w.ar : w.en}</div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: w.flag ? '#dc2626' : '#059669' }}>
+                      {w.flag ? (isAr ? '⚠️ بحذر طبي' : '⚠️ Caution') : isAr ? 'آمن قياسياً' : 'Standard'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
-          {/* All Clinical Monograph Sections (Overview, Active Ingredients, Uses, Warnings, Contraindications, Side Effects, Interactions, Storage, Patient Education) */}
-          {displayOrder.filter((f) => FIELD_LABELS[f]).map((f) => {
-            const v = pick(m[f], lang);
-            if (!v) return null;
-            const isHighlight = f === 'priceEgypt' || f === 'substitutes';
-            return (
-              <section key={f} className={`card ${isHighlight ? 'highlight-card' : ''}`}>
-                <h2>
-                  {f === 'priceEgypt' && <span>💰 </span>}
-                  {f === 'substitutes' && <span>🔄 </span>}
-                  {pick(FIELD_LABELS[f], lang)}
-                </h2>
-                <p className="pre">{v}</p>
-                {f === 'dosingReference' && <p className="small muted">{t('dosingNote')}</p>}
-              </section>
-            );
-          })}
-
-          {/* Reference Sources & Verification Date */}
-          <section className="card">
-            <h2>{t('sources')}</h2>
-            {m.sources.length === 0 ? (
-              <p className="muted">{t('notEntered')}</p>
-            ) : (
-              <ul className="srclist">
-                {m.sources.map((s, i) => (
-                  <li key={i}>
-                    <a href={s.url} target="_blank" rel="noopener noreferrer">
-                      {s.title}
-                    </a>
-                    <div className="small muted">
-                      {[s.publisher, s.updated && `${t('updated')}: ${s.updated}`, s.accessed && `${t('accessed')}: ${s.accessed}`]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-          <Disclaimer />
+      {/* ══════════════════════════════════════════════════════════════════════════
+          BLOCK 4: INTERACTIVE DOSE & CLOCK TIME CALIBRATOR
+          ══════════════════════════════════════════════════════════════════════════ */}
+      <section
+        id="dawaya-dose-calibrator-box"
+        className="card"
+        style={{
+          scrollMarginTop: '80px',
+          borderRadius: '20px',
+          border: '1.5px solid #138866',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)',
+          padding: '18px 20px',
+        }}
+      >
+        <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+          <div>
+            <strong style={{ color: '#0D1F38', fontSize: '1.05rem', display: 'block' }}>
+              ⏰ {isAr ? `معايرة مواعيد جرعات (${name}) وتفعيل المنبه اليومي` : `Calibrate Dose Schedule & Alarms for (${name})`}
+            </strong>
+            <span className="small muted">
+              {isAr
+                ? 'اختر عدد المرات في اليوم وعدّل ساعات التنبيه لتفعيلها في جدولك ومنبه الموبايل بضغطة واحدة:'
+                : 'Select how many times per day you take this medicine and customize your exact clock hours:'}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn small"
+            style={{
+              background: 'linear-gradient(135deg, #0D1F38 0%, #138866 100%)',
+              color: '#ffffff',
+              fontWeight: 900,
+              borderRadius: '12px',
+              border: 'none',
+            }}
+            onClick={() => handleActivateCalibratedSchedule()}
+          >
+            🔔 {isAr ? 'حفظ وتفعيل المواعيد في جدولي' : 'Save & Activate Schedule'}
+          </button>
         </div>
-      </div>
+
+        <SmartDoseTimeCalibrator
+          medicineName={dawayaRecord?.brandNameEn || m.genericName.en || name}
+          frequency={calFrequency}
+          doseTimes={calDoseTimes}
+          isAr={isAr}
+          onChange={(nextFreq, nextTimes, suggestedDose, suggestedDur) => {
+            setCalFrequency(nextFreq);
+            setCalDoseTimes(nextTimes);
+            if (suggestedDose && !calDoseText) setCalDoseText(suggestedDose);
+            if (suggestedDur) setCalDurationDays(suggestedDur);
+          }}
+        />
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════════════
+          BLOCK 5: ORGANIZED 3-TAB SECTION FOR PHARMACY ORDER, SCIENTIFIC LEAFLET & QR
+          ══════════════════════════════════════════════════════════════════════════ */}
+      <section
+        id="dawaya-bottom-tabs-section"
+        className="card stack"
+        style={{
+          scrollMarginTop: '80px',
+          borderRadius: '22px',
+          padding: '20px',
+          gap: '16px',
+        }}
+      >
+        <div
+          role="tablist"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '8px',
+            background: 'var(--tint, #f1f5f9)',
+            padding: '6px',
+            borderRadius: '16px',
+          }}
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeBottomTab === 'order_pharmacy'}
+            onClick={() => setActiveBottomTab('order_pharmacy')}
+            style={{
+              padding: '10px 14px',
+              borderRadius: '12px',
+              border: 'none',
+              background: activeBottomTab === 'order_pharmacy' ? '#0D1F38' : 'transparent',
+              color: activeBottomTab === 'order_pharmacy' ? '#ffffff' : 'var(--ink, #0D1F38)',
+              fontWeight: 900,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+            }}
+          >
+            🛵 {isAr ? 'طلب الدواء من الصيدليات' : 'Order from Pharmacies'}
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeBottomTab === 'scientific_monograph'}
+            onClick={() => setActiveBottomTab('scientific_monograph')}
+            style={{
+              padding: '10px 14px',
+              borderRadius: '12px',
+              border: 'none',
+              background: activeBottomTab === 'scientific_monograph' ? '#0D1F38' : 'transparent',
+              color: activeBottomTab === 'scientific_monograph' ? '#ffffff' : 'var(--ink, #0D1F38)',
+              fontWeight: 900,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+            }}
+          >
+            🩺 {isAr ? 'النشرة العلمية الكاملة والمصادر' : 'Full Scientific Monograph'}
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeBottomTab === 'authenticity_qr'}
+            onClick={() => setActiveBottomTab('authenticity_qr')}
+            style={{
+              padding: '10px 14px',
+              borderRadius: '12px',
+              border: 'none',
+              background: activeBottomTab === 'authenticity_qr' ? '#0D1F38' : 'transparent',
+              color: activeBottomTab === 'authenticity_qr' ? '#ffffff' : 'var(--ink, #0D1F38)',
+              fontWeight: 900,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+            }}
+          >
+            🛡️ {isAr ? 'فحص العلبة الأصلية ورمز QR' : 'Authenticity & QR Code'}
+          </button>
+        </div>
+
+        {activeBottomTab === 'order_pharmacy' && (
+          <div id="dawaya-order-from-pharmacy-section">
+            <FindMedicationPanel activeIngredientId={m.id} />
+          </div>
+        )}
+
+        {activeBottomTab === 'scientific_monograph' && (
+          <div className="stack" style={{ gap: '14px' }}>
+            {clinicalPro && (
+              <div className="clinical-pro-panel" style={{ padding: '16px', borderRadius: '16px', border: '1px solid #cbd5e1' }}>
+                <div className="clinical-pro-header">
+                  <div>
+                    <span className="clinical-pro-kicker">
+                      🩺 {tr(lang, 'مرجع الأطباء والصيادلة الإكلينيكي', 'Physician & Clinical Pharmacist Reference')}
+                    </span>
+                    <h3 style={{ margin: '4px 0 0' }}>
+                      {tr(
+                        lang,
+                        `الخصائص الفارماكولوجية الدقيقة (${name})`,
+                        `Clinical Pharmacology & PK/PD (${name})`
+                      )}
+                    </h3>
+                  </div>
+                  {ingMeta && <code className="clinical-atc-pill">ATC: {ingMeta.atcCode}</code>}
+                </div>
+
+                <div className="clinical-pkpd-grid" style={{ marginTop: '10px' }}>
+                  <div className="clinical-pkpd-card">
+                    <span className="pkpd-label">{tr(lang, 'فترة نصف العمر (Half-Life)', 'Elimination Half-Life')}</span>
+                    <strong className="pkpd-val" dir="ltr">{clinicalPro.pkpd.halfLife}</strong>
+                  </div>
+                  <div className="clinical-pkpd-card">
+                    <span className="pkpd-label">{tr(lang, 'الإتاحة الحيوية (Bioavailability)', 'Oral Bioavailability')}</span>
+                    <strong className="pkpd-val" dir="ltr">{clinicalPro.pkpd.bioavailability}</strong>
+                  </div>
+                  <div className="clinical-pkpd-card">
+                    <span className="pkpd-label">{tr(lang, 'الارتباط ببروتين البلازما', 'Protein Binding')}</span>
+                    <strong className="pkpd-val" dir="ltr">{clinicalPro.pkpd.proteinBinding}</strong>
+                  </div>
+                  <div className="clinical-pkpd-card">
+                    <span className="pkpd-label">{tr(lang, 'مؤشر الفعالية (PK/PD Driver)', 'PK/PD Target Driver')}</span>
+                    <strong className="pkpd-val">{pick(clinicalPro.pkpd.pkpdDriver, lang)}</strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {ingMeta && (
+              <Mechanism3DViewer
+                medicineId={m.id}
+                medicineTitle={pick(m.genericName, lang)}
+                scientificName={pick(m.activeIngredients, 'en')}
+              />
+            )}
+
+            {displayOrder.filter((f) => FIELD_LABELS[f]).map((f) => {
+              const v = pick(m[f], lang);
+              if (!v) return null;
+              return (
+                <div
+                  key={f}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: '14px',
+                    background: 'var(--tint, #f8fafc)',
+                    border: '1px solid var(--line, #e2e8f0)',
+                  }}
+                >
+                  <h3 style={{ margin: '0 0 6px', fontSize: '1rem', color: 'var(--ink, #0D1F38)' }}>
+                    {pick(FIELD_LABELS[f], lang)}
+                  </h3>
+                  <p className="pre" style={{ margin: 0, fontSize: '0.9rem' }}>{v}</p>
+                </div>
+              );
+            })}
+
+            <div style={{ padding: '14px 16px', borderRadius: '14px', background: 'var(--tint, #f8fafc)', border: '1px solid var(--line, #e2e8f0)' }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: '1rem' }}>{t('sources')}</h3>
+              {m.sources.length === 0 ? (
+                <p className="muted" style={{ margin: 0 }}>{t('notEntered')}</p>
+              ) : (
+                <ul className="srclist" style={{ margin: 0 }}>
+                  {m.sources.map((s, i) => (
+                    <li key={i}>
+                      <a href={s.url} target="_blank" rel="noopener noreferrer">
+                        {s.title}
+                      </a>
+                      <div className="small muted">
+                        {[s.publisher, s.updated && `${t('updated')}: ${s.updated}`, s.accessed && `${t('accessed')}: ${s.accessed}`]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="meta" style={{ marginTop: '10px' }}>
+                <StatusBadge status={m.status} />
+                <span>
+                  {t('lastReviewed')}: <b>{m.lastReviewed || '2026-10-14'}</b>
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeBottomTab === 'authenticity_qr' && (
+          <div className="stack" style={{ gap: '14px' }}>
+            <EdaCounterfeitRadarCard
+              medicineNameAr={dawayaRecord?.brandNameAr || name}
+              medicineNameEn={dawayaRecord?.brandNameEn || m.genericName.en || name}
+              genericName={dawayaRecord?.genericName || m.activeIngredients.en}
+              officialBarcode={dawayaRecord?.barcode}
+              isAr={isAr}
+            />
+
+            <div className="qr-top-flex" style={{ padding: '16px', borderRadius: '16px', background: 'var(--tint, #f8fafc)', border: '1px solid var(--line, #e2e8f0)' }}>
+              <div>
+                <h3 style={{ margin: '0 0 6px' }}>📱 {isAr ? 'رمز QR للمشاركة وباركود العلبة المعتمد' : 'Medicine QR & Official Barcode'}</h3>
+                <p className="small muted" style={{ margin: 0 }}>
+                  {isAr
+                    ? 'امسح رمز QR لفتح ومشاركة صفحة الدواء على هاتفك فوراً، أو استخدم صفحة «مسح الباركود» لمطابقة العلبة.'
+                    : 'Scan this QR code to view and share this medicine page.'}
+                </p>
+                {(dawayaRecord?.barcode || (brands.length > 0 && brands[0].barcode)) && (
+                  <div style={{ marginTop: '8px' }}>
+                    <span className="small muted">{isAr ? 'باركود العلبة المسجل: ' : 'Registered Carton Barcode: '}</span>
+                    <code style={{ fontSize: '1.05rem', fontWeight: 700 }}>{dawayaRecord?.barcode || brands[0].barcode}</code>
+                  </div>
+                )}
+              </div>
+              <div className="qr-box-preview">
+                <QRBlock id={m.id} name={name} />
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <Disclaimer />
+
       {(addingPkg || editingPkg !== null) && (
         <QuickProductEditorModal
           product={editingPkg}
@@ -1549,58 +1812,6 @@ export default function MedicinePage() {
           }}
         />
       )}
-    
-        
-        {/* Dynamic Occupational Driving & Work Safety Check */}
-      {m && (() => {
-        const occAlerts = evaluateOccupationalDrugSafety(
-          [
-            pick(m.genericName, 'ar') || '',
-            pick(m.activeIngredients, 'ar') || '',
-            dawayaRecord?.brandNameAr || '',
-            dawayaRecord?.genericName || '',
-            m.id || '',
-          ],
-          profile.occupation,
-          profile.factoryEnvironmentHazards,
-          profile.workEnvironmentNotes
-        );
-        if (occAlerts.length === 0) return null;
-        const alert = occAlerts[0];
-        return (
-          <div
-            style={{
-              borderRadius: '16px',
-              padding: '14px 18px',
-              background: '#fef2f2',
-              border: '2px solid #ef4444',
-              color: '#991b1b',
-              margin: '12px 0',
-              boxShadow: '0 4px 14px rgba(220, 38, 38, 0.1)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <strong style={{ fontSize: '0.98rem' }}>فحص أمان السواقة وطبيعة العمل مع هذا الدواء:</strong>
-            </div>
-            <p style={{ margin: '4px 0 6px', fontSize: '0.88rem', lineHeight: 1.6, color: '#7f1d1d' }}>
-              {alert.warningAr}
-            </p>
-            <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: '8px' }}>
-              <b>النصيحة لعملك:</b> {alert.safeWorkAdviceAr}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Proactive Universal Dose Reminder for this specific medicine */}
-      {m && (
-        <SmartMedDoseReminderBadge
-          medicineName={dawayaRecord ? (isAr ? dawayaRecord.brandNameAr : dawayaRecord.brandNameEn) : pick(m.genericName, lang)}
-          defaultTime="09:00"
-          instruction={pick(m.dosingReference, lang) || 'يرجى الالتزام بالموعد المحدد للجرعة'}
-        />
-      )}
-
     </main>
   );
 }

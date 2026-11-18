@@ -1,3 +1,6 @@
+import SmartDoseTimeCalibrator from "./SmartDoseTimeCalibrator";
+import { getSmartClinicalRegimenForMedicine } from "./dawayaDrugDatabaseService";
+import { scheduleMultipleNativeDoseAlarms } from "./nativeAlarmService";
 import { SubscriptionAndPlansPanel } from './SubscriptionAndPlansPanel';
 import { useWhoCampaignAndVisibility } from './whoHealthCampaigns';
 import { EGYPTIAN_GOVERNORATES } from './partnerTypes';
@@ -88,6 +91,7 @@ export default function HealthProfile() {
     schedules,
     prescriptions,
     treatmentEvents,
+    addSchedule,
     syncStatus: journeySyncStatus,
   } = useSyncedSchedules();
 
@@ -341,11 +345,13 @@ export default function HealthProfile() {
   const [allergyNotes, setAllergyNotes] = useState('');
 
   // New Medication Form states
-  const [medDrugName, setMedDrugName] = useState('');
-  const [medDose, setMedDose] = useState('');
-  const [medFreq, setMedFreq] = useState('twice_daily');
-  const medRoute = 'oral';
-  const [medStatus, setMedStatus] = useState<'active' | 'completed' | 'discontinued'>('active');
+  const [medDrugName, setMedDrugName] = useState("");
+  const [medDose, setMedDose] = useState("");
+  const [medFreq, setMedFreq] = useState("twice_daily");
+  const [medDoseTimes, setMedDoseTimes] = useState<string[]>(["08:00", "20:00"]);
+  const [medActivateAlarm, setMedActivateAlarm] = useState<boolean>(true);
+  const medRoute = "oral";
+  const [medStatus, setMedStatus] = useState<"active" | "completed" | "discontinued">("active");
 
   useEffect(() => {
     if (!editingPersonal) {
@@ -432,26 +438,57 @@ export default function HealthProfile() {
   const addMedication = (e: FormEvent) => {
     e.preventDefault();
     if (!medDrugName.trim()) return;
+    const reg = getSmartClinicalRegimenForMedicine(medDrugName.trim());
+    const todayStr = new Date().toISOString().split("T")[0];
+    const effectiveDose = medDose.trim() || (isAr ? reg.defaultDoseTextAr : reg.defaultDoseTextEn);
+    const effectiveTimes = medDoseTimes.length > 0 ? medDoseTimes : reg.defaultDoseTimes;
+
     const newMed: MedicationRecord = {
       id: `med-${Date.now()}`,
       drugName: medDrugName.trim(),
-      activeIngredients: '',
-      prescribedDose: medDose.trim(),
-      route: medRoute,
+      activeIngredients: "",
+      prescribedDose: effectiveDose,
+      route: reg.route || medRoute,
       frequency: medFreq,
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: todayStr,
       status: medStatus,
     };
     setProfile((prev) => ({ ...prev, medications: [newMed, ...prev.medications] }));
+
+    if (medStatus === "active" && medActivateAlarm) {
+      addSchedule(
+        {
+          antibioticId: "",
+          medicineName: medDrugName.trim(),
+          prescribedDose: effectiveDose,
+          route: reg.route || medRoute,
+          frequency: medFreq as any,
+          durationDays: reg.defaultDurationDays || 7,
+          startDate: todayStr,
+          firstDoseTime: effectiveTimes[0] || "08:00",
+          doseTimes: effectiveTimes,
+          verificationStatus: "verified_by_patient",
+          captureMethod: "manual_entry",
+        },
+        "schedule_created_from_prescription"
+      );
+      void scheduleMultipleNativeDoseAlarms(medDrugName.trim(), effectiveDose, effectiveTimes, isAr);
+    }
+
     setShowMedModal(false);
-    setMedDrugName('');
-    setMedDose('');
-    setMedFreq('twice_daily');
+    setMedDrugName("");
+    setMedDose("");
+    setMedFreq("twice_daily");
+    setMedDoseTimes(["08:00", "20:00"]);
   };
 
-  const deleteMedication = (id: string) => {
-    if (window.confirm(isAr ? 'هل تريد حذف هذا الدواء من سجلك؟' : 'Delete this medication record?')) {
-      setProfile((prev) => ({ ...prev, medications: prev.medications.filter((m) => m.id !== id) }));
+  const deleteMedication = (id: string, drugName?: string) => {
+    if (window.confirm(isAr ? "هل تريد حذف هذا الدواء من سجلك؟" : "Delete this medication record?")) {
+      setProfile((prev) => ({
+        ...prev,
+        medications: (prev.medications || []).filter((m) => m.id !== id && (!drugName || m.drugName !== drugName)),
+        activeMedications: (prev.activeMedications || []).filter((m) => m.id !== id && (!drugName || m.drugName !== drugName)),
+      }));
     }
   };
 
@@ -1336,43 +1373,64 @@ export default function HealthProfile() {
           </button>
         </div>
 
-        {profile.medications.length === 0 ? (
-          <div className="empty-state-box">
-            <span>💊</span>
-            <p>{isAr ? 'لا توجد أدوية مسجلة حالياً.' : 'No medications recorded.'}</p>
-          </div>
-        ) : (
-          <div className="med-cards-stack">
-            {profile.medications.map((m) => (
-              <div key={m.id} className="med-record-card">
-                <div className="med-record-head">
-                  <div>
-                    <h4>{m.drugName}</h4>
-                    <span className="small muted">
-                      {[m.prescribedDose, formatFrequencyLabel(m.frequency, isAr)].filter(Boolean).join(' · ')}
-                    </span>
-                  </div>
-                  <div className="med-record-actions">
-                    <span className={`status-pill ${m.status === 'active' ? 'taken' : 'upcoming'}`}>
-                      {m.status === 'active'
-                        ? isAr
-                          ? 'حالي'
-                          : 'Active'
-                        : m.status === 'discontinued'
+        {(() => {
+          const combinedList = [
+            ...(profile.medications || []).map((m) => ({
+              id: m.id,
+              drugName: m.drugName,
+              sub: [m.prescribedDose || m.dosageAndFrequency, m.frequency ? formatFrequencyLabel(m.frequency, isAr) : ""].filter(Boolean).join(" · "),
+              status: m.status || "active",
+            })),
+            ...(profile.activeMedications || [])
+              .filter((am) => !(profile.medications || []).some((pm) => pm.drugName.trim().toLowerCase() === am.drugName.trim().toLowerCase()))
+              .map((am) => ({
+                id: am.id,
+                drugName: am.drugName,
+                sub: am.doseOrStrength || (isAr ? "علاج حالي" : "Active"),
+                status: "active" as const,
+              })),
+          ];
+
+          if (combinedList.length === 0) {
+            return (
+              <div className="empty-state-box">
+                <span>💊</span>
+                <p>{isAr ? "لا توجد أدوية مسجلة حالياً." : "No medications recorded."}</p>
+              </div>
+            );
+          }
+
+          return (
+            <div className="med-cards-stack">
+              {combinedList.map((m) => (
+                <div key={m.id} className="med-record-card">
+                  <div className="med-record-head">
+                    <div>
+                      <h4>{m.drugName}</h4>
+                      <span className="small muted">{m.sub}</span>
+                    </div>
+                    <div className="med-record-actions">
+                      <span className={`status-pill ${m.status === "active" ? "taken" : "upcoming"}`}>
+                        {m.status === "active"
                           ? isAr
-                            ? 'متوقف'
-                            : 'Discontinued'
-                          : isAr
-                            ? 'مكتمل'
-                            : 'Past'}
-                    </span>
-                    <button type="button" className="undo-btn" onClick={() => deleteMedication(m.id)}>✕</button>
+                            ? "حالي"
+                            : "Active"
+                          : m.status === "discontinued"
+                            ? isAr
+                              ? "متوقف"
+                              : "Discontinued"
+                            : isAr
+                              ? "مكتمل"
+                              : "Past"}
+                      </span>
+                      <button type="button" className="undo-btn" onClick={() => deleteMedication(m.id, m.drugName)}>✕</button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          );
+        })()}
       </section>
 
       {/* Section 3: Uploaded Medical Documents & Lab Reports */}
@@ -1571,35 +1629,58 @@ export default function HealthProfile() {
 
             <form onSubmit={addMedication} className="stack modal-form">
               <div className="form-group">
-                <label><b>{isAr ? 'اسم الدواء:' : 'Medication Name:'} *</b></label>
-                <input value={medDrugName} onChange={(e) => setMedDrugName(e.target.value)} required />
+                <label><b>{isAr ? "اسم الدواء:" : "Medication Name:"} *</b></label>
+                <input
+                  value={medDrugName}
+                  onChange={(e) => setMedDrugName(e.target.value)}
+                  placeholder={isAr ? "مثال: كونكور 5 مجم، فلاجيل 500، أوجمنتين 1 جم..." : "e.g., Concor 5mg, Flagyl 500mg"}
+                  required
+                />
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label><b>{isAr ? 'الجرعة:' : 'Dose:'}</b></label>
-                  <input value={medDose} onChange={(e) => setMedDose(e.target.value)} placeholder="e.g. 500mg" />
+                  <label><b>{isAr ? "الجرعة:" : "Dose:"}</b></label>
+                  <input value={medDose} onChange={(e) => setMedDose(e.target.value)} placeholder={isAr ? "مثال: قرص واحد / 500 مجم" : "e.g. 1 Tablet / 500mg"} />
                 </div>
                 <div className="form-group">
-                  <label><b>{isAr ? 'عدد المرات يومياً:' : 'Frequency:'}</b></label>
-                  <SmartNativeSelect value={medFreq} onChange={(e) => setMedFreq(e.target.value)}>
-                    <option value="once_daily">{formatFrequencyLabel('once_daily', isAr)}</option>
-                    <option value="twice_daily">{formatFrequencyLabel('twice_daily', isAr)}</option>
-                    <option value="thrice_daily">{formatFrequencyLabel('thrice_daily', isAr)}</option>
-                    <option value="four_times_daily">{formatFrequencyLabel('four_times_daily', isAr)}</option>
+                  <label><b>{isAr ? "الحالة:" : "Status:"}</b></label>
+                  <SmartNativeSelect value={medStatus} onChange={(e) => setMedStatus(e.target.value as "active" | "completed" | "discontinued")}>
+                    <option value="active">{isAr ? "حالي" : "Active"}</option>
+                    <option value="completed">{isAr ? "مكتمل" : "Completed"}</option>
+                    <option value="discontinued">{isAr ? "متوقف" : "Discontinued"}</option>
                   </SmartNativeSelect>
                 </div>
               </div>
-              <div className="form-group">
-                <label><b>{isAr ? 'الحالة:' : 'Status:'}</b></label>
-                <SmartNativeSelect value={medStatus} onChange={(e) => setMedStatus(e.target.value as 'active' | 'completed' | 'discontinued')}>
-                  <option value="active">{isAr ? 'حالي' : 'Active'}</option>
-                  <option value="completed">{isAr ? 'مكتمل' : 'Completed'}</option>
-                  <option value="discontinued">{isAr ? 'متوقف' : 'Discontinued'}</option>
-                </SmartNativeSelect>
-              </div>
+
+              <SmartDoseTimeCalibrator
+                medicineName={medDrugName}
+                frequency={medFreq}
+                doseTimes={medDoseTimes}
+                isAr={isAr}
+                compact
+                onChange={(nextFreq, nextTimes, suggestedDose) => {
+                  setMedFreq(nextFreq);
+                  setMedDoseTimes(nextTimes);
+                  if (suggestedDose && !medDose) setMedDose(suggestedDose);
+                }}
+              />
+
+              {medStatus === "active" && (
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.86rem", fontWeight: 800, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={medActivateAlarm}
+                    onChange={(e) => setMedActivateAlarm(e.target.checked)}
+                  />
+                  <span>
+                    🔔 {isAr ? "تفعيل منبه يومي بمواعيد الساعات لهذا الدواء في جدولي" : "Also activate daily alarm schedule for this medicine"}
+                  </span>
+                </label>
+              )}
+
               <div className="modal-actions">
-                <button type="submit" className="btn">{isAr ? 'حفظ الدواء' : 'Save'}</button>
-                <button type="button" className="btn-secondary" onClick={() => setShowMedModal(false)}>{isAr ? 'إلغاء' : 'Cancel'}</button>
+                <button type="submit" className="btn">{isAr ? "حفظ الدواء" : "Save"}</button>
+                <button type="button" className="btn-secondary" onClick={() => setShowMedModal(false)}>{isAr ? "إلغاء" : "Cancel"}</button>
               </div>
             </form>
           </div>

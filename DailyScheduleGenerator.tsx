@@ -1,15 +1,19 @@
 import { TeaCoffeeTimingMatrixCard } from './egyptianClinicalInnovations';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import SmartDoseAlarmCard from './SmartDoseAlarmCard';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
 import { Bi, pick, tr } from './types';
 import Disclaimer from './Disclaimer';
 import {
+  getSmartClinicalRegimenForMedicine,
   searchDawayaIndex,
   useDawayaDrugDatabase,
 } from './dawayaDrugDatabaseService';
+import { useSyncedHealthProfile } from './allergyData';
+import { useSyncedSchedules } from './trackerData';
+import { scheduleMultipleNativeDoseAlarms } from './nativeAlarmService';
 
 export type IntervalHours = 24 | 12 | 8 | 6;
 export type MealInstructionKey =
@@ -147,34 +151,81 @@ function computeDoseHours(wakeHour: number, interval: IntervalHours): number[] {
   return hours;
 }
 
+function mapFrequencyToInterval(freqKey: string): IntervalHours {
+  if (freqKey === 'once_daily' || freqKey === 'q24h') return 24;
+  if (freqKey === 'thrice_daily' || freqKey === 'q8h') return 8;
+  if (freqKey === 'four_times_daily' || freqKey === 'q6h') return 6;
+  return 12;
+}
+
+function mapIntervalToFrequencyKey(interval: IntervalHours): 'once_daily' | 'twice_daily' | 'thrice_daily' | 'four_times_daily' {
+  if (interval === 24) return 'once_daily';
+  if (interval === 8) return 'thrice_daily';
+  if (interval === 6) return 'four_times_daily';
+  return 'twice_daily';
+}
+
+function mapMealTimingToRule(mealTiming: string, genericStr = ''): MealInstructionKey {
+  if (/cipro|levofloxacin|moxifloxacin|doxycycline|tetracycline/i.test(genericStr)) {
+    return 'no_dairy_iron';
+  }
+  if (mealTiming === 'before_meal') return 'empty_stomach';
+  if (mealTiming === 'after_meal') return 'after_meal';
+  return 'anytime';
+}
+
 export default function DailyScheduleGenerator() {
   const { lang } = useLang();
   const isAr = lang === 'ar';
   const [sp] = useSearchParams();
   const medParam = sp.get('med') || '';
   const { indexItems } = useDawayaDrugDatabase();
+  const { profile, setProfile } = useSyncedHealthProfile();
+  const { schedules, addSchedule } = useSyncedSchedules();
 
-  const [patientName, setPatientName] = useState<string>('');
+  const [patientName, setPatientName] = useState<string>(() => profile.displayName || profile.fullName || '');
   const [wakeHour, setWakeHour] = useState<number>(8);
   const [copiedMsg, setCopiedMsg] = useState<string>('');
   const [dawayaSearchQ, setDawayaSearchQ] = useState<string>('');
+
+  useEffect(() => {
+    if (!patientName && (profile.displayName || profile.fullName)) {
+      setPatientName(profile.displayName || profile.fullName || '');
+    }
+  }, [profile.displayName, profile.fullName, patientName]);
 
   const dawayaMatches = useMemo(() => {
     if (!dawayaSearchQ.trim()) return [];
     return searchDawayaIndex(indexItems, { query: dawayaSearchQ }, isAr).slice(0, 6);
   }, [dawayaSearchQ, indexItems, isAr]);
 
-  const [rows, setRows] = useState<ScheduleMedRow[]>(() => [
-    {
-      id: 'row-1',
-      name: medParam || (isAr ? 'كونكور 5 مجم أقراص (Concor 5mg)' : 'Concor 5mg Tablets'),
-      doseText: isAr ? 'قرص واحد' : '1 Tablet',
-      intervalHours: 12,
-      mealRule: 'after_meal',
-      durationDays: 7,
-      color: ROW_COLORS[0],
-    },
-  ]);
+  const [rows, setRows] = useState<ScheduleMedRow[]>(() => {
+    if (medParam) {
+      const reg = getSmartClinicalRegimenForMedicine(medParam);
+      return [
+        {
+          id: 'row-1',
+          name: medParam,
+          doseText: isAr ? reg.defaultDoseTextAr : reg.defaultDoseTextEn,
+          intervalHours: mapFrequencyToInterval(reg.frequencyKey),
+          mealRule: mapMealTimingToRule(reg.mealTiming, medParam),
+          durationDays: reg.defaultDurationDays || 7,
+          color: ROW_COLORS[0],
+        },
+      ];
+    }
+    return [
+      {
+        id: 'row-1',
+        name: isAr ? 'كونكور 5 مجم أقراص (Concor 5mg)' : 'Concor 5mg Tablets',
+        doseText: isAr ? 'قرص واحد صباحاً' : '1 Tablet',
+        intervalHours: 24,
+        mealRule: 'anytime',
+        durationDays: 14,
+        color: ROW_COLORS[0],
+      },
+    ];
+  });
 
   const addMedicationRow = (preset?: PresetMedTemplate) => {
     setRows((prev) => {
@@ -193,6 +244,144 @@ export default function DailyScheduleGenerator() {
         },
       ];
     });
+  };
+
+  const handleImportProfileMedications = () => {
+    const imported: ScheduleMedRow[] = [];
+    const seen = new Set<string>();
+
+    for (const sch of schedules || []) {
+      const k = sch.medicineName.trim().toLowerCase();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      const reg = getSmartClinicalRegimenForMedicine(sch.medicineName);
+      imported.push({
+        id: `row-imp-sch-${sch.id}`,
+        name: sch.medicineName,
+        doseText: sch.prescribedDose || (isAr ? reg.defaultDoseTextAr : reg.defaultDoseTextEn),
+        intervalHours: mapFrequencyToInterval(sch.frequency || reg.frequencyKey),
+        mealRule: mapMealTimingToRule(reg.mealTiming, sch.medicineName),
+        durationDays: sch.durationDays || reg.defaultDurationDays || 7,
+        color: ROW_COLORS[imported.length % ROW_COLORS.length],
+      });
+    }
+
+    for (const pm of profile.medications || []) {
+      if (pm.status && pm.status !== 'active') continue;
+      const k = (pm.drugName || '').trim().toLowerCase();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      const reg = getSmartClinicalRegimenForMedicine(pm.drugName);
+      imported.push({
+        id: `row-imp-pm-${pm.id}`,
+        name: pm.drugName,
+        doseText: pm.prescribedDose || (isAr ? reg.defaultDoseTextAr : reg.defaultDoseTextEn),
+        intervalHours: mapFrequencyToInterval(pm.frequency || reg.frequencyKey),
+        mealRule: mapMealTimingToRule(reg.mealTiming, pm.drugName),
+        durationDays: reg.defaultDurationDays || 7,
+        color: ROW_COLORS[imported.length % ROW_COLORS.length],
+      });
+    }
+
+    for (const am of profile.activeMedications || []) {
+      const k = (am.drugName || '').trim().toLowerCase();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      const reg = getSmartClinicalRegimenForMedicine(am.drugName);
+      imported.push({
+        id: `row-imp-am-${am.id}`,
+        name: am.drugName,
+        doseText: am.doseOrStrength || (isAr ? reg.defaultDoseTextAr : reg.defaultDoseTextEn),
+        intervalHours: mapFrequencyToInterval(reg.frequencyKey),
+        mealRule: mapMealTimingToRule(reg.mealTiming, am.drugName),
+        durationDays: reg.defaultDurationDays || 7,
+        color: ROW_COLORS[imported.length % ROW_COLORS.length],
+      });
+    }
+
+    if (imported.length === 0) {
+      setCopiedMsg(
+        isAr
+          ? 'ℹ️ لا توجد أدوية مسجلة في ملفك الصحي أو منبهاتك حالياً — ابحث وأضف دواءك بالأسفل.'
+          : 'ℹ️ No active medications found in your profile yet.'
+      );
+      window.setTimeout(() => setCopiedMsg(''), 3500);
+      return;
+    }
+
+    setRows(imported);
+    setCopiedMsg(
+      isAr
+        ? `✅ تم استيراد (${imported.length}) أدوية من سجلك الطبي وضبط مواعيدها تلقائياً!`
+        : `✅ Imported (${imported.length}) medications from your profile!`
+    );
+    window.setTimeout(() => setCopiedMsg(''), 4000);
+  };
+
+  const handleActivateRowsAsAlarms = async () => {
+    if (validRows.length === 0) return;
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    for (const row of validRows) {
+      const freqKey = mapIntervalToFrequencyKey(row.intervalHours);
+      const hours = computeDoseHours(wakeHour, row.intervalHours);
+      const doseTimes = hours.map((h) => `${String(h).padStart(2, '0')}:00`);
+      const reg = getSmartClinicalRegimenForMedicine(row.name);
+
+      addSchedule(
+        {
+          antibioticId: '',
+          medicineName: row.name.trim(),
+          prescribedDose: row.doseText.trim() || (isAr ? 'قرص واحد' : '1 Tablet'),
+          route: reg.route || 'oral',
+          frequency: freqKey,
+          durationDays: row.durationDays || 7,
+          startDate: todayStr,
+          firstDoseTime: doseTimes[0] || '08:00',
+          doseTimes,
+          verificationStatus: 'verified_by_patient',
+          captureMethod: 'manual_entry',
+          notes: pick(MEAL_RULE_LABELS[row.mealRule], lang),
+        },
+        'schedule_created_from_prescription'
+      );
+
+      void scheduleMultipleNativeDoseAlarms(
+        row.name.trim(),
+        `${row.doseText} — ${pick(MEAL_RULE_LABELS[row.mealRule], lang)}`,
+        doseTimes,
+        isAr
+      );
+    }
+
+    setProfile((prev) => {
+      const existing = [...(prev.medications || [])];
+      for (const row of validRows) {
+        if (!existing.some((m) => m.drugName.trim().toLowerCase() === row.name.trim().toLowerCase())) {
+          existing.unshift({
+            id: `med-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            drugName: row.name.trim(),
+            activeIngredients: '',
+            prescribedDose: row.doseText.trim(),
+            route: 'oral',
+            frequency: mapIntervalToFrequencyKey(row.intervalHours),
+            startDate: todayStr,
+            status: 'active',
+            isOngoing: true,
+            source: 'manual_entry',
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
+      return { ...prev, medications: existing };
+    });
+
+    setCopiedMsg(
+      isAr
+        ? `🔔 تم حفظ وتفعيل منبهات (${validRows.length}) أدوية في جدولك اليومي وملفك الصحي بنجاح!`
+        : `🔔 Activated daily alarms for (${validRows.length}) medications in your schedule!`
+    );
+    window.setTimeout(() => setCopiedMsg(''), 4500);
   };
 
   const updateRow = (id: string, patch: Partial<ScheduleMedRow>) => {
@@ -345,6 +534,11 @@ export default function DailyScheduleGenerator() {
     link.click();
   };
 
+  const savedMedsTotal =
+    (schedules?.length || 0) +
+    (profile.medications?.filter((m) => !m.status || m.status === 'active').length || 0) +
+    (profile.activeMedications?.length || 0);
+
   return (
     <main className="wrap stack">
       <SmartDoseAlarmCard />
@@ -358,19 +552,29 @@ export default function DailyScheduleGenerator() {
             <h1 style={{ margin: '4px 0 8px' }}>
               {tr(
                 lang,
-                'مولّد جدول الجرعات اليومي الذكي لجميع الأدوية (صورة PNG، واتساب، وطباعة A4)',
-                'Smart Daily Medication Schedule Generator (PNG Image, WhatsApp & A4 Print)'
+                'مولّد جدول الجرعات اليومي لجميع الأدوية (صورة PNG، واتساب، منبهات، وطباعة A4)',
+                'Daily Medication Schedule Generator (PNG Image, WhatsApp, Alarms & A4 Print)'
               )}
             </h1>
             <p className="muted" style={{ maxWidth: '74ch', margin: 0 }}>
               {tr(
                 lang,
-                'ابحث وأضف أي دواء من قاعدة أدوية السوق المصري (26,562+ مستحضر للضغط، السكري، المعدة، المسكنات، الفيتامينات، أو المضادات) لحساب مواعيده بالساعة وتصديره كصورة أو عبر واتساب.',
-                'Search and add any medication from the 26,562 Egyptian drug database to calculate exact clock intervals and export as a high-res PNG, WhatsApp message, or printed chart.'
+                'ابحث وأضف أي دواء من قاعدة أدوية السوق المصري (26,562+ مستحضر) ليضبط الموقع عدد مراته اليومية ومواعيد ساعاته تلقائياً حسب مادته الفعالة، أو استورد أدويتك المسجلة بضغطة واحدة.',
+                'Search and add any medication from the 26,562 Egyptian drug database to auto-calculate exact clock intervals, or import your saved medications in one click.'
               )}
             </p>
           </div>
           <div className="row wrapRow" style={{ gap: '8px' }}>
+            {savedMedsTotal > 0 && (
+              <button
+                type="button"
+                className="btn small"
+                style={{ background: '#0284c7', borderColor: '#0284c7', color: '#ffffff', fontWeight: 900 }}
+                onClick={handleImportProfileMedications}
+              >
+                📥 {isAr ? `استيراد أدويتي المسجلة (${savedMedsTotal})` : `Import My Meds (${savedMedsTotal})`}
+              </button>
+            )}
             <Link to="/prescription-radar" className="btn ghost small">
               📡 {tr(lang, 'رادار الروشتة 24س', 'Rx Radar 24h')}
             </Link>
@@ -384,7 +588,7 @@ export default function DailyScheduleGenerator() {
         <div className="schedule-routine-bar">
           <div style={{ flex: '1 1 240px' }}>
             <label htmlFor="sched-patient-name" className="small" style={{ fontWeight: 700, display: 'block', marginBottom: '5px' }}>
-              👤 {tr(lang, 'اسم المريض (اختياري لطباعته على الجدول):', 'Patient Name (optional for header):')}
+              👤 {tr(lang, 'اسم المريض (لطباعته على الجدول):', 'Patient Name (for schedule header):')}
             </label>
             <input
               id="sched-patient-name"
@@ -406,7 +610,7 @@ export default function DailyScheduleGenerator() {
               value={wakeHour}
               onChange={(e) => setWakeHour(Number(e.target.value))}
             >
-              {[6, 7, 8, 9, 10, 11, 12].map((h) => (
+              {[5, 6, 7, 8, 9, 10, 11, 12].map((h) => (
                 <option key={h} value={h}>
                   {formatHour12(h, isAr)}
                 </option>
@@ -415,10 +619,10 @@ export default function DailyScheduleGenerator() {
           </div>
         </div>
 
-        {/* Live 26,562 DAWAYA Medicine Search to Add Directly */}
+        {/* Live 26,562 DAWAYA Medicine Search to Add Directly with Auto Clinical Calibration */}
         <div style={{ marginTop: '14px' }}>
           <label className="small" style={{ fontWeight: 800, display: 'block', marginBottom: '6px' }}>
-            🔍 {tr(lang, 'ابحث وأضف أي دواء من قاعدة بيانات دوايا (26,562+ دواء):', 'Search & Add Any Medicine from DAWAYA Database (26,562+):')}
+            🔍 {tr(lang, 'ابحث وأضف أي دواء من قاعدة بيانات دوايا (26,562+ دواء — يضبط عدد المرات والأكل تلقائياً):', 'Search & Add Any Medicine from DAWAYA Database (26,562+ — Auto-calibrates frequency & meal rule):')}
           </label>
           <input
             type="search"
@@ -428,27 +632,38 @@ export default function DailyScheduleGenerator() {
           />
           {dawayaMatches.length > 0 && (
             <div className="row wrapRow" style={{ gap: '8px', marginTop: '8px' }}>
-              {dawayaMatches.map((it) => (
-                <button
-                  key={it.i}
-                  type="button"
-                  className="chip"
-                  onClick={() => {
-                    addMedicationRow({
-                      labelAr: `${it.a || it.n} (${it.s})`,
-                      labelEn: `${it.n} (${it.s})`,
-                      doseAr: /syrup|susp|شراب|معلق/i.test(`${it.n} ${it.f}`) ? '5 مل (ملعقة/سرنجة)' : 'قرص واحد',
-                      doseEn: /syrup|susp/i.test(`${it.n} ${it.f}`) ? '5 mL' : '1 Tablet',
-                      intervalHours: 12,
-                      mealRule: 'after_meal',
-                      durationDays: 7,
-                    });
-                    setDawayaSearchQ('');
-                  }}
-                >
-                  ➕ {isAr ? it.a || it.n : it.n} ({it.s})
-                </button>
-              ))}
+              {dawayaMatches.map((it) => {
+                const reg = getSmartClinicalRegimenForMedicine(it);
+                const autoInterval = mapFrequencyToInterval(reg.frequencyKey);
+                const autoMealRule = mapMealTimingToRule(reg.mealTiming, `${it.g} ${it.n}`);
+                return (
+                  <button
+                    key={it.i}
+                    type="button"
+                    className="chip"
+                    onClick={() => {
+                      addMedicationRow({
+                        labelAr: `${it.a || it.n}${it.s ? ` (${it.s})` : ''}`,
+                        labelEn: `${it.n}${it.s ? ` (${it.s})` : ''}`,
+                        doseAr: reg.defaultDoseTextAr,
+                        doseEn: reg.defaultDoseTextEn,
+                        intervalHours: autoInterval,
+                        mealRule: autoMealRule,
+                        durationDays: reg.defaultDurationDays || 7,
+                      });
+                      if (autoInterval === 8 && wakeHour > 7) {
+                        setWakeHour(6);
+                      }
+                      setDawayaSearchQ('');
+                    }}
+                  >
+                    ➕ {isAr ? it.a || it.n : it.n} {it.s ? `(${it.s})` : ''} —{' '}
+                    <span style={{ color: '#0f766e', fontWeight: 800 }}>
+                      {isAr ? `كل ${autoInterval} س` : `q${autoInterval}h`}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -573,6 +788,14 @@ export default function DailyScheduleGenerator() {
             <button
               type="button"
               className="btn small"
+              style={{ background: '#0284c7', borderColor: '#0284c7', color: '#ffffff', fontWeight: 900 }}
+              onClick={handleActivateRowsAsAlarms}
+            >
+              🔔 {tr(lang, 'حفظ وتفعيل في منبهات الموبايل', 'Activate as Phone Alarms')}
+            </button>
+            <button
+              type="button"
+              className="btn small"
               style={{ background: '#138866' }}
               onClick={handleDownloadPngImage}
             >
@@ -604,7 +827,7 @@ export default function DailyScheduleGenerator() {
           </div>
         </div>
         {copiedMsg && (
-          <p className="small" style={{ color: '#15803d', fontWeight: 700, margin: '6px 0 0' }}>
+          <p className="small" style={{ color: '#15803d', fontWeight: 800, margin: '8px 0 0', background: '#dcfce7', padding: '8px 12px', borderRadius: '10px' }}>
             {copiedMsg}
           </p>
         )}
@@ -687,7 +910,6 @@ export default function DailyScheduleGenerator() {
           })}
         </div>
 
-        
         {/* Family Fridge Schedule Poster (Grouped by Day Time for Elderly Parents) */}
         <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '2px dashed var(--line)' }}>
           <div className="head" style={{ marginBottom: '10px' }}>
@@ -703,10 +925,10 @@ export default function DailyScheduleGenerator() {
 
           <div className="grid">
             {[
-              { id: 'morning', icon: '🌅', labelAr: 'الصباح (مع الفطور)', labelEn: 'Morning (With Breakfast)', hours: [6, 7, 8, 9, 10] },
+              { id: 'morning', icon: '🌅', labelAr: 'الصباح (مع الفطور)', labelEn: 'Morning (With Breakfast)', hours: [5, 6, 7, 8, 9, 10, 11] },
               { id: 'afternoon', icon: '☀️', labelAr: 'الظهيرة (مع الغداء)', labelEn: 'Afternoon (With Lunch)', hours: [12, 13, 14, 15, 16] },
-              { id: 'evening', icon: '🌇', labelAr: 'المساء (مع العشاء)', labelEn: 'Evening (With Dinner)', hours: [18, 19, 20, 21] },
-              { id: 'night', icon: '🌙', labelAr: 'قبل النوم', labelEn: 'Bedtime (Before Sleep)', hours: [22, 23, 0] },
+              { id: 'evening', icon: '🌆', labelAr: 'المساء (مع العشاء)', labelEn: 'Evening (With Dinner)', hours: [17, 18, 19, 20, 21] },
+              { id: 'night', icon: '🌙', labelAr: 'قبل النوم', labelEn: 'Bedtime (Before Sleep)', hours: [22, 23, 0, 1, 2, 3, 4] },
             ].map((period) => {
               const periodMeds = validRows.filter((r) => {
                 const hours = computeDoseHours(wakeHour, r.intervalHours);

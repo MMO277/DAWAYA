@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { getSmartClinicalRegimenForMedicine } from './dawayaDrugDatabaseService';
-import { addMinutesToTime, calculateAutoDoseTimes, formatTime12Hour } from './trackerData';
+import { calculateAutoDoseTimes, formatTime12Hour } from './trackerData';
 
 export interface SmartDoseTimeCalibratorProps {
   medicineName?: string;
@@ -96,7 +96,7 @@ export default function SmartDoseTimeCalibrator({
   compact = false,
   onChange,
 }: SmartDoseTimeCalibratorProps) {
-  const aiRegimen = medicineName ? getSmartClinicalRegimenForMedicine(medicineName) : null;
+  const clinicalRegimen = medicineName ? getSmartClinicalRegimenForMedicine(medicineName) : null;
 
   const normalizedFreq: 'once_daily' | 'twice_daily' | 'thrice_daily' | 'four_times_daily' =
     frequency === 'once_daily' || frequency === 'q24h'
@@ -107,7 +107,7 @@ export default function SmartDoseTimeCalibrator({
           ? 'four_times_daily'
           : frequency === 'twice_daily' || frequency === 'q12h'
             ? 'twice_daily'
-            : aiRegimen?.frequencyKey || 'twice_daily';
+            : clinicalRegimen?.frequencyKey || 'twice_daily';
 
   const expectedCount =
     normalizedFreq === 'once_daily'
@@ -121,7 +121,7 @@ export default function SmartDoseTimeCalibrator({
   const defaultStartForFreq =
     normalizedFreq === 'thrice_daily' || normalizedFreq === 'four_times_daily'
       ? '06:00'
-      : aiRegimen?.firstDoseTime || '08:00';
+      : clinicalRegimen?.firstDoseTime || '08:00';
 
   const effectiveTimes =
     Array.isArray(doseTimes) && doseTimes.length === expectedCount
@@ -131,14 +131,13 @@ export default function SmartDoseTimeCalibrator({
           normalizedFreq
         );
 
-  // Auto-sync when medicineName provides an AI regimen and frequency was initially empty
   useEffect(() => {
-    if (!frequency && aiRegimen) {
+    if (!frequency && clinicalRegimen) {
       onChange(
-        aiRegimen.frequencyKey,
-        aiRegimen.defaultDoseTimes,
-        isAr ? aiRegimen.defaultDoseTextAr : aiRegimen.defaultDoseTextEn,
-        aiRegimen.defaultDurationDays
+        clinicalRegimen.frequencyKey,
+        clinicalRegimen.defaultDoseTimes,
+        isAr ? clinicalRegimen.defaultDoseTextAr : clinicalRegimen.defaultDoseTextEn,
+        clinicalRegimen.defaultDurationDays
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -155,7 +154,6 @@ export default function SmartDoseTimeCalibrator({
   const handleSlotTimeChange = (slotIdx: number, newTimeVal: string) => {
     if (!newTimeVal) return;
     if (slotIdx === 0) {
-      // Changing Dose 1 automatically recalibrates all subsequent doses evenly across the day!
       const autoShifted = calculateAutoDoseTimes(newTimeVal, normalizedFreq);
       onChange(normalizedFreq, autoShifted);
     } else {
@@ -166,6 +164,12 @@ export default function SmartDoseTimeCalibrator({
   };
 
   const presets = QUICK_TIME_PRESETS[normalizedFreq] || [];
+  const cleanReasonAr = clinicalRegimen?.aiReasonAr
+    ? clinicalRegimen.aiReasonAr.replace(/🤖\s*اقتراح الذكاء الدوائي:/g, '🩺 التوصية الصيدلانية القياسية:')
+    : '';
+  const cleanReasonEn = clinicalRegimen?.aiReasonEn
+    ? clinicalRegimen.aiReasonEn.replace(/🤖\s*AI Clinical Suggestion:/g, '🩺 Standard Clinical Regimen:')
+    : '';
 
   return (
     <div
@@ -180,7 +184,7 @@ export default function SmartDoseTimeCalibrator({
         boxShadow: '0 4px 14px rgba(13, 31, 56, 0.05)',
       }}
     >
-      {/* Header + AI Suggestion Pill */}
+      {/* Header + Clinical Suggestion Pill */}
       <div
         style={{
           display: 'flex',
@@ -200,21 +204,21 @@ export default function SmartDoseTimeCalibrator({
           </strong>
         </div>
 
-        {aiRegimen && (
+        {clinicalRegimen && (
           <button
             type="button"
             onClick={() =>
               onChange(
-                aiRegimen.frequencyKey,
-                aiRegimen.defaultDoseTimes,
-                isAr ? aiRegimen.defaultDoseTextAr : aiRegimen.defaultDoseTextEn,
-                aiRegimen.defaultDurationDays
+                clinicalRegimen.frequencyKey,
+                clinicalRegimen.defaultDoseTimes,
+                isAr ? clinicalRegimen.defaultDoseTextAr : clinicalRegimen.defaultDoseTextEn,
+                clinicalRegimen.defaultDurationDays
               )
             }
             style={{
               background:
-                normalizedFreq === aiRegimen.frequencyKey ? '#dcfce7' : 'linear-gradient(135deg, #0D1F38 0%, #138866 100%)',
-              color: normalizedFreq === aiRegimen.frequencyKey ? '#166534' : '#ffffff',
+                normalizedFreq === clinicalRegimen.frequencyKey ? '#dcfce7' : 'linear-gradient(135deg, #0D1F38 0%, #138866 100%)',
+              color: normalizedFreq === clinicalRegimen.frequencyKey ? '#166534' : '#ffffff',
               border: '1px solid #138866',
               borderRadius: '999px',
               padding: '3px 10px',
@@ -223,7 +227,7 @@ export default function SmartDoseTimeCalibrator({
               cursor: 'pointer',
             }}
           >
-            {isAr ? aiRegimen.aiReasonAr : aiRegimen.aiReasonEn}
+            {isAr ? cleanReasonAr : cleanReasonEn}
           </button>
         )}
       </div>
@@ -292,7 +296,7 @@ export default function SmartDoseTimeCalibrator({
           }}
         >
           <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#475569' }}>
-            {isAr ? '⚡ معايرة سريعة بضغطة:' : '⚡ Quick Presets:'}
+            {isAr ? '⚡ مواعيد قياسية جاهزة:' : '⚡ Standard Times:'}
           </span>
           {presets.map((pr, idx) => {
             const isActivePreset = JSON.stringify(effectiveTimes) === JSON.stringify(pr.times);
@@ -388,7 +392,7 @@ export default function SmartDoseTimeCalibrator({
             />
             {idx === 0 && effectiveTimes.length > 1 && (
               <span style={{ fontSize: '0.66rem', color: '#0369a1', fontWeight: 700 }}>
-                {isAr ? '🔄 تغييرها يعاير باقي الساعات تلقائياً' : '🔄 Auto-calibrates other doses'}
+                {isAr ? '🔄 تغييرها يضبط باقي الساعات تلقائياً' : '🔄 Auto-aligns remaining doses'}
               </span>
             )}
           </div>
