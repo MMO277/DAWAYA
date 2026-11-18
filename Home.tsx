@@ -20,7 +20,6 @@ import { EGYPTIAN_COMMERCIAL_PRODUCTS } from './egyptianDrugDatabase';
 import {
   clearRecentlyViewedMedicines,
   DAWAYA_CATEGORY_LABELS,
-  DAWAYA_PHARMACY_DEPARTMENTS,
   getRecentlyViewedMedicines,
   RecentlyViewedMedItem,
   searchDawayaIndex,
@@ -1930,70 +1929,6 @@ export default function Home() {
                 }}
               >
                 {isAr ? sym.ar : sym.en}
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* 6 Pharmacy Departments Quick Hub */}
-        <section
-          className="card"
-          style={{
-            padding: '16px 18px',
-            background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.06) 0%, rgba(2, 132, 199, 0.05) 100%)',
-            border: '1px solid rgba(13, 148, 136, 0.2)',
-            borderRadius: '18px',
-          }}
-        >
-          <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '8px' }}>
-            <div>
-              <b style={{ fontSize: '1.02rem', color: 'var(--navy)' }}>
-                🛍️ {tr(lang, 'أقسام صيدلية دوايا الشاملة', 'DAWAYA Pharmacy Departments')}
-              </b>
-              <div className="small muted">
-                {tr(lang, 'اختر القسم لتصفح المنتجات بالأسعار التقريبية والخيارات الفرعية', 'Browse by section with approximate pharmacy pricing')}
-              </div>
-            </div>
-            <Link to="/medicines" className="btn small ghost" style={{ fontWeight: 800, textDecoration: 'none' }}>
-              {tr(lang, 'عرض الدليل الكامل ←', 'Full Catalog →')}
-            </Link>
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-              gap: '10px',
-            }}
-          >
-            {DAWAYA_PHARMACY_DEPARTMENTS.map((dept) => (
-              <Link
-                key={dept.id}
-                to={`/medicines?dept=${dept.id}`}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                  padding: '12px 14px',
-                  borderRadius: '14px',
-                  background: '#ffffff',
-                  border: '1px solid rgba(148, 163, 184, 0.35)',
-                  textDecoration: 'none',
-                  color: '#0f172a',
-                  boxShadow: '0 4px 12px rgba(15, 23, 42, 0.04)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                  <span style={{ fontSize: '1.35rem' }}>{dept.icon}</span>
-                  <span className="small" style={{ color: '#0f766e', fontWeight: 800, fontSize: '0.75rem' }}>
-                    {dept.subs.length - 1} {isAr ? 'تصنيفات فرعية' : 'sub-sections'}
-                  </span>
-                </div>
-                <strong style={{ fontSize: '0.94rem', color: '#0D1F38' }}>
-                  {isAr ? dept.ar : dept.en}
-                </strong>
-                <span className="small muted" style={{ fontSize: '0.78rem', lineHeight: 1.4 }}>
-                  {isAr ? dept.descAr : dept.descEn}
-                </span>
               </Link>
             ))}
           </div>
