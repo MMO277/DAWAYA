@@ -21,7 +21,7 @@ import StatusBadge from './StatusBadge';
 import QRBlock from './QRBlock';
 import Disclaimer from './Disclaimer';
 import { ACTIVE_INGREDIENTS, EgyptianCommercialProduct } from './egyptianDrugDatabase';
-import { useAuth } from './authContext';
+import { useAuth, isStaffOrAdminRole } from './authContext';
 import { useLiveDrugCatalog } from './liveCatalogSync';
 import { QuickProductEditorModal } from './CommercialCatalogEditor';
 import { useSyncedHealthProfile } from './allergyData';
@@ -276,7 +276,7 @@ export default function MedicinePage() {
   const { profile, setProfile } = useSyncedHealthProfile();
   const { schedules, addSchedule } = useSyncedSchedules();
   const { isProMode, setProMode } = useClinicalProMode();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { products: liveCatalogProducts } = useLiveDrugCatalog();
   const [editingPkg, setEditingPkg] = useState<EgyptianCommercialProduct | null>(null);
   const [addingPkg, setAddingPkg] = useState(false);
@@ -798,40 +798,42 @@ export default function MedicinePage() {
                 barcode={idxItemSync?.b || ''}
                 genericName={dawayaRecord?.genericName || idxItemSync?.g || m.genericName.en || ''}
               />
-              <label
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '5px 11px',
-                  borderRadius: '999px',
-                  background: '#eefaf6',
-                  border: '1px solid #99f6e4',
-                  color: '#0f766e',
-                  fontSize: '0.74rem',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                }}
-                title={isAr ? 'رفع أو تصوير صورة العلبة الحقيقية' : 'Upload real package photo'}
-              >
-                📷 {isAr ? 'أضف صورة العلبة' : 'Add Pack Photo'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!file || !medId) return;
-                    const dataUrl = await compressDrugPhotoToDataUrl(file, 420);
-                    if (dataUrl) {
-                      saveCustomDrugImage(medId, dataUrl, true);
-                      setActionToast(isAr ? '✅ تم حفظ وضغط صورة العلبة بنجاح!' : '✅ Package photo saved!');
-                      window.setTimeout(() => setActionToast(''), 3500);
-                    }
+              {isStaffOrAdminRole(role) && (
+                <label
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '5px 11px',
+                    borderRadius: '999px',
+                    background: '#eefaf6',
+                    border: '1px solid #99f6e4',
+                    color: '#0f766e',
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
                   }}
-                />
-              </label>
+                  title={isAr ? 'رفع أو تصوير صورة العلبة الحقيقية' : 'Upload real package photo'}
+                >
+                  📷 {isAr ? 'أضف صورة العلبة' : 'Add Pack Photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file || !medId) return;
+                      const dataUrl = await compressDrugPhotoToDataUrl(file, 420);
+                      if (dataUrl) {
+                        saveCustomDrugImage(medId, dataUrl, true);
+                        setActionToast(isAr ? '✅ تم حفظ وضغط صورة العلبة بنجاح!' : '✅ Package photo saved!');
+                        window.setTimeout(() => setActionToast(''), 3500);
+                      }
+                    }}
+                  />
+                </label>
+              )}
             </div>
 
             <div style={{ flex: '1 1 240px', minWidth: 0 }}>
