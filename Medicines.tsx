@@ -8,7 +8,7 @@ import {
   evaluatePillSplittingAndMealProtocol,
   evaluateSuddenStopReboundRisk,
 } from './medicationSafetyEngine';
-import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, ReactNode, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
 import { useApproved } from './medicinesApi';
@@ -46,6 +46,7 @@ import {
   findDawayaIndexItemSync,
   getDawayaClassifiedAlternatives,
   getSmartClinicalRegimenForMedicine,
+  getDawayaSearchSuggestions,
   searchDawayaIndex,
   useDawayaDrugDatabase,
 } from './dawayaDrugDatabaseService';
@@ -72,6 +73,47 @@ export default function Medicines() {
   const [addingCatalogProd, setAddingCatalogProd] = useState(false);
   const [sp, setSp] = useSearchParams();
   const q = sp.get('q') ?? '';
+  const deferredQ = useDeferredValue(q);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [activeSuggestionIdx, setActiveSuggestionIdx] = useState(-1);
+  const searchBoxWrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onDocMouseDown = (ev: MouseEvent) => {
+      if (searchBoxWrapRef.current && !searchBoxWrapRef.current.contains(ev.target as Node)) {
+        setSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, []);
+
+  useEffect(() => {
+    setActiveSuggestionIdx(-1);
+  }, [q]);
+
+  const medSearchSuggestions = useMemo(
+    () => getDawayaSearchSuggestions(indexItems, deferredQ, 10),
+    [indexItems, deferredQ]
+  );
+
+  const highlightQueryMatch = (text: string, queryText: string): ReactNode => {
+    const cleanQ = queryText.trim();
+    if (cleanQ.length < 2 || !text) return text;
+    const escaped = cleanQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    try {
+      const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+      return parts.map((part, idx) =>
+        part.toLowerCase() === cleanQ.toLowerCase() ? (
+          <mark key={idx} className="dawaya-match-hl">{part}</mark>
+        ) : (
+          part
+        )
+      );
+    } catch {
+      return text;
+    }
+  };
   const initialCatParam = (sp.get('cat') as DawayaTherapeuticCategory | null) || 'all';
   const initialDeptParam = (sp.get('dept') as DawayaPharmacyDepartment | null) || 'all';
   const initialSubParam = sp.get('sub') || 'all';
@@ -227,7 +269,7 @@ export default function Medicines() {
     const base = searchDawayaIndex(
       indexItems,
       {
-        query: q,
+        query: deferredQ,
         category: selectedDawayaCat,
         dosageForm: selectedFormFilter,
         route: selectedRouteFilter,
@@ -238,7 +280,7 @@ export default function Medicines() {
             ? 'missing'
             : 'all',
         combinationFilter: selectedComboFilter,
-        sortBy,
+        sortBy: deferredQ.trim().length >= 2 && sortBy === 'verified_first' ? 'relevance' : sortBy,
       },
       isAr
     );
@@ -249,7 +291,7 @@ export default function Medicines() {
     });
   }, [
     indexItems,
-    q,
+    deferredQ,
     selectedDawayaCat,
     selectedDept,
     selectedSub,
@@ -616,23 +658,140 @@ export default function Medicines() {
           }}
         >
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%', flexWrap: 'wrap' }}>
-            <input
-              value={q}
-              onChange={(e) => {
-                const nextParams: Record<string, string> = {};
-                if (e.target.value) nextParams.q = e.target.value;
-                if (selectedDawayaCat !== 'all') nextParams.cat = selectedDawayaCat;
-                setSp(nextParams, { replace: true });
-                setPage(1);
-              }}
-              placeholder={tr(
-                lang,
-                'ابحث في 26,562+ دواء بالاسم، المادة الفعالة، الباركود، أو الحروف الباقية على شريط مقطوع...',
-                'Search 26,562+ medicines by brand, active ingredient, barcode, or partial strip letters...'
+            <div ref={searchBoxWrapRef} style={{ position: 'relative', flex: 1, minWidth: '210px' }}>
+              <input
+                value={q}
+                onFocus={() => setSearchFocused(true)}
+                onChange={(e) => {
+                  const nextParams: Record<string, string> = {};
+                  if (e.target.value) nextParams.q = e.target.value;
+                  if (selectedDawayaCat !== 'all') nextParams.cat = selectedDawayaCat;
+                  setSp(nextParams, { replace: true });
+                  setPage(1);
+                  setSearchFocused(true);
+                }}
+                onKeyDown={(e) => {
+                  const list = medSearchSuggestions.items;
+                  if (!searchFocused || list.length === 0) return;
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setActiveSuggestionIdx((prev) => (prev + 1) % list.length);
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setActiveSuggestionIdx((prev) => (prev <= 0 ? list.length - 1 : prev - 1));
+                  } else if (e.key === 'Enter' && activeSuggestionIdx >= 0 && list[activeSuggestionIdx]) {
+                    e.preventDefault();
+                    setSearchFocused(false);
+                    navigate(`/medicine/${list[activeSuggestionIdx].i}`);
+                  } else if (e.key === 'Escape') {
+                    setSearchFocused(false);
+                  }
+                }}
+                placeholder={tr(
+                  lang,
+                  'ابحث في 26,562+ دواء بالاسم، المادة الفعالة، الباركود، أو الحروف الباقية على شريط مقطوع...',
+                  'Search 26,562+ medicines by brand, active ingredient, barcode, or partial strip letters...'
+                )}
+                aria-label={t('search')}
+                aria-autocomplete="list"
+                aria-expanded={searchFocused && q.trim().length >= 2 && medSearchSuggestions.items.length > 0}
+                style={{ width: '100%' }}
+              />
+              {searchFocused && q.trim().length >= 2 && medSearchSuggestions.items.length > 0 && (
+                <div className="dawaya-search-suggestions-dropdown" role="listbox">
+                  <div className="dawaya-suggestions-header">
+                    <span>
+                      💊 {isAr
+                        ? `مقترحات الأدوية المطابقة لـ «${q.trim()}» (${medSearchSuggestions.totalMatches.toLocaleString()} دواء)`
+                        : `Matching suggestions for "${q.trim()}" (${medSearchSuggestions.totalMatches.toLocaleString()} medicines)`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSearchFocused(false)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#64748b',
+                        cursor: 'pointer',
+                        fontWeight: 900,
+                        fontSize: '0.85rem',
+                        padding: '2px 6px',
+                      }}
+                      aria-label={isAr ? 'إغلاق المقترحات' : 'Close suggestions'}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {medSearchSuggestions.items.map((item, idx) => (
+                    <div
+                      key={item.i}
+                      role="option"
+                      aria-selected={idx === activeSuggestionIdx}
+                      className={`dawaya-suggestion-row${idx === activeSuggestionIdx ? ' is-active' : ''}`}
+                      onMouseEnter={() => setActiveSuggestionIdx(idx)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setSearchFocused(false);
+                        navigate(`/medicine/${item.i}`);
+                      }}
+                    >
+                      <Realistic3DMedicineThumb
+                        medId={item.i}
+                        brandNameEn={item.n}
+                        form={item.f}
+                        size={40}
+                      />
+                      <div className="dawaya-suggestion-text">
+                        <div className="dawaya-suggestion-title">
+                          {highlightQueryMatch(isAr ? item.a || item.n : item.n, q)}
+                        </div>
+                        <div className="dawaya-suggestion-sub">
+                          <span>{highlightQueryMatch(isAr ? item.n : item.a || item.n, q)}</span>
+                          {item.g ? <span> • {item.g}</span> : null}
+                        </div>
+                      </div>
+                      <div className="dawaya-suggestion-meta">
+                        {item.p ? (
+                          <span className="dawaya-suggestion-price">
+                            {item.p} {isAr ? 'ج.م' : 'EGP'}
+                          </span>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="dawaya-suggestion-filter-btn"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const nextParams: Record<string, string> = { q: isAr ? item.a || item.n : item.n };
+                            if (selectedDawayaCat !== 'all') nextParams.cat = selectedDawayaCat;
+                            setSp(nextParams, { replace: true });
+                            setPage(1);
+                            setSearchFocused(false);
+                          }}
+                          title={isAr ? 'فلترة القائمة بهذا الاسم' : 'Filter list by this name'}
+                        >
+                          {isAr ? 'فلترة' : 'Filter'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {medSearchSuggestions.totalMatches > medSearchSuggestions.items.length && (
+                    <button
+                      type="button"
+                      className="dawaya-suggestions-footer-btn"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setSearchFocused(false);
+                      }}
+                    >
+                      {isAr
+                        ? `عرض كل الـ ${medSearchSuggestions.totalMatches.toLocaleString()} دواء المطابق لـ «${q.trim()}» ↓`
+                        : `View all ${medSearchSuggestions.totalMatches.toLocaleString()} matching medicines ↓`}
+                    </button>
+                  )}
+                </div>
               )}
-              aria-label={t('search')}
-              style={{ flex: 1, minWidth: '210px' }}
-            />
+            </div>
             <label
               className="btn small"
               style={{

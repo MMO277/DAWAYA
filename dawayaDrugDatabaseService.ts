@@ -1995,6 +1995,84 @@ function getFastItemHaystack(item: DawayaCompactIndexItem): { hay: string; skel:
   return cached;
 }
 
+export interface DawayaSearchSuggestionsResult {
+  items: DawayaCompactIndexItem[];
+  totalMatches: number;
+}
+
+/**
+ * Ultra-fast prefix-first autocomplete suggestions across all 26,597 medicines.
+ * Typing e.g. "فلا" or "fla" ranks medicines starting with that prefix first (Flagyl, Flacort, etc.),
+ * followed by word-boundary prefix matches, then substring/ingredient matches.
+ */
+export function getDawayaSearchSuggestions(
+  items: DawayaCompactIndexItem[],
+  query: string,
+  limit = 10
+): DawayaSearchSuggestionsResult {
+  const rawQ = norm(query || '');
+  if (rawQ.length < 2 || items.length === 0) {
+    return { items: [], totalMatches: 0 };
+  }
+
+  const tokens = rawQ.split(/\s+/).filter(Boolean);
+  const expandedTokens = tokens.map((tk) => ({
+    raw: tk,
+    alt: ARABIC_TO_ENGLISH_INGREDIENT_MAP[tk] || tk,
+    skel: tk.length >= 4 && /[\u0600-\u06FF]/.test(tk) ? arabicConsonantSkeleton(tk) : tk,
+  }));
+
+  const scored: Array<{ item: DawayaCompactIndexItem; score: number }> = [];
+  let totalMatches = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const { hay, skel } = getFastItemHaystack(item);
+    let ok = true;
+    for (let t = 0; t < expandedTokens.length; t++) {
+      const tk = expandedTokens[t];
+      if (
+        !hay.includes(tk.raw) &&
+        !hay.includes(tk.alt) &&
+        !(tk.skel.length >= 3 && skel.includes(tk.skel))
+      ) {
+        ok = false;
+        break;
+      }
+    }
+    if (!ok) continue;
+
+    totalMatches++;
+    const nameAr = norm(item.a || '');
+    const nameEn = norm(item.n || '');
+    let score = 200;
+
+    if (nameAr.startsWith(rawQ) || nameEn.startsWith(rawQ)) {
+      score = 1000;
+    } else if (nameAr.includes(' ' + rawQ) || nameEn.includes(' ' + rawQ)) {
+      score = 720;
+    } else if (nameAr.includes(rawQ) || nameEn.includes(rawQ)) {
+      score = 450;
+    }
+
+    if (item.b) score += 45;
+    if (item.p && item.p > 0) score += 10;
+    score -= Math.min(40, (item.n || '').length * 0.5);
+
+    scored.push({ item, score });
+  }
+
+  if (scored.length === 0) {
+    return { items: [], totalMatches: 0 };
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return {
+    items: scored.slice(0, limit).map((x) => x.item),
+    totalMatches,
+  };
+}
+
 export function searchDawayaIndex(
   items: DawayaCompactIndexItem[],
   filters: DawayaSearchFilters,
@@ -3175,13 +3253,102 @@ interface DawayaImageMapData {
 }
 
 const CLOUD_DRUG_IMAGES_DOC = 'drug_images_overrides';
+const IDB_IMG_KEY = 'drug_images_v22523';
 let globalImageMap: DawayaImageMapData | null = null;
 let globalSortedKeywords: Array<[string, string]> = [];
 let globalCloudDrugImages: Record<string, string> = {};
 let globalImageMapPromise: Promise<DawayaImageMapData> | null = null;
 let cloudImageSyncStarted = false;
+let customDrugImagesMemCache: Record<string, string> | null = null;
+let barcodeImageMemCache: Record<string, string> | null = null;
+const imageResolutionCache = new Map<string, string | null>();
+
+function clearImageResolutionCache(): void {
+  imageResolutionCache.clear();
+}
+
+function getCustomDrugImagesMem(): Record<string, string> {
+  if (customDrugImagesMemCache) return customDrugImagesMemCache;
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(CUSTOM_DRUG_IMAGES_KEY);
+    customDrugImagesMemCache = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    customDrugImagesMemCache = {};
+  }
+  return customDrugImagesMemCache;
+}
+
+function getBarcodeImageMem(): Record<string, string> {
+  if (barcodeImageMemCache) return barcodeImageMemCache;
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(BARCODE_IMAGE_CACHE_KEY);
+    barcodeImageMemCache = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    barcodeImageMemCache = {};
+  }
+  return barcodeImageMemCache;
+}
+
+function readImagesFromIndexedDB(): Promise<DawayaImageMapData | null> {
+  if (typeof window === 'undefined' || !('indexedDB' in window)) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const req = window.indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = () => {
+        try {
+          const db = req.result;
+          const tx = db.transaction(IDB_STORE, 'readonly');
+          const getReq = tx.objectStore(IDB_STORE).get(IDB_IMG_KEY);
+          getReq.onsuccess = () => {
+            const val = getReq.result as DawayaImageMapData | undefined;
+            resolve(val && val.byId && Object.keys(val.byId).length > 1000 ? val : null);
+          };
+          getReq.onerror = () => resolve(null);
+        } catch {
+          resolve(null);
+        }
+      };
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function writeImagesToIndexedDB(data: DawayaImageMapData): void {
+  if (typeof window === 'undefined' || !('indexedDB' in window)) return;
+  try {
+    const req = window.indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess = () => {
+      try {
+        const db = req.result;
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put(data, IDB_IMG_KEY);
+      } catch {
+        /* ignore */
+      }
+    };
+  } catch {
+    /* ignore */
+  }
+}
 
 function notifyDrugImagesUpdated(): void {
+  clearImageResolutionCache();
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(DAWAYA_DB_UPDATED_EVENT));
   window.dispatchEvent(new CustomEvent('dawaya_db_updated'));
@@ -3216,20 +3383,32 @@ export async function loadDawayaImageMap(): Promise<DawayaImageMapData> {
   if (globalImageMap) return globalImageMap;
   if (globalImageMapPromise) return globalImageMapPromise;
   globalImageMapPromise = (async () => {
+    const applyImageMap = (data: DawayaImageMapData) => {
+      globalImageMap = {
+        byId: data.byId || {},
+        byKeyword: data.byKeyword || {},
+      };
+      globalSortedKeywords = Object.entries(globalImageMap.byKeyword).sort(
+        (a, b) => b[0].length - a[0].length
+      );
+      notifyDrugImagesUpdated();
+      return globalImageMap;
+    };
     try {
+      const cached = await readImagesFromIndexedDB();
+      if (cached) {
+        return applyImageMap(cached);
+      }
       const baseUrl = import.meta.env?.BASE_URL || './';
-      const res = await fetch(`${baseUrl}data/dawaya_drug_images.json?v=2`);
+      const res = await fetch(`${baseUrl}data/dawaya_drug_images.json?v=22523`);
       if (res.ok) {
         const json = (await res.json()) as Partial<DawayaImageMapData>;
-        globalImageMap = {
+        const normalized: DawayaImageMapData = {
           byId: json.byId || {},
           byKeyword: json.byKeyword || {},
         };
-        globalSortedKeywords = Object.entries(globalImageMap.byKeyword).sort(
-          (a, b) => b[0].length - a[0].length
-        );
-        notifyDrugImagesUpdated();
-        return globalImageMap;
+        writeImagesToIndexedDB(normalized);
+        return applyImageMap(normalized);
       }
     } catch {
       /* ignore */
@@ -3285,6 +3464,8 @@ export function saveCustomDrugImage(medId: string, dataUrlOrUrl: string, syncToC
     const raw = localStorage.getItem(CUSTOM_DRUG_IMAGES_KEY);
     const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
     map[medId] = dataUrlOrUrl;
+    customDrugImagesMemCache = map;
+    clearImageResolutionCache();
     localStorage.setItem(CUSTOM_DRUG_IMAGES_KEY, JSON.stringify(map));
     globalCloudDrugImages[medId] = dataUrlOrUrl;
     notifyDrugImagesUpdated();
@@ -3329,53 +3510,58 @@ export function getCachedDrugImageUrl(
   medId?: string,
   brandNameEn?: string,
   barcode?: string,
-  genericName?: string
+  _genericName?: string
 ): string | null {
   if (medId && globalCloudDrugImages[medId]) {
     return globalCloudDrugImages[medId];
   }
-  if (typeof window !== 'undefined' && medId) {
-    try {
-      const customRaw = localStorage.getItem(CUSTOM_DRUG_IMAGES_KEY);
-      if (customRaw) {
-        const customMap = JSON.parse(customRaw) as Record<string, string>;
-        if (customMap[medId]) return customMap[medId];
+  if (medId) {
+    const customMap = getCustomDrugImagesMem();
+    if (customMap[medId]) return customMap[medId];
+  }
+
+  const cacheKey = `${medId || ''}|${brandNameEn || ''}|${barcode || ''}`;
+  if (imageResolutionCache.has(cacheKey)) {
+    return imageResolutionCache.get(cacheKey) ?? null;
+  }
+
+  let resolved: string | null = null;
+  if (globalImageMap) {
+    if (medId && globalImageMap.byId[medId]) {
+      resolved = globalImageMap.byId[medId];
+    } else if (brandNameEn) {
+      const low = brandNameEn.trim().toLowerCase();
+      if (globalImageMap.byKeyword[low]) {
+        resolved = globalImageMap.byKeyword[low];
+      } else {
+        for (let i = 0; i < globalSortedKeywords.length; i++) {
+          const [kw, url] = globalSortedKeywords[i];
+          if (low.includes(kw)) {
+            resolved = url;
+            break;
+          }
+        }
       }
-    } catch {
-      /* ignore */
+    }
+  }
+
+  if (!resolved && barcode) {
+    const clean = barcode.replace(/\D/g, '');
+    if (clean.length >= 8) {
+      const bMap = getBarcodeImageMem();
+      if (bMap[clean] && bMap[clean] !== 'NONE') {
+        resolved = bMap[clean];
+      }
     }
   }
 
   if (globalImageMap) {
-    if (medId && globalImageMap.byId[medId]) {
-      return globalImageMap.byId[medId];
+    if (imageResolutionCache.size > 6000) {
+      imageResolutionCache.clear();
     }
-    if (brandNameEn) {
-      const low = brandNameEn.toLowerCase();
-      for (let i = 0; i < globalSortedKeywords.length; i++) {
-        const [kw, url] = globalSortedKeywords[i];
-        if (low.includes(kw)) return url;
-      }
-    }
-
+    imageResolutionCache.set(cacheKey, resolved);
   }
-
-  if (typeof window !== 'undefined' && barcode) {
-    const clean = barcode.replace(/\D/g, '');
-    if (clean.length >= 8) {
-      try {
-        const bRaw = localStorage.getItem(BARCODE_IMAGE_CACHE_KEY);
-        if (bRaw) {
-          const bMap = JSON.parse(bRaw) as Record<string, string>;
-          if (bMap[clean] && bMap[clean] !== 'NONE') return bMap[clean];
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-
-  return null;
+  return resolved;
 }
 
 export async function fetchDrugImageByBarcode(barcode?: string): Promise<string | null> {
@@ -3403,6 +3589,8 @@ export async function fetchDrugImageByBarcode(barcode?: string): Promise<string 
         const img = data?.product?.image_front_url || data?.product?.image_url || '';
         if (data?.status === 1 && img.startsWith('http')) {
           bMap[clean] = img;
+          barcodeImageMemCache = bMap;
+          clearImageResolutionCache();
           localStorage.setItem(BARCODE_IMAGE_CACHE_KEY, JSON.stringify(bMap));
           return img;
         }

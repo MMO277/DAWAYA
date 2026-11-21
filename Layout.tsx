@@ -24,6 +24,8 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useLang, SUPPORTED_LANGS } from './i18n';
 import { Lang, localizeFallbackText, tr } from './types';
 import { useAuth, isStaffOrAdminRole } from './authContext';
+import { useDawayaCommerce } from './dawayaCommerceStore';
+import { UnslopIcon } from './UnslopIcons';
 import Disclaimer from './Disclaimer';
 import { useEmergencyLocation } from './emergencyLocation';
 
@@ -1585,7 +1587,71 @@ export default function Layout({ children }: { children: ReactNode }) {
           </div>
 
           {/* Unified Glassmorphic Capsule (Design 2) */}
-          <div className="header-actions dawaya-glass-capsule">
+                    <div className="header-actions dawaya-glass-capsule">
+            {/* Unslop Cart Pill (Admin-Controlled) */}
+            {commerceState.featureFlags.shoppingAndCartEnabled && (
+              <Link
+                to="/shop"
+                title={isAr ? 'العربة والطلبات' : 'Cart & Orders'}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '6px 10px',
+                  borderRadius: '999px',
+                  background: 'rgba(19, 136, 102, 0.14)',
+                  border: '1px solid rgba(19, 136, 102, 0.35)',
+                  color: '#0D1F38',
+                  fontWeight: 800,
+                  fontSize: '0.74rem',
+                  textDecoration: 'none',
+                }}
+              >
+                <UnslopIcon name="cart" size={14} color="#138866" />
+                <span>{isAr ? 'العربة' : 'Cart'}</span>
+                <span style={{ background: '#138866', color: '#fff', borderRadius: '999px', padding: '1px 6px', fontSize: '0.68rem' }}>
+                  {commerceState.cart.reduce((sum, item) => sum + item.qty, 0)}
+                </span>
+              </Link>
+            )}
+
+            {/* Unslop Role-Based Mode Switcher (Strictly hidden from regular customers) */}
+            {Boolean(user && role && role !== 'customer' && role !== 'user') && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '3px',
+                  borderRadius: '999px',
+                  background: 'rgba(13, 31, 56, 0.08)',
+                  border: '1px solid rgba(13, 31, 56, 0.14)',
+                }}
+              >
+                <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 800, textDecoration: 'none', color: '#0D1F38' }}>
+                  <UnslopIcon name="user" size={13} />
+                  <span>{isAr ? 'عميل' : 'User'}</span>
+                </Link>
+                {(role === 'owner' || role === 'super_admin' || role === 'admin' || role === 'pharmacy_owner' || role === 'pharmacy_manager' || role === 'pharmacist') && (
+                  <Link to="/pharmacy-portal" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 800, textDecoration: 'none', background: '#0D1F38', color: '#CFD29D' }}>
+                    <UnslopIcon name="building" size={13} />
+                    <span>{isAr ? 'الصيدلية' : 'Pharmacy'}</span>
+                  </Link>
+                )}
+                {commerceState.featureFlags.deliveryAndCourierEnabled && (role === 'owner' || role === 'super_admin' || role === 'admin' || role === 'courier') && (
+                  <Link to="/courier" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 800, textDecoration: 'none', background: '#0097A7', color: '#FFFFFF' }}>
+                    <UnslopIcon name="truck" size={13} />
+                    <span>{isAr ? 'المندوب' : 'Courier'}</span>
+                  </Link>
+                )}
+                {(role === 'owner' || role === 'super_admin' || role === 'admin') && (
+                  <Link to="/admin" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 800, textDecoration: 'none', background: '#138866', color: '#FFFFFF' }}>
+                    <UnslopIcon name="shield" size={13} />
+                    <span>{isAr ? 'الأدمن' : 'Admin'}</span>
+                  </Link>
+                )}
+              </div>
+            )}
             {/* 1. User Avatar Circle (Logged In) or Sage-Gold Guest User Circle (Logged Out) */}
             {!user ? (
               <div className="header-auth-group">
@@ -2090,6 +2156,69 @@ export default function Layout({ children }: { children: ReactNode }) {
       )}
 
       {/* Page Content */}
+      {/* Unslop Responsive Role & Cart Strip (Visible on Mobile & Desktop; hidden from regular customers when shopping is OFF) */}
+      {(commerceState.featureFlags.shoppingAndCartEnabled || Boolean(user && role && role !== 'customer' && role !== 'user')) && (
+        <div
+          className="dawaya-mobile-role-strip"
+          dir={isAr ? 'rtl' : 'ltr'}
+          style={{
+            background: '#0D1F38',
+            borderBottom: '2px solid #138866',
+            padding: '7px 14px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+          }}
+        >
+          {commerceState.featureFlags.shoppingAndCartEnabled && (
+            <Link
+              to="/shop"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 12px',
+                borderRadius: '999px',
+                background: '#138866',
+                color: '#FFFFFF',
+                fontWeight: 800,
+                fontSize: '0.78rem',
+                textDecoration: 'none',
+              }}
+            >
+              <UnslopIcon name="cart" size={14} color="#FFFFFF" />
+              <span>{isAr ? 'العربة والطلبات' : 'Cart & Orders'}</span>
+              <span style={{ background: '#0D1F38', color: '#CFD29D', borderRadius: '999px', padding: '1px 7px', fontSize: '0.72rem' }}>
+                {commerceState.cart.reduce((sum, item) => sum + item.qty, 0)}
+              </span>
+            </Link>
+          )}
+          {Boolean(user && role && role !== 'customer' && role !== 'user') && (
+            <>
+              {(role === 'owner' || role === 'super_admin' || role === 'admin' || role === 'pharmacy_owner' || role === 'pharmacy_manager' || role === 'pharmacist') && (
+                <Link to="/pharmacy-portal" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 11px', borderRadius: '999px', background: 'rgba(207,210,157,0.16)', border: '1px solid #CFD29D', color: '#CFD29D', fontWeight: 800, fontSize: '0.76rem', textDecoration: 'none' }}>
+                  <UnslopIcon name="building" size={13} color="#CFD29D" />
+                  <span>{isAr ? 'وضع الصيدلية' : 'Pharmacy'}</span>
+                </Link>
+              )}
+              {commerceState.featureFlags.deliveryAndCourierEnabled && (role === 'owner' || role === 'super_admin' || role === 'admin' || role === 'courier') && (
+                <Link to="/courier" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 11px', borderRadius: '999px', background: '#0097A7', color: '#FFFFFF', fontWeight: 800, fontSize: '0.76rem', textDecoration: 'none' }}>
+                  <UnslopIcon name="truck" size={13} color="#FFFFFF" />
+                  <span>{isAr ? 'وضع المندوب' : 'Courier'}</span>
+                </Link>
+              )}
+              {(role === 'owner' || role === 'super_admin' || role === 'admin') && (
+                <Link to="/admin" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 11px', borderRadius: '999px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.3)', color: '#FFFFFF', fontWeight: 800, fontSize: '0.76rem', textDecoration: 'none' }}>
+                  <UnslopIcon name="shield" size={13} color="#CFD29D" />
+                  <span>{isAr ? 'لوحة الأدمن' : 'Admin'}</span>
+                </Link>
+              )}
+            </>
+          )}
+        </div>
+      )}
       <SmartOfflineStatusBanner lang={lang} />
       <SmartCrossClinicSafetyBanner />
       <SmartWelcomeOnboardingBanner />

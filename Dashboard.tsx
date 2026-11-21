@@ -2,6 +2,7 @@ import { SubscriptionAndPlansPanel } from './SubscriptionAndPlansPanel';
 import { saveVisibilityConfig, useWhoCampaignAndVisibility, WHO_HEALTH_CAMPAIGNS } from './whoHealthCampaigns';
 import PartnerManagementCenter from './PartnerManagementCenter';
 import PharmacyOwnerDashboard from './PharmacyOwnerDashboard';
+import DawayaAdminControlCenter from './DawayaAdminControlCenter';
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -1043,6 +1044,7 @@ export default function Dashboard() {
         )}
       </div>
 
+      <DawayaAdminControlCenter />
       {tab === 'dawaya_db' && <DawayaMedicineAdminManager uid={user.uid} role={role} />}
       {tab === 'drug_images' && <AdminDrugImagesPanel />}
       {tab === 'campaigns_themes' && <WhoCampaignAndVisibilityAdminCard isAr={lang === 'ar'} />}

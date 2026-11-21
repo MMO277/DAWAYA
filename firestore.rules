@@ -765,5 +765,39 @@ service cloud.firestore {
       allow read: if isOwner(uid);
       allow update, delete: if false;
     }
+
+    // ── 9. DAWAYA Unified Real-Time Commerce Sync ──
+    match /commerceConfig/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /commercePharmacies/{pharmacyId} {
+      allow read: if true;
+      allow write: if isAdmin() || userHasRoleIn(['pharmacy_owner', 'pharmacy_manager', 'pharmacist', 'courier']);
+    }
+
+    match /commerceOrders/{orderId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /commerceRxThreads/{rxId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /commercePromos/{code} {
+      allow read: if true;
+      allow write: if isAdmin() || userHasRoleIn(['pharmacy_owner', 'pharmacy_manager']);
+    }
+
+    match /commerceInbox/{msgId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() || userHasRoleIn(['pharmacy_owner', 'pharmacy_manager']);
+      allow delete: if isAdmin();
+    }
   }
 }

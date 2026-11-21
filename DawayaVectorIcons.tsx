@@ -412,6 +412,67 @@ function getRealDosageFormPhotoUrl(form?: string): string {
   return 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Biogesic_branded_paracetamol_500mg_%28500_side%29.jpg/320px-Biogesic_branded_paracetamol_500mg_%28500_side%29.jpg';
 }
 
+function OfflineMedicineVectorFallback({ form, size }: { form?: string; size: number }) {
+  const f = (form || 'tablet').toLowerCase();
+  const iconSize = Math.max(28, Math.round(size * 0.56));
+  const isSyrup = /syrup|susp|sol|شراب|معلق/.test(f);
+  const isCream = /cream|oint|gel|lotion|wash|shampoo|topical|soap|toner|كريم|مرهم|جل|غسول|شامبو/.test(f);
+  const isVial = /vial|amp|inj|infusion|حقن|أمبول|فيال/.test(f);
+  const isDrop = /drop|spray|eye|ear|nasal|نقط|قطرة|بخاخ/.test(f);
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        width: '100%',
+        height: '100%',
+        borderRadius: 10,
+        background: 'linear-gradient(135deg, #f0fdf9 0%, #e0f2fe 100%)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+      }}
+    >
+      {isSyrup ? (
+        <svg width={iconSize} height={iconSize} viewBox="0 0 48 48" fill="none">
+          <rect x="18" y="6" width="12" height="6" rx="2" fill="#0f766e" />
+          <path d="M16 14h16l3 6v19a4 4 0 0 1-4 4H17a4 4 0 0 1-4-4V20l3-6Z" fill="#14b8a6" fillOpacity="0.18" stroke="#0f766e" strokeWidth="2.4" />
+          <rect x="16" y="23" width="16" height="12" rx="2" fill="#ffffff" stroke="#0f766e" strokeWidth="1.6" />
+          <path d="M24 26v6M21 29h6" stroke="#0d9488" strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+      ) : isCream ? (
+        <svg width={iconSize} height={iconSize} viewBox="0 0 48 48" fill="none">
+          <path d="M14 10h20l-2 24H16l-2-24Z" fill="#0ea5e9" fillOpacity="0.16" stroke="#0369a1" strokeWidth="2.4" strokeLinejoin="round" />
+          <rect x="19" y="34" width="10" height="6" rx="2" fill="#0369a1" />
+          <path d="M20 21h8M24 17v8" stroke="#0284c7" strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+      ) : isVial ? (
+        <svg width={iconSize} height={iconSize} viewBox="0 0 48 48" fill="none">
+          <rect x="17" y="7" width="14" height="5" rx="2" fill="#0f766e" />
+          <rect x="15" y="14" width="18" height="26" rx="4" fill="#10b981" fillOpacity="0.16" stroke="#0f766e" strokeWidth="2.4" />
+          <path d="M15 27h18" stroke="#0f766e" strokeWidth="1.8" strokeDasharray="3 2" />
+          <path d="M24 18v6M21 21h6" stroke="#0d9488" strokeWidth="2.1" strokeLinecap="round" />
+        </svg>
+      ) : isDrop ? (
+        <svg width={iconSize} height={iconSize} viewBox="0 0 48 48" fill="none">
+          <path d="M24 8c5 7 11 14 11 21a11 11 0 1 1-22 0c0-7 6-14 11-21Z" fill="#0ea5e9" fillOpacity="0.18" stroke="#0284c7" strokeWidth="2.4" />
+          <path d="M20 31a4 4 0 0 0 4 4" stroke="#0284c7" strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+      ) : (
+        <svg width={iconSize} height={iconSize} viewBox="0 0 48 48" fill="none">
+          <rect x="8" y="12" width="32" height="24" rx="6" fill="#14b8a6" fillOpacity="0.16" stroke="#0f766e" strokeWidth="2.4" />
+          <path d="M24 12v24" stroke="#0f766e" strokeWidth="2.2" />
+          <rect x="12" y="17" width="8" height="4" rx="2" fill="#0f766e" />
+          <circle cx="32" cy="24" r="5" fill="#ffffff" stroke="#0d9488" strokeWidth="2" />
+          <path d="M30 24h4M32 22v4" stroke="#0d9488" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      )}
+    </div>
+  );
+}
+
 export function Realistic3DMedicineThumb({
   form,
   size = 64,
@@ -431,10 +492,12 @@ export function Realistic3DMedicineThumb({
     getCachedDrugImageUrl(medId, brandNameEn, barcode, genericName)
   );
   const [imgFailed, setImgFailed] = useState(false);
+  const [fallbackFailed, setFallbackFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
     setImgFailed(false);
+    setFallbackFailed(false);
     const cached = getCachedDrugImageUrl(medId, brandNameEn, barcode, genericName);
     if (cached) {
       setImgUrl(cached);
@@ -470,6 +533,7 @@ export function Realistic3DMedicineThumb({
       const updated = getCachedDrugImageUrl(medId, brandNameEn, barcode, genericName);
       if (updated) {
         setImgFailed(false);
+        setFallbackFailed(false);
         setImgUrl(updated);
       }
     };
@@ -482,7 +546,9 @@ export function Realistic3DMedicineThumb({
   }, [medId, brandNameEn, barcode, genericName]);
 
   const fallbackRealPhoto = getRealDosageFormPhotoUrl(form);
-  const displaySrc = !imgFailed && imgUrl ? imgUrl : fallbackRealPhoto;
+  const usingPrimary = !imgFailed && Boolean(imgUrl);
+  const displaySrc = usingPrimary ? imgUrl! : fallbackRealPhoto;
+  const showVectorFallback = fallbackFailed || (!usingPrimary && !fallbackRealPhoto);
 
   return (
     <div
@@ -500,23 +566,40 @@ export function Realistic3DMedicineThumb({
         overflow: 'hidden',
       }}
     >
-      <img
-        src={displaySrc}
-        alt={brandNameEn || 'Medicine package'}
-        loading="lazy"
-        onError={() => {
-          if (!imgFailed && imgUrl) {
-            setImgFailed(true);
-          }
-        }}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain',
-          borderRadius: 10,
-          display: 'block',
-        }}
-      />
+      {showVectorFallback ? (
+        <OfflineMedicineVectorFallback form={form} size={size} />
+      ) : (
+        <img
+          src={displaySrc}
+          alt={brandNameEn || 'Medicine package'}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onLoad={(e) => {
+            if (e.currentTarget.naturalWidth === 0) {
+              if (usingPrimary) {
+                setImgFailed(true);
+              } else {
+                setFallbackFailed(true);
+              }
+            }
+          }}
+          onError={() => {
+            if (usingPrimary) {
+              setImgFailed(true);
+            } else {
+              setFallbackFailed(true);
+            }
+          }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            borderRadius: 10,
+            display: 'block',
+          }}
+        />
+      )}
     </div>
   );
 }

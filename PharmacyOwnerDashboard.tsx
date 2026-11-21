@@ -1,3 +1,4 @@
+import DawayaPharmacyOpsSuite from './DawayaPharmacyOpsSuite';
 import { SubscriptionAndPlansPanel } from './SubscriptionAndPlansPanel';
 import { useWhoCampaignAndVisibility } from './whoHealthCampaigns';
 import React, { FormEvent, useMemo, useState } from 'react';
@@ -319,6 +320,7 @@ export default function PharmacyOwnerDashboard() {
 
   return (
     <main className="wrap stack">
+      <DawayaPharmacyOpsSuite pharmacyId={activePharmacyId || undefined} />
       {/* Header Banner */}
       <section
         className="card"

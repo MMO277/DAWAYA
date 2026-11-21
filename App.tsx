@@ -7,9 +7,10 @@ import { useLang } from './i18n';
 import Layout from './Layout';
 import { AuthProvider } from './authContext';
 import { EmergencyLocationProvider } from './emergencyLocation';
-import AuthModal from './AuthModal';
+const AuthModal = lazyWithRetry(() => import('./AuthModal'));
 import Home from './Home';
 import { startPartnerEcosystemSync } from './partnerService';
+import { hydrateCommerceFlagsFromCloud } from './dawayaCommerceStore';
 
 /**
  * Offline-safe & OTA-safe lazy loader.
@@ -39,35 +40,35 @@ function lazyWithRetry<T extends ComponentType<any>>(
 const HomeMedicineCabinet = lazyWithRetry(() => import('./HomeMedicineCabinet'));
 const RamadanFastingClock = lazyWithRetry(() => import('./RamadanFastingClock'));
 const TravelMedKit = lazyWithRetry(() => import('./TravelMedKit'));
-import PatientDashboard from './PatientDashboard';
+const PatientDashboard = lazyWithRetry(() => import('./PatientDashboard'));
 const OneClickCheckup = lazyWithRetry(() => import('./OneClickCheckup'));
 const PrescriptionRadar = lazyWithRetry(() => import('./PrescriptionRadar'));
 const AwarenessWeek = lazyWithRetry(() => import('./AwarenessWeek'));
 const GreenPrescription = lazyWithRetry(() => import('./GreenPrescription'));
 const CompareDrugs = lazyWithRetry(() => import('./CompareDrugs'));
 const SafeDisposal = lazyWithRetry(() => import('./SafeDisposal'));
-import PediatricHelper from './PediatricHelper';
-import HealthProfile from './HealthProfile';
+const PediatricHelper = lazyWithRetry(() => import('./PediatricHelper'));
+const HealthProfile = lazyWithRetry(() => import('./HealthProfile'));
 const AllergyChecker = lazyWithRetry(() => import('./AllergyChecker'));
 const ListenLearn = lazyWithRetry(() => import('./ListenLearn'));
-import Tracker from './Tracker';
+const Tracker = lazyWithRetry(() => import('./Tracker'));
 const SideEffectsGuide = lazyWithRetry(() => import('./SideEffectsGuide'));
 const Interactions = lazyWithRetry(() => import('./Interactions'));
-import CostSaver from './CostSaver';
+const CostSaver = lazyWithRetry(() => import('./CostSaver'));
 const ColdShotWarning = lazyWithRetry(() => import('./ColdShotWarning'));
 const DailyScheduleGenerator = lazyWithRetry(() => import('./DailyScheduleGenerator'));
 const SmartPassport = lazyWithRetry(() => import('./SmartPassport'));
 const PassportView = lazyWithRetry(() => import('./PassportView'));
-import Medicines from './Medicines';
-import MedicinePage from './MedicinePage';
+const Medicines = lazyWithRetry(() => import('./Medicines'));
+const MedicinePage = lazyWithRetry(() => import('./MedicinePage'));
 const Articles = lazyWithRetry(() => import('./Articles'));
 const ArticlePage = lazyWithRetry(() =>
   import('./Articles').then((m) => ({ default: m.ArticlePage }))
 );
 const Quiz = lazyWithRetry(() => import('./Quiz'));
-import Scan from './Scan';
+const Scan = lazyWithRetry(() => import('./Scan'));
 const Learn = lazyWithRetry(() => import('./Learn'));
-import Assistant from './Assistant';
+const Assistant = lazyWithRetry(() => import('./Assistant'));
 const MythFact = lazyWithRetry(() => import('./MythFact'));
 const ClinicalNutritionClinic = lazyWithRetry(() => import('./ClinicalNutritionClinic'));
 const WomensHealthClinic = lazyWithRetry(() => import('./WomensHealthClinic'));
@@ -112,6 +113,8 @@ const Dashboard = lazyWithRetry(() => import('./Dashboard'));
 const Editor = lazyWithRetry(() => import('./Editor'));
 const PartnersDirectoryPage = lazyWithRetry(() => import('./PartnersDirectory'));
 const PharmacyOwnerDashboard = lazyWithRetry(() => import('./PharmacyOwnerDashboard'));
+const DawayaUnifiedCommerceHub = lazyWithRetry(() => import('./DawayaUnifiedCommerceHub'));
+const DawayaCourierPortal = lazyWithRetry(() => import('./DawayaCourierPortal'));
 const PartnerPublicProfilePage = lazyWithRetry(() =>
   import('./PartnersDirectory').then((m) => ({ default: m.PartnerPublicProfilePage }))
 );
@@ -237,6 +240,7 @@ export default function App() {
     // Lightweight startup: sync public partners after idle without downloading 8.2MB index until needed
     const timer = window.setTimeout(() => {
       startPartnerEcosystemSync();
+      void hydrateCommerceFlagsFromCloud();
     }, 1500);
     return () => window.clearTimeout(timer);
   }, []);
@@ -257,6 +261,10 @@ export default function App() {
                 <Route path="/pharmacies" element={<PartnersDirectoryPage />} />
                 <Route path="/pharmacy-portal" element={<PharmacyOwnerDashboard />} />
                 <Route path="/pharmacy-dashboard" element={<PharmacyOwnerDashboard />} />
+                <Route path="/shop" element={<DawayaUnifiedCommerceHub />} />
+                <Route path="/cart" element={<DawayaUnifiedCommerceHub />} />
+                <Route path="/orders" element={<DawayaUnifiedCommerceHub />} />
+                <Route path="/courier" element={<DawayaCourierPortal />} />
                 <Route path="/partner/:id" element={<PartnerPublicProfilePage />} />
                 <Route path="/cost-saver" element={<CostSaver />} />
                 <Route path="/cold-shot-warning" element={<ColdShotWarning />} />
@@ -409,7 +417,9 @@ export default function App() {
             </Suspense>
           </DawayaErrorBoundary>
         </Layout>
-        <AuthModal />
+        <Suspense fallback={null}>
+          <AuthModal />
+        </Suspense>
       </EmergencyLocationProvider>
     </AuthProvider>
     </DawayaErrorBoundary>

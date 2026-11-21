@@ -1,9 +1,9 @@
-/* DAWAYA | دوايا — Ultra-Fast Network-First Shell & Full Offline Service Worker (v11). */
+/* DAWAYA | دوايا — Ultra-Fast Network-First Shell & Full Offline Service Worker (v14). */
 
 const CACHE_PREFIX = 'dawaya-speed-cache-';
-const STATIC_CACHE = CACHE_PREFIX + 'static-v11';
-const SHELL_CACHE = CACHE_PREFIX + 'shell-v11';
-const MEDIA_FONT_CACHE = CACHE_PREFIX + 'media-fonts-v11';
+const STATIC_CACHE = CACHE_PREFIX + 'static-v14';
+const SHELL_CACHE = CACHE_PREFIX + 'shell-v14';
+const MEDIA_FONT_CACHE = CACHE_PREFIX + 'media-fonts-v14';
 const ACTIVE_CACHES = [STATIC_CACHE, SHELL_CACHE, MEDIA_FONT_CACHE];
 
 const OFFLINE_URL = './offline.html';

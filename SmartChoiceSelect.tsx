@@ -92,6 +92,12 @@ const HUMAN_ROLE_FALLBACKS: Record<
     badge: 'VIEWER',
     icon: 'user',
   },
+  courier: {
+    label: 'مندوب توصيل صيدلية (Delivery Courier)',
+    description: 'استلام الطلبات المعتمدة من الصيدلية وتوصيلها للعميل وتسجيل المرتجعات',
+    badge: 'COURIER',
+    icon: 'truck',
+  },
   customer: {
     label: 'عميل / مريض (Customer & Patient)',
     description: 'طلب الأدوية من الصيدليات المعتمدة وإدارة الجواز الطبي والجدول اليومي',
@@ -620,3 +626,4 @@ export function SmartNativeSelect({
     />
   );
 }
+export { SmartChoiceSelect };

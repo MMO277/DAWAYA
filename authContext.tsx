@@ -37,6 +37,7 @@ export type Role =
   | 'pharmacy_manager'
   | 'pharmacist'
   | 'employee'
+  | 'courier'
   | 'viewer'
   | 'customer'
   | 'user';
@@ -52,6 +53,7 @@ export const ROLES: Role[] = [
   'pharmacy_manager',
   'pharmacist',
   'employee',
+  'courier',
   'viewer',
   'customer',
 ];
@@ -67,6 +69,7 @@ export const STAFF_ADMIN_ROLES: Role[] = [
   'pharmacy_manager',
   'pharmacist',
   'employee',
+  'courier',
   'viewer',
 ];
 

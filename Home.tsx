@@ -4,10 +4,12 @@ import { SeasonalAwarenessBasketCard, SeasonalHeroDecorLayer } from './SeasonalD
 import { useWhoCampaignAndVisibility } from './whoHealthCampaigns';
 const SituationCompassModal = lazy(() => import('./SituationCompassModal'));
 import { DawayaFullWordmark } from './DawayaLogo';
-import { DawayaRouteVectorIcon, HeroMicVectorIcon, HeroScannerVectorIcon, HeroSearchVectorIcon } from './DawayaVectorIcons';
+import { DawayaRouteVectorIcon, HeroMicVectorIcon, HeroScannerVectorIcon, HeroSearchVectorIcon, Realistic3DMedicineThumb } from './DawayaVectorIcons';
 import { PersonaType } from './SmartPersonaAndSpotlight';
-import { PublicPartnerPlacementSection } from './PartnersDirectory';
-import { CSSProperties, FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+const PublicPartnerPlacementSection = lazy(() =>
+  import('./PartnersDirectory').then((m) => ({ default: m.PublicPartnerPlacementSection }))
+);
+import { CSSProperties, FormEvent, lazy, ReactNode, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLang } from './i18n';
 import { ARTICLES } from './articlesData';
@@ -22,6 +24,7 @@ import {
   DAWAYA_CATEGORY_LABELS,
   getRecentlyViewedMedicines,
   RecentlyViewedMedItem,
+  getDawayaSearchSuggestions,
   searchDawayaIndex,
   useDawayaDrugDatabase,
 } from './dawayaDrugDatabaseService';
@@ -41,7 +44,9 @@ export default function Home() {
   const { indexItems, totalCount } = useDawayaDrugDatabase(false); // Lazy-load 8.2MB index only when searching
 
   const [q, setQ] = useState('');
+  const deferredQ = useDeferredValue(q);
   const [focused, setFocused] = useState(false);
+  const [activeQuickIdx, setActiveQuickIdx] = useState(-1);
   const [isListening, setIsListening] = useState(false);
   const [showAllClinicalTools, setShowAllClinicalTools] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<PersonaType>('all');
@@ -119,7 +124,7 @@ export default function Home() {
 
   // Universal Instant Site Search: Symptoms (Triage vs Treatment), All 20 Clinics, and Every Platform Tool in Egyptian Arabic
   const universalSiteMatches = useMemo(() => {
-    const clean = norm(q);
+    const clean = norm(deferredQ);
     if (clean.length < 2) return [];
 
     interface SiteSearchHit {
@@ -466,10 +471,32 @@ export default function Home() {
     return matched.slice(0, 6);
   }, [q, isAr]);
 
-  // Instant live autocomplete results across all 26,562 DAWAYA medicines + personalized patient safety alerts
-  const quickMatches = useMemo(() => {
-    const clean = norm(q);
-    if (clean.length < 2) return [];
+  useEffect(() => {
+    setActiveQuickIdx(-1);
+  }, [q]);
+
+  const highlightHomeMatch = (text: string, queryText: string): ReactNode => {
+    const cleanQ = queryText.trim();
+    if (cleanQ.length < 2 || !text) return text;
+    const escaped = cleanQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    try {
+      const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+      return parts.map((part, idx) =>
+        part.toLowerCase() === cleanQ.toLowerCase() ? (
+          <mark key={idx} className="dawaya-match-hl">{part}</mark>
+        ) : (
+          part
+        )
+      );
+    } catch {
+      return text;
+    }
+  };
+
+  // Instant live autocomplete results across all 26,597 DAWAYA medicines + personalized patient safety alerts
+  const quickMatchesBundle = useMemo(() => {
+    const clean = norm(deferredQ);
+    if (clean.length < 2) return { items: [], totalMatches: 0 };
 
     const evaluatePersonalAlert = (hayText: string): { textAr: string; textEn: string; color: string; bg: string } | null => {
       const low = hayText.toLowerCase();
@@ -527,20 +554,22 @@ export default function Home() {
       return null;
     };
 
-    const dawayaMatches = searchDawayaIndex(indexItems, { query: q.trim() }, isAr)
-      .slice(0, 5)
-      .map((item) => ({
-        id: item.i,
-        titleAr: item.a || item.n,
-        titleEn: item.n,
-        sub: `${item.g || (isAr ? 'مادة فعالة' : 'Active Ingredient')} • ${
-          DAWAYA_CATEGORY_LABELS[item.k]?.[isAr ? 'ar' : 'en'] || item.d
-        }`,
-        priceEgp: item.p,
-        safetyAlert: evaluatePersonalAlert(`${item.n} ${item.a} ${item.g} ${item.d}`),
-      }));
+    const suggested = getDawayaSearchSuggestions(indexItems, deferredQ, 10);
+    const dawayaMatches = suggested.items.map((item) => ({
+      id: item.i,
+      titleAr: item.a || item.n,
+      titleEn: item.n,
+      form: item.f,
+      sub: `${item.g || (isAr ? 'مادة فعالة' : 'Active Ingredient')} • ${
+        DAWAYA_CATEGORY_LABELS[item.k]?.[isAr ? 'ar' : 'en'] || item.d
+      }`,
+      priceEgp: item.p,
+      safetyAlert: evaluatePersonalAlert(`${item.n} ${item.a} ${item.g} ${item.d}`),
+    }));
 
-    if (dawayaMatches.length >= 5) return dawayaMatches;
+    if (dawayaMatches.length >= 10) {
+      return { items: dawayaMatches, totalMatches: suggested.totalMatches };
+    }
 
     const abxMatches = EGYPTIAN_COMMERCIAL_PRODUCTS.filter((p) => {
       const hay = norm(
@@ -548,18 +577,25 @@ export default function Home() {
       );
       return hay.includes(clean);
     })
-      .slice(0, 6 - dawayaMatches.length)
+      .slice(0, 10 - dawayaMatches.length)
       .map((p) => ({
         id: p.activeIngredientId,
         titleAr: p.tradeNameAr,
         titleEn: p.tradeNameEn,
+        form: p.dosageForm,
         sub: `${p.scientificComposition} • ${pick(p.dosageFormLabel, lang)}`,
         priceEgp: p.priceEgp,
         safetyAlert: evaluatePersonalAlert(`${p.tradeNameAr} ${p.tradeNameEn} ${p.scientificComposition}`),
       }));
 
-    return [...dawayaMatches, ...abxMatches];
-  }, [q, indexItems, isAr, lang, userProfile]);
+    const combined = [...dawayaMatches, ...abxMatches];
+    return {
+      items: combined,
+      totalMatches: Math.max(suggested.totalMatches, combined.length),
+    };
+  }, [deferredQ, indexItems, isAr, lang, userProfile]);
+
+  const quickMatches = quickMatchesBundle.items;
 
   const handleChoosePersona = (p: PersonaType) => {
     setSelectedPersona(p);
@@ -1550,6 +1586,25 @@ export default function Home() {
                 onChange={(e) => {
                   setQ(e.target.value);
                   setFocused(true);
+                  if (indexItems.length === 0) {
+                    void import('./dawayaDrugDatabaseService').then((m) => m.ensureDawayaDatabaseLoaded());
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (!focused || quickMatches.length === 0) return;
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setActiveQuickIdx((prev) => (prev + 1) % quickMatches.length);
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setActiveQuickIdx((prev) => (prev <= 0 ? quickMatches.length - 1 : prev - 1));
+                  } else if (e.key === 'Enter' && activeQuickIdx >= 0 && quickMatches[activeQuickIdx]) {
+                    e.preventDefault();
+                    setFocused(false);
+                    nav(`/medicine/${quickMatches[activeQuickIdx].id}`);
+                  } else if (e.key === 'Escape') {
+                    setFocused(false);
+                  }
                 }}
                 placeholder={tr(
                   lang,
@@ -1662,24 +1717,33 @@ export default function Home() {
                         💊 {isAr ? 'أدوية مطابقة من الموسوعة (26,572+ دواء):' : 'Matching Medicines:'}
                       </div>
                     )}
-                    {quickMatches.map((pkg) => (
+                    {quickMatches.map((pkg, idx) => (
                       <Link
                         key={pkg.id}
                         to={`/medicine/${pkg.id}`}
-                        className="hero-live-item"
+                        className={`hero-live-item${idx === activeQuickIdx ? ' is-active' : ''}`}
+                        onMouseEnter={() => setActiveQuickIdx(idx)}
                         onClick={() => setFocused(false)}
                       >
-                        <div>
-                          <div style={{ fontWeight: 900, fontSize: '0.93rem', color: '#101E36' }}>
-                            {isAr ? pkg.titleAr : pkg.titleEn}{' '}
-                            {pkg.priceEgp ? (
-                              <span style={{ color: '#008B99', fontWeight: 800 }}>
-                                — {pkg.priceEgp} {isAr ? 'ج.م' : 'EGP'}
-                              </span>
-                            ) : null}
-                          </div>
-                          <div style={{ fontSize: '0.76rem', color: '#64748b' }}>
-                            {pkg.sub}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                          <Realistic3DMedicineThumb
+                            medId={pkg.id}
+                            brandNameEn={pkg.titleEn}
+                            form={pkg.form}
+                            size={38}
+                          />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontWeight: 900, fontSize: '0.93rem', color: '#101E36' }}>
+                              {highlightHomeMatch(isAr ? pkg.titleAr : pkg.titleEn, q)}{' '}
+                              {pkg.priceEgp ? (
+                                <span style={{ color: '#008B99', fontWeight: 800 }}>
+                                  — {pkg.priceEgp} {isAr ? 'ج.م' : 'EGP'}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div style={{ fontSize: '0.76rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {pkg.sub}
+                            </div>
                           </div>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
@@ -2118,7 +2182,9 @@ export default function Home() {
         </section>
 
         {/* Dynamic Partner Placement on Homepage */}
-        <PublicPartnerPlacementSection placement="homepage_featured" />
+        <Suspense fallback={null}>
+          <PublicPartnerPlacementSection placement="homepage_featured" />
+        </Suspense>
 
         {siteVisibility.showAntibioticLegacySections && (
         <>
