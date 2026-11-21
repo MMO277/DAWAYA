@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import SmartChoiceSelect from './SmartChoiceSelect';
 import { UnslopIcon } from './UnslopIcons';
 import {
-  COMMERCE_CATALOG_SEED,
+  getDawayaSearchSuggestions,
+  useDawayaDrugDatabase,
+} from './dawayaDrugDatabaseService';
+import {
   COMMERCE_UNIT_LABELS,
   computeUnitPricing,
   formatShelfBreakdown,
@@ -17,15 +20,17 @@ export interface DawayaPharmacyOpsSuiteProps {
 
 export default function DawayaPharmacyOpsSuite({ pharmacyId }: DawayaPharmacyOpsSuiteProps) {
   const { state, updateState } = useDawayaCommerce();
-  const activePhId = pharmacyId || state.pharmacies[0]?.id || 'ph-a';
-  const ph = state.pharmacies.find((p) => p.id === activePhId) || state.pharmacies[0];
+  const { items: allDbMeds } = useDawayaDrugDatabase();
+  const activePhId = pharmacyId || state.pharmacies[0]?.id || '';
+  const ph = state.pharmacies.find((p) => p.id === activePhId) || null;
 
   const [tab, setTab] = useState<'orders' | 'couriers' | 'stock' | 'formula' | 'coupons' | 'settings'>('orders');
-  const [formulaMedId, setFormulaMedId] = useState(COMMERCE_CATALOG_SEED[0].id);
-  const [receiveMedId, setReceiveMedId] = useState(COMMERCE_CATALOG_SEED[0].id);
+  const [medSearch, setMedSearch] = useState('');
+  const [selectedMedId, setSelectedMedId] = useState('');
+  const [selectedMedName, setSelectedMedName] = useState('');
+  const [selectedMedPrice, setSelectedMedPrice] = useState<number>(50);
   const [receiveQty, setReceiveQty] = useState('10');
   const [receiveDest, setReceiveDest] = useState<'shelf' | 'warehouse'>('shelf');
-  const [offlineMedId, setOfflineMedId] = useState(COMMERCE_CATALOG_SEED[0].id);
   const [offlineQty, setOfflineQty] = useState('1');
   const [newCurName, setNewCurName] = useState('');
   const [newCurPhone, setNewCurPhone] = useState('');
@@ -41,13 +46,29 @@ export default function DawayaPharmacyOpsSuite({ pharmacyId }: DawayaPharmacyOps
     window.setTimeout(() => setToast(''), 3400);
   };
 
-  if (!ph) return (<section dir="rtl" className="card" style={{ padding: '20px', borderRadius: '18px', marginBottom: '16px', textAlign: 'center', color: '#64748B', fontWeight: 700 }}>لم يتم ربط صيدلية بهذا الحساب بعد — أضف الصيدلية أولاً من لوحة الأدمن.</section>);
+  const searchMatches = useMemo(() => {
+    const q = medSearch.trim();
+    if (q.length < 2) return [];
+    return getDawayaSearchSuggestions(allDbMeds, q, 6);
+  }, [allDbMeds, medSearch]);
+
+  if (!ph) {
+    return (
+      <section
+        dir="rtl"
+        className="card"
+        style={{ padding: '20px', borderRadius: '18px', marginBottom: '16px', textAlign: 'center', color: '#64748B', fontWeight: 700 }}
+      >
+        لم يتم ربط صيدلية بهذا الحساب بعد — أضف الصيدلية أولاً من لوحة الأدمن.
+      </section>
+    );
+  }
 
   const myOrders = state.orders.filter((o) => o.pharmacyId === ph.id);
   const myCouriers = state.couriers.filter((c) => c.pharmacyId === ph.id);
   const myLedger = state.stockLedger[ph.id] || [];
   const myPromos = state.promoCodes.filter((p) => p.scope === ph.id);
-  const medOptions = COMMERCE_CATALOG_SEED.map((m) => ({ value: m.id, label: m.nameAr }));
+  const myInventoryEntries = Object.entries(state.inventories[ph.id] || {});
 
   const approveAndRevealOrder = (orderId: string) => {
     updateState((prev) => {
@@ -97,7 +118,56 @@ export default function DawayaPharmacyOpsSuite({ pharmacyId }: DawayaPharmacyOps
     notify(`تمت الموافقة على ${orderId} وخصم المخزون وإظهار العنوان والرقم تلقائيًا`);
   };
 
-  const calc = computeUnitPricing(state, ph.id, formulaMedId);
+  const calc = selectedMedId ? computeUnitPricing(state, ph.id, selectedMedId, selectedMedPrice) : null;
+
+  const renderRealMedPicker = () => (
+    <div style={{ display: 'grid', gap: '6px' }}>
+      <input
+        type="text"
+        value={medSearch}
+        onChange={(e) => setMedSearch(e.target.value)}
+        placeholder="ابحث في موسوعة دوايا (26,597 دواء) لاختيار الصنف..."
+        style={{ width: '100%', border: '1.5px solid #CBD5E1', borderRadius: '10px', padding: '8px 12px', fontSize: '0.8rem', fontWeight: 700 }}
+      />
+      {searchMatches.length > 0 && (
+        <div style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '4px', display: 'grid', gap: '4px' }}>
+          {searchMatches.map((m) => (
+            <button
+              key={m.i}
+              type="button"
+              onClick={() => {
+                setSelectedMedId(m.i);
+                setSelectedMedName(m.a || m.n);
+                setSelectedMedPrice(m.p && m.p > 0 ? m.p : 50);
+                setMedSearch('');
+              }}
+              style={{
+                textAlign: 'right',
+                border: 'none',
+                background: '#F8FAFC',
+                borderRadius: '8px',
+                padding: '7px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                color: '#0D1F38',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span>{m.a || m.n}</span>
+              <span style={{ color: '#0097A7' }}>{m.p ? `${m.p} ج.م` : ''}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {selectedMedId && (
+        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#065F46', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '10px', padding: '7px 10px' }}>
+          الصنف المختار: {selectedMedName}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <section
@@ -126,7 +196,7 @@ export default function DawayaPharmacyOpsSuite({ pharmacyId }: DawayaPharmacyOps
             <span>جناح تشغيل الصيدلية الموحد — {ph.name}</span>
           </div>
           <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
-            معزول بالكامل على صيدليتك وإشعاراتها فقط (الطلبات، المناديب، الجرد الدقيق، معادلة التجزئة والفرط، الأكواد).
+            معزول بالكامل على صيدليتك وإشعاراتها فقط.
           </div>
         </div>
 
@@ -238,79 +308,83 @@ export default function DawayaPharmacyOpsSuite({ pharmacyId }: DawayaPharmacyOps
               إضافة المندوب
             </button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-            {myCouriers.map((c) => (
-              <div key={c.id} style={{ background: '#FFFFFF', padding: '12px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-                <div style={{ fontWeight: 800, fontSize: '0.88rem' }}>{c.name}</div>
-                <div style={{ fontSize: '0.8rem', color: '#0097A7', fontWeight: 700 }} dir="ltr">{c.phone}</div>
-                <div style={{ fontSize: '0.76rem', color: '#64748B' }}>{c.area}</div>
-              </div>
-            ))}
-          </div>
+          {myCouriers.length === 0 ? (
+            <div style={{ padding: '18px', textAlign: 'center', color: '#64748B', fontWeight: 700, background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              لا يوجد مناديب مضافون بعد.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+              {myCouriers.map((c) => (
+                <div key={c.id} style={{ background: '#FFFFFF', padding: '12px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.88rem' }}>{c.name}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#0097A7', fontWeight: 700 }} dir="ltr">{c.phone}</div>
+                  <div style={{ fontSize: '0.76rem', color: '#64748B' }}>{c.area}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {tab === 'stock' && (
         <div style={{ display: 'grid', gap: '14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-            <div style={{ background: '#FFFFFF', padding: '14px', borderRadius: '14px', border: '1px solid #A7F3D0', display: 'grid', gap: '8px' }}>
-              <strong style={{ fontSize: '0.84rem' }}>إدخال كميات واردة (توريد علب)</strong>
-              <SmartChoiceSelect value={receiveMedId} onChange={setReceiveMedId} options={medOptions} modalTitle="اختر الدواء للتوريد" />
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input type="number" min={1} value={receiveQty} onChange={(e) => setReceiveQty(e.target.value)} style={{ width: '90px', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '8px', fontWeight: 800 }} />
+          <div style={{ background: '#FFFFFF', padding: '14px', borderRadius: '14px', border: '1px solid #A7F3D0', display: 'grid', gap: '10px' }}>
+            <strong style={{ fontSize: '0.86rem' }}>اختيار الدواء للتوريد أو الخصم الأوفلاين</strong>
+            {renderRealMedPicker()}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input type="number" min={1} value={receiveQty} onChange={(e) => setReceiveQty(e.target.value)} style={{ width: '76px', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '8px', fontWeight: 800 }} />
                 <SmartChoiceSelect value={receiveDest} onChange={(v) => setReceiveDest(v as 'shelf' | 'warehouse')} options={[{ value: 'shelf', label: 'للرف' }, { value: 'warehouse', label: 'للمخزن' }]} />
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const qty = Math.max(1, Number(receiveQty) || 1);
-                  const med = COMMERCE_CATALOG_SEED.find((m) => m.id === receiveMedId);
-                  updateState((prev) => {
-                    const c = computeUnitPricing(prev, ph.id, receiveMedId);
-                    const cur = prev.inventories[ph.id]?.[receiveMedId] || { shelfUnits: 0, warehouseBoxes: 0, outOfStock: false };
-                    const updated = receiveDest === 'shelf' ? { ...cur, shelfUnits: cur.shelfUnits + qty * c.totalTabs, outOfStock: false } : { ...cur, warehouseBoxes: cur.warehouseBoxes + qty, outOfStock: false };
-                    return {
-                      ...prev,
-                      inventories: { ...prev.inventories, [ph.id]: { ...(prev.inventories[ph.id] || {}), [receiveMedId]: updated } },
-                      stockLedger: {
-                        ...prev.stockLedger,
-                        [ph.id]: [{ id: `mv-in-${Date.now()}`, type: 'receive', medName: med?.nameAr || receiveMedId, delta: `+${qty} علبة`, note: 'توريد جديد', time: 'الآن' }, ...(prev.stockLedger[ph.id] || [])],
-                      },
-                    };
-                  });
-                  notify(`تم تسجيل توريد +${qty} علبة بنجاح`);
-                }}
-                style={{ background: '#138866', color: '#FFFFFF', border: 'none', borderRadius: '10px', padding: '9px', fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer' }}
-              >
-                تسجيل التوريد
-              </button>
-            </div>
-
-            <div style={{ background: '#FFFFFF', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', display: 'grid', gap: '8px' }}>
-              <strong style={{ fontSize: '0.84rem' }}>خصم بيع أوفلاين (كاشير الصيدلية)</strong>
-              <SmartChoiceSelect value={offlineMedId} onChange={setOfflineMedId} options={medOptions} modalTitle="اختر الدواء للخصم الأوفلاين" />
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input type="number" min={1} value={offlineQty} onChange={(e) => setOfflineQty(e.target.value)} style={{ width: '90px', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '8px', fontWeight: 800 }} />
                 <button
                   type="button"
+                  disabled={!selectedMedId}
                   onClick={() => {
-                    const qty = Math.max(1, Number(offlineQty) || 1);
-                    const med = COMMERCE_CATALOG_SEED.find((m) => m.id === offlineMedId);
+                    if (!selectedMedId) return;
+                    const qty = Math.max(1, Number(receiveQty) || 1);
                     updateState((prev) => {
-                      const tabs = unitsToBaseTablets(prev, ph.id, offlineMedId, 'strip', qty);
-                      const cur = prev.inventories[ph.id]?.[offlineMedId] || { shelfUnits: 0, warehouseBoxes: 0, outOfStock: false };
+                      const c = computeUnitPricing(prev, ph.id, selectedMedId, selectedMedPrice);
+                      const cur = prev.inventories[ph.id]?.[selectedMedId] || { shelfUnits: 0, warehouseBoxes: 0, outOfStock: false };
+                      const updated = receiveDest === 'shelf' ? { ...cur, shelfUnits: cur.shelfUnits + qty * c.totalTabs, outOfStock: false } : { ...cur, warehouseBoxes: cur.warehouseBoxes + qty, outOfStock: false };
                       return {
                         ...prev,
-                        inventories: { ...prev.inventories, [ph.id]: { ...(prev.inventories[ph.id] || {}), [offlineMedId]: { ...cur, shelfUnits: Math.max(0, cur.shelfUnits - tabs) } } },
+                        inventories: { ...prev.inventories, [ph.id]: { ...(prev.inventories[ph.id] || {}), [selectedMedId]: updated } },
                         stockLedger: {
                           ...prev.stockLedger,
-                          [ph.id]: [{ id: `mv-off-${Date.now()}`, type: 'offline', medName: med?.nameAr || offlineMedId, delta: `-${qty} شريط`, note: 'بيع أوفلاين (كاشير)', time: 'الآن' }, ...(prev.stockLedger[ph.id] || [])],
+                          [ph.id]: [{ id: `mv-in-${Date.now()}`, type: 'receive', medName: selectedMedName, delta: `+${qty} علبة`, note: 'توريد جديد', time: 'الآن' }, ...(prev.stockLedger[ph.id] || [])],
+                        },
+                      };
+                    });
+                    notify(`تم تسجيل توريد +${qty} علبة`);
+                  }}
+                  style={{ background: '#138866', color: '#FFFFFF', border: 'none', borderRadius: '10px', padding: '9px 14px', fontWeight: 800, fontSize: '0.78rem', cursor: selectedMedId ? 'pointer' : 'not-allowed', opacity: selectedMedId ? 1 : 0.5 }}
+                >
+                  توريد
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input type="number" min={1} value={offlineQty} onChange={(e) => setOfflineQty(e.target.value)} style={{ width: '76px', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '8px', fontWeight: 800 }} />
+                <button
+                  type="button"
+                  disabled={!selectedMedId}
+                  onClick={() => {
+                    if (!selectedMedId) return;
+                    const qty = Math.max(1, Number(offlineQty) || 1);
+                    updateState((prev) => {
+                      const tabs = unitsToBaseTablets(prev, ph.id, selectedMedId, 'strip', qty);
+                      const cur = prev.inventories[ph.id]?.[selectedMedId] || { shelfUnits: 0, warehouseBoxes: 0, outOfStock: false };
+                      return {
+                        ...prev,
+                        inventories: { ...prev.inventories, [ph.id]: { ...(prev.inventories[ph.id] || {}), [selectedMedId]: { ...cur, shelfUnits: Math.max(0, cur.shelfUnits - tabs) } } },
+                        stockLedger: {
+                          ...prev.stockLedger,
+                          [ph.id]: [{ id: `mv-off-${Date.now()}`, type: 'offline', medName: selectedMedName, delta: `-${qty} شريط`, note: 'بيع أوفلاين (كاشير)', time: 'الآن' }, ...(prev.stockLedger[ph.id] || [])],
                         },
                       };
                     });
                     notify(`تم خصم ${qty} شريط (بيع أوفلاين)`);
                   }}
-                  style={{ flex: 1, background: '#0D1F38', color: '#FFFFFF', border: 'none', borderRadius: '10px', padding: '9px', fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer' }}
+                  style={{ flex: 1, background: '#0D1F38', color: '#FFFFFF', border: 'none', borderRadius: '10px', padding: '9px', fontWeight: 800, fontSize: '0.78rem', cursor: selectedMedId ? 'pointer' : 'not-allowed', opacity: selectedMedId ? 1 : 0.5 }}
                 >
                   خصم بيع أوفلاين (شريط)
                 </button>
@@ -318,22 +392,25 @@ export default function DawayaPharmacyOpsSuite({ pharmacyId }: DawayaPharmacyOps
             </div>
           </div>
 
-          <div style={{ background: '#FFFFFF', borderRadius: '14px', border: '1px solid #E2E8F0', overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'right' }}>
-              <thead>
-                <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                  <th style={{ padding: '10px' }}>الدواء</th>
-                  <th style={{ padding: '10px' }}>رصيد الرف الدقيق</th>
-                  <th style={{ padding: '10px' }}>حالة التوفر للعملاء</th>
-                </tr>
-              </thead>
-              <tbody>
-                {COMMERCE_CATALOG_SEED.slice(0, 6).map((m) => {
-                  const inv = state.inventories[ph.id]?.[m.id] || { shelfUnits: 0, warehouseBoxes: 0, outOfStock: false };
-                  return (
-                    <tr key={m.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                      <td style={{ padding: '10px', fontWeight: 800 }}>{m.nameAr}</td>
-                      <td style={{ padding: '10px', fontWeight: 700, color: '#138866' }}>{formatShelfBreakdown(state, ph.id, m.id)}</td>
+          {myInventoryEntries.length === 0 ? (
+            <div style={{ padding: '20px', textAlign: 'center', color: '#64748B', fontWeight: 700, background: '#FFFFFF', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
+              لا توجد أصناف مسجلة في جرد صيدليتك بعد — ابحث عن أي دواء بالأعلى وسجّل كميته الواردة.
+            </div>
+          ) : (
+            <div style={{ background: '#FFFFFF', borderRadius: '14px', border: '1px solid #E2E8F0', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'right' }}>
+                <thead>
+                  <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                    <th style={{ padding: '10px' }}>كود الدواء</th>
+                    <th style={{ padding: '10px' }}>رصيد الرف الدقيق</th>
+                    <th style={{ padding: '10px' }}>الحالة للعملاء</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {myInventoryEntries.map(([medId, inv]) => (
+                    <tr key={medId} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                      <td style={{ padding: '10px', fontWeight: 800 }}>{medId}</td>
+                      <td style={{ padding: '10px', fontWeight: 700, color: '#138866' }}>{formatShelfBreakdown(state, ph.id, medId)}</td>
                       <td style={{ padding: '10px' }}>
                         <button
                           type="button"
@@ -342,38 +419,26 @@ export default function DawayaPharmacyOpsSuite({ pharmacyId }: DawayaPharmacyOps
                               ...prev,
                               inventories: {
                                 ...prev.inventories,
-                                [ph.id]: {
-                                  ...(prev.inventories[ph.id] || {}),
-                                  [m.id]: { ...inv, outOfStock: !inv.outOfStock },
-                                },
+                                [ph.id]: { ...(prev.inventories[ph.id] || {}), [medId]: { ...inv, outOfStock: !inv.outOfStock } },
                               },
                             }))
                           }
-                          style={{
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '5px 10px',
-                            fontWeight: 800,
-                            fontSize: '0.74rem',
-                            cursor: 'pointer',
-                            background: inv.outOfStock ? '#FFE4E6' : '#ECFDF5',
-                            color: inv.outOfStock ? '#9F1239' : '#065F46',
-                          }}
+                          style={{ border: 'none', borderRadius: '8px', padding: '5px 10px', fontWeight: 800, fontSize: '0.74rem', cursor: 'pointer', background: inv.outOfStock ? '#FFE4E6' : '#ECFDF5', color: inv.outOfStock ? '#9F1239' : '#065F46' }}
                         >
                           {inv.outOfStock ? 'غير متوفر (نقص)' : 'متوفر للطلب'}
                         </button>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {myLedger.length > 0 && (
             <div style={{ background: '#FFFFFF', borderRadius: '14px', border: '1px solid #E2E8F0', padding: '12px', display: 'grid', gap: '6px' }}>
-              <strong style={{ fontSize: '0.82rem' }}>آخر حركات المخزون (توريد / أونلاين / أوفلاين / مرتجع)</strong>
-              {myLedger.slice(0, 6).map((mv) => (
+              <strong style={{ fontSize: '0.82rem' }}>آخر حركات المخزون</strong>
+              {myLedger.slice(0, 8).map((mv) => (
                 <div key={mv.id} style={{ fontSize: '0.78rem', display: 'flex', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '8px', background: '#F8FAFC' }}>
                   <span><strong>{mv.medName}</strong> — {mv.note}</span>
                   <strong style={{ color: mv.type === 'receive' || mv.type === 'return' ? '#138866' : '#0D1F38' }}>{mv.delta}</strong>
@@ -387,78 +452,81 @@ export default function DawayaPharmacyOpsSuite({ pharmacyId }: DawayaPharmacyOps
       {tab === 'formula' && (
         <div style={{ background: '#FFFFFF', borderRadius: '14px', border: '1px solid #A7F3D0', padding: '16px', display: 'grid', gap: '12px' }}>
           <strong style={{ fontSize: '0.9rem' }}>معادلة التجزئة وزيادة الفرط (الحد الأقصى من الأدمن +{state.maxMarkupCapPct}%)</strong>
-          <SmartChoiceSelect value={formulaMedId} onChange={setFormulaMedId} options={medOptions} modalTitle="اختر الدواء" />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
-            <div>
-              <label style={{ fontSize: '0.74rem', fontWeight: 700 }}>سعر العلبة (ج.م)</label>
-              <input
-                type="number"
-                value={calc.boxPrice}
-                onChange={(e) => {
-                  const val = Math.max(1, Number(e.target.value) || 1);
-                  updateState((prev) => ({
-                    ...prev,
-                    unitRules: { ...prev.unitRules, [ph.id]: { ...(prev.unitRules[ph.id] || {}), [formulaMedId]: { ...calc, boxPrice: val } } },
-                  }));
-                }}
-                style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '8px', fontWeight: 800 }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: '0.74rem', fontWeight: 700, color: calc.markupActive ? '#B45309' : '#94A3B8' }}>
-                أساس سعر الفرط (حد أقصى {calc.maxAllowedBase})
-              </label>
-              <input
-                type="number"
-                disabled={!calc.markupActive}
-                value={calc.looseBoxBase}
-                onChange={(e) => {
-                  const val = Math.max(calc.boxPrice, Number(e.target.value) || calc.boxPrice);
-                  updateState((prev) => ({
-                    ...prev,
-                    unitRules: { ...prev.unitRules, [ph.id]: { ...(prev.unitRules[ph.id] || {}), [formulaMedId]: { ...calc, looseBoxBase: val } } },
-                  }));
-                }}
-                style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '8px', fontWeight: 800, background: calc.markupActive ? '#FFFBEB' : '#F1F5F9' }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: '0.74rem', fontWeight: 700 }}>عدد الشرائط</label>
-              <input
-                type="number"
-                value={calc.stripsPerBox}
-                onChange={(e) => {
-                  const val = Math.max(1, Number(e.target.value) || 1);
-                  updateState((prev) => ({
-                    ...prev,
-                    unitRules: { ...prev.unitRules, [ph.id]: { ...(prev.unitRules[ph.id] || {}), [formulaMedId]: { ...calc, stripsPerBox: val } } },
-                  }));
-                }}
-                style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '8px', fontWeight: 800 }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: '0.74rem', fontWeight: 700 }}>حبوب في الشريط</label>
-              <input
-                type="number"
-                value={calc.tabsPerStrip}
-                onChange={(e) => {
-                  const val = Math.max(1, Number(e.target.value) || 1);
-                  updateState((prev) => ({
-                    ...prev,
-                    unitRules: { ...prev.unitRules, [ph.id]: { ...(prev.unitRules[ph.id] || {}), [formulaMedId]: { ...calc, tabsPerStrip: val } } },
-                  }));
-                }}
-                style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '8px', fontWeight: 800 }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: '#0D1F38', color: '#FFFFFF', padding: '14px', borderRadius: '14px', textAlign: 'center' }}>
-            <div><div style={{ fontSize: '0.72rem', color: '#CBD5E1' }}>العلبة</div><strong>{calc.boxPrice} ج.م</strong></div>
-            <div><div style={{ fontSize: '0.72rem', color: '#CBD5E1' }}>الشريط</div><strong style={{ color: '#6EE7B7' }}>{calc.stripPrice} ج.م</strong></div>
-            <div><div style={{ fontSize: '0.72rem', color: '#CBD5E1' }}>الحباية</div><strong style={{ color: '#67E8F9' }}>{calc.tabletPrice} ج.م</strong></div>
-          </div>
+          {renderRealMedPicker()}
+          {calc && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.74rem', fontWeight: 700 }}>سعر العلبة (ج.م)</label>
+                  <input
+                    type="number"
+                    value={calc.boxPrice}
+                    onChange={(e) => {
+                      const val = Math.max(1, Number(e.target.value) || 1);
+                      updateState((prev) => ({
+                        ...prev,
+                        unitRules: { ...prev.unitRules, [ph.id]: { ...(prev.unitRules[ph.id] || {}), [selectedMedId]: { ...calc, boxPrice: val } } },
+                      }));
+                    }}
+                    style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '8px', fontWeight: 800 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.74rem', fontWeight: 700, color: calc.markupActive ? '#B45309' : '#94A3B8' }}>
+                    أساس سعر الفرط (حد أقصى {calc.maxAllowedBase})
+                  </label>
+                  <input
+                    type="number"
+                    disabled={!calc.markupActive}
+                    value={calc.looseBoxBase}
+                    onChange={(e) => {
+                      const val = Math.max(calc.boxPrice, Number(e.target.value) || calc.boxPrice);
+                      updateState((prev) => ({
+                        ...prev,
+                        unitRules: { ...prev.unitRules, [ph.id]: { ...(prev.unitRules[ph.id] || {}), [selectedMedId]: { ...calc, looseBoxBase: val } } },
+                      }));
+                    }}
+                    style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '8px', fontWeight: 800, background: calc.markupActive ? '#FFFBEB' : '#F1F5F9' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.74rem', fontWeight: 700 }}>عدد الشرائط</label>
+                  <input
+                    type="number"
+                    value={calc.stripsPerBox}
+                    onChange={(e) => {
+                      const val = Math.max(1, Number(e.target.value) || 1);
+                      updateState((prev) => ({
+                        ...prev,
+                        unitRules: { ...prev.unitRules, [ph.id]: { ...(prev.unitRules[ph.id] || {}), [selectedMedId]: { ...calc, stripsPerBox: val } } },
+                      }));
+                    }}
+                    style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '8px', fontWeight: 800 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.74rem', fontWeight: 700 }}>حبوب في الشريط</label>
+                  <input
+                    type="number"
+                    value={calc.tabsPerStrip}
+                    onChange={(e) => {
+                      const val = Math.max(1, Number(e.target.value) || 1);
+                      updateState((prev) => ({
+                        ...prev,
+                        unitRules: { ...prev.unitRules, [ph.id]: { ...(prev.unitRules[ph.id] || {}), [selectedMedId]: { ...calc, tabsPerStrip: val } } },
+                      }));
+                    }}
+                    style={{ width: '100%', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '8px', fontWeight: 800 }}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: '#0D1F38', color: '#FFFFFF', padding: '14px', borderRadius: '14px', textAlign: 'center' }}>
+                <div><div style={{ fontSize: '0.72rem', color: '#CBD5E1' }}>العلبة</div><strong>{calc.boxPrice} ج.م</strong></div>
+                <div><div style={{ fontSize: '0.72rem', color: '#CBD5E1' }}>الشريط</div><strong style={{ color: '#6EE7B7' }}>{calc.stripPrice} ج.م</strong></div>
+                <div><div style={{ fontSize: '0.72rem', color: '#CBD5E1' }}>الحباية</div><strong style={{ color: '#67E8F9' }}>{calc.tabletPrice} ج.م</strong></div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -498,17 +566,19 @@ export default function DawayaPharmacyOpsSuite({ pharmacyId }: DawayaPharmacyOps
             <strong style={{ fontSize: '0.86rem' }}>إرسال رسالة كود خصم للعملاء الدائمين (VIP)</strong>
             <button
               type="button"
+              disabled={myPromos.length === 0}
               onClick={() => {
-                const code = myPromos[0]?.code || 'VIP15';
+                const code = myPromos[0]?.code;
+                if (!code) return;
                 updateState((prev) => ({
                   ...prev,
                   customerInbox: [{ id: `msg-${Date.now()}`, from: ph.name, title: 'هدية خاصة لعميلنا الدائم', body: `استخدم الكود ${code} في طلبك القادم من ${ph.name}.`, code, time: 'الآن', read: false }, ...prev.customerInbox],
                 }));
-                notify(`تم إرسال رسالة الكود ${code} إلى صندوق رسائل العملاء الدائمين`);
+                notify(`تم إرسال رسالة الكود ${code} إلى صندوق رسائل العملاء`);
               }}
-              style={{ background: '#0D1F38', color: '#FFFFFF', border: 'none', borderRadius: '10px', padding: '10px', fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer' }}
+              style={{ background: myPromos.length > 0 ? '#0D1F38' : '#CBD5E1', color: '#FFFFFF', border: 'none', borderRadius: '10px', padding: '10px', fontWeight: 800, fontSize: '0.8rem', cursor: myPromos.length > 0 ? 'pointer' : 'not-allowed' }}
             >
-              إرسال كود خصم للعميل الدائم
+              {myPromos.length > 0 ? `إرسال الكود (${myPromos[0].code}) للعميل الدائم` : 'أنشئ كود خصم أولاً للإرسال'}
             </button>
           </div>
         </div>

@@ -21,7 +21,7 @@ export default function DawayaAdminControlCenter() {
   const [bindName, setBindName] = useState('');
   const [bindPhId, setBindPhId] = useState(state.pharmacies[0]?.id || '__new__');
   const [newPhName, setNewPhName] = useState('');
-  const [newPhCity, setNewPhCity] = useState('المنصورة');
+  const [newPhCity, setNewPhCity] = useState('');
   const [admCode, setAdmCode] = useState('');
   const [admPct, setAdmPct] = useState('10');
   const [admMax, setAdmMax] = useState('1');
@@ -224,7 +224,7 @@ export default function DawayaAdminControlCenter() {
                   ...prev,
                   pharmacies:
                     bindPhId === '__new__'
-                      ? [...prev.pharmacies, { id: targetId, name: newPhName.trim(), ownerName: bindName.trim(), city: newPhCity.trim() || 'المنصورة', deliveryFee: 10, allowLooseMarkup: true }]
+                      ? [...prev.pharmacies, { id: targetId, name: newPhName.trim(), ownerName: bindName.trim(), city: newPhCity.trim() || '', deliveryFee: 0, allowLooseMarkup: true }]
                       : prev.pharmacies,
                   roleBindings: [
                     ...prev.roleBindings,

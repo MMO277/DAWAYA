@@ -163,35 +163,11 @@ export interface PharmacyRoleBinding {
   pharmacyId: string;
 }
 
-export interface CatalogMedSeed {
-  id: string;
-  nameAr: string;
-  nameEn: string;
-  ing: string;
-  basePrice: number;
-  looseBoxBase: number;
-  stripsPerBox: number;
-  tabsPerStrip: number;
-  allowStrip: boolean;
-  allowTablet: boolean;
-  altId?: string;
-}
-
 export const COMMERCE_UNIT_LABELS: Record<RetailUnit, string> = {
   box: 'علبة',
   strip: 'شريط',
   tablet: 'حباية',
 };
-
-export const COMMERCE_CATALOG_SEED: CatalogMedSeed[] = [
-  { id: 'eg-2001', nameAr: 'كومتركس للبرد والإنفلونزا 12 قرص', nameEn: 'Comtrex 12 Tabs', ing: 'Paracetamol + Pseudoephedrine', basePrice: 120, looseBoxBase: 130, stripsPerBox: 2, tabsPerStrip: 6, allowStrip: true, allowTablet: true, altId: 'eg-1001' },
-  { id: 'eg-1001', nameAr: 'بنادول إكسترا 24 قرص', nameEn: 'Panadol Extra', ing: 'Paracetamol + Caffeine', basePrice: 48, looseBoxBase: 54, stripsPerBox: 2, tabsPerStrip: 12, allowStrip: true, allowTablet: true, altId: 'eg-1005' },
-  { id: 'eg-1005', nameAr: 'أبيمول إكسترا 20 قرص', nameEn: 'Abimol Extra', ing: 'Paracetamol + Caffeine', basePrice: 20, looseBoxBase: 24, stripsPerBox: 2, tabsPerStrip: 10, allowStrip: true, allowTablet: true, altId: 'eg-1001' },
-  { id: 'eg-1002', nameAr: 'أوجمنتين 1 جم 14 قرص', nameEn: 'Augmentin 1g', ing: 'Amoxicillin + Clavulanic', basePrice: 140, looseBoxBase: 148, stripsPerBox: 2, tabsPerStrip: 7, allowStrip: true, allowTablet: false, altId: 'eg-1006' },
-  { id: 'eg-1006', nameAr: 'هايبوتك 1 جم 16 قرص', nameEn: 'Hibiotic 1g', ing: 'Amoxicillin + Clavulanic', basePrice: 120, looseBoxBase: 128, stripsPerBox: 2, tabsPerStrip: 8, allowStrip: true, allowTablet: false, altId: 'eg-1002' },
-  { id: 'eg-4904', nameAr: 'فلاجيل 500 مجم 20 قرص', nameEn: 'Flagyl 500mg', ing: 'Metronidazole', basePrice: 40, looseBoxBase: 46, stripsPerBox: 2, tabsPerStrip: 10, allowStrip: true, allowTablet: true, altId: 'eg-4894' },
-  { id: 'eg-4894', nameAr: 'فلاجيلات فورت 200 مجم', nameEn: 'Flagellat Forte', ing: 'Metronidazole', basePrice: 30, looseBoxBase: 34, stripsPerBox: 2, tabsPerStrip: 10, allowStrip: true, allowTablet: false, altId: 'eg-4904' },
-];
 
 export interface DawayaCommerceState {
   featureFlags: DawayaFeatureFlags;
@@ -212,7 +188,7 @@ export interface DawayaCommerceState {
   rxThreads: RxQuoteThread[];
 }
 
-const STORAGE_KEY = 'dawaya_unified_commerce_state_v2';
+const STORAGE_KEY = 'dawaya_unified_commerce_state_v4';
 
 // Real-Time Firestore Collection Paths (cross-device live sync)
 const COL_CONFIG = 'commerceConfig';
@@ -222,34 +198,6 @@ const COL_ORDERS = 'commerceOrders';
 const COL_RX = 'commerceRxThreads';
 const COL_PROMOS = 'commercePromos';
 const COL_INBOX = 'commerceInbox';
-
-function buildSeedRules(): Record<string, UnitPricingRule> {
-  const out: Record<string, UnitPricingRule> = {};
-  for (const m of COMMERCE_CATALOG_SEED) {
-    out[m.id] = {
-      boxPrice: m.basePrice,
-      looseBoxBase: m.looseBoxBase,
-      stripsPerBox: m.stripsPerBox,
-      tabsPerStrip: m.tabsPerStrip,
-      allowStrip: m.allowStrip,
-      allowTablet: m.allowTablet,
-    };
-  }
-  return out;
-}
-
-function buildSeedInventory(mult = 10, oosIds: string[] = []): Record<string, PharmacyMedStock> {
-  const out: Record<string, PharmacyMedStock> = {};
-  for (const m of COMMERCE_CATALOG_SEED) {
-    const isOos = oosIds.includes(m.id);
-    out[m.id] = {
-      shelfUnits: isOos ? 0 : mult * m.stripsPerBox * m.tabsPerStrip,
-      warehouseBoxes: isOos ? 0 : 15,
-      outOfStock: isOos,
-    };
-  }
-  return out;
-}
 
 export function createInitialCommerceState(): DawayaCommerceState {
   return {
@@ -379,8 +327,8 @@ function syncDiffToFirestore(prev: DawayaCommerceState, next: DawayaCommerceStat
           doc(db, COL_PHARMACIES, ph.id),
           {
             ...ph,
-            unitRules: next.unitRules[ph.id] || buildSeedRules(),
-            inventories: next.inventories[ph.id] || buildSeedInventory(10),
+            unitRules: next.unitRules[ph.id] || {},
+            inventories: next.inventories[ph.id] || {},
             stockLedger: (next.stockLedger[ph.id] || []).slice(0, 60),
             couriers: nextCouriers,
             updatedAt: now,
