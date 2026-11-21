@@ -77,6 +77,7 @@ export interface UnifiedCartItem {
   medName: string;
   unit: RetailUnit;
   qty: number;
+  customBoxPrice?: number;
 }
 
 export interface OrderLineItem {
@@ -211,7 +212,7 @@ export interface DawayaCommerceState {
   rxThreads: RxQuoteThread[];
 }
 
-const STORAGE_KEY = 'dawaya_unified_commerce_state_v1';
+const STORAGE_KEY = 'dawaya_unified_commerce_state_v2';
 
 // Real-Time Firestore Collection Paths (cross-device live sync)
 const COL_CONFIG = 'commerceConfig';
@@ -263,71 +264,20 @@ export function createInitialCommerceState(): DawayaCommerceState {
       promoCodesEnabled: true,
     },
     maxMarkupCapPct: 15,
-    pharmacies: [
-      { id: 'ph-a', name: 'صيدلية الشفاء الحديثة', ownerName: 'د. عمر الشاذلي', city: 'المنصورة', deliveryFee: 0, allowLooseMarkup: true },
-      { id: 'ph-b', name: 'صيدلية د. كريم النور', ownerName: 'د. كريم منصور', city: 'طلخا', deliveryFee: 15, allowLooseMarkup: false },
-    ],
-    roleBindings: [
-      { id: 'acc-1', name: 'د. عمر الشاذلي', email: 'omar@shifa.eg', role: 'pharmacy_owner', pharmacyId: 'ph-a' },
-      { id: 'acc-2', name: 'د. كريم منصور', email: 'karim@noor.eg', role: 'pharmacy_owner', pharmacyId: 'ph-b' },
-    ],
-    couriers: [
-      { id: 'cur-a1', pharmacyId: 'ph-a', name: 'كابتن محمد علي', phone: '01099887766', area: 'المنصورة — قناة السويس والجلاء', active: true },
-      { id: 'cur-a2', pharmacyId: 'ph-a', name: 'كابتن إسلام طارق', phone: '01122334455', area: 'المنصورة — المشاية والجامعة', active: true },
-      { id: 'cur-b1', pharmacyId: 'ph-b', name: 'كابتن يوسف سامي', phone: '01244556677', area: 'طلخا — شارع صلاح سالم', active: true },
-    ],
-    unitRules: {
-      'ph-a': buildSeedRules(),
-      'ph-b': buildSeedRules(),
-    },
-    inventories: {
-      'ph-a': buildSeedInventory(10, ['eg-1002']),
-      'ph-b': buildSeedInventory(12, []),
-    },
-    stockLedger: {
-      'ph-a': [
-        { id: 'mv-1', type: 'receive', medName: 'كومتركس للبرد والإنفلونزا 12 قرص', delta: '+10 علبة', note: 'توريد فاتورة موزع', time: 'اليوم' },
-      ],
-      'ph-b': [],
-    },
+    pharmacies: [],
+    roleBindings: [],
+    couriers: [],
+    unitRules: {},
+    inventories: {},
+    stockLedger: {},
     cart: [],
-    selectedPharmacyId: 'ph-a',
+    selectedPharmacyId: '',
     customerAddress: '',
     customerPhone: '',
-    promoCodes: [
-      { code: 'DAWAYA10', scope: 'all', ownerLabel: 'الأدمن (كل الصيدليات)', discountPct: 10, maxUsesPerUser: 2, usedCount: 0, active: true },
-      { code: 'VIP15', scope: 'ph-a', ownerLabel: 'صيدلية الشفاء الحديثة', discountPct: 15, maxUsesPerUser: 1, usedCount: 0, active: true },
-    ],
-    customerInbox: [
-      {
-        id: 'msg-welcome-vip',
-        from: 'صيدلية الشفاء الحديثة',
-        title: 'كود خصم للعملاء الدائمين',
-        body: 'استخدم الكود VIP15 لخصم 15% على طلبك القادم من الصيدلية (صالح لاستخدام واحد لكل حساب).',
-        code: 'VIP15',
-        time: 'اليوم',
-        read: false,
-      },
-    ],
+    promoCodes: [],
+    customerInbox: [],
     orders: [],
-    rxThreads: [
-      {
-        id: 'RX-501',
-        patientName: 'عميل دوايا',
-        pharmacyId: 'ph-a',
-        pharmacyName: 'صيدلية الشفاء الحديثة',
-        status: 'quoted',
-        messages: [
-          { sender: 'patient', text: 'صوّرت الروشتة والذكاء الاصطناعي لم يقرأ خط الطبيب بالكامل، أرجو تسعيرها.', time: 'اليوم' },
-          { sender: 'pharmacist', text: 'تمت قراءة الروشتة وتجهيز التسعيرة التفصيلية بالبدائل الأوفر؛ يمكنك التبديل أو الحذف قبل الموافقة.', time: 'اليوم' },
-        ],
-        items: [
-          { lineId: 'ln-1', medId: 'eg-1002', qty: 1, included: true },
-          { lineId: 'ln-2', medId: 'eg-1001', qty: 1, included: true },
-          { lineId: 'ln-3', medId: 'eg-4904', qty: 1, included: true },
-        ],
-      },
-    ],
+    rxThreads: [],
   };
 }
 

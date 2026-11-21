@@ -19,7 +19,7 @@ export default function DawayaAdminControlCenter() {
   const [subTab, setSubTab] = useState<'switches' | 'roles' | 'promos'>('switches');
   const [bindEmail, setBindEmail] = useState('');
   const [bindName, setBindName] = useState('');
-  const [bindPhId, setBindPhId] = useState(state.pharmacies[0]?.id || 'ph-a');
+  const [bindPhId, setBindPhId] = useState(state.pharmacies[0]?.id || '__new__');
   const [newPhName, setNewPhName] = useState('');
   const [newPhCity, setNewPhCity] = useState('المنصورة');
   const [admCode, setAdmCode] = useState('');
@@ -158,7 +158,7 @@ export default function DawayaAdminControlCenter() {
               />
             </div>
 
-            {state.pharmacies.map((p) => (
+            {state.pharmacies.length === 0 ? (<div style={{ fontSize: '0.78rem', color: '#94A3B8' }}>لا توجد صيدليات مضافة بعد — أضف أول صيدلية من تبويب «ربط صلاحيات الصيدليات».</div>) : state.pharmacies.map((p) => (
               <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', background: '#1E293B', padding: '10px 12px', borderRadius: '12px' }}>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: '0.82rem' }}>{p.name}</div>
@@ -244,7 +244,7 @@ export default function DawayaAdminControlCenter() {
 
           <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: '16px', padding: '16px', display: 'grid', gap: '8px', alignContent: 'start' }}>
             <strong style={{ fontSize: '0.88rem' }}>سجل الحسابات المرتبطة بالصيدليات</strong>
-            {state.roleBindings.map((rb) => {
+            {state.roleBindings.length === 0 ? (<div style={{ fontSize: '0.8rem', color: '#94A3B8', padding: '10px 0' }}>لا توجد حسابات صيدليات مرتبطة بعد — أنشئ أول صيدلية شريكة من النموذج.</div>) : state.roleBindings.map((rb) => {
               const p = state.pharmacies.find((x) => x.id === rb.pharmacyId);
               return (
                 <div key={rb.id} style={{ background: '#1E293B', borderRadius: '10px', padding: '10px 12px', fontSize: '0.8rem' }}>

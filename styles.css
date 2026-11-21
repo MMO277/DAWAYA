@@ -7994,3 +7994,10 @@ button:active:not(:disabled), .btn:active:not(:disabled) {
   border-radius: 4px;
   padding: 0 2px;
 }
+
+/* DAWAYA 60fps Mobile Card Virtualization */
+.dawaya-med-card-v3 {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 210px;
+  contain: layout style;
+}

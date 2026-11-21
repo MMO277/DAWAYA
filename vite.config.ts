@@ -21,15 +21,16 @@ function offlineAndInAppUpdatePlugin(): Plugin {
       for (const fileName of Object.keys(bundle)) {
         if (fileName.endsWith('.js') || fileName.endsWith('.css')) {
           const normalized = './' + fileName.replace(/^\/+/, '');
-          if (
-            fileName.includes('vendor-three') ||
-            fileName.includes('OpenWorld') ||
-            fileName.includes('MedicalSimulator') ||
-            fileName.includes('Cartoon3D')
-          ) {
-            deferred3DAssets.push(normalized);
-          } else {
+          const isCoreStartup =
+            fileName.endsWith('.css') ||
+            fileName.includes('index-') ||
+            fileName.includes('vendor-react') ||
+            fileName.includes('vendor-router') ||
+            fileName.includes('vendor-firebase');
+          if (isCoreStartup) {
             coreAssets.push(normalized);
+          } else {
+            deferred3DAssets.push(normalized);
           }
         }
       }
@@ -91,7 +92,7 @@ export default defineConfig({
   plugins: [react(), offlineAndInAppUpdatePlugin()],
   base: './',
   esbuild: {
-    drop: ['debugger'],
+    drop: ['debugger', 'console'],
     legalComments: 'none',
   },
   build: {
@@ -112,6 +113,9 @@ export default defineConfig({
             if (id.includes('react-router')) return 'vendor-router';
             if (id.includes('react')) return 'vendor-react';
           }
+          if (id.includes('egyptianDrugDatabase') || id.includes('seedData')) return 'data-drug-catalog';
+          if (id.includes('aiConversationContext') || id.includes('medicationSafetyEngine')) return 'data-clinical-ai';
+          if (id.includes('medicalMysteryData') || id.includes('nurseAcademyData') || id.includes('openWorldHospitalData')) return 'data-games';
 
 
         },

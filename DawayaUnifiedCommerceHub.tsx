@@ -40,7 +40,7 @@ export default function DawayaUnifiedCommerceHub() {
   };
 
   const selectedPh = useMemo(
-    () => state.pharmacies.find((p) => p.id === state.selectedPharmacyId) || state.pharmacies[0],
+    () => state.pharmacies.find((p) => p.id === state.selectedPharmacyId) || state.pharmacies[0] || { id: '', name: 'لم يتم إضافة صيدلية بعد', ownerName: '', city: '', deliveryFee: 0, allowLooseMarkup: false },
     [state.pharmacies, state.selectedPharmacyId]
   );
 
@@ -54,7 +54,7 @@ export default function DawayaUnifiedCommerceHub() {
 
   const cartSummary = useMemo(() => {
     const rows = state.cart.map((ci) => {
-      const calc = computeUnitPricing(state, selectedPh.id, ci.medId);
+      const calc = computeUnitPricing(state, selectedPh.id, ci.medId, ci.customBoxPrice || 50);
       const unitPrice = ci.unit === 'box' ? calc.boxPrice : ci.unit === 'strip' ? calc.stripPrice : calc.tabletPrice;
       const lineTotal = Math.round(unitPrice * ci.qty * 100) / 100;
       return { ...ci, unitPrice, lineTotal };
@@ -178,8 +178,8 @@ export default function DawayaUnifiedCommerceHub() {
     );
   }
 
-  const rx = state.rxThreads[0];
-  const rxActiveLines = rx.items.filter((ln) => ln.included);
+  const rx = state.rxThreads[0] || null;
+  const rxActiveLines = rx ? rx.items.filter((ln) => ln.included) : [];
   const rxTotal = rxActiveLines.reduce((sum, ln) => {
     const m = COMMERCE_CATALOG_SEED.find((x) => x.id === ln.medId);
     return sum + (m ? m.basePrice * ln.qty : 0);
@@ -284,10 +284,10 @@ export default function DawayaUnifiedCommerceHub() {
                 <SmartChoiceSelect
                   value={selectedPh.id}
                   onChange={(val) => updateState((prev) => ({ ...prev, selectedPharmacyId: val }))}
-                  options={state.pharmacies.map((p) => ({
+                  options={state.pharmacies.length > 0 ? state.pharmacies.map((p) => ({
                     value: p.id,
                     label: `${p.name} — ${p.city} (توصيل ${p.deliveryFee === 0 ? 'مجاني' : `${p.deliveryFee} ج.م`})`,
-                  }))}
+                  })) : [{ value: '', label: 'لا توجد صيدليات شريكة مفعّلة بعد' }]}
                   modalTitle="اختر الصيدلية"
                 />
               </div>
@@ -669,7 +669,8 @@ export default function DawayaUnifiedCommerceHub() {
         </div>
       )}
 
-      {activeTab === 'rx' && flags.rxChatEnabled && (
+      {activeTab === 'rx' && flags.rxChatEnabled && !rx && (<div className="card" style={{ padding: '24px', textAlign: 'center', color: '#64748B', fontWeight: 700, borderRadius: '18px' }}>لا توجد روشتات مفتوحة حاليًا.</div>)}
+      {activeTab === 'rx' && flags.rxChatEnabled && rx && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
           <div className="card" style={{ padding: '18px', borderRadius: '18px', display: 'grid', gap: '10px' }}>
             <h2 style={{ margin: 0, fontSize: '1rem', color: '#0D1F38' }}>تسعيرة الروشتة التفصيلية ({rx.id}) — بدّل أي صنف للأوفر</h2>

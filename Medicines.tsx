@@ -1,3 +1,5 @@
+import { useDawayaCommerce } from './dawayaCommerceStore';
+import { UnslopIcon } from './UnslopIcons';
 import { extractTextFromBlisterOrBoxImage, findCutBlisterStripCandidates } from './blisterStripOcrMatcher';
 import SmartChoiceSelect, { SmartNativeSelect } from './SmartChoiceSelect';
 import { createPortal } from 'react-dom';
@@ -59,6 +61,17 @@ type ViewTab =
 type SortOption = 'relevance' | 'name' | 'price_asc' | 'price_desc' | 'verified_first';
 
 export default function Medicines() {
+  const { state: commerceState, updateState: updateCommerce } = useDawayaCommerce();
+  const addMedToUnifiedCart = (medId: string, medName: string, price: number | null) => {
+    const cartKey = `${medId}__box`;
+    updateCommerce((prev) => {
+      const ex = prev.cart.find((c) => c.cartKey === cartKey);
+      const nextCart = ex
+        ? prev.cart.map((c) => (c.cartKey === cartKey ? { ...c, qty: c.qty + 1 } : c))
+        : [...prev.cart, { cartKey, medId, medName, unit: 'box' as const, qty: 1, customBoxPrice: price && price > 0 ? price : 50 }];
+      return { ...prev, cart: nextCart };
+    });
+  };
   const { t, lang } = useLang();
   const navigate = useNavigate();
   const isAr = lang === 'ar';
@@ -1638,6 +1651,61 @@ export default function Medicines() {
                       <span>{safetyText}</span>
                     </div>
                   </Link>
+                  {commerceState.featureFlags.shoppingAndCartEnabled && (() => {
+                    const inCartQty = commerceState.cart.filter((c) => c.medId === item.i).reduce((sum, c) => sum + c.qty, 0);
+                    const approxP = getApproximateBatchPriceInfo(item).price;
+                    return (
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addMedToUnifiedCart(item.i, isAr ? (item.a || item.n) : (item.n || item.a), approxP);
+                          }}
+                          style={{
+                            flex: 1,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '7px',
+                            padding: '9px 12px',
+                            borderRadius: '12px',
+                            border: 'none',
+                            background: inCartQty > 0 ? '#138866' : '#0D1F38',
+                            color: '#FFFFFF',
+                            fontWeight: 800,
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <UnslopIcon name="cart" size={15} color="#FFFFFF" />
+                          <span>{inCartQty > 0 ? (isAr ? `أُضيف للعربة (${inCartQty}) +1` : `In Cart (${inCartQty}) +1`) : (isAr ? 'أضف للعربة' : 'Add to Cart')}</span>
+                        </button>
+                        {inCartQty > 0 && (
+                          <Link
+                            to="/shop"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '9px 12px',
+                              borderRadius: '12px',
+                              background: '#ECFDF5',
+                              border: '1.5px solid #138866',
+                              color: '#065F46',
+                              fontWeight: 800,
+                              fontSize: '0.78rem',
+                              textDecoration: 'none',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {isAr ? 'إتمام الشراء' : 'Checkout'}
+                          </Link>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -1808,6 +1876,60 @@ export default function Medicines() {
                       <span>{safetyText}</span>
                     </div>
                   </button>
+                  {commerceState.featureFlags.shoppingAndCartEnabled && (() => {
+                    const inCartQty = commerceState.cart.filter((c) => c.medId === p.productId).reduce((sum, c) => sum + c.qty, 0);
+                    return (
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addMedToUnifiedCart(p.productId, isAr ? p.tradeNameAr : p.tradeNameEn, p.priceEgp);
+                          }}
+                          style={{
+                            flex: 1,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '7px',
+                            padding: '9px 12px',
+                            borderRadius: '12px',
+                            border: 'none',
+                            background: inCartQty > 0 ? '#138866' : '#0D1F38',
+                            color: '#FFFFFF',
+                            fontWeight: 800,
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <UnslopIcon name="cart" size={15} color="#FFFFFF" />
+                          <span>{inCartQty > 0 ? (isAr ? `أُضيف للعربة (${inCartQty}) +1` : `In Cart (${inCartQty}) +1`) : (isAr ? 'أضف للعربة' : 'Add to Cart')}</span>
+                        </button>
+                        {inCartQty > 0 && (
+                          <Link
+                            to="/shop"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '9px 12px',
+                              borderRadius: '12px',
+                              background: '#ECFDF5',
+                              border: '1.5px solid #138866',
+                              color: '#065F46',
+                              fontWeight: 800,
+                              fontSize: '0.78rem',
+                              textDecoration: 'none',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {isAr ? 'إتمام الشراء' : 'Checkout'}
+                          </Link>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}

@@ -41,7 +41,7 @@ export default function DawayaPharmacyOpsSuite({ pharmacyId }: DawayaPharmacyOps
     window.setTimeout(() => setToast(''), 3400);
   };
 
-  if (!ph) return null;
+  if (!ph) return (<section dir="rtl" className="card" style={{ padding: '20px', borderRadius: '18px', marginBottom: '16px', textAlign: 'center', color: '#64748B', fontWeight: 700 }}>لم يتم ربط صيدلية بهذا الحساب بعد — أضف الصيدلية أولاً من لوحة الأدمن.</section>);
 
   const myOrders = state.orders.filter((o) => o.pharmacyId === ph.id);
   const myCouriers = state.couriers.filter((c) => c.pharmacyId === ph.id);
