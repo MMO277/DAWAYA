@@ -1278,8 +1278,10 @@ export default function Home() {
         }
         .hero-live-dropdown {
           position: absolute;
-          top: calc(100% + 8px);
+          top: calc(100% + 5px);
           inset-inline: 0;
+          max-height: 62vh;
+          overflow-y: auto;
           background: #ffffff;
           color: #101E36;
           border-radius: 20px;
@@ -1576,6 +1578,7 @@ export default function Home() {
 
           {/* Live Autocomplete Search Bar + Voice Search + Barcode Scanner */}
           <div ref={searchWrapRef} className="hero-live-search-wrap">
+            <div style={{ position: "relative", zIndex: 85 }}>
             <form onSubmit={go} className="hero-live-search-form" role="search">
               <span className="hero-search-icon" aria-hidden="true" style={{ display: "inline-flex", alignItems: "center" }}><HeroSearchVectorIcon size={20} color="#138866" /></span>
               <input
@@ -1843,6 +1846,8 @@ export default function Home() {
                 )}
               </div>
             )}
+
+            </div>
 
             {/* Quick Access Pill Tags under Search Bar */}
             <div className="hero-quick-tags">

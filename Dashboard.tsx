@@ -542,6 +542,7 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
 }
 
 type AdminTab =
+  | 'commerce_control'
   | 'dawaya_db'
   | 'drug_images'
   | 'campaigns_themes'
@@ -775,6 +776,25 @@ export default function Dashboard() {
           paddingBottom: '10px',
         }}
       >
+        {isSuperOrAdmin && (
+          <button
+            className={tab === 'commerce_control' ? 'on' : ''}
+            onClick={() => setTab('commerce_control')}
+            style={{
+              borderRadius: '10px',
+              border: tab === 'commerce_control' ? '2px solid var(--teal)' : '1px solid var(--line)',
+              background: tab === 'commerce_control' ? 'var(--tint)' : 'var(--card-bg)',
+              padding: '8px 12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <UnslopIcon name="shield" size={16} color="#059669" />
+            <span>{tr(lang, 'التحكم المركزي (الميزات والصيدليات)', 'Master Control (Features & Pharmacies)')}</span>
+          </button>
+        )}
+
         <button
           className={tab === 'drug_images' ? 'on' : ''}
           onClick={() => setTab('drug_images')}
@@ -1044,7 +1064,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      <DawayaAdminControlCenter />
+      {tab === 'commerce_control' && isSuperOrAdmin && <DawayaAdminControlCenter />}
       {tab === 'dawaya_db' && <DawayaMedicineAdminManager uid={user.uid} role={role} />}
       {tab === 'drug_images' && <AdminDrugImagesPanel />}
       {tab === 'campaigns_themes' && <WhoCampaignAndVisibilityAdminCard isAr={lang === 'ar'} />}
