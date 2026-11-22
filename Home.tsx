@@ -2166,54 +2166,6 @@ export default function Home() {
         </section>
 
         {/* Quick Access to Popular Medications in Egypt Across Categories */}
-        <section className="card highlight-card pro-featured-section">
-          <div className="head" style={{ marginBottom: '12px' }}>
-            <div>
-              <h2 style={{ margin: 0 }}>
-                🇪🇬 {tr(lang, 'أشهر الأدوية والبدائل المتداولة في مصر', 'Popular Medications & Generics in Egypt')}
-              </h2>
-              <p className="small muted" style={{ margin: '4px 0 0' }}>
-                {tr(
-                  lang,
-                  'اضغط على أي دواء لعرض النشرة المبسطة، الأسعار الرسمية، وأرخص البدائل المتطابقة:',
-                  'Tap any medication to view its summary, official EGP prices, and identical generics:'
-                )}
-              </p>
-            </div>
-            <Link to="/medicines" className="btn ghost small">
-              {tr(lang, `كل الأدوية (${totalCount.toLocaleString()}+) ←`, `All ${totalCount.toLocaleString()}+ Drugs →`)}
-            </Link>
-          </div>
-
-          <div className="grid">
-            {featuredMeds.map((fm) => (
-              <Link key={fm.id} to={`/medicine/${fm.id}`} className="card link pro-med-shortcut">
-                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: '6px' }}>
-                  <h3 style={{ margin: 0, fontSize: '1rem' }}>{isAr ? fm.ar : fm.en}</h3>
-                  <span
-                    style={{
-                      background: '#dcfce7',
-                      color: '#15803d',
-                      borderRadius: '999px',
-                      padding: '2px 8px',
-                      fontSize: '0.72rem',
-                      fontWeight: 800,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {isAr ? fm.priceAr : fm.priceEn}
-                  </span>
-                </div>
-                <p className="small muted" style={{ margin: '4px 0 8px' }}>
-                  {pick(fm.cls, lang)}
-                </p>
-                <span className="more" style={{ fontSize: '0.82rem' }}>
-                  {tr(lang, 'الجرعة والأسعار والبدائل ←', 'Dosing, Prices & Generics →')}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
 
         {/* Dynamic Partner Placement on Homepage */}
         <Suspense fallback={null}>
