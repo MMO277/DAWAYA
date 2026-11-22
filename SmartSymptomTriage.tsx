@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
 import { tr } from './types';
 import Disclaimer from './Disclaimer';
-import InteractiveBodyMap from './InteractiveBodyMap';
 
 export type BodyZone = 'head_neck' | 'chest_breath' | 'abdomen_gi' | 'pelvis_urinary' | 'back_joints' | 'skin_general';
 

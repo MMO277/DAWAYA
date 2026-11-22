@@ -1,7 +1,7 @@
 import { DawayaIconMark } from './DawayaLogo';
 import DawayaErrorBoundary from './ErrorBoundary';
 import { ComponentType, lazy, Suspense, useEffect } from 'react';
-import { Route, Routes, Link } from 'react-router-dom';
+import { Navigate, Route, Routes, Link } from 'react-router-dom';
 import { configured } from './firebase';
 import { useLang } from './i18n';
 import Layout from './Layout';
@@ -75,7 +75,6 @@ const WomensHealthClinic = lazyWithRetry(() => import('./WomensHealthClinic'));
 const GeriatricCareClinic = lazyWithRetry(() => import('./GeriatricCareClinic'));
 const HairSkincareClinic = lazyWithRetry(() => import('./HairSkincareClinic'));
 const ChestRespiratoryClinic = lazyWithRetry(() => import('./ChestRespiratoryClinic'));
-const InteractiveBodyMap = lazyWithRetry(() => import('./InteractiveBodyMap'));
 const FoodDrugInteractionChecker = lazyWithRetry(() => import('./FoodDrugInteractionChecker'));
 const SmartLabAndRxPhotoScanner = lazyWithRetry(() => import('./SmartLabAndRxPhotoScanner'));
 const VisualBodyDrugSimulator = lazyWithRetry(() => import('./VisualBodyDrugSimulator'));
@@ -303,7 +302,7 @@ export default function App() {
                 <Route path="/geriatric-clinic" element={<GeriatricCareClinic />} />
                 <Route path="/hair-clinic" element={<HairSkincareClinic />} />
                 <Route path="/chest-clinic" element={<ChestRespiratoryClinic />} />
-                <Route path="/body-map" element={<InteractiveBodyMap />} />
+                <Route path="/body-map" element={<Navigate to="/#body-map-section" replace />} />
                 <Route path="/food-drug-checker" element={<FoodDrugInteractionChecker />} />
                 <Route path="/lab-photo-scanner" element={<SmartLabAndRxPhotoScanner />} />
                 <Route path="/organ-simulator" element={<VisualBodyDrugSimulator />} />

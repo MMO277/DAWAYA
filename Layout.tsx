@@ -651,7 +651,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           shortLabel: tr(lang, 'عيادة السموم والإسعافات الأولية', 'Poison Control & First-Aid ER', 'Centre Antipoison', 'Toxicología y Urgencias'),
         },
         {
-          to: '/body-map',
+          to: '/#body-map-section',
           key: '',
           icon: '🧍‍♂️',
           shortLabel: tr(lang, 'خريطة الجسم التفاعلية (اضغط مكان الوجع)', 'Interactive Body Symptom Map', 'Carte du Corps', 'Mapa Corporal'),

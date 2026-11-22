@@ -1,6 +1,5 @@
 import { TeaCoffeeTimingMatrixCard } from './egyptianClinicalInnovations';
 import { SmartNativeSelect } from './SmartChoiceSelect';
-import SmartDoseAlarmCard from './SmartDoseAlarmCard';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLang } from './i18n';
@@ -541,7 +540,6 @@ export default function DailyScheduleGenerator() {
 
   return (
     <main className="wrap stack">
-      <SmartDoseAlarmCard />
       <TeaCoffeeTimingMatrixCard isAr={isAr} />
       <section className="card no-print schedule-gen-hero">
         <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>

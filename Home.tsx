@@ -10,12 +10,13 @@ const PublicPartnerPlacementSection = lazy(() =>
   import('./PartnersDirectory').then((m) => ({ default: m.PublicPartnerPlacementSection }))
 );
 import { CSSProperties, FormEvent, lazy, ReactNode, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLang } from './i18n';
 import { ARTICLES } from './articlesData';
 import { pick, tr } from './types';
 import Disclaimer from './Disclaimer';
 import DidYouKnow from './DidYouKnow';
+const LazyInteractiveBodyMap = lazy(() => import('./InteractiveBodyMap'));
 import ResistanceCounter from './ResistanceCounter';
 import { useClinicalProMode } from './clinicalProData';
 import { EGYPTIAN_COMMERCIAL_PRODUCTS } from './egyptianDrugDatabase';
@@ -35,6 +36,12 @@ const GlobalSpotlightModal = lazy(() =>
 );
 
 export default function Home() {
+  const location = useLocation();
+  useEffect(() => {
+    if (location.hash === '#body-map-section') {
+      setTimeout(() => document.getElementById('body-map-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+    }
+  }, [location.hash]);
   const { t, lang } = useLang();
   const isAr = lang === 'ar';
   const nav = useNavigate();
@@ -437,7 +444,7 @@ export default function Home() {
         keywords: ['سفر', 'مطار', 'جمارك', 'سعوديه', 'خليج', 'طيران', 'عمره', 'حج', 'airport'],
       },
       {
-        to: '/body-map',
+        to: '/#body-map-section',
         icon: '🧍‍♂️',
         badgeAr: 'خريطة الجسم',
         badgeEn: 'Body Map',
@@ -679,18 +686,6 @@ export default function Home() {
         'Generate an authentic, healthy daily Egyptian meal plan for diabetes, hypertension, kidney disease, cholesterol, and gout'
       ),
       color: '#059669',
-    },
-    {
-      to: '/body-map',
-      icon: '🧍‍♂️',
-      badge: tr(lang, 'خريطة الألم', 'Body Map'),
-      title: tr(lang, 'خريطة جسم الإنسان التفاعلية لتشخيص الأعراض باللمس', 'Interactive 3D/SVG Human Body Symptom Map'),
-      desc: tr(
-        lang,
-        'اضغط بإيدك مباشرة على مكان الوجع في مجسم جسم الإنسان (أمام وخلف) لينور العضو ويبدأ حوار الطبيب الذكي وفحص علامات الخطورة فوراً',
-        'Tap directly on any painful area on the front or back human body silhouette for guided clinical triage and red-flag checks'
-      ),
-      color: '#0f766e',
     },
     {
       to: '/food-drug-checker',
@@ -2003,6 +1998,19 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Interactive Full-Body Free-Tap Pain Locator (Lazy-loaded for 0KB initial impact) */}
+        <Suspense
+          fallback={
+            <div className="card" style={{ padding: '24px', textAlign: 'center', color: '#475569', fontSize: '0.88rem', fontWeight: 700 }}>
+              جاري تجهيز خريطة تحديد الألم التفاعلية...
+            </div>
+          }
+        >
+          <div id="body-map-section" style={{ scrollMarginTop: '88px' }}>
+          <LazyInteractiveBodyMap embedded />
+        </div>
+        </Suspense>
+
         {/* Recently Viewed Medicines Strip (Shown automatically when user has viewed 1+ medicines) */}
         {recentMeds.length > 0 && (
           <section className="card" style={{ padding: '14px 16px', background: 'rgba(207, 210, 157, 0.12)', border: '1px solid rgba(207, 210, 157, 0.5)' }}>
@@ -2082,8 +2090,8 @@ export default function Home() {
           <div className="bento-grid">
             {(() => {
               const personaPaths: Record<PersonaType, string[]> = {
-                all: ['/body-map', '/clinics', '/missed-dose-rescue', '/meal-planner', '/food-drug-checker', '/medical-report', '/vaccine-tracker', '/doctor-visit-prep'],
-                patient: ['/body-map', '/missed-dose-rescue', '/meal-planner', '/food-drug-checker', '/medical-report', '/patient-dashboard'],
+                all: ['/symptom-triage', '/clinics', '/missed-dose-rescue', '/meal-planner', '/food-drug-checker', '/medical-report', '/vaccine-tracker', '/doctor-visit-prep'],
+                patient: ['/symptom-triage', '/missed-dose-rescue', '/meal-planner', '/food-drug-checker', '/medical-report', '/patient-dashboard'],
                 mother: ['/vaccine-tracker', '/pediatric-helper', '/baby-first-year', '/women-clinic', '/missed-dose-rescue', '/allergy-checker'],
                 doctor: ['/clinics', '/doctor-visit-prep', '/prescription-radar', '/lab-photo-scanner', '/organ-simulator', '/interactions'],
               };

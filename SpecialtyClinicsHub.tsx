@@ -118,7 +118,7 @@ export const SPECIALTY_CLINICS_LIST: SpecialtyClinicCard[] = [
   },
   {
     id: 'interactive-body-map',
-    to: '/body-map',
+    to: '/#body-map-section',
     icon: '🧍‍♂️',
     titleAr: 'خريطة جسم الإنسان التفاعلية (اضغط بإيدك على مكان الوجع في الجسم!)',
     titleEn: 'Interactive Front/Back Human Body Symptom Map',

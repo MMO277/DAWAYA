@@ -254,7 +254,7 @@ const SITUATIONS: SituationGroup[] = [
         subEn: 'Printable clinical summary of your full history',
       },
       {
-        to: '/body-map',
+        to: '/#body-map-section',
         icon: '🧍',
         titleAr: 'خريطة الجسم التفاعلية لتشخيص الأعراض',
         titleEn: 'Interactive Body Map Symptom Triage',

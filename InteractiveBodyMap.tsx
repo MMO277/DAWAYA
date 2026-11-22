@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
 import { tr } from './types';
-import { speakText } from './speechService';
 import Disclaimer from './Disclaimer';
 
 export type BodySide = 'front' | 'back';
@@ -10,1161 +9,1287 @@ export type PatientPersona = 'male' | 'female' | 'child';
 
 export type AnatomicalRegionId =
   | 'head_brain'
-  | 'eyes'
-  | 'ent_teeth'
+  | 'eyes_sinus'
   | 'neck_thyroid'
-  | 'chest_heart_lungs'
-  | 'upper_abdomen'
-  | 'lower_abdomen_pelvis'
-  | 'flanks_kidneys'
-  | 'lower_back_sciatica'
+  | 'heart_chest'
+  | 'lungs_chest'
+  | 'breast_female'
+  | 'breast_male'
+  | 'liver_ruq'
+  | 'stomach_epigastric'
+  | 'lower_abdomen_rlq'
+  | 'pelvis_gyn'
+  | 'intestines_abdomen'
+  | 'kidneys_flanks'
+  | 'lower_back_spine'
+  | 'upper_back'
   | 'shoulders_arms'
-  | 'knees_legs'
-  | 'feet_heels'
-  | 'skin_hair';
+  | 'hips_thighs'
+  | 'knees'
+  | 'legs_calves'
+  | 'ankles_feet'
+  | 'skin_surface';
 
-export interface SubSymptomPattern {
+interface SymptomItem {
   id: string;
-  labelAr: string;
-  urgency: 'emergency_er' | 'urgent_24h' | 'routine_care';
-  likelyDiagnosisAr: string;
-  immediateFirstAidAr: string;
-  strictlyAvoidAr: string;
-  suggestedTestsAr: string;
-  specialtyDoctorAr: string;
-  clinicRoute: string;
-  clinicLabelAr: string;
-  aiFollowUpQueryAr: string;
+  label: string;
+  danger: boolean;
 }
 
-export interface AnatomicalRegionData {
-  id: AnatomicalRegionId;
-  side: 'front' | 'back' | 'both';
-  icon: string;
-  nameAr: string;
-  nameEn: string;
-  subtitleAr: string;
-  redFlagQuestionAr: string;
-  redFlagWarningAr: string;
-  patterns: SubSymptomPattern[];
+interface ZoneProtocol {
+  shortChoice: string;
+  title: string;
+  organs: string;
+  qualities: string[];
+  femaleExtraQualities?: string[];
+  symptoms: SymptomItem[];
+  femaleExtraSymptoms?: SymptomItem[];
+  clinic: string;
+  causes: string[];
+  advice: string;
 }
 
-export const ANATOMICAL_REGIONS: AnatomicalRegionData[] = [
-  {
-    id: 'head_brain',
-    side: 'both',
-    icon: '🧠',
-    nameAr: 'الرأس والمخ والجبهة',
-    nameEn: 'Head, Brain & Forehead',
-    subtitleAr: 'الصداع النصفي، التوتري، الدوخة، وطوارئ جلطة المخ',
-    redFlagQuestionAr: 'هل يصاحب الصداع ثقل في اللسان، ميل في الفم، تنميل في ذراع واحدة، أو قيء نافوري مفاجئ؟',
-    redFlagWarningAr: '🚨 طوارئ مخ وأعصاب فورية (اشتباه جلطة دماغية FAST أو نزيف): توجه لأقرب مستشفى لعمل أشعة مقطعية على المخ خلال الساعة الذهبية ولا تعطِ أسبرين في المنزل قبل الأشعة!',
-    patterns: [
-      {
-        id: 'head-migraine',
-        labelAr: 'صداع نابض في نصف الرأس أو خلف عين واحدة يزداد مع النور والصوت ومعاه غثيان',
-        urgency: 'routine_care',
-        likelyDiagnosisAr: 'نوبة صداع نصفي / شقيقة (Migraine Attack)',
-        immediateFirstAidAr: 'اجلس في غرفة مظلمة وهادئة تماماً، ضع كمادة باردة على الجبهة، وخذ مسكن الشقيقة في أول 15 دقيقة من بداية النوبة.',
-        strictlyAvoidAr: 'تجنب الجبن القديم، الشوكولاتة، السهر، والإفراط في المسكنات أكثر من يومين أسبوعياً.',
-        suggestedTestsAr: 'قياس ضغط الدم، صورة دم كاملة (CBC)، ومخزون الحديد (Ferritin) وفيتامين د.',
-        specialtyDoctorAr: 'استشاري المخ والأعصاب',
-        clinicRoute: '/neuro-clinic',
-        clinicLabelAr: '🧠 افتح عيادة المخ والأعصاب والصداع النصفي',
-        aiFollowUpQueryAr: 'عندي صداع نصفي نابض مع زغللة وغثيان، إيه أفضل تصرف؟',
-      },
-      {
-        id: 'head-tension-bp',
-        labelAr: 'صداع كالحزام الضاغط حول الرأس كلها أو في المؤخرة والرقبة بعد توتر أو قلة نوم',
-        urgency: 'routine_care',
-        likelyDiagnosisAr: 'صداع توتري عضلي أو صداع مرتبط بارتفاع ضغط الدم أو الإجهاد',
-        immediateFirstAidAr: 'قس ضغط الدم أولاً قبل أخذ أي مسكن، وطبق كمادات دافئة على عضلات الرقبة والأكتاف مع شرب كوبين ماء.',
-        strictlyAvoidAr: 'لا تأخذ مسكنات فوارة مالحة (مثل كتافاست أو سولبادين فوار) إذا كان ضغطك مرتفعاً لأن الصوديوم يرفع الضغط!',
-        suggestedTestsAr: 'قياس ضغط الدم الرقمي على مدار 3 أيام، وفحص النظر.',
-        specialtyDoctorAr: 'طبيب الباطنة أو المخ والأعصاب',
-        clinicRoute: '/neuro-clinic',
-        clinicLabelAr: '🧠 افتح عيادة المخ والأعصاب',
-        aiFollowUpQueryAr: 'عندي صداع في مؤخرة الرأس والرقبة، هل ده من الضغط ولا التوتر؟',
-      },
-      {
-        id: 'head-sinus',
-        labelAr: 'ثقل وألم في الجبهة وبين العينين والخدين يزداد بشدة عند السجود أو الميل للأمام',
-        urgency: 'routine_care',
-        likelyDiagnosisAr: 'التهاب واحتقان الجيوب الأنفية الحاد (Acute Sinusitis)',
-        immediateFirstAidAr: 'اغسل الأنف بمحلول ملح دافئ أو بخاخ ماء بحر 4 مرات يومياً مع استنشاق بخار ماء دافئ.',
-        strictlyAvoidAr: 'ممنوع استخدام نقط الأوتريفين لأكثر من 3 إلى 5 أيام كحد أقصى حتى لا يحدث احتقان ارتدادي مزمن.',
-        suggestedTestsAr: 'فحص منظار أنف بعيادة الأنف والأذن إذا استمر أكثر من 10 أيام.',
-        specialtyDoctorAr: 'استشاري الأنف والأذن والحنجرة',
-        clinicRoute: '/ent-clinic',
-        clinicLabelAr: '👂 افتح عيادة الأنف والأذن والجيوب الأنفية',
-        aiFollowUpQueryAr: 'عندي صداع جيوب أنفية بيزيد مع السجود، أعالجه إزاي؟',
-      },
+interface ActivePinState {
+  side: BodySide;
+  x: number;
+  y: number;
+  zoneId: AnatomicalRegionId;
+  choices: AnatomicalRegionId[];
+  sideLabel: string;
+  areaName: string;
+}
+
+const ZONES: Record<AnatomicalRegionId, ZoneProtocol> = {
+  breast_female: {
+    shortChoice: 'الثدي نفسه (ألم / تكتل / جلد الثدي)',
+    title: 'الثدي والجلد الخارجي (أنثى)',
+    organs: 'نسيج الثدي، الغدد اللبنية، الحلمة، الجلد السطحي',
+    qualities: ['ألم أو ثِقل وتحجر بالثدي', 'كتلة أو تكتل موضعي محسوس', 'احمرار وسخونة وتورم بالجلد', 'حكة أو طفح جلدي أو تشقق'],
+    symptoms: [
+      { id: 'hard_lump', label: 'كتلة صلبة غير مؤلمة أو تغير بشكل الجلد/الحلمة', danger: true },
+      { id: 'blood_discharge', label: 'إفرازات دموية من الحلمة أو قرحة لا تلتئم', danger: true },
+      { id: 'mastitis_fever', label: 'احمرار وسخونة شديدة مع ارتفاع حرارة (التهاب ثدي)', danger: true },
+      { id: 'cycle_tender', label: 'الألم يزداد قبل موعد الدورة الشهرية ويخف بعدها', danger: false },
+      { id: 'lactation', label: 'مرتبط بالرضاعة الطبيعية', danger: false },
     ],
+    clinic: 'عيادة صحة المرأة وجراحة الثدي',
+    causes: ['تغيرات هرمونية طبيعية مرتبطة بالدورة الشهرية', 'التهاب الغدد اللبنية أو كيس حميد', 'كتلة تحتاج فحص سونار للاطمئنان المبكر'],
+    advice: 'الألم المرتبط بموعد الدورة شائع وطبيعي غالبًا، لكن أي كتلة محسوسة أو تغير بالجلد أو إفرازات دموية يستلزم فحصًا مبكرًا في عيادة صحة المرأة.',
   },
-  {
-    id: 'eyes',
-    side: 'front',
-    icon: '👁️',
-    nameAr: 'العينان والجفون',
-    nameEn: 'Eyes & Vision',
-    subtitleAr: 'احمرار العين، الزغللة، دخول كيماويات أو رايش، وجفاف الشاشات',
-    redFlagQuestionAr: 'هل دخل في العين كلور/منظف كيميائي أو رايش معدن، أو يوجد فقدان مفاجئ للرؤية أو ألم شديد مع النور؟',
-    redFlagWarningAr: '🚨 طوارئ عيون فورية: لو مادة كيميائية اغسل العين بماء جارٍ لمدة 15 دقيقة متواصلة، ولو رايش لا تدعك العين نهائياً وتوجه لطوارئ الرمد!',
-    patterns: [
-      {
-        id: 'eye-red-discharge',
-        labelAr: 'احمرار في بياض العين مع إفرازات صفراء/عماص يغلق الجفون صباحاً',
-        urgency: 'urgent_24h',
-        likelyDiagnosisAr: 'التهاب ملتحمة بكتيري / رمد صديدي (Bacterial Conjunctivitis)',
-        immediateFirstAidAr: 'امسح الجفن من الداخل للخارج بقطنة مبللة بماء دافئ معقم، وافصل الفوطة والمخدة عن باقي الأسرة.',
-        strictlyAvoidAr: 'ممنوع تماماً شراء قطرة تحتوي على كورتيزون (مثل توبرادكس أو ديكسافرين) من الصيدلية بدون فحص قرنية بالصبغة!',
-        suggestedTestsAr: 'فحص المصباح الشقي (Slit Lamp) لدى طبيب العيون.',
-        specialtyDoctorAr: 'استشاري طب وجراحة العيون',
-        clinicRoute: '/eye-clinic',
-        clinicLabelAr: '👁️ افتح عيادة العيون وطوارئ القرنية',
-        aiFollowUpQueryAr: 'عيني حمرا وبتطلع عماص أصفر، إيه القطرة الآمنة؟',
-      },
-      {
-        id: 'eye-dry-screen',
-        labelAr: 'حرقان وشكشكة كأن في رمل في العين مع زغللة مؤقتة تتحسن بالرمش (مع الموبايل والكمبيوتر)',
-        urgency: 'routine_care',
-        likelyDiagnosisAr: 'متلازمة جفاف العين الرقمي وإجهاد الشاشات (Dry Eye Syndrome)',
-        immediateFirstAidAr: 'طبق قاعدة 20-20-20 واستخدم قطرات الدموع الصناعية المرطبة الخالية من المواد الحافظة (Single-use vials).',
-        strictlyAvoidAr: 'تجنب توجيه هواء التكييف أو المروحة مباشرة للوجه، ولا تستخدم قطرات تبييض العين القابضة للأوعية.',
-        suggestedTestsAr: 'اختبار جفاف العين (Schirmer / TBUT) وفحص مقاس النظارة.',
-        specialtyDoctorAr: 'طبيب العيون والبصريات',
-        clinicRoute: '/eye-clinic',
-        clinicLabelAr: '👁️ افتح عيادة العيون وجفاف الشاشات',
-        aiFollowUpQueryAr: 'عيني فيها حرقان وجفاف من الشاشات، إيه أفضل قطرة مرطبة؟',
-      },
+  breast_male: {
+    shortChoice: 'الثدي أو عضلة وجلد الصدر من بره',
+    title: 'الثدي وجدار الصدر الخارجي (ذكر)',
+    organs: 'نسيج الثدي الذكري، الحلمة، العضلة الصدرية، الجلد السطحي',
+    qualities: ['ألم أو تورم خلف الحلمة (تثدي)', 'شد بعضلة الصدر يزداد بالضغط أو التمرين', 'كتلة صلبة موضعية تحت الجلد', 'طفح جلدي أو حكة أو حبوب'],
+    symptoms: [
+      { id: 'male_lump', label: 'كتلة صلبة ثابتة أو إفرازات/انكماش بالحلمة', danger: true },
+      { id: 'red_hot_chest', label: 'احمرار وسخونة متزايدة مع صديد أو حرارة', danger: true },
+      { id: 'gym_strain', label: 'بدأ بعد تمرين رياضي أو مجهود بدني', danger: false },
+      { id: 'med_gyno', label: 'تورم خفيف مع استخدام أدوية معينة أو مكملات', danger: false },
     ],
+    clinic: 'عيادة الجراحة العامة / الجلدية',
+    causes: ['شد عضلي بجدار الصدر أو التهاب غضاريف الضلوع', 'تثدي هرموني أو دوائي', 'التهاب جلدي أو كتلة سطحية تحتاج فحص جراحي'],
+    advice: 'إذا كان الألم يزداد بالضغط بإصبعك على العضلة فهو غالبًا سطحي/عضلي، أما وجود كتلة صلبة خلف الحلمة فيستدعي فحصًا بعيادة الجراحة.',
   },
-  {
-    id: 'ent_teeth',
-    side: 'front',
-    icon: '🦷',
-    nameAr: 'الأذن والأنف والحلق والأسنان',
-    nameEn: 'ENT, Throat & Teeth',
-    subtitleAr: 'نزيف الأنف، الدوار، اللوز، وخراج وعصب الأسنان',
-    redFlagQuestionAr: 'هل يوجد ورم في الخد يمتد للعين أو الرقبة مع صعوبة بلع اللعاب أو ضيق تنفس؟',
-    redFlagWarningAr: '🚨 طوارئ فورية: التورم الممتد للرقبة أو العين مع صعوبة البلع أو التنفس يستلزم دخول المستشفى فوراً!',
-    patterns: [
-      {
-        id: 'dental-pulpitis',
-        labelAr: 'ألم ضرس نابض يوقظك من النوم ويزداد مع المشروبات الساخنة والباردة والاستلقاء',
-        urgency: 'urgent_24h',
-        likelyDiagnosisAr: 'التهاب عصب الضرس الحاد (Irreversible Pulpitis)',
-        immediateFirstAidAr: 'ارفع رأسك على مخدتين، تمضمض بماء دافئ وملح، واستخدم مسكناً مناسباً لحالتك الصحية لحين فتح العصب عند طبيب الأسنان.',
-        strictlyAvoidAr: 'لا تضع قرص أسبرين أو ثوم أو قرنفل خام على اللثة مباشرة (يسبب حرقاً كيميائياً)، ولا تأخذ مضاداً حيوياً لأن المضاد لا يعالج عصب الضرس بدون تورم!',
-        suggestedTestsAr: 'أشعة ذروية صغيرة (Periapical X-Ray) أو بانوراما أسنان.',
-        specialtyDoctorAr: 'طبيب جراحة الفم والأسنان وعلاج الجذور',
-        clinicRoute: '/dental-clinic',
-        clinicLabelAr: '🦷 افتح عيادة طوارئ الأسنان واللثة',
-        aiFollowUpQueryAr: 'ضرسي بيوجعني جداً بالليل ومش عارف أنام، أعمل إيه فوراً؟',
-      },
-      {
-        id: 'ent-vertigo',
-        labelAr: 'دوار شديد (الأوضة بتلف بيك) لمدة ثوانٍ أو دقيقة عند التقلب في السرير أو رفع الرأس',
-        urgency: 'routine_care',
-        likelyDiagnosisAr: 'دوار الوضعة الانتيابي الحميد بسبب كريستالات الأذن الداخلية (BPPV)',
-        immediateFirstAidAr: 'اجلس فوراً وثبّت نظرك على نقطة ثابتة أمامك، وتجنب الحركات الفجائية للرقبة.',
-        strictlyAvoidAr: 'لا تعتمد على أقراص البيتاسيرك لشهور بدون عمل مناورة إيبلي (Epley Maneuver) لإرجاع الكريستالات.',
-        suggestedTestsAr: 'اختبار اتزان (Dix-Hallpike) بعيادة السمعيات والاتزان.',
-        specialtyDoctorAr: 'استشاري الأنف والأذن والاتزان',
-        clinicRoute: '/ent-clinic',
-        clinicLabelAr: '👂 افتح عيادة الأنف والأذن والدوار',
-        aiFollowUpQueryAr: 'عندي دوخة والدنيا بتلف بيا لما بتقلب في السرير، إيه السبب؟',
-      },
-      {
-        id: 'ent-tonsils',
-        labelAr: 'ألم شديد في الحلق عند البلع مع سخونة عالية وبقع صديد بيضاء على اللوزتين بدون كحة',
-        urgency: 'urgent_24h',
-        likelyDiagnosisAr: 'التهاب اللوزتين البكتيري الصديدي (Bacterial Tonsillitis)',
-        immediateFirstAidAr: 'غرغرة بماء دافئ وملح، سوائل دافئة، وخافض حرارة (باراسيتامول)، ومراجعة الطبيب لوصف المضاد المناسب وإكمال 10 أيام.',
-        strictlyAvoidAr: 'ممنوع إيقاف المضاد الحيوي بعد يومين لمجرد نزول الحرارة حتى لا تحدث مضاعفات الحمى الروماتيزمية.',
-        suggestedTestsAr: 'فحص الحلق السريري، مسحة حلق أو CBC عند اللزوم.',
-        specialtyDoctorAr: 'طبيب الأنف والأذن أو الأطفال',
-        clinicRoute: '/ent-clinic',
-        clinicLabelAr: '👂 افتح عيادة الأنف والأذن والحنجرة',
-        aiFollowUpQueryAr: 'زوري واجعني وفيه صديد على اللوز مع سخونة، محتاج مضاد حيوي؟',
-      },
+  skin_surface: {
+    shortChoice: 'الجلد أو الجزء الخارجي فقط (طفح / تورم / جرح)',
+    title: 'الجلد والأنسجة الخارجية',
+    organs: 'البشرة، الأدمة، بصيلات الشعر، الأنسجة السطحية تحت الجلد',
+    qualities: ['طفح جلدي أو احمرار مع حكة', 'تورم أو دُمّل أو سخونة موضعية', 'جرح أو حرق أو كدمة سطحية', 'لسعة حشرة أو حساسية تلامسية', 'ألم حارق سطحي بالجلد (حزام ناري)'],
+    symptoms: [
+      { id: 'allergy_swell', label: 'تورم مفاجئ بالوجه أو الشفاه أو ضيق تنفس', danger: true },
+      { id: 'cellulitis', label: 'احمرار وسخونة تنتشر بسرعة مع ارتفاع حرارة', danger: true },
+      { id: 'diabetic_skin', label: 'جرح أو التهاب بجلد القدم لمريض سكري', danger: true },
+      { id: 'itch_dry', label: 'جفاف أو قشور أو حكة مزعجة', danger: false },
+      { id: 'pus_boil', label: 'تجمع صديدي أو حبة مؤلمة تحت الجلد', danger: false },
     ],
+    clinic: 'عيادة الأمراض الجلدية / الجراحة',
+    causes: ['حساسية جلدية أو إكزيما تلامسية', 'التهاب بكتيري سطحي أو دُمّل', 'جرح/كدمة سطحية أو حزام ناري'],
+    advice: 'تجنب حك المنطقة أو فتح أي دُمّل باليد، ولا تضع كريمات كورتيزون بدون وصفة. عند انتشار الاحمرار بسرعة مع حرارة توجه للطوارئ فورًا.',
   },
-  {
-    id: 'neck_thyroid',
-    side: 'both',
-    icon: '🦋',
-    nameAr: 'الرقبة والغدة الدرقية',
-    nameEn: 'Neck & Thyroid',
-    subtitleAr: 'خمول أو نشاط الغدة الدرقية، وغضروف الفقرات العنقية',
-    redFlagQuestionAr: 'هل يصاحب ألم الرقبة سخونة شديدة مع عدم القدرة على ثني الذقن نحو الصدر، أو ضعف في حركة اليدين؟',
-    redFlagWarningAr: '🚨 طوارئ فورية: تيبس الرقبة مع الحمى العالية أو ضعف الذراعين يستلزم تقييم مستشفى عاجل!',
-    patterns: [
-      {
-        id: 'thyroid-hypo',
-        labelAr: 'خمول وتعب مستمر، زيادة وزن رغم قلة الأكل، شعور بالبرد، تساقط شعر، أو انتفاخ أسفل الرقبة',
-        urgency: 'routine_care',
-        likelyDiagnosisAr: 'اشتباه كسل/خمول الغدة الدرقية (Hypothyroidism)',
-        immediateFirstAidAr: 'اعمل تحليل الغدة الدرقية (TSH, Free T4)، ولو تتناول الإلتروكسين خذه على الريق قبل الفطار بـ 60 دقيقة بالماء فقط.',
-        strictlyAvoidAr: 'ممنوع تناول الحديد أو الكالسيوم أو اللبن أو القهوة مع قرص الغدة الدرقية في نفس الوقت (افصل 4 ساعات عن الحديد والكالسيوم).',
-        suggestedTestsAr: 'تحليل TSH و Free T4 و Anti-TPO وسونار على الغدة الدرقية.',
-        specialtyDoctorAr: 'استشاري الباطنة والغدد الصماء',
-        clinicRoute: '/chronic-clinic',
-        clinicLabelAr: '🫀 افتح عيادة الباطنة والغدة الدرقية',
-        aiFollowUpQueryAr: 'عندي خمول وزيادة وزن وسقوط شعر، إزاي أقرأ تحليل الغدة الدرقية؟',
-      },
-      {
-        id: 'cervical-disc',
-        labelAr: 'ألم في الرقبة يمتد للكتف والذراع مع تنميل أو كهرباء في أصابع اليد',
-        urgency: 'urgent_24h',
-        likelyDiagnosisAr: 'انزلاق غضروفي عنقي أو خشونة فقرات الرقبة (Cervical Radiculopathy)',
-        immediateFirstAidAr: 'ارفع شاشة الموبايل لمستوى العين، ضع كمادة دافئة على الرقبة، وتجنب حمل أشياء ثقيلة أو طقطقة الرقبة.',
-        strictlyAvoidAr: 'ممنوع طقطقة الرقبة باليد لأنها قد تضغط على الحبل الشوكي أو الشرايين العنقية!',
-        suggestedTestsAr: 'رنين مغناطيسي على الفقرات العنقية (Cervical MRI) عند استمرار التنميل.',
-        specialtyDoctorAr: 'استشاري جراحة العظام والعمود الفقري أو المخ والأعصاب',
-        clinicRoute: '/ortho-clinic',
-        clinicLabelAr: '🦴 افتح عيادة العظام والعمود الفقري',
-        aiFollowUpQueryAr: 'رقبتي بتوجعني وفيه تنميل نازل في ذراعي وصوابعي، أعمل إيه؟',
-      },
+  head_brain: {
+    shortChoice: 'الصداع والمخ من الداخل',
+    title: 'الرأس والمخ والجمجمة',
+    organs: 'المخ، السحايا، الأوعية الدماغية',
+    qualities: ['صداع نابض بنصف الرأس', 'ضغط وثِقل حول الرأس', 'ألم مفاجئ وحاد جدًا', 'دوخة وعدم اتزان'],
+    symptoms: [
+      { id: 'slurred', label: 'تلعثم بالكلام أو تنميل بنصف الوجه', danger: true },
+      { id: 'thunder', label: 'أعنف صداع مفاجئ في حياتي', danger: true },
+      { id: 'nausea', label: 'غثيان أو حساسية للضوء', danger: false },
+      { id: 'vision', label: 'زغللة أو تشوش بالرؤية', danger: false },
     ],
+    femaleExtraSymptoms: [{ id: 'hormonal_mig', label: 'يزداد مع اقتراب الدورة الشهرية أو مع الحمل', danger: false }],
+    clinic: 'عيادة المخ والأعصاب',
+    causes: ['الصداع النصفي (الشقيقة) أو التوتري', 'ارتفاع ضغط الدم المفاجئ', 'إجهاد شديد أو صداع هرموني'],
+    advice: 'قم بقياس ضغط الدم فورًا، استرح في إضاءة هادئة واشرب ماء، وتوجّه للطوارئ عند وجود أي تنميل أو تلعثم.',
   },
-  {
-    id: 'chest_heart_lungs',
-    side: 'front',
-    icon: '🫁',
-    nameAr: 'الصدر والقلب والرئتين',
-    nameEn: 'Chest, Heart & Lungs',
-    subtitleAr: 'ألم الصدر والذبحة، الكحة، حساسية الصدر والربو، والخفقان',
-    redFlagQuestionAr: 'هل تشعر بضغط ثقيل كالصخرة في منتصف الصدر يمتد للكتف الأيسر أو الفك مع عرق بارد أو نهجان شديد؟',
-    redFlagWarningAr: '🚨 طوارئ قلب فورية (اشتباه ذبحة صدرية أو جلطة بالقلب): توقف عن أي مجهود، اجلس نصف جالس، وتوجه فوراً لأقرب طوارئ قلب لعمل رسم قلب وإنزيمات تروبونين!',
-    patterns: [
-      {
-        id: 'chest-angina',
-        labelAr: 'ثقل أو عصرة أو حرقان في منتصف الصدر يزداد مع المشي أو السلم ويهدأ بالراحة',
-        urgency: 'emergency_er',
-        likelyDiagnosisAr: 'اشتباه قصور بالشريان التاجي / ذبحة صدرية (Angina Pectoris)',
-        immediateFirstAidAr: 'توقف عن المجهود فوراً، اجلس في وضع مريح، وتوجه لطوارئ القلب لعمل رسم قلب (ECG) وإيكو.',
-        strictlyAvoidAr: 'لا تشخّص ألم منتصف الصدر على أنه «شوية غازات أو قولون أو برد في الضلوع» خاصة لو مريض ضغط أو سكر أو مدخن!',
-        suggestedTestsAr: 'رسم قلب كهربائي (ECG)، إنزيمات القلب (Troponin I/T)، وإيكو على القلب.',
-        specialtyDoctorAr: 'استشاري القلب والأوعية الدموية',
-        clinicRoute: '/chronic-clinic',
-        clinicLabelAr: '🫀 افتح عيادة القلب والضغط والباطنة',
-        aiFollowUpQueryAr: 'حاسس بثقل في نص صدري مع المجهود، إزاي أفرق بين القلب والمعدة؟',
-      },
-      {
-        id: 'chest-asthma-cough',
-        labelAr: 'كحة مستمرة تشتد بالليل والفجر مع تزييق في الصدر أو بلغم كثيف',
-        urgency: 'urgent_24h',
-        likelyDiagnosisAr: 'حساسية صدر / ربو شعبي أو التهاب شعب هوائية (Asthma / Bronchitis)',
-        immediateFirstAidAr: 'اشرب سوائل دافئة بكثرة لإذابة البلغم، واستخدم البخاخ الموسع للشعب أو جلسة بخار بمحلول الملح حسب إرشاد الطبيب.',
-        strictlyAvoidAr: 'ممنوع إعطاء أدوية مثبطة للكحة الجافة لمريض صدره ممتلئ بالبلغم أو مريض حساسية الصدر حتى لا يحتبس البلغم في الرئة!',
-        suggestedTestsAr: 'فحص سماعة الصدر، قياس الأكسجين (SpO2)، أو وظائف التنفس.',
-        specialtyDoctorAr: 'استشاري الأمراض الصدرية والحساسية',
-        clinicRoute: '/chest-clinic',
-        clinicLabelAr: '🫁 افتح عيادة الصدر والربو وجلسات البخار',
-        aiFollowUpQueryAr: 'عندي كحة ببلغم وتزييق في الصدر بيزيد بالليل، آخد دواء كحة إيه؟',
-      },
+  eyes_sinus: {
+    shortChoice: 'العينين والجيوب الأنفية',
+    title: 'العينين والجيوب الأنفية والوجه',
+    organs: 'العينان، الجيوب الأنفية، العصب الخامس',
+    qualities: ['ضغط وامتلاء حول العين والأنف', 'ألم يزداد عند الانحناء للأمام', 'حرقة أو احمرار بالعين', 'ألم كهربائي بالوجه'],
+    symptoms: [
+      { id: 'sudden_loss', label: 'فقدان مفاجئ أو تشوش حاد بالرؤية', danger: true },
+      { id: 'congestion', label: 'انسداد أو إفرازات بالأنف', danger: false },
+      { id: 'fever', label: 'ارتفاع درجة الحرارة', danger: false },
     ],
+    clinic: 'عيادة الأنف والأذن / الرمد',
+    causes: ['التهاب الجيوب الأنفية الحاد', 'إجهاد العين أو جفافها', 'التهاب العصب الوجهي أو حساسية الأنف'],
+    advice: 'استخدم غسول محلول ملحي للأنف وراجع طبيب الرمد فورًا لو كان الألم داخل العين مع ضعف رؤية.',
   },
-  {
-    id: 'upper_abdomen',
-    side: 'front',
-    icon: '🔥',
-    nameAr: 'فم المعدة وأعلى البطن والمرارة',
-    nameEn: 'Upper Abdomen, Stomach & Gallbladder',
-    subtitleAr: 'الحموضة وارتجاع المريء، جرثومة المعدة، ومغص المرارة',
-    redFlagQuestionAr: 'هل يصاحب ألم المعدة قيء دموي (أحمر أو كالقهوة)، أو براز أسود كالفحم، أو اصفرار في بياض العين؟',
-    redFlagWarningAr: '🚨 طوارئ جهاز هضمي فورية: القيء المدمم أو البراز الأسود القطراني يدل على نزيف معدي معوي ويستلزم التوجه للمستشفى فوراً!',
-    patterns: [
-      {
-        id: 'stomach-gerd-ulcer',
-        labelAr: 'حرقان ونار في فم المعدة تطلع للصدر والزور بعد الأكل أو عند النوم مع طعم مر',
-        urgency: 'routine_care',
-        likelyDiagnosisAr: 'ارتجاع المريء أو التهاب جدار المعدة وجرثومة المعدة (GERD / Gastritis)',
-        immediateFirstAidAr: 'افصل بين العشاء والنوم بـ 3 ساعات كاملة، نم على الجانب الأيسر مع رفع الرأس، وخذ دواء المعدة قبل الفطار بـ 30 دقيقة.',
-        strictlyAvoidAr: 'تجنب المسكنات (فولتارين، كتافلام، بروفين، أسبرين)، المسبكات، القهوة على الريق، والنعناع لو عندك ارتجاع.',
-        suggestedTestsAr: 'تحليل جرثومة المعدة في البراز (H. pylori Stool Ag) بشرط إيقاف أدوية المعدة أسبوعين قبل التحليل.',
-        specialtyDoctorAr: 'استشاري الجهاز الهضمي والكبد والمناظير',
-        clinicRoute: '/gastro-clinic',
-        clinicLabelAr: '🦠 افتح عيادة الجهاز الهضمي والجرثومة',
-        aiFollowUpQueryAr: 'عندي حموضة وحرقان في فم المعدة بيزيد لما أنام، أعمل إيه؟',
-      },
-      {
-        id: 'gallbladder-biliary',
-        labelAr: 'مغص شديد أعلى البطن جهة اليمين تحت الضلوع بعد أكلة دسمة أو مقليات ويسمّع في الكتف الأيمن',
-        urgency: 'urgent_24h',
-        likelyDiagnosisAr: 'مغص مراري أو حصوات والتهاب بالمرارة (Biliary Colic / Cholecystitis)',
-        immediateFirstAidAr: 'امتنع تماماً عن الدهون والمقليات والبيض والسمن، وتوجه لعمل سونار على البطن والمرارة.',
-        strictlyAvoidAr: 'لا تهمل المغص لو صاحبه سخونة أو اصفرار في العين أو غمقان لون البول كالشاي.',
-        suggestedTestsAr: 'موجات فوق صوتية (سونار) على البطن والمرارة، وإنزيمات الكبد والصفراء.',
-        specialtyDoctorAr: 'استشاري الجهاز الهضمي أو الجراحة العامة',
-        clinicRoute: '/gastro-clinic',
-        clinicLabelAr: '🦠 افتح عيادة الجهاز الهضمي والكبد',
-        aiFollowUpQueryAr: 'عندي وجع تحت الضلوع اليمين بعد الأكل الدسم بيسمع في كتفي اليمين، ده مرارة؟',
-      },
+  neck_thyroid: {
+    shortChoice: 'الحلق والغدة والفقرات العنقية',
+    title: 'الرقبة والحلق والغدة الدرقية',
+    organs: 'القصبة الهوائية، الحنجرة، الغدة الدرقية، الفقرات العنقية',
+    qualities: ['شد وتيبس بعضلات الرقبة', 'ألم وحرقان مع البلع', 'ألم يمتد للكتف والذراع', 'تورم أو ضغط بمقدمة الرقبة'],
+    symptoms: [
+      { id: 'airway', label: 'صعوبة في التنفس أو البلع', danger: true },
+      { id: 'stiff_fever', label: 'تيبس شديد بالرقبة مع حرارة عالية', danger: true },
+      { id: 'hoarse', label: 'بحة بالصوت أو احتقان حلق', danger: false },
     ],
+    clinic: 'عيادة الأنف والأذن / الغدد الصماء',
+    causes: ['إجهاد عضلات الرقبة أو خشونة الفقرات العنقية', 'التهاب الحلق واللوزتين', 'تضخم أو نشاط الغدة الدرقية'],
+    advice: 'تجنب ثني الرقبة طويلاً أمام الهاتف، وتوجه للطوارئ فورًا لو شعرت بصعوبة تنفس أو بلع.',
   },
-  {
-    id: 'lower_abdomen_pelvis',
-    side: 'front',
-    icon: '🦠',
-    nameAr: 'أسفل البطن والقولون والحوض',
-    nameEn: 'Lower Abdomen, Colon & Pelvis',
-    subtitleAr: 'القولون العصبي، الزائدة الدودية، التهاب المسالك، وآلام الحوض',
-    redFlagQuestionAr: 'هل الألم يتركز في الجنب الأيمن السفلي ويزداد بشدة مع الكحة أو المشي مع سخونة وفقدان شهية؟',
-    redFlagWarningAr: '🚨 طوارئ جراحة فورية (اشتباه التهاب الزائدة الدودية الحاد): لا تأخذ مسكنات قوية أو ملينات وتوجه لأقرب مستشفى لفحص الجراحة وعمل سونار!',
-    patterns: [
-      {
-        id: 'appendix-warning',
-        labelAr: 'ألم بدأ حول السرة ثم استقر أسفل البطن جهة اليمين ويزداد مع الحركة والكحة مع سخونة وغثيان',
-        urgency: 'emergency_er',
-        likelyDiagnosisAr: 'اشتباه التهاب الزائدة الدودية الحاد (Acute Appendicitis)',
-        immediateFirstAidAr: 'امتنع عن الأكل والشرب والمسكنات وتوجه فوراً لطوارئ الجراحة العامة.',
-        strictlyAvoidAr: 'ممنوع أخذ مسكنات تخفي الألم أو حقنة شرجية/ملين لأنها قد تؤدي لانفجار الزائدة الملتهبة!',
-        suggestedTestsAr: 'فحص جراحي سريري، صورة دم كاملة (CBC)، وسونار على البطن والحوض.',
-        specialtyDoctorAr: 'استشاري الجراحة العامة والطوارئ',
-        clinicRoute: '/gastro-clinic',
-        clinicLabelAr: '🦠 افتح عيادة الجهاز الهضمي والطوارئ',
-        aiFollowUpQueryAr: 'عندي وجع في الجنب اليمين من تحت البطن بيزيد لما أكح، إزاي أعرف لو زائدة؟',
-      },
-      {
-        id: 'ibs-colon',
-        labelAr: 'انتفاخ وغازات وتقلصات في البطن تزداد مع الزعل أو البقوليات وتهدأ بعد دخول الحمام',
-        urgency: 'routine_care',
-        likelyDiagnosisAr: 'متلازمة القولون العصبي الهضمي (Irritable Bowel Syndrome - IBS)',
-        immediateFirstAidAr: 'اشرب يانسون أو شمر دافئ، امشِ 20 دقيقة، واستخدم مضادات التقلصات المخصصة للقولون قبل الأكل بـ 20 دقيقة.',
-        strictlyAvoidAr: 'تجنب البقوليات غير المنقوعة، الكرنب، المشروبات الغازية، والأكل السريع في وقت التوتر.',
-        suggestedTestsAr: 'تحليل براز كامل واستبعاد حساسية القمح أو التهاب القولون.',
-        specialtyDoctorAr: 'استشاري الجهاز الهضمي والباطنة',
-        clinicRoute: '/gastro-clinic',
-        clinicLabelAr: '🦠 افتح عيادة الجهاز الهضمي والقولون',
-        aiFollowUpQueryAr: 'عندي انتفاخ وغازات وقولون عصبي، إيه الأكل الممنوع والعلاج المريح؟',
-      },
-      {
-        id: 'uti-pelvic',
-        labelAr: 'ثقل أسفل البطن فوق المثانة مع حرقان شديد في البول وتكرار دخول الحمام كل قليل',
-        urgency: 'urgent_24h',
-        likelyDiagnosisAr: 'التهاب حاد في المثانة ومجرى البول (Urinary Tract Infection - UTI)',
-        immediateFirstAidAr: 'اشرب 2 إلى 3 لتر ماء يومياً، واعمل تحليل ومزرعة بول قبل البدء في أي مضاد حيوي.',
-        strictlyAvoidAr: 'لا تأخذ كورس مضاد حيوي عشوائي لمدة يومين وتوقفه لأن البكتيريا تكتسب مناعة شرسة وتعود أقوى!',
-        suggestedTestsAr: 'تحليل بول كامل (Complete Urine Analysis) ومزرعة وحساسية بول (Urine Culture).',
-        specialtyDoctorAr: 'استشاري المسالك البولية أو النساء',
-        clinicRoute: '/urology-clinic',
-        clinicLabelAr: '🧪 افتح عيادة المسالك البولية والكلى',
-        aiFollowUpQueryAr: 'عندي حرقان شديد في البول ووجع أسفل البطن، أعمل تحليل إيه الأول؟',
-      },
+  heart_chest: {
+    shortChoice: 'القلب ومنتصف الصدر من الداخل',
+    title: 'القلب ومنتصف الصدر الداخلي',
+    organs: 'القلب، الشرايين التاجية، الشريان الأورطي، التامور',
+    qualities: ['ألم ضاغط أو ثِقل عاصر بالصدر', 'خفقان وتسارع ضربات القلب', 'نغزة حادة تزيد مع النفس', 'حرقان يمتد لأعلى الحلق'],
+    symptoms: [
+      { id: 'radiate_arm', label: 'يمتد للذراع اليسرى أو الفك أو الظهر', danger: true },
+      { id: 'cold_sweat', label: 'تعرق بارد أو دوخة وإغماء', danger: true },
+      { id: 'sob', label: 'نهجان وضيق تنفس شديد', danger: true },
+      { id: 'after_meal', label: 'يزداد بعد الأكل أو الاستلقاء', danger: false },
     ],
+    clinic: 'عيادة القلب والأوعية الدموية',
+    causes: ['الذبحة الصدرية أو قصور الشرايين التاجية', 'اضطراب نظم القلب أو ارتفاع الضغط', 'ارتجاع المريء'],
+    advice: 'لا تتجاهل أي ألم ضاغط بداخل الصدر: عند وجود عرق بارد أو امتداد للذراع اتصل بالإسعاف 123 فورًا، وإلا اعمل رسم قلب (ECG).',
   },
-  {
-    id: 'flanks_kidneys',
-    side: 'back',
-    icon: '🫘',
-    nameAr: 'الجانبان والكليتان (المغص الكلوي)',
-    nameEn: 'Flanks & Kidneys',
-    subtitleAr: 'المغص الكلوي، حصوات الحالب، وأملاح وصديد الكلى',
-    redFlagQuestionAr: 'هل يصاحب ألم الجنب انقطاع كامل للبول لأكثر من 12 ساعة، أو سخونة ورعشة شديدة؟',
-    redFlagWarningAr: '🚨 طوارئ مسالك فورية: المغص الكلوي مع سخونة ورعشة أو انقطاع البول يعني انسداد الحالب ويستلزم التوجه للمستشفى فوراً!',
-    patterns: [
-      {
-        id: 'kidney-stone-colic',
-        labelAr: 'ألم حاد جداً في الجنب (اليمين أو الشمال) يمسك الظهر وينزل للحوض والفخذ مع تغير لون البول أو غثيان',
-        urgency: 'urgent_24h',
-        likelyDiagnosisAr: 'مغص كلوي حاد بسبب تحرك حصوة أو أملاح بالحالب (Renal Colic / Ureteric Stone)',
-        immediateFirstAidAr: 'ضع قربة ماء دافئ على الجنب المؤلم، وتجنب شرب كميات مياه ضخمة أثناء ذروة المغص الحاد حتى تهدأ النوبة.',
-        strictlyAvoidAr: 'احذر من تكرار حقن الفولتارين والكتافلام بكثرة لأنها قد تؤذي الكلى، ولا تأخذ فوار أملاح عشوائياً قبل معرفة نوع الأملاح في التحليل!',
-        suggestedTestsAr: 'تحليل بول كامل، وظائف كلى (Creatinine)، وسونار أو أشعة مقطعية على المسالك بدون صبغة.',
-        specialtyDoctorAr: 'استشاري الكلى والمسالك البولية',
-        clinicRoute: '/urology-clinic',
-        clinicLabelAr: '🧪 افتح عيادة الكلى والمسالك والحصوات',
-        aiFollowUpQueryAr: 'جنبي بيوجعني جداً وبيسمع في ضهري ومغص كلوي، أتصرف إزاي؟',
-      },
+  lungs_chest: {
+    shortChoice: 'الرئتين والتنفس من الداخل',
+    title: 'الصدر الداخلي والرئتين',
+    organs: 'الرئتان، الشعب الهوائية، الغشاء البلوري',
+    qualities: ['نغزة عميقة تزيد مع الشهيق', 'ضيق وصفير أثناء التنفس', 'ألم مع الكحة المستمرة'],
+    symptoms: [
+      { id: 'severe_sob', label: 'نهجان شديد أو زرقة بالشفاه', danger: true },
+      { id: 'cough_blood', label: 'كحة مصحوبة بدم', danger: true },
+      { id: 'cough_phlegm', label: 'كحة ببلغم أو حساسية صدر', danger: false },
+      { id: 'fever_chest', label: 'ارتفاع درجة الحرارة', danger: false },
     ],
+    clinic: 'عيادة الصدر والجهاز التنفسي',
+    causes: ['التهاب الشعب الهوائية أو حساسية الصدر (الربو)', 'التهاب الغشاء البلوري أو الالتهاب الرئوي'],
+    advice: 'تجنب التدخين والأتربة، راقب نسبة الأكسجين، ولا تأخذ مضادًا حيويًا بدون فحص طبيب الصدر.',
   },
-  {
-    id: 'lower_back_sciatica',
-    side: 'back',
-    icon: '🦴',
-    nameAr: 'أسفل الظهر والعمود الفقري وعرق النسا',
-    nameEn: 'Lower Back, Spine & Sciatica',
-    subtitleAr: 'الانزلاق الغضروفي القطني، عرق النسا، والشد العضلي',
-    redFlagQuestionAr: 'هل يصاحب ألم الظهر عدم تحكم في البول، أو تنميل في منطقة المقعدة، أو سقوط في مشط القدم أثناء المشي؟',
-    redFlagWarningAr: '🚨 طوارئ عمود فقري فورية (متلازمة ذيل الفرس): فقدان التحكم في البول أو سقوط القدم يستلزم تقييم جراحة مخ وأعصاب فوراً!',
-    patterns: [
-      {
-        id: 'lumbar-sciatica',
-        labelAr: 'ألم أسفل الظهر يمتد كالكهرباء أو السيخ الساخن خلف الفخذ والسمانة حتى القدم ويزداد مع الكحة والجلوس',
-        urgency: 'urgent_24h',
-        likelyDiagnosisAr: 'انزلاق غضروفي قطني وعرق النسا (Lumbar Disc Prolapse & Sciatica)',
-        immediateFirstAidAr: 'استلقِ على ظهرك على مرتبة طبية متماسكة مع وضع مخدة عالية تحت ركبتيك لتقليل الضغط على الغضروف بنسبة 50%.',
-        strictlyAvoidAr: 'ممنوع الانحناء للأمام لالتقاط أي شيء من الأرض، وممنوع النوم في الفراش بلا حركة لأكثر من يومين.',
-        suggestedTestsAr: 'أشعة رنين مغناطيسي على الفقرات القطنية والعجزية (Lumbar Spine MRI).',
-        specialtyDoctorAr: 'استشاري العظام والعمود الفقري أو المخ والأعصاب',
-        clinicRoute: '/ortho-clinic',
-        clinicLabelAr: '🦴 افتح عيادة العظام والغضروف وعرق النسا',
-        aiFollowUpQueryAr: 'ضهري واجعني والوجع نازل كهرباء في رجلي (عرق النسا)، أعمل إيه؟',
-      },
+  liver_ruq: {
+    shortChoice: 'الكبد والمرارة من الداخل',
+    title: 'أعلى يمين البطن — الكبد والمرارة',
+    organs: 'الكبد، الحوصلة المرارية، القنوات المرارية',
+    qualities: ['مغص حاد بعد الأكل الدسم', 'ثِقل وألم مستمر أسفل الضلوع اليمنى', 'ألم يمتد للكتف الأيمن'],
+    symptoms: [
+      { id: 'jaundice', label: 'اصفرار بالعينين أو الجلد', danger: true },
+      { id: 'high_fever', label: 'حرارة عالية مع رعشة شديدة', danger: true },
+      { id: 'fatty_trigger', label: 'يزداد بعد الوجبات الدسمة', danger: false },
     ],
+    clinic: 'عيادة الكبد والجهاز الهضمي',
+    causes: ['المغص المراري أو حصوات المرارة', 'الكبد الدهني أو التهاب الكبد'],
+    advice: 'تجنب الدهون والمقليات، وراجع أدويتك عبر فاحص أمان الأدوية في دوايا.',
   },
-  {
-    id: 'shoulders_arms',
-    side: 'both',
-    icon: '💪',
-    nameAr: 'الكتف والذراع واليد والأصابع',
-    nameEn: 'Shoulders, Arms & Hands',
-    subtitleAr: 'التهاب أوتار الكتف، اختناق عصب اليد، وتنميل الأطراف',
-    redFlagQuestionAr: 'هل الألم في الكتف الأيسر والذراع اليسرى ظهر فجأة مع ضيق تنفس أو ثقل بالصدر وعرق بارد؟',
-    redFlagWarningAr: '🚨 طوارئ قلب فورية: ألم الكتف والذراع الأيسر المفاجئ مع عرق أو نهجان قد يكون عرضاً لجلطة القلب!',
-    patterns: [
-      {
-        id: 'carpal-neuropathy',
-        labelAr: 'تنميل وشكشكة وكهرباء في أصابع اليد تشتد بالليل وعند مسك الموبايل أو у مرضى السكر',
-        urgency: 'routine_care',
-        likelyDiagnosisAr: 'اختناق عصب اليد الأوسط (Carpal Tunnel) أو التهاب الأعصاب الطرفية ونقص فيتامين B12',
-        immediateFirstAidAr: 'استخدم دعامة رسغ اليد أثناء النوم، واضبط مستوى السكر التراكمي، وعوّض نقص فيتامين B12.',
-        strictlyAvoidAr: 'تجنب ثني رسغ اليد لفترات طويلة أثناء الكتابة أو استخدام الموبايل.',
-        suggestedTestsAr: 'تحليل فيتامين B12، السكر التراكمي (HbA1c)، ورسم عصب وعضلات (EMG/NCV).',
-        specialtyDoctorAr: 'طبيب المخ والأعصاب أو جراحة العظام واليد',
-        clinicRoute: '/ortho-clinic',
-        clinicLabelAr: '🦴 افتح عيادة العظام والأعصاب الطرفية',
-        aiFollowUpQueryAr: 'عندي تنميل وشكشكة في صوابع إيدي بتزيد بالليل، إيه السبب والعلاج؟',
-      },
+  stomach_epigastric: {
+    shortChoice: 'المعدة وفم المعدة من الداخل',
+    title: 'فم المعدة وأعلى يسار البطن',
+    organs: 'المعدة، أسفل المريء، الاثني عشر، البنكرياس',
+    qualities: ['حرقان وحموضة بفم المعدة', 'ألم حاد بعد المسكنات أو الجوع', 'ألم يمتد للظهر بعد الأكل'],
+    symptoms: [
+      { id: 'blood_vomit', label: 'قيء دموي أو براز أسود قاتم', danger: true },
+      { id: 'rigid_belly', label: 'تحجر شديد بالبطن وألم لا يُحتمل', danger: true },
+      { id: 'acid_reflux', label: 'طعم مر أو ارتجاع للحلق', danger: false },
     ],
+    clinic: 'عيادة الباطنة والجهاز الهضمي',
+    causes: ['التهاب المعدة أو ارتجاع المريء', 'جرثومة المعدة أو قرحة المعدة'],
+    advice: 'أوقف المسكنات على معدة فارغة، قلل المنبهات والتوابل، وتجنب الاستلقاء فور الأكل.',
   },
-  {
-    id: 'knees_legs',
-    side: 'both',
-    icon: '🦵',
-    nameAr: 'الفخذ والركبة والسمانة والساق',
-    nameEn: 'Knees, Thighs & Calves',
-    subtitleAr: 'خشونة الركبة، جلطة الساق (DVT)، والشد العضلي الليلي',
-    redFlagQuestionAr: 'هل يوجد تورم وانتفاخ وسخونة واحمرار في سمانة رجل واحدة فقط (خاصة بعد عملية أو سفر أو رقود)؟',
-    redFlagWarningAr: '🚨 طوارئ أوعية دموية فورية (اشتباه جلطة وريدية بالساق DVT): ممنوع تماماً تدليك الساق المتورمة حتى لا تتحرك الجلطة للرئة، وتوجه فوراً لعمل دوبلر أوردة!',
-    patterns: [
-      {
-        id: 'leg-dvt-warning',
-        labelAr: 'تورم مفاجئ وألم وسخونة في ساق واحدة فقط (السمانة) يزداد عند الوقوف أو ثني القدم',
-        urgency: 'emergency_er',
-        likelyDiagnosisAr: 'اشتباه جلطة بالأوردة العميقة للساق (Deep Vein Thrombosis - DVT)',
-        immediateFirstAidAr: 'ارفع الساق قليلاً، لا تدلكها إطلاقاً، وتوجه فوراً لعمل أشعة دوبلر ملون على أوردة الساق.',
-        strictlyAvoidAr: 'تحذير قاتل: إياك وتدليك السمانة المتورمة بالمراهم لأن التدليك قد يفصل الجلطة ويرسلها للشريان الرئوي!',
-        suggestedTestsAr: 'أشعة دوبلر ملون على أوردة الطرف السفلي (Venous Duplex) وتحليل D-Dimer.',
-        specialtyDoctorAr: 'استشاري جراحة الأوعية الدموية',
-        clinicRoute: '/chronic-clinic',
-        clinicLabelAr: '🫀 افتح عيادة القلب والأوعية والسيولة',
-        aiFollowUpQueryAr: 'رجل واحدة وارمة وسخنة وبتوجع في السمانة، هل دي جلطة؟',
-      },
-      {
-        id: 'knee-osteoarthritis',
-        labelAr: 'ألم وطقطقة وتيبس في الركبة يزداد عند طلوع ونزول السلم أو القيام من الجلوس',
-        urgency: 'routine_care',
-        likelyDiagnosisAr: 'خشونة مفصل الركبة وتآكل الغضروف (Knee Osteoarthritis)',
-        immediateFirstAidAr: 'مارس تمرين تقوية عضلة الفخذ الأمامية وأنت جالس، استخدم دهاناً موضعياً، وأنقص الوزن لتخفيف الحمل على الركبة.',
-        strictlyAvoidAr: 'تجنب الجلوس في وضع التربيع على الأرض أو القرفصاء، وتجنب المسكنات الفموية اليومية المستمرة.',
-        suggestedTestsAr: 'أشعة عادية على الركبتين في الوضع واقفاً (Standing Knee X-Ray) وفيتامين د.',
-        specialtyDoctorAr: 'استشاري جراحة العظام والمفاصل والعلاج الطبيعي',
-        clinicRoute: '/ortho-clinic',
-        clinicLabelAr: '🦴 افتح عيادة العظام وخشونة الركبة',
-        aiFollowUpQueryAr: 'ركبتي بتوجعني وبتطقطق مع السلم، إيه علاج الخشونة بدون مسكنات؟',
-      },
+  lower_abdomen_rlq: {
+    shortChoice: 'القولون والزائدة من الداخل',
+    title: 'أسفل يمين البطن — القولون والزائدة الدودية',
+    organs: 'الزائدة الدودية، القولون الصاعد، الحالب الأيمن',
+    qualities: ['ألم بدأ حول السرة ثم استقر أسفل اليمين', 'مغص متقطع مع غازات', 'ألم حاد يزداد مع الحركة'],
+    femaleExtraQualities: ['ألم حاد بجهة المبيض الأيمن'],
+    symptoms: [
+      { id: 'rebound', label: 'الألم يزيد بشدة مع الحركة أو الضغط', danger: true },
+      { id: 'fever_vomit', label: 'ارتفاع حرارة مع قيء وفقدان شهية', danger: true },
+      { id: 'bloating', label: 'انتفاخ وتراكم غازات', danger: false },
     ],
+    femaleExtraSymptoms: [{ id: 'ectopic_risk', label: 'تأخر الدورة الشهرية أو احتمالية حمل', danger: true }],
+    clinic: 'عيادة الجراحة العامة / النساء والتوليد',
+    causes: ['اشتباه التهاب الزائدة الدودية', 'القولون العصبي أو مغص الحالب', 'أسباب المبيض والحمل (للإناث)'],
+    advice: 'لا تأخذ مسكنات قوية ولا ملينات قبل استبعاد التهاب الزائدة الدودية عند الطبيب.',
   },
-  {
-    id: 'feet_heels',
-    side: 'both',
-    icon: '🦶',
-    nameAr: 'القدم والكعب وإصبع القدم الأكبر',
-    nameEn: 'Feet, Heels & Big Toe',
-    subtitleAr: 'النقرس الحاد، الشوكة العظمية بالكعب، والقدم السكري',
-    redFlagQuestionAr: 'هل أنت مريض سكر وتلاحظ جرحاً أو قرحة لا تلتئم أو اسوداداً أو تغيراً في لون أصابع القدم؟',
-    redFlagWarningAr: '🚨 طوارئ قدم سكري: أي جرح أو تغير لون في قدم مريض السكر يستلزم فحص جراحة أوعية وقدم سكري خلال 24 ساعة!',
-    patterns: [
-      {
-        id: 'foot-gout',
-        labelAr: 'تورم واحمرار وسخونة وألم شديد في مفصل إصبع القدم الأكبر أو الكعب يشتد الفجر',
-        urgency: 'urgent_24h',
-        likelyDiagnosisAr: 'نوبة نقرس حادة وارتفاع حمض اليوريك (Acute Gouty Arthritis)',
-        immediateFirstAidAr: 'ارفع القدم وضع كمادات باردة، اشرب 3 لتر ماء يومياً، وأوقف اللحوم الحمراء والكبدة والمياه الغازية.',
-        strictlyAvoidAr: 'ممنوع البدء في دواء خفض اليوريك (زيلوريك / فيبيوريك) لأول مرة أثناء النوبة الحادة لأنه يهيّج الألم أكثر؛ نعالج الالتهاب الحاد أولاً!',
-        suggestedTestsAr: 'تحليل حمض اليوريك في الدم (Serum Uric Acid) ووظائف الكلى.',
-        specialtyDoctorAr: 'استشاري العظام أو الروماتيزم والباطنة',
-        clinicRoute: '/ortho-clinic',
-        clinicLabelAr: '🦴 افتح عيادة العظام والنقرس',
-        aiFollowUpQueryAr: 'صباع رجلي الكبير وارم وأحمر وبيوجع جداً، إزاي أعالج نوبة النقرس؟',
-      },
-      {
-        id: 'foot-plantar',
-        labelAr: 'ألم كالمسمار في باطن الكعب عند أول خطوات تخطوها على الأرض فور الاستيقاظ صباحاً',
-        urgency: 'routine_care',
-        likelyDiagnosisAr: 'التهاب اللفافة الأخمصية / الشوكة العظمية بالكعب (Plantar Fasciitis)',
-        immediateFirstAidAr: 'دلك باطن القدم على زجاجة ماء مثلجة لمدة 10 دقائق، وارتدِ فرشة كعب سيليكون طبية داخل الحذاء.',
-        strictlyAvoidAr: 'ممنوع المشي حافي القدمين على السيراميك أو الرخام الصلب في المنزل نهائياً.',
-        suggestedTestsAr: 'فحص سريري بعيادة العظام وحمض اليوريك وفيتامين د.',
-        specialtyDoctorAr: 'طبيب جراحة العظام والعلاج الطبيعي',
-        clinicRoute: '/ortho-clinic',
-        clinicLabelAr: '🦴 افتح عيادة العظام والشوكة العظمية',
-        aiFollowUpQueryAr: 'كعب رجلي بيوجعني جداً أول ما أصحى من النوم، إيه علاج الشوكة العظمية؟',
-      },
+  pelvis_gyn: {
+    shortChoice: 'الرحم والمبايض / الدورة الشهرية',
+    title: 'أسفل البطن والحوض — الرحم والمبايض والمثانة',
+    organs: 'الرحم، المبيضان، قناتا فالوب، المثانة البولية',
+    qualities: ['تقلصات دورة شهرية (عسر طمث)', 'ألم حاد مفاجئ بجانب واحد من الحوض', 'ثِقل وضغط بأسفل الحوض والظهر', 'حرقان مع التبول'],
+    symptoms: [
+      { id: 'preg_delay', label: 'تأخر الدورة الشهرية أو احتمالية وجود حمل', danger: true },
+      { id: 'heavy_bleed', label: 'نزيف مهبلي غزير أو غير معتاد مع دوخة', danger: true },
+      { id: 'period_now', label: 'الألم متزامن مع موعد الدورة الشهرية حاليًا', danger: false },
+      { id: 'gyn_fever', label: 'ارتفاع حرارة أو إفرازات غير طبيعية', danger: false },
     ],
+    clinic: 'عيادة النساء والتوليد',
+    causes: ['عسر الطمث وتقلصات الدورة الشهرية', 'أكياس المبايض أو التهاب الحوض', 'التهاب المسالك البولية أو اشتباه حمل خارج الرحم'],
+    advice: 'في حال تقلصات الدورة المعتادة تفيد الكمادات الدافئة، أما عند تأخر الدورة مع ألم حاد أو نزيف غزير فتوجّهي لطوارئ النساء والتوليد فورًا.',
   },
-  {
-    id: 'skin_hair',
-    side: 'both',
-    icon: '🩹',
-    nameAr: 'الجلد والحروق والشعر',
-    nameEn: 'Skin, Burns & Hair',
-    subtitleAr: 'الحروق، الحساسية والطفح، الحزام الناري، وتساقط الشعر',
-    redFlagQuestionAr: 'هل يصاحب الطفح الجلدي تورم في الشفاه واللسان أو ضيق تنفس بعد أخذ دواء أو أكلة؟',
-    redFlagWarningAr: '🚨 طوارئ حساسية مفرطة (Anaphylaxis): تورم الشفاه أو ضيق النفس بعد دواء أو طعام يستلزم التوجه لأقرب طوارئ فوراً!',
-    patterns: [
-      {
-        id: 'skin-shingles',
-        labelAr: 'ألم حارق كالكهرباء في جهة واحدة من الجسم يليه ظهور حبوب مائية مؤلمة كالحزام',
-        urgency: 'urgent_24h',
-        likelyDiagnosisAr: 'الحزام الناري / الهربس العصبي (Herpes Zoster / Shingles)',
-        immediateFirstAidAr: 'راجع طبيب الجلدية فوراً لبدء مضاد الفيروسات خلال أول 72 ساعة من ظهور الطفح لمنع ألم الأعصاب المزمن.',
-        strictlyAvoidAr: 'ممنوع وضع كورتيزون موضعي أو فتح الفقاعات المائية، وابتعد عن الحوامل والرضع.',
-        suggestedTestsAr: 'تشخيص سريري بعيادة الجلدية وفحص السكر العشوائي.',
-        specialtyDoctorAr: 'استشاري الأمراض الجلدية',
-        clinicRoute: '/derma-clinic',
-        clinicLabelAr: '🩹 افتح عيادة الجلدية والحروق',
-        aiFollowUpQueryAr: 'عندي حبوب مائية مؤلمة في جنب واحد من جسمي (حزام ناري)، إيه العلاج؟',
-      },
-      {
-        id: 'skin-burn',
-        labelAr: 'حرق بمياه مغلية أو زيت ساخن أو فرن مع احمرار وفقاعات مائية على الجلد',
-        urgency: 'urgent_24h',
-        likelyDiagnosisAr: 'حرق حراري سطحي أو من الدرجة الثانية (Thermal Burn)',
-        immediateFirstAidAr: 'ضع الجزء المحروق تحت ماء الحنفية الجاري الفاتر لمدة 20 دقيقة متواصلة فوراً وغطه بشاش فازلين معقم.',
-        strictlyAvoidAr: 'ممنوع وضع معجون أسنان أو بن أو دقيق أو بيض أو ثلج مباشر، وممنوع فقء فقاعات الحرق!',
-        suggestedTestsAr: 'تقييم عمق ومساحة الحرق بعيادة الجلدية أو الجراحة.',
-        specialtyDoctorAr: 'طبيب الجلدية أو جراحة التجميل والحروق',
-        clinicRoute: '/derma-clinic',
-        clinicLabelAr: '🩹 افتح عيادة الجلدية وإسعاف الحروق',
-        aiFollowUpQueryAr: 'اتلسعت بمية مغلية، إيه الإسعاف الصح وإيه الكريم المناسب؟',
-      },
+  intestines_abdomen: {
+    shortChoice: 'القولون والأمعاء من الداخل',
+    title: 'وسط وأسفل البطن — القولون والأمعاء',
+    organs: 'الأمعاء الدقيقة، القولون المستعرض والنازل، المثانة',
+    qualities: ['مغص وتقلصات متقطعة', 'انتفاخ وغازات واضحة', 'حرقان أو ضغط أسفل البطن'],
+    symptoms: [
+      { id: 'blood_stool', label: 'وجود دم بالبراز أو إسهال شديد مع جفاف', danger: true },
+      { id: 'urine_burn', label: 'حرقان أو صعوبة في التبول', danger: false },
+      { id: 'stress_ibs', label: 'يزداد مع التوتر أو أطعمة معينة', danger: false },
     ],
+    clinic: 'عيادة الباطنة والجهاز الهضمي',
+    causes: ['متلازمة القولون العصبي', 'نزلة معوية أو عسر هضم', 'التهاب المسالك البولية'],
+    advice: 'أكثر من السوائل الدافئة وقلل البقوليات والدهون مؤقتًا.',
   },
-];
+  kidneys_flanks: {
+    shortChoice: 'الكليتين والحالبين من الداخل',
+    title: 'الجانبين — منطقة الكليتين والحالبين',
+    organs: 'الكلية، حوض الكلى، الحالب',
+    qualities: ['مغص كلوي حاد ومفاجئ بالجنب', 'ألم يمتد من الجنب لأسفل البطن', 'ألم عميق ومستمر بالجنب'],
+    symptoms: [
+      { id: 'kidney_fever', label: 'حرارة عالية مع رعشة (اشتباه التهاب كلوي)', danger: true },
+      { id: 'blood_urine', label: 'دم واضح بالبول أو انحباس البول', danger: true },
+      { id: 'burn_urine', label: 'حرقان أو تكرار التبول', danger: false },
+    ],
+    clinic: 'عيادة المسالك البولية والكلى',
+    causes: ['حصوات أو أملاح الكلى والحالب', 'التهاب حوض الكلى أو المسالك البولية'],
+    advice: 'اشرب ماء بكثرة وتجنب الإفراط في المسكنات لأنها تضر الكلى.',
+  },
+  lower_back_spine: {
+    shortChoice: 'الفقرات القطنية والعضلات',
+    title: 'أسفل الظهر — الفقرات القطنية والعمود الفقري',
+    organs: 'الفقرات القطنية، الغضاريف، العصب الوركي',
+    qualities: ['ألم يمتد من الظهر لأسفل الساق (عرق نسا)', 'شد وتيبس عضلي بأسفل الظهر', 'ألم حاد بعد حمل وزن ثقيل'],
+    symptoms: [
+      { id: 'cauda', label: 'فقدان التحكم في البول أو تنميل شديد بالساقين', danger: true },
+      { id: 'foot_drop', label: 'ضعف مفاجئ في رفع القدم أو المشي', danger: true },
+      { id: 'sciatica', label: 'تنميل أو كهرباء خلف الفخذ', danger: false },
+    ],
+    femaleExtraSymptoms: [{ id: 'period_back', label: 'الألم متزامن مع الدورة الشهرية أو الحمل', danger: false }],
+    clinic: 'عيادة العظام والعمود الفقري',
+    causes: ['شد عضلي حاد بأسفل الظهر', 'انزلاق غضروفي ضاغط على العصب الوركي', 'ألم محوّل من الحوض أو الدورة الشهرية'],
+    advice: 'تجنب الانحناء المفاجئ وحمل الأوزان، وتوجّه للطوارئ فورًا لو ظهر ضعف بالساقين.',
+  },
+  upper_back: {
+    shortChoice: 'الفقرات الصدرية والعضلات',
+    title: 'أعلى الظهر والفقرات الصدرية ولوح الكتف',
+    organs: 'الفقرات الصدرية، لوح الكتف، العضلة شبه المنحرفة',
+    qualities: ['شد وعُقد عضلية بين الكتفين', 'ألم حارق مع الجلوس أمام الشاشات', 'ألم يمتد من الصدر للظهر'],
+    symptoms: [
+      { id: 'chest_back', label: 'ألم مفاجئ ممزق يمتد من الصدر للظهر مع نهجان', danger: true },
+      { id: 'posture', label: 'جلوس طويل أمام الشاشات', danger: false },
+    ],
+    clinic: 'عيادة العظام والعلاج الطبيعي',
+    causes: ['إجهاد عضلات أعلى الظهر', 'التهاب مفاصل الفقرات الصدرية'],
+    advice: 'عدّل وضعية الجلوس وقم بتمارين إطالة لطيفة مع كمادات دافئة.',
+  },
+  shoulders_arms: {
+    shortChoice: 'المفصل والعضلات والأعصاب',
+    title: 'مفصل الكتف والذراع والمرفق',
+    organs: 'مفصل الكتف، أوتار الكفة المدورة، عظمة العضد، أعصاب الذراع',
+    qualities: ['ألم عند رفع الذراع لأعلى', 'تنميل ووخز يمتد للأصابع', 'شد عضلي بعد مجهود'],
+    symptoms: [
+      { id: 'left_arm_heart', label: 'ألم بالذراع اليسرى مع ضيق صدر أو عرق بارد', danger: true },
+      { id: 'trauma', label: 'سقوط أو إصابة مباشرة مع عدم قدرة على التحريك', danger: true },
+    ],
+    clinic: 'عيادة العظام والمفاصل',
+    causes: ['التهاب أوتار الكتف أو المرفق', 'إجهاد عضلي أو ضغط أعصاب الرقبة'],
+    advice: 'أرح الذراع وتجنب رفع الأوزان فوق الرأس.',
+  },
+  hips_thighs: {
+    shortChoice: 'مفصل الورك وعضلات الفخذ',
+    title: 'مفصل الحوض والفخذ',
+    organs: 'مفصل الورك، عظمة الفخذ، عضلات الفخذ',
+    qualities: ['ألم عميق بالمفصل مع المشي', 'شد عضلي بالفخذ', 'ألم ممتد من أسفل الظهر'],
+    symptoms: [
+      { id: 'cant_walk', label: 'عدم القدرة على التحميل على الساق بعد إصابة', danger: true },
+      { id: 'swollen_thigh', label: 'تورم وسخونة واحمرار بفخذ واحد فقط', danger: true },
+    ],
+    clinic: 'عيادة العظام والمفاصل',
+    causes: ['شد عضلي بالفخذ', 'خشونة أو التهاب مفصل الورك'],
+    advice: 'أرح المفصل واستخدم كمادات باردة أول 24 ساعة في حال الإصابة.',
+  },
+  knees: {
+    shortChoice: 'مفصل الركبة والغضاريف',
+    title: 'مفصل الركبة والغضاريف',
+    organs: 'مفصل الركبة، الصابونة، الغضروف الهلالي، الأربطة',
+    qualities: ['ألم مع صعود السلم أو الثني', 'طقطقة وخشونة بالمفصل', 'تورم وتجمع سوائل بالركبة'],
+    symptoms: [
+      { id: 'locked_knee', label: 'تورم شديد مفاجئ أو تعليق كامل بالمفصل', danger: true },
+      { id: 'hot_red', label: 'احمرار وسخونة بالركبة مع حرارة بالجسم', danger: true },
+    ],
+    clinic: 'عيادة العظام والمفاصل',
+    causes: ['خشونة مفصل الركبة', 'إجهاد الأربطة أو الغضروف الهلالي'],
+    advice: 'تجنب الثني الكامل للركبة والوقوف الطويل.',
+  },
+  legs_calves: {
+    shortChoice: 'العضلات والأوردة والعظام',
+    title: 'الساق وعضلة السمانة والأوردة',
+    organs: 'عظمة القصبة، عضلة السمانة، الأوردة العميقة، وتر أكيليس',
+    qualities: ['شد عضلي مفاجئ بالسمانة', 'تورم وثِقل وألم بالساق', 'ألم بوتر الكعب الخلفي'],
+    symptoms: [
+      { id: 'dvt_sign', label: 'تورم واحمرار وسخونة بساق واحدة فقط', danger: true },
+      { id: 'sob_leg', label: 'تورم بالساق مع نهجان مفاجئ', danger: true },
+    ],
+    clinic: 'عيادة الأوعية الدموية / العظام',
+    causes: ['شد عضلي أو دوالي الساقين', 'اشتباه جلطة وريدية عميقة (عند تورم ساق واحدة)'],
+    advice: 'عند تورم وسخونة ساق واحدة فقط، لا تقم بتدليكها وتوجّه فورًا لعمل دوبلر للأوردة.',
+  },
+  ankles_feet: {
+    shortChoice: 'المفصل والأربطة والكعب',
+    title: 'مفصل الكاحل والقدم والكعب',
+    organs: 'مفصل الكاحل، أربطة القدم، اللفافة الأخمصية',
+    qualities: ['التواء وتورم بالكاحل', 'ألم حاد بالكعب عند أول خطوة صباحًا', 'تنميل وحرقان بأطراف القدم'],
+    symptoms: [
+      { id: 'no_weight', label: 'عدم القدرة على الوقوف بعد التواء شديد', danger: true },
+      { id: 'diabetic_wound', label: 'جرح أو احمرار متزايد مع وجود سكر', danger: true },
+    ],
+    clinic: 'عيادة العظام / القدم السكري',
+    causes: ['التواء أربطة الكاحل', 'التهاب اللفافة الأخمصية (شوكة الكعب)', 'التهاب أعصاب طرفية أو نقرس'],
+    advice: 'ارفع القدم للراحة وراجع الطبيب فورًا لمرضى السكري عند أي احمرار أو جرح.',
+  },
+};
+
+function detectRegionAndChoices(
+  sex: 'male' | 'female',
+  side: BodySide,
+  x: number,
+  y: number
+): { primary: AnatomicalRegionId; choices: AnatomicalRegionId[]; sideLabel: string; areaName: string } {
+  let sideLabel = 'المنتصف';
+  if (x < 46.5) sideLabel = side === 'front' ? 'الجهة اليمنى' : 'الجهة اليسرى';
+  else if (x > 53.5) sideLabel = side === 'front' ? 'الجهة اليسرى' : 'الجهة اليمنى';
+
+  const breastKey: AnatomicalRegionId = sex === 'female' ? 'breast_female' : 'breast_male';
+
+  if (side === 'front') {
+    if (y < 12.5) return { primary: 'head_brain', choices: ['head_brain', 'skin_surface'], sideLabel, areaName: 'الرأس' };
+    if (y < 18.0) return { primary: 'eyes_sinus', choices: ['eyes_sinus', 'skin_surface'], sideLabel, areaName: 'الوجه والعينين' };
+    if (y < 23.0) return { primary: 'neck_thyroid', choices: ['neck_thyroid', 'skin_surface'], sideLabel, areaName: 'الرقبة' };
+    if (y < 35.5) {
+      if (x < 35 || x > 65) return { primary: 'shoulders_arms', choices: ['shoulders_arms', 'skin_surface'], sideLabel, areaName: 'الكتف والذراع' };
+      if (x >= 47.5 && x <= 57.5) {
+        return { primary: 'heart_chest', choices: ['heart_chest', 'lungs_chest', breastKey, 'skin_surface'], sideLabel: 'منطقة الصدر والثدي', areaName: 'الصدر' };
+      }
+      return { primary: 'lungs_chest', choices: ['lungs_chest', 'heart_chest', breastKey, 'skin_surface'], sideLabel: `منطقة الصدر والثدي (${sideLabel})`, areaName: 'الصدر' };
+    }
+    if (y < 59.0 && (x < 34 || x > 66)) return { primary: 'shoulders_arms', choices: ['shoulders_arms', 'skin_surface'], sideLabel, areaName: 'الذراع واليد' };
+    if (y < 42.5) {
+      if (x < 49.5) return { primary: 'liver_ruq', choices: ['liver_ruq', 'skin_surface'], sideLabel: 'أعلى اليمين', areaName: 'أعلى يمين البطن' };
+      return { primary: 'stomach_epigastric', choices: ['stomach_epigastric', 'skin_surface'], sideLabel: 'أعلى اليسار / المنتصف', areaName: 'أعلى البطن' };
+    }
+    if (sex === 'female' && y >= 47.0 && y <= 56.0 && x >= 38 && x <= 62) {
+      return { primary: 'pelvis_gyn', choices: ['pelvis_gyn', 'intestines_abdomen', 'skin_surface'], sideLabel: 'أسفل البطن والحوض', areaName: 'الحوض' };
+    }
+    if (y < 52.5) {
+      if (x < 46.5) return { primary: 'lower_abdomen_rlq', choices: ['lower_abdomen_rlq', 'skin_surface'], sideLabel: 'أسفل اليمين', areaName: 'أسفل يمين البطن' };
+      return { primary: 'intestines_abdomen', choices: ['intestines_abdomen', 'skin_surface'], sideLabel, areaName: 'البطن' };
+    }
+    if (y < 67.5) return { primary: 'hips_thighs', choices: ['hips_thighs', 'skin_surface'], sideLabel, areaName: 'الفخذ والحوض' };
+    if (y < 76.0) return { primary: 'knees', choices: ['knees', 'skin_surface'], sideLabel, areaName: 'الركبة' };
+    if (y < 89.5) return { primary: 'legs_calves', choices: ['legs_calves', 'skin_surface'], sideLabel, areaName: 'الساق' };
+    return { primary: 'ankles_feet', choices: ['ankles_feet', 'skin_surface'], sideLabel, areaName: 'الكاحل والقدم' };
+  }
+
+  if (y < 18.0) return { primary: 'head_brain', choices: ['head_brain', 'skin_surface'], sideLabel: 'مؤخرة الرأس', areaName: 'مؤخرة الرأس' };
+  if (y < 23.5) return { primary: 'neck_thyroid', choices: ['neck_thyroid', 'skin_surface'], sideLabel: 'خلف الرقبة', areaName: 'خلف الرقبة' };
+  if (y < 59.0 && (x < 34 || x > 66)) return { primary: 'shoulders_arms', choices: ['shoulders_arms', 'skin_surface'], sideLabel, areaName: 'الذراع الخلفي' };
+  if (y < 36.5) return { primary: 'upper_back', choices: ['upper_back', 'skin_surface'], sideLabel, areaName: 'أعلى الظهر' };
+  if (y < 45.0) {
+    if (x < 45.5 || x > 54.5) return { primary: 'kidneys_flanks', choices: ['kidneys_flanks', 'lower_back_spine', 'skin_surface'], sideLabel, areaName: 'الجانب والكلى' };
+    return { primary: 'lower_back_spine', choices: ['lower_back_spine', 'kidneys_flanks', 'skin_surface'], sideLabel: 'العمود الفقري', areaName: 'الظهر' };
+  }
+  if (y < 53.0) return { primary: 'lower_back_spine', choices: ['lower_back_spine', 'skin_surface'], sideLabel, areaName: 'أسفل الظهر' };
+  if (y < 67.5) return { primary: 'hips_thighs', choices: ['hips_thighs', 'skin_surface'], sideLabel, areaName: 'الحوض والفخذ الخلفي' };
+  if (y < 76.0) return { primary: 'knees', choices: ['knees', 'skin_surface'], sideLabel: `خلف الركبة (${sideLabel})`, areaName: 'خلف الركبة' };
+  if (y < 90.0) return { primary: 'legs_calves', choices: ['legs_calves', 'skin_surface'], sideLabel, areaName: 'السمانة' };
+  return { primary: 'ankles_feet', choices: ['ankles_feet', 'skin_surface'], sideLabel, areaName: 'الكعب والقدم' };
+}
+
+function getScoreColor(score: number): string {
+  if (score >= 7) return '#EF4444';
+  if (score >= 4) return '#F59E0B';
+  return '#10B981';
+}
 
 export default function InteractiveBodyMap({ embedded = false }: { embedded?: boolean }) {
   const { lang } = useLang();
   const isAr = lang === 'ar';
 
-  const [side, setSide] = useState<BodySide>('front');
-  const [persona, setPersona] = useState<PatientPersona>('male');
-  const [selectedRegionId, setSelectedRegionId] = useState<AnatomicalRegionId>('upper_abdomen');
-  const [selectedPatternId, setSelectedPatternId] = useState<string>('stomach-gerd-ulcer');
-  const [hasRedFlag, setHasRedFlag] = useState<boolean>(false);
+  const [activeSex, setActiveSex] = useState<'male' | 'female'>('male');
+  const [activeSide, setActiveSide] = useState<BodySide>('front');
+  const [organReveal, setOrganReveal] = useState<number>(65);
 
-  const selectedRegion =
-    ANATOMICAL_REGIONS.find((r) => r.id === selectedRegionId) || ANATOMICAL_REGIONS[0];
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState<boolean>(false);
 
-  const selectedPattern =
-    selectedRegion.patterns.find((p) => p.id === selectedPatternId) || selectedRegion.patterns[0];
+  const [activePin, setActivePin] = useState<ActivePinState | null>(null);
+  const [selectedQuality, setSelectedQuality] = useState<string>('');
+  const [selectedDuration, setSelectedDuration] = useState<'acute' | 'subacute' | 'chronic'>('subacute');
+  const [painScore, setPainScore] = useState<number>(5);
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
+  const [showReport, setShowReport] = useState<boolean>(false);
+  const [stageNotice, setStageNotice] = useState<string>('');
 
-  const handleSelectRegion = (regId: AnatomicalRegionId) => {
-    setSelectedRegionId(regId);
-    const reg = ANATOMICAL_REGIONS.find((r) => r.id === regId);
-    if (reg && reg.patterns.length > 0) {
-      setSelectedPatternId(reg.patterns[0].id);
-    }
-    setHasRedFlag(false);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const bodyBoxRef = useRef<HTMLDivElement | null>(null);
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const totalMovedRef = useRef<number>(0);
+  const lastPinchDistRef = useRef<number | null>(null);
+
+  const clampPanCoords = (nx: number, ny: number, z: number) => {
+    const vw = viewportRef.current?.clientWidth || 500;
+    const vh = viewportRef.current?.clientHeight || 580;
+    const maxX = Math.max(0, (z - 1) * vw * 0.45);
+    const maxY = Math.max(0, (z - 1) * vh * 0.48);
+    return {
+      x: Math.max(-maxX, Math.min(maxX, nx)),
+      y: Math.max(-maxY, Math.min(maxY, ny)),
+    };
   };
 
-  // Hotspots on the 280x520 SVG human silhouette
-  const frontHotspots: Array<{
-    id: AnatomicalRegionId;
-    cx: number;
-    cy: number;
-    r: number;
-    label: string;
-  }> = [
-    { id: 'head_brain', cx: 140, cy: 42, r: 16, label: '🧠 الرأس والمخ' },
-    { id: 'eyes', cx: 124, cy: 56, r: 10, label: '👁️ العينان' },
-    { id: 'ent_teeth', cx: 140, cy: 76, r: 12, label: '🦷 الأنف والفم والأسنان' },
-    { id: 'neck_thyroid', cx: 140, cy: 105, r: 12, label: '🦋 الرقبة والغدة' },
-    { id: 'chest_heart_lungs', cx: 140, cy: 155, r: 22, label: '🫁 الصدر والقلب' },
-    { id: 'shoulders_arms', cx: 76, cy: 175, r: 16, label: '💪 الكتف والذراع' },
-    { id: 'upper_abdomen', cx: 140, cy: 210, r: 18, label: '🔥 فم المعدة والمرارة' },
-    { id: 'lower_abdomen_pelvis', cx: 140, cy: 262, r: 20, label: '🦠 القولون وأسفل البطن' },
-    { id: 'knees_legs', cx: 116, cy: 375, r: 18, label: '🦵 الركبة والساق' },
-    { id: 'feet_heels', cx: 116, cy: 478, r: 15, label: '🦶 القدم والكعب' },
-    { id: 'skin_hair', cx: 215, cy: 235, r: 15, label: '🩹 الجلد والشعر' },
-  ];
+  const updateZoom = (nextZoom: number) => {
+    const z = Math.max(1, Math.min(3.2, nextZoom));
+    setZoom(z);
+    setPan((prev) => clampPanCoords(prev.x, prev.y, z));
+  };
 
-  const backHotspots: Array<{
-    id: AnatomicalRegionId;
-    cx: number;
-    cy: number;
-    r: number;
-    label: string;
-  }> = [
-    { id: 'head_brain', cx: 140, cy: 48, r: 16, label: '🧠 مؤخرة الرأس' },
-    { id: 'neck_thyroid', cx: 140, cy: 100, r: 14, label: '🦴 فقرات الرقبة' },
-    { id: 'chest_heart_lungs', cx: 140, cy: 155, r: 20, label: '🫁 أعلى الظهر والرئتين' },
-    { id: 'flanks_kidneys', cx: 112, cy: 215, r: 17, label: '🫘 الجنب والكليتان' },
-    { id: 'lower_back_sciatica', cx: 140, cy: 258, r: 20, label: '🦴 أسفل الظهر وعرق النسا' },
-    { id: 'shoulders_arms', cx: 204, cy: 175, r: 16, label: '💪 الكتف والذراع' },
-    { id: 'knees_legs', cx: 164, cy: 385, r: 18, label: '🦵 السمانة وباطن الركبة' },
-    { id: 'feet_heels', cx: 164, cy: 478, r: 15, label: '🦶 الكعب ووتر أكيلس' },
-  ];
+  const resetForPin = (pin: ActivePinState, sexForCalc: 'male' | 'female') => {
+    const z = ZONES[pin.zoneId];
+    const quals = sexForCalc === 'female' && z.femaleExtraQualities ? [...z.qualities, ...z.femaleExtraQualities] : z.qualities;
+    setActivePin(pin);
+    setSelectedQuality(quals[0] || '');
+    setSelectedDuration('subacute');
+    setSelectedSymptoms([]);
+    setShowReport(false);
+    setStageNotice('');
+  };
 
-  const activeHotspots = side === 'front' ? frontHotspots : backHotspots;
+  const handleSexSwitch = (sex: 'male' | 'female') => {
+    setActiveSex(sex);
+    if (activePin) {
+      const re = detectRegionAndChoices(sex, activePin.side, activePin.x, activePin.y);
+      resetForPin(
+        {
+          side: activePin.side,
+          x: activePin.x,
+          y: activePin.y,
+          zoneId: re.primary,
+          choices: re.choices,
+          sideLabel: re.sideLabel,
+          areaName: re.areaName,
+        },
+        sex
+      );
+    }
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('label')) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointersRef.current.size === 1) {
+      dragStartRef.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+      totalMovedRef.current = 0;
+    } else if (pointersRef.current.size === 2) {
+      const pts = Array.from(pointersRef.current.values());
+      lastPinchDistRef.current = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      dragStartRef.current = null;
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointersRef.current.has(e.pointerId)) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointersRef.current.size === 2) {
+      const pts = Array.from(pointersRef.current.values());
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      if (lastPinchDistRef.current && dist > 10) {
+        updateZoom(zoom * (dist / lastPinchDistRef.current));
+      }
+      lastPinchDistRef.current = dist;
+      totalMovedRef.current = 999;
+      return;
+    }
+
+    if (dragStartRef.current && pointersRef.current.size === 1) {
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+      totalMovedRef.current = Math.max(totalMovedRef.current, Math.hypot(dx, dy));
+      if (totalMovedRef.current > 6 && zoom > 1.02) {
+        setIsPanning(true);
+        setPan(clampPanCoords(dragStartRef.current.panX + dx, dragStartRef.current.panY + dy, zoom));
+      }
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(e.pointerId);
+    setIsPanning(false);
+    if (pointersRef.current.size < 2) lastPinchDistRef.current = null;
+
+    if (dragStartRef.current && totalMovedRef.current < 8 && bodyBoxRef.current) {
+      const rect = bodyBoxRef.current.getBoundingClientRect();
+      const relX = ((e.clientX - rect.left) / rect.width) * 100;
+      const relY = ((e.clientY - rect.top) / rect.height) * 100;
+
+      if (relX >= 18 && relX <= 82 && relY >= 4 && relY <= 98) {
+        const det = detectRegionAndChoices(activeSex, activeSide, relX, relY);
+        resetForPin(
+          {
+            side: activeSide,
+            x: relX,
+            y: relY,
+            zoneId: det.primary,
+            choices: det.choices,
+            sideLabel: det.sideLabel,
+            areaName: det.areaName,
+          },
+          activeSex
+        );
+      } else {
+        setStageNotice('اضغط مباشرة على الجسم نفسه لتحديد مكان الألم');
+      }
+    }
+    dragStartRef.current = null;
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(e.deltaY) < 2) return;
+    if (zoom > 1 || e.deltaY < 0) {
+      e.preventDefault();
+      updateZoom(zoom - e.deltaY * 0.002);
+    }
+  };
+
+  const activeZone = activePin ? ZONES[activePin.zoneId] : null;
+  const effectiveQualities = activeZone
+    ? activeSex === 'female' && activeZone.femaleExtraQualities
+      ? [...activeZone.qualities, ...activeZone.femaleExtraQualities]
+      : activeZone.qualities
+    : [];
+  const effectiveSymptoms = activeZone
+    ? activeSex === 'female' && activeZone.femaleExtraSymptoms
+      ? [...activeZone.symptoms, ...activeZone.femaleExtraSymptoms]
+      : activeZone.symptoms
+    : [];
+
+  const hasDangerSymptom = effectiveSymptoms.some((s) => s.danger && selectedSymptoms.includes(s.id));
+  const isEmergency =
+    Boolean(activePin) &&
+    (hasDangerSymptom ||
+      (painScore >= 8 &&
+        selectedDuration === 'acute' &&
+        (activePin!.zoneId === 'heart_chest' ||
+          activePin!.zoneId === 'lower_abdomen_rlq' ||
+          activePin!.zoneId === 'head_brain' ||
+          activePin!.zoneId === 'pelvis_gyn')));
+  const isUrgent = Boolean(activePin) && !isEmergency && (painScore >= 7 || selectedDuration === 'acute');
+
+  const displayTitle =
+    activePin && activeZone
+      ? activePin.zoneId === 'skin_surface'
+        ? `الجلد والأنسجة الخارجية — ${activePin.areaName}`
+        : activeZone.title
+      : '';
+
+  const durText =
+    selectedDuration === 'acute' ? 'مفاجئ (منذ ساعات)' : selectedDuration === 'subacute' ? 'منذ أيام' : 'مستمر / متكرر';
+
+  const selectedSymptomLabels = effectiveSymptoms
+    .filter((s) => selectedSymptoms.includes(s.id))
+    .map((s) => s.label);
+
+  const assistantQuery = activePin && activeZone
+    ? `أنا ${activeSex === 'female' ? 'أنثى' : 'ذكر'} وعندي ألم في ${displayTitle} (${activePin.sideLabel})، طبيعة الشكوى: ${selectedQuality}، المدة: ${durText}، الشدة: ${painScore}/10${selectedSymptomLabels.length ? `، والأعراض المصاحبة: ${selectedSymptomLabels.join('، ')}` : ''}. عايز أعرف التقييم المبدئي والعيادة المناسبة.`
+    : '';
+
+  const auraColor = getScoreColor(painScore);
+  const auraDuration = painScore >= 7 ? '0.85s' : painScore >= 4 ? '1.25s' : '1.65s';
+  const skinOpacity = Number(((100 - organReveal) / 100).toFixed(2));
+
+  const frontOrgansSrc = activeSex === 'female' ? '/anatomy/female-front-organs.webp' : '/anatomy/male-front-organs.webp';
+  const frontSkinSrc = activeSex === 'female' ? '/anatomy/female-front-skin.webp' : '/anatomy/male-front-skin.webp';
+  const backOrgansSrc = activeSex === 'female' ? '/anatomy/female-back-organs.webp' : '/anatomy/male-back-organs.webp';
 
   return (
-    <div className={embedded ? '' : 'wrap'} style={embedded ? {} : { maxWidth: '1200px', margin: '0 auto', padding: '16px' }}>
-      {!embedded && (
-        <section
-          className="card"
-          style={{
-            background: 'linear-gradient(135deg, #0D1F38 0%, #0f766e 50%, #138866 100%)',
-            color: '#ffffff',
-            borderRadius: '22px',
-            padding: '26px 24px',
-            marginBottom: '20px',
-            boxShadow: '0 14px 32px rgba(13, 31, 56, 0.2)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
-            <span style={{ background: 'rgba(207, 210, 157, 0.22)', border: '1px solid #CFD29D', padding: '6px 14px', borderRadius: '30px', fontSize: '0.84rem', fontWeight: 800, color: '#CFD29D' }}>
-              🧍‍♂️ {tr(lang, 'خريطة جسم الإنسان التفاعلية لتشخيص الأعراض باللمس', 'Interactive 3D/SVG Human Body Symptom Map')}
-            </span>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <Link to="/symptom-triage" className="btn small" style={{ background: 'rgba(255,255,255,0.16)', color: '#ffffff', fontWeight: 800, textDecoration: 'none', borderRadius: '20px' }}>
-                🩺 {tr(lang, 'البحث النصي للأعراض', 'Text Symptom Search')}
-              </Link>
-              <Link to="/clinics" className="btn small" style={{ background: '#CFD29D', color: '#0D1F38', fontWeight: 900, textDecoration: 'none', borderRadius: '20px' }}>
-                🏥 {tr(lang, 'مجمع الـ 20 عيادة', '20 Specialty Clinics')}
-              </Link>
+    <section
+      className="dawaya-bm-shell"
+      dir={isAr ? 'rtl' : 'ltr'}
+      style={{
+        width: '100%',
+        margin: embedded ? '0' : '0 auto',
+        maxWidth: embedded ? '100%' : '1240px',
+        padding: embedded ? '0' : '18px 14px 36px',
+      }}
+    >
+      <style>{`
+        .dawaya-bm-card {
+          background: #FFFFFF;
+          border-radius: 22px;
+          border: 1px solid #E2E8F0;
+          box-shadow: 0 18px 44px rgba(13, 31, 56, 0.08);
+          overflow: hidden;
+        }
+        .dawaya-bm-topbar {
+          background: #0D1F38;
+          color: #FFFFFF;
+          padding: 16px 20px;
+          border-bottom: 3px solid #138866;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .dawaya-bm-seg {
+          display: inline-flex;
+          gap: 4px;
+          padding: 4px;
+          border-radius: 12px;
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.16);
+        }
+        .dawaya-bm-seg button {
+          border: none;
+          border-radius: 9px;
+          padding: 7px 14px;
+          font-size: 0.78rem;
+          font-weight: 800;
+          cursor: pointer;
+          background: transparent;
+          color: #CBD5E1;
+          transition: all 0.16s ease;
+        }
+        .dawaya-bm-seg button.active {
+          background: #138866;
+          color: #FFFFFF;
+          box-shadow: 0 4px 12px rgba(19, 136, 102, 0.4);
+        }
+        .dawaya-bm-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+          gap: 18px;
+          padding: 18px;
+          background: #F8FAFC;
+          align-items: start;
+        }
+        @media (max-width: 960px) {
+          .dawaya-bm-grid {
+            grid-template-columns: 1fr;
+            padding: 12px;
+          }
+        }
+        .dawaya-bm-viewport {
+          position: relative;
+          width: 100%;
+          height: 600px;
+          border-radius: 18px;
+          overflow: hidden;
+          background: radial-gradient(ellipse at 50% 42%, #132A46 0%, #071222 68%, #040A14 100%);
+          border: 1px solid rgba(207, 210, 157, 0.28);
+          touch-action: none;
+          user-select: none;
+          cursor: crosshair;
+        }
+        .dawaya-bm-viewport.panning { cursor: grabbing; }
+        @media (max-width: 768px) {
+          .dawaya-bm-viewport { height: 470px; }
+        }
+        .dawaya-bm-pan {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform-origin: center center;
+          will-change: transform;
+        }
+        .dawaya-bm-box {
+          position: relative;
+          height: 94%;
+          aspect-ratio: 2 / 3;
+          max-width: 94%;
+        }
+        .dawaya-bm-img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          pointer-events: none;
+          display: block;
+        }
+        .dawaya-bm-ctrl {
+          border: 1px solid rgba(255,255,255,0.18);
+          background: rgba(13, 31, 56, 0.88);
+          color: #E2E8F0;
+          border-radius: 11px;
+          padding: 7px 13px;
+          font-size: 0.76rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .dawaya-bm-ctrl.active {
+          background: #138866;
+          color: #FFFFFF;
+          border-color: #24C8B8;
+        }
+        .dawaya-bm-zoombtn {
+          width: 34px;
+          height: 34px;
+          border-radius: 10px;
+          border: 1px solid rgba(255,255,255,0.18);
+          background: rgba(13, 31, 56, 0.9);
+          color: #FFFFFF;
+          font-weight: 800;
+          font-size: 0.95rem;
+          cursor: pointer;
+        }
+        .dawaya-bm-zoombtn:hover { background: #138866; }
+        .dawaya-bm-aura {
+          position: absolute;
+          transform: translate(-50%, -50%);
+          pointer-events: none;
+          z-index: 15;
+        }
+        .dawaya-bm-aura-core {
+          width: 20px;
+          height: 20px;
+          border-radius: 999px;
+          border: 2.5px solid #FFFFFF;
+          position: relative;
+        }
+        .dawaya-bm-aura-heat {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 82px;
+          height: 82px;
+          transform: translate(-50%, -50%);
+          border-radius: 999px;
+          filter: blur(8px);
+          opacity: 0.65;
+          animation: dawayaBmHeat 1.3s ease-in-out infinite;
+        }
+        .dawaya-bm-aura-ring {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 32px;
+          height: 32px;
+          transform: translate(-50%, -50%);
+          border-radius: 999px;
+          border: 2px solid #FFFFFF;
+          animation: dawayaBmRipple 1.45s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes dawayaBmHeat {
+          0%, 100% { transform: translate(-50%, -50%) scale(0.88); opacity: 0.55; }
+          50% { transform: translate(-50%, -50%) scale(1.18); opacity: 0.85; }
+        }
+        @keyframes dawayaBmRipple {
+          0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.95; }
+          100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+        }
+        .dawaya-bm-chip {
+          border: 1px solid #CBD5E1;
+          background: #F8FAFC;
+          color: #1E293B;
+          border-radius: 10px;
+          padding: 7px 11px;
+          font-size: 0.74rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.14s ease;
+          text-align: right;
+        }
+        .dawaya-bm-chip:hover { background: #F1F5F9; }
+        .dawaya-bm-chip.sel-navy { background: #0D1F38; color: #FFFFFF; border-color: #0D1F38; }
+        .dawaya-bm-chip.sel-teal { background: #138866; color: #FFFFFF; border-color: #138866; }
+        .dawaya-bm-chip.sel-danger { background: #BE123C; color: #FFFFFF; border-color: #FB7185; }
+      `}</style>
+
+      <div className="dawaya-bm-card">
+        {/* Top Unslop Header */}
+        <div className="dawaya-bm-topbar">
+          <div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#CFD29D', marginBottom: '2px' }}>
+              {tr(lang, 'خريطة تحديد الألم التفاعلية — دوايا', 'DAWAYA Interactive Pain Locator')}
             </div>
+            <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800, color: '#FFFFFF' }}>
+              {tr(lang, 'شاور على مكان الألم على الجسم الكامل للتقييم الطبي الفوري', 'Tap Directly on the Body for Instant Clinical Triage')}
+            </h2>
           </div>
 
-          <h1 style={{ fontSize: '1.95rem', fontWeight: 900, margin: '6px 0 8px', color: '#ffffff' }}>
-            {tr(lang, 'اضغط على مكان الوجع في جسم الإنسان 👈 لتشخيص حالتك فوراً!', 'Tap Where It Hurts on the Human Body for Instant Clinical Triage')}
-          </h1>
-          <p style={{ margin: 0, opacity: 0.94, lineHeight: 1.65, maxWidth: '880px' }}>
-            {tr(
-              lang,
-              'اختر المنظر الأمامي أو الخلفي واضغط مباشرة على النقطة المضيئة مكان الألم في الجسم (الرأس، الصدر، فم المعدة، الجنب والكلى، أسفل الظهر، الركبة، أو الكعب) ليرشدك الطبيب الذكي خطوة بخطوة.',
-              'Switch between Front and Back views and tap any glowing anatomical region to launch a guided clinical interview, red-flag check, and direct specialty routing.'
-            )}
-          </p>
-        </section>
-      )}
-
-      {/* Main Split Grid: Interactive Body Silhouette + Clinical Interview Panel */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))',
-          gap: '20px',
-          alignItems: 'start',
-        }}
-      >
-        {/* LEFT COLUMN: SVG ANATOMICAL BODY MAP */}
-        <section
-          className="card"
-          style={{
-            borderRadius: '22px',
-            border: '2px solid #cbd5e1',
-            background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
-            color: '#ffffff',
-            padding: '20px',
-            textAlign: 'center',
-          }}
-        >
-          {/* Controls: Front/Back + Persona */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
-            <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.08)', padding: '4px', borderRadius: '14px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setSide('front');
-                  handleSelectRegion('upper_abdomen');
-                }}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: side === 'front' ? '#138866' : 'transparent',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  fontSize: '0.86rem',
-                }}
-              >
-                👀 من الأمام (Front)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSide('back');
-                  handleSelectRegion('flanks_kidneys');
-                }}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: side === 'back' ? '#138866' : 'transparent',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  fontSize: '0.86rem',
-                }}
-              >
-                🔄 من الخلف (Back)
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.08)', padding: '4px', borderRadius: '14px' }}>
-              {[
-                { id: 'male' as PatientPersona, lbl: '👨 رجل' },
-                { id: 'female' as PatientPersona, lbl: '👩 سيدة' },
-                { id: 'child' as PatientPersona, lbl: '👶 طفل' },
-              ].map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setPersona(p.id)}
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: persona === p.id ? '#CFD29D' : 'transparent',
-                    color: persona === p.id ? '#0D1F38' : '#cbd5e1',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                  }}
-                >
-                  {p.lbl}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ fontSize: '0.84rem', color: '#94a3b8', marginBottom: '8px', fontWeight: 700 }}>
-            👇 اضغط على أي دائرة مضيئة على الجسم لتحديد مكان الشكوى:
-          </div>
-
-          {/* Interactive SVG Human Silhouette */}
-          <div style={{ position: 'relative', maxWidth: '300px', margin: '0 auto' }}>
-            <svg
-              viewBox="0 0 280 520"
-              style={{ width: '100%', height: 'auto', maxHeight: '470px', filter: 'drop-shadow(0 8px 24px rgba(19, 136, 102, 0.25))' }}
-              role="img"
-              aria-label="خريطة جسم الإنسان التفاعلية"
+          <div className="dawaya-bm-seg" role="group" aria-label="اختيار الجنس">
+            <button
+              type="button"
+              className={activeSex === 'male' ? 'active' : ''}
+              onClick={() => handleSexSwitch('male')}
             >
-              <defs>
-                <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#1e3a5f" />
-                  <stop offset="50%" stopColor="#134e4a" />
-                  <stop offset="100%" stopColor="#1e293b" />
-                </linearGradient>
-                <radialGradient id="activeGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#ef4444" stopOpacity="0.95" />
-                  <stop offset="65%" stopColor="#f97316" stopOpacity="0.5" />
-                  <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
-                </radialGradient>
-              </defs>
-
-              {/* Subtle anatomical grid lines */}
-              <line x1="140" y1="10" x2="140" y2="505" stroke="rgba(148,163,184,0.15)" strokeDasharray="4 4" />
-              <line x1="30" y1="155" x2="250" y2="155" stroke="rgba(148,163,184,0.15)" strokeDasharray="4 4" />
-              <line x1="30" y1="260" x2="250" y2="260" stroke="rgba(148,163,184,0.15)" strokeDasharray="4 4" />
-
-              {/* Human Body Silhouette Path */}
-              <g fill="url(#bodyGrad)" stroke="#38bdf8" strokeWidth="2" opacity="0.92">
-                {/* Head */}
-                <ellipse cx="140" cy="54" rx="28" ry="34" />
-                {/* Neck */}
-                <rect x="128" y="86" width="24" height="24" rx="6" />
-                {/* Torso */}
-                <path d="M 92 110 Q 140 104 188 110 L 196 185 L 180 285 Q 140 295 100 285 L 84 185 Z" />
-                {/* Left Arm (Viewer Left) */}
-                <path d="M 92 112 L 62 175 L 48 255 Q 46 268 58 270 L 72 190 L 94 145 Z" />
-                {/* Right Arm (Viewer Right) */}
-                <path d="M 188 112 L 218 175 L 232 255 Q 234 268 222 270 L 208 190 L 186 145 Z" />
-                {/* Left Leg */}
-                <path d="M 102 284 L 98 385 L 102 475 Q 102 492 122 492 L 130 475 L 134 385 L 136 290 Z" />
-                {/* Right Leg */}
-                <path d="M 178 284 L 182 385 L 178 475 Q 178 492 158 492 L 150 475 L 146 385 L 144 290 Z" />
-              </g>
-
-              {/* Internal Organ Hints */}
-              {side === 'front' ? (
-                <g opacity="0.35" stroke="#99f6e4" strokeWidth="1.5" fill="none">
-                  {/* Lungs */}
-                  <ellipse cx="122" cy="152" rx="16" ry="24" />
-                  <ellipse cx="158" cy="152" rx="16" ry="24" />
-                  {/* Stomach */}
-                  <path d="M 132 200 Q 158 195 156 220 Q 142 232 126 218 Z" />
-                  {/* Intestines */}
-                  <rect x="114" y="238" width="52" height="36" rx="12" />
-                </g>
-              ) : (
-                <g opacity="0.4" stroke="#fcd34d" strokeWidth="1.5" fill="none">
-                  {/* Spine */}
-                  <line x1="140" y1="90" x2="140" y2="280" strokeWidth="4" strokeDasharray="6 4" />
-                  {/* Kidneys */}
-                  <ellipse cx="116" cy="215" rx="10" ry="15" />
-                  <ellipse cx="164" cy="215" rx="10" ry="15" />
-                </g>
-              )}
-
-              {/* Interactive Clickable Hotspots */}
-              {activeHotspots.map((hs) => {
-                const isSelected = selectedRegionId === hs.id;
-                return (
-                  <g
-                    key={hs.id + side}
-                    onClick={() => handleSelectRegion(hs.id)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {isSelected && (
-                      <circle cx={hs.cx} cy={hs.cy} r={hs.r + 12} fill="url(#activeGlow)" />
-                    )}
-                    <circle
-                      cx={hs.cx}
-                      cy={hs.cy}
-                      r={hs.r}
-                      fill={isSelected ? '#ef4444' : 'rgba(20, 184, 166, 0.35)'}
-                      stroke={isSelected ? '#ffffff' : '#5eead4'}
-                      strokeWidth={isSelected ? '3' : '2'}
-                    />
-                    <circle
-                      cx={hs.cx}
-                      cy={hs.cy}
-                      r="4.5"
-                      fill="#ffffff"
-                    />
-                  </g>
-                );
-              })}
-            </svg>
+              {tr(lang, 'ذكر', 'Male')}
+            </button>
+            <button
+              type="button"
+              className={activeSex === 'female' ? 'active' : ''}
+              onClick={() => handleSexSwitch('female')}
+            >
+              {tr(lang, 'أنثى', 'Female')}
+            </button>
           </div>
+        </div>
 
-          {/* Quick Region Selector Pills below SVG for accessibility */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center', marginTop: '10px' }}>
-            {ANATOMICAL_REGIONS.map((reg) => {
-              const active = selectedRegionId === reg.id;
-              return (
+        {/* Main 2-Col Grid */}
+        <div className="dawaya-bm-grid">
+          {/* Interactive Full-Body Stage */}
+          <div
+            ref={viewportRef}
+            className={`dawaya-bm-viewport${isPanning ? ' panning' : ''}`}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onWheel={handleWheel}
+          >
+            {/* Front / Back & Clear Controls */}
+            <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px', zIndex: 20 }}>
+              <button
+                type="button"
+                className={`dawaya-bm-ctrl${activeSide === 'front' ? ' active' : ''}`}
+                onClick={() => setActiveSide('front')}
+              >
+                {tr(lang, 'الوجه الأمامي', 'Front')}
+              </button>
+              <button
+                type="button"
+                className={`dawaya-bm-ctrl${activeSide === 'back' ? ' active' : ''}`}
+                onClick={() => setActiveSide('back')}
+              >
+                {tr(lang, 'الظهر والخلف', 'Back')}
+              </button>
+              {activePin && (
                 <button
-                  key={reg.id}
                   type="button"
+                  className="dawaya-bm-ctrl"
+                  style={{ background: '#BE123C', borderColor: '#FB7185', color: '#FFFFFF' }}
                   onClick={() => {
-                    if (reg.side === 'back' && side !== 'back') setSide('back');
-                    if (reg.side === 'front' && side !== 'front') setSide('front');
-                    handleSelectRegion(reg.id);
-                  }}
-                  style={{
-                    padding: '6px 11px',
-                    borderRadius: '16px',
-                    border: active ? '2px solid #CFD29D' : '1px solid rgba(255,255,255,0.2)',
-                    background: active ? '#138866' : 'rgba(255,255,255,0.07)',
-                    color: '#ffffff',
-                    fontSize: '0.78rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
+                    setActivePin(null);
+                    setShowReport(false);
                   }}
                 >
-                  {reg.icon} {reg.nameAr}
+                  {tr(lang, 'مسح التحديد', 'Clear')}
                 </button>
-              );
-            })}
-          </div>
-        </section>
+              )}
+            </div>
 
-        {/* RIGHT COLUMN: GUIDED CLINICAL INTERVIEW FOR SELECTED BODY PART */}
-        <section style={{ display: 'grid', gap: '16px' }}>
-          {/* Selected Body Part Banner */}
-          <div
-            className="card"
-            style={{
-              borderRadius: '20px',
-              background: 'linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)',
-              border: '2px solid #138866',
-              padding: '20px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '2.4rem' }}>{selectedRegion.icon}</span>
-                <div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0f766e' }}>
-                    📍 المنطقة المختارة الآن على الجسم:
+            {/* Patient Zoom Controls */}
+            <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 20 }}>
+              <button type="button" className="dawaya-bm-zoombtn" title="تكبير" onClick={() => updateZoom(zoom + 0.35)}>+</button>
+              <div style={{ textAlign: 'center', fontSize: '0.65rem', fontWeight: 800, color: '#CFD29D', background: 'rgba(13,31,56,0.85)', borderRadius: '7px', padding: '3px 0' }}>
+                {Math.round(zoom * 100)}%
+              </div>
+              <button type="button" className="dawaya-bm-zoombtn" title="تصغير" onClick={() => updateZoom(zoom - 0.35)}>-</button>
+              <button
+                type="button"
+                className="dawaya-bm-zoombtn"
+                style={{ fontSize: '0.66rem', color: '#CFD29D' }}
+                onClick={() => {
+                  setZoom(1);
+                  setPan({ x: 0, y: 0 });
+                }}
+              >
+                ضبط
+              </button>
+            </div>
+
+            {/* Zoomable & Pannable Full-Body Canvas */}
+            <div
+              className="dawaya-bm-pan"
+              style={{
+                transform: `translate3d(${pan.x.toFixed(1)}px, ${pan.y.toFixed(1)}px, 0) scale(${zoom.toFixed(2)})`,
+              }}
+            >
+              <div ref={bodyBoxRef} className="dawaya-bm-box">
+                {activeSide === 'front' ? (
+                  <>
+                    <img src={frontOrgansSrc} alt="الأعضاء الداخلية للجسم" className="dawaya-bm-img" loading="lazy" />
+                    <img
+                      src={frontSkinSrc}
+                      alt="الطبقة الخارجية للجسم"
+                      className="dawaya-bm-img"
+                      loading="lazy"
+                      style={{ opacity: skinOpacity }}
+                    />
+                  </>
+                ) : (
+                  <img src={backOrgansSrc} alt="الظهر والعمود الفقري والكليتين" className="dawaya-bm-img" loading="lazy" />
+                )}
+
+                {activePin && activePin.side === activeSide && (
+                  <div
+                    className="dawaya-bm-aura"
+                    style={{ left: `${activePin.x.toFixed(2)}%`, top: `${activePin.y.toFixed(2)}%` }}
+                  >
+                    <div
+                      className="dawaya-bm-aura-heat"
+                      style={{
+                        background: `radial-gradient(circle, ${auraColor} 0%, transparent 72%)`,
+                        animationDuration: auraDuration,
+                      }}
+                    />
+                    <div
+                      className="dawaya-bm-aura-ring"
+                      style={{ borderColor: auraColor, animationDuration: auraDuration }}
+                    />
+                    <div
+                      className="dawaya-bm-aura-core"
+                      style={{ backgroundColor: auraColor, boxShadow: `0 0 16px ${auraColor}` }}
+                    />
                   </div>
-                  <h2 style={{ margin: '2px 0 4px', color: '#0D1F38', fontSize: '1.35rem', fontWeight: 900 }}>
-                    {isAr ? selectedRegion.nameAr : selectedRegion.nameEn}
-                  </h2>
-                  <p className="small muted" style={{ margin: 0 }}>
-                    {selectedRegion.subtitleAr}
-                  </p>
-                </div>
+                )}
               </div>
-              <button
-                type="button"
-                className="btn small"
-                onClick={() =>
-                  speakText(
-                    `${selectedRegion.nameAr}. ${selectedPattern.likelyDiagnosisAr}. ${selectedPattern.immediateFirstAidAr}`,
-                    lang
-                  )
-                }
-                style={{ background: '#0D1F38', color: '#ffffff', borderRadius: '18px', fontWeight: 800 }}
+            </div>
+
+            {/* Bottom Transparency Slider + Live Status */}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '12px',
+                left: '12px',
+                right: '12px',
+                zIndex: 20,
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px',
+                background: 'rgba(13, 31, 56, 0.92)',
+                border: '1px solid rgba(255,255,255,0.16)',
+                borderRadius: '14px',
+                padding: '9px 14px',
+              }}
+            >
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  color: '#FFFFFF',
+                  opacity: activeSide === 'front' ? 1 : 0.4,
+                }}
               >
-                🔊 استمع للتشخيص صوتياً
-              </button>
+                <span style={{ color: '#CFD29D', whiteSpace: 'nowrap' }}>كشف الأعضاء الداخلية</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={organReveal}
+                  disabled={activeSide !== 'front'}
+                  onChange={(e) => setOrganReveal(Number(e.target.value))}
+                  style={{ width: '115px', accentColor: '#24C8B8' }}
+                />
+                <span style={{ color: '#6EE7B7', fontWeight: 800, minWidth: '32px' }}>{organReveal}%</span>
+              </label>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#E2E8F0' }}>
+                {stageNotice ||
+                  (activePin
+                    ? `تم رصد: ${displayTitle} (${activePin.sideLabel})`
+                    : 'اضغط مباشرة على مكان الوجع • كبّر واسحب للتنقل')}
+              </div>
             </div>
           </div>
 
-          {/* Step 1: Red Flag Emergency Filter */}
-          <div
-            className="card"
-            style={{
-              borderRadius: '18px',
-              border: hasRedFlag ? '2.5px solid #dc2626' : '1.5px solid #fecaca',
-              background: hasRedFlag ? '#fef2f2' : '#fff5f5',
-              padding: '16px 18px',
-            }}
-          >
-            <div style={{ fontWeight: 900, color: '#991b1b', fontSize: '0.96rem', marginBottom: '8px' }}>
-              🚨 الخطوة ١ (فحص الأمان الفوري): {selectedRegion.redFlagQuestionAr}
-            </div>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => setHasRedFlag(false)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '12px',
-                  border: !hasRedFlag ? '2px solid #16a34a' : '1px solid #cbd5e1',
-                  background: !hasRedFlag ? '#dcfce7' : '#ffffff',
-                  color: '#166534',
-                  fontWeight: 900,
-                  cursor: 'pointer',
-                }}
-              >
-                🟢 لا، لا توجد هذه العلامات الخطرة
-              </button>
-              <button
-                type="button"
-                onClick={() => setHasRedFlag(true)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '12px',
-                  border: hasRedFlag ? '2px solid #dc2626' : '1px solid #cbd5e1',
-                  background: hasRedFlag ? '#dc2626' : '#ffffff',
-                  color: hasRedFlag ? '#ffffff' : '#991b1b',
-                  fontWeight: 900,
-                  cursor: 'pointer',
-                }}
-              >
-                🚨 نعم، توجد إحدى هذه العلامات!
-              </button>
-            </div>
-
-            {hasRedFlag && (
-              <div
-                style={{
-                  marginTop: '12px',
-                  padding: '14px',
-                  borderRadius: '12px',
-                  background: '#dc2626',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  lineHeight: 1.65,
-                }}
-              >
-                {selectedRegion.redFlagWarningAr}
-                <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <a href="tel:123" className="btn small" style={{ background: '#ffffff', color: '#dc2626', fontWeight: 900, textDecoration: 'none', borderRadius: '10px' }}>
-                    🚑 اتصال فوري بالإسعاف (123)
-                  </a>
-                  <Link to={selectedPattern.clinicRoute} className="btn small" style={{ background: '#0D1F38', color: '#CFD29D', fontWeight: 900, textDecoration: 'none', borderRadius: '10px' }}>
-                    {selectedPattern.clinicLabelAr}
-                  </Link>
+          {/* Right/Left Clinical Interview Card */}
+          <div style={{ background: '#FFFFFF', borderRadius: '18px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+            {!activePin || !activeZone ? (
+              <div style={{ padding: '28px 20px', textAlign: 'center' }}>
+                <div
+                  style={{
+                    width: '56px',
+                    height: '56px',
+                    margin: '0 auto 14px',
+                    borderRadius: '16px',
+                    background: '#0D1F38',
+                    color: '#CFD29D',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="9" />
+                    <circle cx="12" cy="12" r="3" />
+                    <line x1="12" y1="2" x2="12" y2="5" />
+                    <line x1="12" y1="19" x2="12" y2="22" />
+                    <line x1="2" y1="12" x2="5" y2="12" />
+                    <line x1="19" y1="12" x2="22" y2="12" />
+                  </svg>
+                </div>
+                <h3 style={{ margin: '0 0 8px', fontSize: '1.05rem', fontWeight: 800, color: '#0D1F38' }}>
+                  حدّد مكان الألم بنفسك على المجسم
+                </h3>
+                <p style={{ margin: '0 0 16px', fontSize: '0.82rem', color: '#475569', lineHeight: 1.7 }}>
+                  اختر <strong>ذكر</strong> أو <strong>أنثى</strong> من الأعلى، كبّر الجسم براحتك واضغط مباشرة على مكان الوجع. سيقوم <strong>دوايا</strong> باكتشاف المنطقة وسؤالك فورًا إذا كانت المشكلة في العضو الداخلي أم في الثدي أو الجلد من الخارج.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '0.72rem', fontWeight: 700, color: '#0D1F38' }}>
+                  <div style={{ padding: '10px 6px', borderRadius: '12px', background: '#F8FAFC', border: '1px solid #E2E8F0' }}>1. شاور على المكان</div>
+                  <div style={{ padding: '10px 6px', borderRadius: '12px', background: '#F8FAFC', border: '1px solid #E2E8F0' }}>2. داخلي أم جلدي/ثدي؟</div>
+                  <div style={{ padding: '10px 6px', borderRadius: '12px', background: '#F8FAFC', border: '1px solid #E2E8F0' }}>3. توجيه طبي فوري</div>
                 </div>
               </div>
-            )}
-          </div>
+            ) : (
+              <div>
+                <div style={{ background: '#0D1F38', color: '#FFFFFF', padding: '14px 16px', borderBottom: '3px solid #138866' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '3px 9px', borderRadius: '999px', background: 'rgba(19,136,102,0.3)', border: '1px solid rgba(36,200,184,0.45)', color: '#99F6E4' }}>
+                      تقييم سريري مخصص — {activeSex === 'female' ? 'أنثى' : 'ذكر'}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#CFD29D' }}>
+                      {activePin.side === 'front' ? 'الأمام' : 'الخلف'} — {activePin.sideLabel}
+                    </span>
+                  </div>
+                  <h3 style={{ margin: '8px 0 3px', fontSize: '1.02rem', fontWeight: 800, color: '#FFFFFF' }}>{displayTitle}</h3>
+                  <div style={{ fontSize: '0.74rem', color: '#CBD5E1' }}>الأنسجة/الأعضاء المستهدفة: {activeZone.organs}</div>
+                </div>
 
-          {/* Step 2: Choose Exact Symptom Pattern */}
-          <div className="card" style={{ borderRadius: '18px', border: '1.5px solid #cbd5e1', padding: '18px' }}>
-            <h3 style={{ margin: '0 0 10px', color: '#0D1F38', fontSize: '1.05rem', fontWeight: 900 }}>
-              🩺 الخطوة ٢: اختر الوصف الأقرب لما تشعر به في «{selectedRegion.nameAr}»:
-            </h3>
-            <div style={{ display: 'grid', gap: '8px' }}>
-              {selectedRegion.patterns.map((pat) => {
-                const isSel = selectedPattern.id === pat.id;
-                return (
-                  <button
-                    key={pat.id}
-                    type="button"
-                    onClick={() => setSelectedPatternId(pat.id)}
+                <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Contextual Organ vs Breast vs Skin Selector */}
+                  <div style={{ padding: '11px 12px', borderRadius: '13px', background: '#F0FDF9', border: '1px solid rgba(19,136,102,0.32)' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0D1F38', marginBottom: '8px' }}>
+                      المشكلة في المكان ده تخص إيه بالظبط؟
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {activePin.choices.map((cid) => {
+                        const targetObj = ZONES[cid];
+                        const isSel = cid === activePin.zoneId;
+                        return (
+                          <button
+                            key={cid}
+                            type="button"
+                            className={`dawaya-bm-chip${isSel ? ' sel-teal' : ''}`}
+                            onClick={() => {
+                              if (cid === 'skin_surface' || cid === 'breast_female' || cid === 'breast_male') {
+                                setOrganReveal(10);
+                              } else if (organReveal < 35) {
+                                setOrganReveal(65);
+                              }
+                              resetForPin({ ...activePin, zoneId: cid }, activeSex);
+                            }}
+                          >
+                            {targetObj.shortChoice}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Step 1: Quality */}
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0D1F38', marginBottom: '7px' }}>
+                      1. اوصف لنا طبيعة الألم أو الشكوى:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {effectiveQualities.map((q) => (
+                        <button
+                          key={q}
+                          type="button"
+                          className={`dawaya-bm-chip${selectedQuality === q ? ' sel-navy' : ''}`}
+                          onClick={() => {
+                            setSelectedQuality(q);
+                            setShowReport(false);
+                          }}
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Step 2: Duration & Severity */}
+                  <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '10px' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0D1F38', marginBottom: '7px' }}>
+                      2. بدأت إمتى، وشدتها كام من 10؟
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '9px' }}>
+                      {[
+                        { id: 'acute' as const, label: 'مفاجئ (ساعات)' },
+                        { id: 'subacute' as const, label: 'منذ أيام' },
+                        { id: 'chronic' as const, label: 'مستمر / متكرر' },
+                      ].map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          className={`dawaya-bm-chip${selectedDuration === d.id ? ' sel-navy' : ''}`}
+                          style={{ textAlign: 'center' }}
+                          onClick={() => {
+                            setSelectedDuration(d.id);
+                            setShowReport(false);
+                          }}
+                        >
+                          {d.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '11px', padding: '8px 12px' }}>
+                      <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>شدة الألم:</span>
+                      <input
+                        type="range"
+                        min={1}
+                        max={10}
+                        value={painScore}
+                        onChange={(e) => {
+                          setPainScore(Number(e.target.value));
+                          setShowReport(false);
+                        }}
+                        style={{ flex: 1, accentColor: '#138866' }}
+                      />
+                      <span style={{ padding: '2px 9px', borderRadius: '8px', background: auraColor, color: '#FFFFFF', fontSize: '0.76rem', fontWeight: 800 }}>
+                        {painScore} / 10
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Associated Symptoms */}
+                  <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '10px' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0D1F38', marginBottom: '7px' }}>
+                      3. هل فيه أي أعراض مصاحبة؟ (اختر كل ما ينطبق)
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {effectiveSymptoms.map((s) => {
+                        const isSel = selectedSymptoms.includes(s.id);
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            className={`dawaya-bm-chip${isSel ? (s.danger ? ' sel-danger' : ' sel-navy') : ''}`}
+                            onClick={() => {
+                              setSelectedSymptoms((prev) =>
+                                prev.includes(s.id) ? prev.filter((x) => x !== s.id) : [...prev, s.id]
+                              );
+                              setShowReport(false);
+                            }}
+                          >
+                            {s.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Live Adaptive Triage Box */}
+                  <div
                     style={{
-                      textAlign: 'right',
-                      padding: '12px 14px',
+                      padding: '13px',
                       borderRadius: '14px',
-                      border: isSel ? '2px solid #138866' : '1px solid #cbd5e1',
-                      background: isSel ? '#f0fdf4' : '#ffffff',
-                      color: '#0D1F38',
-                      fontWeight: isSel ? 900 : 700,
-                      fontSize: '0.92rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
+                      border: isEmergency ? '2px solid #E11D48' : isUrgent ? '1px solid #F59E0B' : '1px solid rgba(19,136,102,0.35)',
+                      background: isEmergency ? '#FFF1F2' : isUrgent ? '#FFFBEB' : '#F0FDF9',
                     }}
                   >
-                    <span style={{ fontSize: '1.2rem' }}>{isSel ? '✅' : '⚪'}</span>
-                    <span>{pat.labelAr}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '6px', marginBottom: '7px' }}>
+                      <span
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '999px',
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          color: '#FFFFFF',
+                          background: isEmergency ? '#E11D48' : isUrgent ? '#D97706' : '#138866',
+                        }}
+                      >
+                        {isEmergency
+                          ? 'طوارئ فورية — اتصل بـ 123 أو توجّه للاستقبال'
+                          : isUrgent
+                          ? 'يُنصح بفحص طبي عاجل خلال 24 ساعة'
+                          : 'حجز متابعة في العيادة المختصة'}
+                      </span>
+                      <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#0D1F38' }}>{activeZone.clinic}</span>
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#1E293B', lineHeight: 1.65, marginBottom: '6px' }}>
+                      <strong>التوجيه السريري:</strong> {activeZone.advice}
+                    </div>
+                    <div style={{ fontSize: '0.73rem', color: '#475569', lineHeight: 1.55 }}>
+                      <strong>الاحتمالات المبدئية:</strong> {activeZone.causes.join(' • ')}
+                    </div>
+                  </div>
 
-          {/* Step 3: Pinpoint Clinical Output & Action Plan */}
-          <div
-            className="card"
-            style={{
-              borderRadius: '20px',
-              border: '2px solid #0D1F38',
-              background: '#ffffff',
-              padding: '20px',
-              boxShadow: '0 10px 24px rgba(13, 31, 56, 0.08)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-              <span style={{ fontSize: '0.84rem', fontWeight: 900, color: '#138866' }}>
-                📋 التقييم الإكلينيكي المبدئي وخطة التصرف الذكية:
-              </span>
-              <span
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: '20px',
-                  fontSize: '0.78rem',
-                  fontWeight: 900,
-                  background:
-                    selectedPattern.urgency === 'emergency_er'
-                      ? '#fee2e2'
-                      : selectedPattern.urgency === 'urgent_24h'
-                      ? '#fef3c7'
-                      : '#dcfce7',
-                  color:
-                    selectedPattern.urgency === 'emergency_er'
-                      ? '#991b1b'
-                      : selectedPattern.urgency === 'urgent_24h'
-                      ? '#92400e'
-                      : '#166534',
-                }}
-              >
-                {selectedPattern.urgency === 'emergency_er'
-                  ? '🚨 طوارئ فورية'
-                  : selectedPattern.urgency === 'urgent_24h'
-                  ? '⚠️ يفضل فحص طبيب خلال 24 ساعة'
-                  : '🟢 رعاية منزلية وكشف روتيني'}
-              </span>
-            </div>
+                  {/* DAWAYA Action Links + Doctor Brief */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <Link
+                      to={`/assistant?q=${encodeURIComponent(assistantQuery)}`}
+                      style={{
+                        textAlign: 'center',
+                        textDecoration: 'none',
+                        padding: '10px 10px',
+                        borderRadius: '11px',
+                        background: '#138866',
+                        color: '#FFFFFF',
+                        fontSize: '0.76rem',
+                        fontWeight: 800,
+                      }}
+                    >
+                      استشر المساعد الذكي بحالتي
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setShowReport((v) => !v)}
+                      style={{
+                        border: 'none',
+                        padding: '10px 10px',
+                        borderRadius: '11px',
+                        background: '#0D1F38',
+                        color: '#FFFFFF',
+                        fontSize: '0.76rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showReport ? 'إخفاء تقرير الطبيب' : 'تجهيز تقرير للطبيب'}
+                    </button>
+                  </div>
 
-            <h3 style={{ margin: '0 0 12px', color: '#0D1F38', fontSize: '1.2rem', fontWeight: 900 }}>
-              🎯 السبب المحتمل: {selectedPattern.likelyDiagnosisAr}
-            </h3>
-
-            <div style={{ display: 'grid', gap: '10px', marginBottom: '16px' }}>
-              <div style={{ background: '#f0fdf4', borderRight: '4px solid #16a34a', padding: '12px 14px', borderRadius: '10px' }}>
-                <strong style={{ color: '#166534', display: 'block', marginBottom: '4px' }}>
-                  ✅ الإسعاف والتصرف الصحيح الآن:
-                </strong>
-                <span style={{ color: '#1e293b', lineHeight: 1.65, fontSize: '0.92rem' }}>
-                  {selectedPattern.immediateFirstAidAr}
-                </span>
-              </div>
-
-              <div style={{ background: '#fef2f2', borderRight: '4px solid #dc2626', padding: '12px 14px', borderRadius: '10px' }}>
-                <strong style={{ color: '#991b1b', display: 'block', marginBottom: '4px' }}>
-                  ⛔ خطأ شائع ممنوع تماماً:
-                </strong>
-                <span style={{ color: '#7f1d1d', lineHeight: 1.65, fontSize: '0.92rem', fontWeight: 700 }}>
-                  {selectedPattern.strictlyAvoidAr}
-                </span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 12px', borderRadius: '10px' }}>
-                  <strong style={{ color: '#0D1F38', fontSize: '0.84rem', display: 'block' }}>
-                    🔬 التحاليل أو الأشعة المقترحة:
-                  </strong>
-                  <span style={{ color: '#475569', fontSize: '0.86rem' }}>{selectedPattern.suggestedTestsAr}</span>
-                </div>
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 12px', borderRadius: '10px' }}>
-                  <strong style={{ color: '#0D1F38', fontSize: '0.84rem', display: 'block' }}>
-                    👨‍⚕️ التخصص الطبي المناسب:
-                  </strong>
-                  <span style={{ color: '#0f766e', fontSize: '0.88rem', fontWeight: 800 }}>
-                    {selectedPattern.specialtyDoctorAr}
-                  </span>
+                  {showReport && (
+                    <div style={{ padding: '12px 14px', borderRadius: '12px', background: '#0D1F38', color: '#F1F5F9', fontSize: '0.76rem', lineHeight: 1.7, border: '1px solid rgba(36,200,184,0.45)' }}>
+                      <div style={{ fontWeight: 800, color: '#CFD29D', marginBottom: '4px' }}>تقرير دوايا المبدئي الجاهز للعرض على الطبيب:</div>
+                      <div>• <strong>الجنس:</strong> {activeSex === 'female' ? 'أنثى' : 'ذكر'}</div>
+                      <div>• <strong>المنطقة المرصودة:</strong> {displayTitle} ({activePin.sideLabel})</div>
+                      <div>• <strong>طبيعة الشكوى:</strong> {selectedQuality}</div>
+                      <div>• <strong>المدة والشدة:</strong> {durText} — شدة {painScore} من 10</div>
+                      <div>• <strong>أعراض مصاحبة:</strong> {selectedSymptomLabels.length ? selectedSymptomLabels.join('، ') : 'لا توجد أعراض إضافية محددة'}</div>
+                      <div>• <strong>العيادة المقترحة:</strong> {activeZone.clinic}</div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-
-            {/* Direct Action Buttons */}
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
-              <Link
-                to={selectedPattern.clinicRoute}
-                className="btn"
-                style={{
-                  background: 'linear-gradient(135deg, #0D1F38 0%, #138866 100%)',
-                  color: '#ffffff',
-                  fontWeight: 900,
-                  textDecoration: 'none',
-                  borderRadius: '14px',
-                  padding: '10px 18px',
-                }}
-              >
-                {selectedPattern.clinicLabelAr} ←
-              </Link>
-              <Link
-                to="/assistant"
-                className="btn"
-                style={{
-                  background: '#f0fdf4',
-                  color: '#138866',
-                  border: '1.5px solid #138866',
-                  fontWeight: 800,
-                  textDecoration: 'none',
-                  borderRadius: '14px',
-                  padding: '10px 16px',
-                }}
-              >
-                🤖 ناقش حالتك مع الطبيب المحاور الذكي
-              </Link>
-              <Link
-                to="/lab-photo-scanner"
-                className="btn"
-                style={{
-                  background: '#eff6ff',
-                  color: '#1d4ed8',
-                  border: '1.5px solid #93c5fd',
-                  fontWeight: 800,
-                  textDecoration: 'none',
-                  borderRadius: '14px',
-                  padding: '10px 16px',
-                }}
-              >
-                📸 افحص صورة تحليلك أو روشتتك
-              </Link>
-            </div>
+            )}
           </div>
-        </section>
+        </div>
       </div>
 
       {!embedded && (
-        <div style={{ marginTop: '22px' }}>
+        <div style={{ marginTop: '16px' }}>
           <Disclaimer />
         </div>
       )}
-    </div>
+    </section>
   );
 }

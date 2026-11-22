@@ -19,9 +19,6 @@ import {
 import { getClinicalProProfile } from './clinicalProData';
 import { useSyncedSchedules } from './trackerData';
 import { scheduleMultipleNativeDoseAlarms } from './nativeAlarmService';
-import FindMedicationPanel from './FindMedicationPanel';
-import SmartDoseAlarmCard from './SmartDoseAlarmCard';
-import Mechanism3DViewer from './Mechanism3DViewer';
 import Disclaimer from './Disclaimer';
 
 export default function OneClickCheckup() {
@@ -901,21 +898,19 @@ export default function OneClickCheckup() {
             </div>
           </div>
         </div>
-
-        <FindMedicationPanel activeIngredientId={selectedIngredientId} />
-
-        <SmartDoseAlarmCard
-          medicineName={`${isAr ? displayedBrandAr : displayedBrandEn} (${displayedStrength || ''})`}
-          nextDoseTime={doseTimes[0]}
-        />
-
-        {!selectedDawayaItem && (
-          <Mechanism3DViewer
-            medicineId={selectedIngredientId}
-            medicineTitle={isAr ? ingredient.nameAr : ingredient.nameEn}
-            scientificName={activePkg?.scientificComposition || ''}
-          />
-        )}
+        <div className="card" style={{ padding: '14px 16px', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0D1F38' }}>
+            {isAr ? 'خطوات إضافية سريعة لهذا الدواء:' : 'Quick next actions for this medication:'}
+          </span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <Link to="/tracker" className="btn" style={{ background: '#138866', color: '#FFFFFF', textDecoration: 'none', fontWeight: 700 }}>
+              {isAr ? 'ضبط منبه الجرعات' : 'Set Dose Alarm'}
+            </Link>
+            <Link to="/partners" className="btn" style={{ background: '#0D1F38', color: '#FFFFFF', textDecoration: 'none', fontWeight: 700 }}>
+              {isAr ? 'البحث في الصيدليات' : 'Find in Pharmacies'}
+            </Link>
+          </div>
+        </div>
 
         <Disclaimer />
       </div>

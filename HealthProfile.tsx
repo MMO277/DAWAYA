@@ -38,7 +38,6 @@ import {
   renderDawayaMedicalIdCardPngBlob,
   PassportShare,
 } from './passportService';
-import { DawayaPassportCardUI } from './SmartPassport';
 import {
   useSyncedSchedules,
   calculateScheduleProgress,
@@ -1724,29 +1723,14 @@ export default function HealthProfile() {
             </Link>
           </div>
         </div>
-
-        {/* الكارت الطبي المرئي بهوية دوايا الشاملة */}
-        <DawayaPassportCardUI
-          name={profile.displayName || profile.fullName || user?.displayName || ''}
-          age={profile.age || (profile.ageYears ? String(profile.ageYears) : '')}
-          weightKg={profile.weightKg}
-          bloodType={profile.bloodType}
-          gender={profile.gender}
-          emergencyContact={profile.emergencyContact}
-          photoUrl={passportPhoto}
-          uid={effectiveUid}
-          qrDataUrl={passportQrDataUrl}
-          isAr={isAr}
-          allergiesCount={profile.allergies.length}
-          medsCount={
-            profile.medications.filter((m) => m.status === 'active').length +
-            (profile.activeMedications?.length || 0) +
-            schedules.length
-          }
-          chronicCount={passportChronicList.length}
-          onPhotoClick={() => photoFileRef.current?.click()}
-          photoLoading={passportPhotoLoading}
-        />
+        <div style={{ padding: '14px 16px', borderRadius: '14px', background: '#F0FDF9', border: '1px solid rgba(19,136,102,0.32)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+          <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0D1F38' }}>
+            {isAr ? 'الكارت الطبي الذكي QR متاح في صفحته المخصصة للعرض والطباعة والمشاركة السريعة.' : 'Your Smart Medical ID QR Card lives on its dedicated page for viewing and printing.'}
+          </div>
+          <Link to="/passport" className="btn" style={{ background: '#138866', color: '#FFFFFF', textDecoration: 'none', fontWeight: 800 }}>
+            {isAr ? 'فتح الكارت الطبي الذكي (QR)' : 'Open Smart Medical ID'}
+          </Link>
+        </div>
         <input
           ref={photoFileRef}
           type="file"

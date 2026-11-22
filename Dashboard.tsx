@@ -1,7 +1,6 @@
 import { SubscriptionAndPlansPanel } from './SubscriptionAndPlansPanel';
 import { saveVisibilityConfig, useWhoCampaignAndVisibility, WHO_HEALTH_CAMPAIGNS } from './whoHealthCampaigns';
 import PartnerManagementCenter from './PartnerManagementCenter';
-import PharmacyOwnerDashboard from './PharmacyOwnerDashboard';
 import DawayaAdminControlCenter from './DawayaAdminControlCenter';
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -1076,7 +1075,17 @@ export default function Dashboard() {
         </div>
       )}
       {tab === 'partners' && <PartnerManagementCenter adminUid={user.uid} adminRole={role} />}
-      {tab === 'pharmacy_portal' && <PharmacyOwnerDashboard />}
+      {tab === 'pharmacy_portal' && (
+        <div className="card" style={{ padding: '20px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', borderTop: '3px solid #138866' }}>
+          <div>
+            <h3 style={{ margin: '0 0 4px', color: '#0D1F38' }}>{tr(lang, 'بوابة صاحب الصيدلية المستقلة', 'Dedicated Pharmacy Owner Portal')}</h3>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#475569' }}>{tr(lang, 'لإدارة المخزون والطلبات والروشتات الخاصة بكل صيدلية افتح البوابة من صفحتها الرسمية.', 'Open the dedicated pharmacy portal to manage inventory, orders, and prescriptions.')}</p>
+          </div>
+          <Link to="/pharmacy-portal" className="btn" style={{ background: '#138866', color: '#FFFFFF', textDecoration: 'none', fontWeight: 800 }}>
+            {tr(lang, 'فتح بوابة الصيدلية الآن', 'Open Pharmacy Portal')}
+          </Link>
+        </div>
+      )}
       {tab === 'users' && isSuperOrAdmin && <UsersTab myUid={user.uid} />}
       {tab === 'content_articles' && <DawayaContentAndArticlesAdmin uid={user.uid} role={role} />}
       {tab === 'system_ai_audit' && (
