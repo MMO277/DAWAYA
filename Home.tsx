@@ -37,11 +37,20 @@ const GlobalSpotlightModal = lazy(() =>
 
 export default function Home() {
   const location = useLocation();
+  const [showBodyMapModal, setShowBodyMapModal] = useState(false);
   useEffect(() => {
     if (location.hash === '#body-map-section') {
-      setTimeout(() => document.getElementById('body-map-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+      setShowBodyMapModal(true);
     }
   }, [location.hash]);
+  useEffect(() => {
+    if (!showBodyMapModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowBodyMapModal(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showBodyMapModal]);
   const { t, lang } = useLang();
   const isAr = lang === 'ar';
   const nav = useNavigate();
@@ -1870,6 +1879,31 @@ export default function Home() {
                   </span>
                 </Link>
               )}
+              <button
+                type="button"
+                onClick={() => setShowBodyMapModal(true)}
+                className="hero-quick-tag"
+                style={{
+                  background: 'rgba(19, 136, 102, 0.42)',
+                  borderColor: '#24C8B8',
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 800,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CFD29D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <circle cx="12" cy="12" r="3" />
+                  <line x1="12" y1="2" x2="12" y2="5" />
+                  <line x1="12" y1="19" x2="12" y2="22" />
+                  <line x1="2" y1="12" x2="5" y2="12" />
+                  <line x1="19" y1="12" x2="22" y2="12" />
+                </svg>
+                <span>{tr(lang, 'حدد مكان الألم على الجسم', 'Body Pain Map')}</span>
+              </button>
               <Link to="/passport" className="hero-quick-tag" style={{ background: 'rgba(19, 136, 102, 0.32)', borderColor: '#CFD29D', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <DawayaRouteVectorIcon route="/passport" size={16} color="#CFD29D" />
                 <span>{tr(lang, 'الكارت الطبي الذكي (ID)', 'Smart Medical ID')}</span>
@@ -1997,19 +2031,6 @@ export default function Home() {
             ))}
           </div>
         </section>
-
-        {/* Interactive Full-Body Free-Tap Pain Locator (Lazy-loaded for 0KB initial impact) */}
-        <Suspense
-          fallback={
-            <div className="card" style={{ padding: '24px', textAlign: 'center', color: '#475569', fontSize: '0.88rem', fontWeight: 700 }}>
-              جاري تجهيز خريطة تحديد الألم التفاعلية...
-            </div>
-          }
-        >
-          <div id="body-map-section" style={{ scrollMarginTop: '88px' }}>
-          <LazyInteractiveBodyMap embedded />
-        </div>
-        </Suspense>
 
         {/* Recently Viewed Medicines Strip (Shown automatically when user has viewed 1+ medicines) */}
         {recentMeds.length > 0 && (
@@ -2532,6 +2553,75 @@ export default function Home() {
           <SituationCompassModal isOpen={situationCompassOpen} onClose={() => setSituationCompassOpen(false)} lang={lang} />
         </Suspense>
       )}
+    
+      {showBodyMapModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={tr(lang, 'خريطة تحديد الألم التفاعلية', 'Interactive Body Pain Map')}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowBodyMapModal(false);
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            background: 'rgba(5, 13, 26, 0.86)',
+            backdropFilter: 'blur(6px)',
+            overflowY: 'auto',
+            padding: '12px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+          }}
+        >
+          <div style={{ width: '100%', maxWidth: '1200px', margin: '8px auto 32px' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '10px',
+                padding: '10px 14px',
+                borderRadius: '14px',
+                background: '#0D1F38',
+                border: '1px solid rgba(207, 210, 157, 0.35)',
+                color: '#FFFFFF',
+              }}
+            >
+              <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#CFD29D' }}>
+                {tr(lang, 'خريطة تحديد الألم التفاعلية — شاشة كاملة', 'Interactive Body Pain Map — Full Screen')}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowBodyMapModal(false)}
+                style={{
+                  border: '1px solid rgba(255,255,255,0.25)',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: '#FFFFFF',
+                  borderRadius: '10px',
+                  padding: '6px 14px',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                {tr(lang, 'إغلاق ✕', 'Close ✕')}
+              </button>
+            </div>
+            <Suspense
+              fallback={
+                <div style={{ padding: '40px 20px', textAlign: 'center', borderRadius: '18px', background: '#FFFFFF', color: '#0D1F38', fontWeight: 800 }}>
+                  {tr(lang, 'جاري فتح خريطة تحديد الألم...', 'Loading Body Pain Map...')}
+                </div>
+              }
+            >
+              <LazyInteractiveBodyMap embedded />
+            </Suspense>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }
