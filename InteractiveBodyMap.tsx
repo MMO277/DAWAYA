@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useLang } from './i18n';
 import { tr } from './types';
 import Disclaimer from './Disclaimer';
+import { ANATOMY_IMAGES } from './anatomyImagesData';
 
 export type BodySide = 'front' | 'back';
 export type PatientPersona = 'male' | 'female' | 'child';
@@ -626,9 +627,9 @@ export default function InteractiveBodyMap({ embedded = false }: { embedded?: bo
   const auraDuration = painScore >= 7 ? '0.85s' : painScore >= 4 ? '1.25s' : '1.65s';
   const skinOpacity = Number(((100 - organReveal) / 100).toFixed(2));
 
-  const frontOrgansSrc = activeSex === 'female' ? '/anatomy/female-front-organs.webp' : '/anatomy/male-front-organs.webp';
-  const frontSkinSrc = activeSex === 'female' ? '/anatomy/female-front-skin.webp' : '/anatomy/male-front-skin.webp';
-  const backOrgansSrc = activeSex === 'female' ? '/anatomy/female-back-organs.webp' : '/anatomy/male-back-organs.webp';
+  const frontOrgansSrc = activeSex === 'female' ? ANATOMY_IMAGES.femaleFrontOrgans : ANATOMY_IMAGES.maleFrontOrgans;
+  const frontSkinSrc = activeSex === 'female' ? ANATOMY_IMAGES.femaleFrontSkin : ANATOMY_IMAGES.maleFrontSkin;
+  const backOrgansSrc = activeSex === 'female' ? ANATOMY_IMAGES.femaleBackOrgans : ANATOMY_IMAGES.maleBackOrgans;
 
   return (
     <section
@@ -930,17 +931,17 @@ export default function InteractiveBodyMap({ embedded = false }: { embedded?: bo
               <div ref={bodyBoxRef} className="dawaya-bm-box">
                 {activeSide === 'front' ? (
                   <>
-                    <img src={frontOrgansSrc} alt="الأعضاء الداخلية للجسم" className="dawaya-bm-img" loading="lazy" />
+                    <img src={frontOrgansSrc} alt="الأعضاء الداخلية للجسم" className="dawaya-bm-img" />
                     <img
                       src={frontSkinSrc}
                       alt="الطبقة الخارجية للجسم"
                       className="dawaya-bm-img"
-                      loading="lazy"
+                     
                       style={{ opacity: skinOpacity }}
                     />
                   </>
                 ) : (
-                  <img src={backOrgansSrc} alt="الظهر والعمود الفقري والكليتين" className="dawaya-bm-img" loading="lazy" />
+                  <img src={backOrgansSrc} alt="الظهر والعمود الفقري والكليتين" className="dawaya-bm-img" />
                 )}
 
                 {activePin && activePin.side === activeSide && (
