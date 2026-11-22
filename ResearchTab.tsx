@@ -1,3 +1,4 @@
+import { dawayaConfirm } from './DawayaDialogHost';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useEffect, useState } from 'react';
 import { collection, deleteDoc, doc, getDoc, getDocs } from 'firebase/firestore';
@@ -182,7 +183,7 @@ export default function ResearchTab() {
 
   async function removeOne(r: RowWithSource) {
     if (!db) return;
-    if (!window.confirm(t('confirmDel'))) return;
+    if (!await dawayaConfirm(t('confirmDel'))) return;
     try {
       await deleteDoc(doc(db, r._col, r.id));
       setRows((prev) => (prev ? prev.filter((item) => item.id !== r.id) : prev));
@@ -193,7 +194,7 @@ export default function ResearchTab() {
 
   async function clearAll() {
     if (!db || !rows) return;
-    if (!window.confirm(t('confirmDel'))) return;
+    if (!await dawayaConfirm(t('confirmDel'))) return;
     try {
       await Promise.all(rows.map((r) => deleteDoc(doc(db!, r._col, r.id))));
       setRows([]);

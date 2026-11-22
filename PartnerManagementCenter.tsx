@@ -1,3 +1,4 @@
+import { dawayaConfirm } from './DawayaDialogHost';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -338,7 +339,7 @@ export default function PartnerManagementCenter({
   const handleArchivePartner = async (p: PartnerFullAdminRecord) => {
     if (!permissions.canDeleteOrArchive) return;
     if (
-      !confirm(
+      !await dawayaConfirm(
         isAr
           ? `هل تريد أرشفة الشريك (${p.nameAr}) وإخفاءه من الموقع العام مع الاحتفاظ بسجلاته؟`
           : `Archive partner (${p.nameEn}) and hide from public website?`

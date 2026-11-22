@@ -1,3 +1,4 @@
+import { dawayaAlert } from './DawayaDialogHost';
 import './lamp-login.css';
 import {
   FormEvent,
@@ -830,7 +831,7 @@ appId: "1:..."`}
                       if (el && saveRuntimeFirebaseConfigFromText(el.value)) {
                         window.location.reload();
                       } else {
-                        alert(isAr ? 'يرجى لصق كود firebaseConfig المحتوي على apiKey و projectId.' : 'Please paste valid firebaseConfig containing apiKey and projectId.');
+                        void dawayaAlert(isAr ? 'يرجى لصق كود firebaseConfig المحتوي على apiKey و projectId.' : 'Please paste valid firebaseConfig containing apiKey and projectId.');
                       }
                     }}
                     style={{ background: '#00BFD0', color: '#101E36', fontWeight: 900 }}

@@ -1,3 +1,4 @@
+import { dawayaConfirm } from './DawayaDialogHost';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import { FormEvent, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -151,7 +152,7 @@ export function PartnerBranchManagerModal({
 
   const handleDelete = async (b: PartnerBranchRecord) => {
     if (
-      !confirm(
+      !await dawayaConfirm(
         isAr
           ? `هل أنت متأكد من حذف الفرع (${b.nameAr})؟`
           : `Delete branch (${b.nameEn || b.nameAr})?`

@@ -1,3 +1,4 @@
+import { dawayaConfirm } from './DawayaDialogHost';
 import SmartChoiceSelect, { SmartNativeSelect } from './SmartChoiceSelect';
 import {
   evaluateDrugHydrationRequirement,
@@ -799,9 +800,9 @@ export default function Tracker() {
     setDocModalTarget(null);
   };
 
-  const deleteSchedule = (id: string) => {
+  const deleteSchedule = async (id: string) => {
     if (
-      window.confirm(
+      await dawayaConfirm(
         isAr
           ? 'هل أنت متأكد من حذف هذا الجدول العلاجي؟'
           : 'Are you sure you want to delete this schedule?'
@@ -1325,8 +1326,8 @@ export default function Tracker() {
                       type="button"
                       className="btn-secondary small"
                       style={{ background: '#fee2e2', borderColor: '#ef4444', color: '#991b1b', fontWeight: 700 }}
-                      onClick={() => {
-                        if (window.confirm(isAr ? 'هل تريد إيقاف متابعة هذا الدواء في السجل (مع الاحتفاظ بتاريخ الجرعات السابقة)؟ تنبيه: لا توقف الدواء طبياً إلا باستشارة طبيبك.' : 'Discontinue tracking this schedule while keeping past dose history? Never stop a prescribed medication without consulting your doctor.')) {
+                      onClick={async () => {
+                        if (await dawayaConfirm(isAr ? 'هل تريد إيقاف متابعة هذا الدواء في السجل (مع الاحتفاظ بتاريخ الجرعات السابقة)؟ تنبيه: لا توقف الدواء طبياً إلا باستشارة طبيبك.' : 'Discontinue tracking this schedule while keeping past dose history? Never stop a prescribed medication without consulting your doctor.')) {
                           setScheduleTrackingStatus(sch.id, 'discontinued');
                         }
                       }}

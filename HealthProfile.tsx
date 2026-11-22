@@ -1,3 +1,4 @@
+import { dawayaConfirm, dawayaAlert } from './DawayaDialogHost';
 import SmartDoseTimeCalibrator from "./SmartDoseTimeCalibrator";
 import { getSmartClinicalRegimenForMedicine } from "./dawayaDrugDatabaseService";
 import { scheduleMultipleNativeDoseAlarms } from "./nativeAlarmService";
@@ -147,7 +148,7 @@ export default function HealthProfile() {
       await savePassportPhotoUrl(effectiveUid, url);
       setPassportPhoto(url);
     } catch {
-      alert(isAr ? 'فشل رفع الصورة. حاول مرة أخرى.' : 'Photo upload failed. Please try again.');
+      void dawayaAlert(isAr ? 'فشل رفع الصورة. حاول مرة أخرى.' : 'Photo upload failed. Please try again.');
     } finally {
       setPassportPhotoLoading(false);
     }
@@ -428,8 +429,8 @@ export default function HealthProfile() {
     setAllergyNotes('');
   };
 
-  const deleteAllergy = (id: string) => {
-    if (window.confirm(isAr ? 'هل أنت متأكد من حذف هذا السجل؟' : 'Are you sure you want to delete this allergy record?')) {
+  const deleteAllergy = async (id: string) => {
+    if (await dawayaConfirm(isAr ? 'هل أنت متأكد من حذف هذا السجل؟' : 'Are you sure you want to delete this allergy record?')) {
       setProfile((prev) => ({ ...prev, allergies: prev.allergies.filter((a) => a.id !== id) }));
     }
   };
@@ -481,8 +482,8 @@ export default function HealthProfile() {
     setMedDoseTimes(["08:00", "20:00"]);
   };
 
-  const deleteMedication = (id: string, drugName?: string) => {
-    if (window.confirm(isAr ? "هل تريد حذف هذا الدواء من سجلك؟" : "Delete this medication record?")) {
+  const deleteMedication = async (id: string, drugName?: string) => {
+    if (await dawayaConfirm(isAr ? "هل تريد حذف هذا الدواء من سجلك؟" : "Delete this medication record?")) {
       setProfile((prev) => ({
         ...prev,
         medications: (prev.medications || []).filter((m) => m.id !== id && (!drugName || m.drugName !== drugName)),
@@ -491,8 +492,8 @@ export default function HealthProfile() {
     }
   };
 
-  const deleteMedicalDocument = (docId: string) => {
-    if (window.confirm(isAr ? 'هل تريد حذف هذا المستند الطبي من حسابك؟' : 'Delete this medical document from your account?')) {
+  const deleteMedicalDocument = async (docId: string) => {
+    if (await dawayaConfirm(isAr ? 'هل تريد حذف هذا المستند الطبي من حسابك؟' : 'Delete this medical document from your account?')) {
       setProfile((prev) => ({
         ...prev,
         medicalDocuments: (prev.medicalDocuments || []).filter((d) => d.id !== docId),
@@ -521,8 +522,8 @@ export default function HealthProfile() {
     });
   };
 
-  const clearAllData = () => {
-    if (window.confirm(isAr ? 'تحذير: سيتم مسح جميع بيانات الحساسية والأدوية المسجلة. هل توافق؟' : 'Warning: All stored health data will be deleted. Proceed?')) {
+  const clearAllData = async () => {
+    if (await dawayaConfirm(isAr ? 'تحذير: سيتم مسح جميع بيانات الحساسية والأدوية المسجلة. هل توافق؟' : 'Warning: All stored health data will be deleted. Proceed?')) {
       setProfile({ displayName: '', age: '', weightKg: '', gender: '', bloodType: '', emergencyContact: '', notes: '', allergies: [], medications: [], chronicConditions: [], medicalDocuments: [] });
     }
   };

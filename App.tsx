@@ -1,3 +1,4 @@
+import DawayaDialogHost from './DawayaDialogHost';
 import { DawayaIconMark } from './DawayaLogo';
 import DawayaErrorBoundary from './ErrorBoundary';
 import { ComponentType, lazy, Suspense, useEffect } from 'react';
@@ -420,6 +421,7 @@ export default function App() {
           <AuthModal />
         </Suspense>
       </EmergencyLocationProvider>
+          <DawayaDialogHost />
     </AuthProvider>
     </DawayaErrorBoundary>
   );

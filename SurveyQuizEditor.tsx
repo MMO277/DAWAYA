@@ -1,3 +1,4 @@
+import { dawayaConfirm } from './DawayaDialogHost';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import { FormEvent, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -207,13 +208,13 @@ export default function SurveyQuizManagerTab({ uid }: { uid: string }) {
 
   const handleDelete = async (idx: number) => {
     if (questions.length <= 1) return;
-    if (!window.confirm(tr(lang, `حذف السؤال رقم ${idx + 1}؟`, `Delete question #${idx + 1}?`))) return;
+    if (!await dawayaConfirm(tr(lang, `حذف السؤال رقم ${idx + 1}؟`, `Delete question #${idx + 1}?`))) return;
     const next = questions.filter((_, i) => i !== idx);
     await saveQuizQuestionsLive(next, uid);
   };
 
   const handleReset = async () => {
-    if (!window.confirm(tr(lang, 'استعادة بنك الأسئلة الافتراضي (24 سؤالاً)؟', 'Restore default 24 questions?'))) return;
+    if (!await dawayaConfirm(tr(lang, 'استعادة بنك الأسئلة الافتراضي (24 سؤالاً)؟', 'Restore default 24 questions?'))) return;
     await resetQuizQuestionsToDefault(uid);
   };
 

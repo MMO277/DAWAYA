@@ -1,3 +1,4 @@
+import { dawayaConfirm, dawayaAlert } from './DawayaDialogHost';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -91,14 +92,14 @@ export default function Research() {
 
   const handleDeleteQuestionInline = async (qIdx: number) => {
     if (questions.length <= 1) return;
-    if (!confirm(tr(lang, `هل أنت متأكد من حذف السؤال رقم ${qIdx + 1} من الاستبيان؟`, `Delete question #${qIdx + 1} from survey?`))) {
+    if (!await dawayaConfirm(tr(lang, `هل أنت متأكد من حذف السؤال رقم ${qIdx + 1} من الاستبيان؟`, `Delete question #${qIdx + 1} from survey?`))) {
       return;
     }
     try {
       const next = questions.filter((_, i) => i !== qIdx);
       await saveQuizQuestionsLive(next, user?.uid || 'editor');
     } catch {
-      alert(tr(lang, 'تعذر حذف السؤال.', 'Failed to delete question.'));
+      void dawayaAlert(tr(lang, 'تعذر حذف السؤال.', 'Failed to delete question.'));
     }
   };
 

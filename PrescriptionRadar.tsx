@@ -1,3 +1,4 @@
+import { dawayaConfirm } from './DawayaDialogHost';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import { useDawayaDrugDatabase } from './dawayaDrugDatabaseService';
 import { pick } from './types';
@@ -1154,9 +1155,9 @@ export default function PrescriptionRadar() {
     setDocModalTarget(null);
   };
 
-  const handleDeleteSchedule = (id: string) => {
+  const handleDeleteSchedule = async (id: string) => {
     if (
-      window.confirm(
+      await dawayaConfirm(
         isAr
           ? 'هل أنت متأكد من حذف هذه الروشتة وسجل جرعاتها من حسابك؟'
           : 'Are you sure you want to delete this prescription and its dose history?'

@@ -1,3 +1,4 @@
+import { dawayaConfirm, dawayaAlert } from './DawayaDialogHost';
 import { useEffect, useMemo, useState } from 'react';
 import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore';
 import { db, configured } from './firebase';
@@ -337,17 +338,17 @@ export default function UsersTab({ myUid }: { myUid: string }) {
 
   async function handleDeleteRole(uid: string) {
     if (uid === myUid) {
-      alert(tr(lang, 'لا يمكنك حذف صلاحية الأدمن الخاصة بحسابك الحالي.', 'Cannot delete your own admin role.'));
+      void dawayaAlert(tr(lang, 'لا يمكنك حذف صلاحية الأدمن الخاصة بحسابك الحالي.', 'Cannot delete your own admin role.'));
       return;
     }
-    if (!confirm(t('confirmDel') || tr(lang, 'هل أنت متأكد من إزالة هذه الصلاحية وإرجاعه لمستخدم عادي؟', 'Reset this user role to standard customer?'))) return;
+    if (!await dawayaConfirm(t('confirmDel') || tr(lang, 'هل أنت متأكد من إزالة هذه الصلاحية وإرجاعه لمستخدم عادي؟', 'Reset this user role to standard customer?'))) return;
     setBusy(true);
     try {
       await deleteDoc(doc(db, 'roles', uid));
       await loadRolesAndLoggedUsers();
     } catch (e: unknown) {
       const errObj = e as { message?: string };
-      alert(errObj?.message || t('actionFailed'));
+      void dawayaAlert(errObj?.message || t('actionFailed'));
     } finally {
       setBusy(false);
     }

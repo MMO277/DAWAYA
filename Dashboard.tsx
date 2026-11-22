@@ -1,3 +1,4 @@
+import { dawayaConfirm, dawayaAlert } from './DawayaDialogHost';
 import { SubscriptionAndPlansPanel } from './SubscriptionAndPlansPanel';
 import { saveVisibilityConfig, useWhoCampaignAndVisibility, WHO_HEALTH_CAMPAIGNS } from './whoHealthCampaigns';
 import PartnerManagementCenter from './PartnerManagementCenter';
@@ -447,7 +448,7 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
       await setDoc(doc(db, 'settings', 'public'), { showUnreviewed: v }, { merge: true });
     } catch {
       setShowUn(!v);
-      alert(t('actionFailed'));
+      void dawayaAlert(t('actionFailed'));
     }
   }
 
@@ -462,7 +463,7 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
     if (status === 'approved') {
       const problems = validateForApproval(m);
       if (problems.length) {
-        alert(`${t('cannotApprove')}\n- ${problems.join('\n- ')}`);
+        void dawayaAlert(`${t('cannotApprove')}\n- ${problems.join('\n- ')}`);
         return;
       }
     }
@@ -470,25 +471,25 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
       await setStatus(m, status, uid);
       await load();
     } catch {
-      alert(t('actionFailed'));
+      void dawayaAlert(t('actionFailed'));
     }
   }
   async function remove(m: Medicine) {
-    if (!confirm(`${t('confirmDel')} ${m.id}`)) return;
+    if (!await dawayaConfirm(`${t('confirmDel')} ${m.id}`)) return;
     try {
       await removeMedicine(m.id);
       await load();
     } catch {
-      alert(t('actionFailed'));
+      void dawayaAlert(t('actionFailed'));
     }
   }
   async function starter() {
     try {
       const n = await seedStarter(uid);
-      alert(`${t('starterDone')} ${n}`);
+      void dawayaAlert(`${t('starterDone')} ${n}`);
       await load();
     } catch {
-      alert(t('actionFailed'));
+      void dawayaAlert(t('actionFailed'));
     }
   }
 

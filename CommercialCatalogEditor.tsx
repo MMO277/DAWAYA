@@ -1,3 +1,4 @@
+import { dawayaConfirm, dawayaAlert } from './DawayaDialogHost';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import { FormEvent, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -154,7 +155,7 @@ export function QuickProductEditorModal({
   };
 
   const handleResetDefault = async () => {
-    if (!confirm(tr(lang, 'هل تريد استعادة البيانات الافتراضية الأصلية لهذا الدواء؟', 'Reset this product to its original factory defaults?'))) return;
+    if (!await dawayaConfirm(tr(lang, 'هل تريد استعادة البيانات الافتراضية الأصلية لهذا الدواء؟', 'Reset this product to its original factory defaults?'))) return;
     setSaving(true);
     try {
       await resetCommercialProductToDefault(draft.productId, uid);
@@ -166,7 +167,7 @@ export function QuickProductEditorModal({
   };
 
   const handleDelete = async () => {
-    if (!confirm(tr(lang, `هل أنت متأكد من حذف المستحضر (${draft.tradeNameAr || draft.tradeNameEn}) من القائمة؟`, `Delete (${draft.tradeNameEn || draft.tradeNameAr})?`))) return;
+    if (!await dawayaConfirm(tr(lang, `هل أنت متأكد من حذف المستحضر (${draft.tradeNameAr || draft.tradeNameEn}) من القائمة؟`, `Delete (${draft.tradeNameEn || draft.tradeNameAr})?`))) return;
     setSaving(true);
     try {
       await deleteCommercialProductLive(draft.productId, uid);
@@ -542,7 +543,7 @@ export default function CommercialCatalogTab({ uid }: { uid: string }) {
     const d = getInlineDraft(p);
     const parsedPrice = d.price.trim() !== '' ? Number(d.price) : null;
     if (parsedPrice !== null && (Number.isNaN(parsedPrice) || parsedPrice < 0)) {
-      alert(tr(lang, 'يرجى إدخال سعر رقمي صحيح.', 'Please enter a valid numeric price.'));
+      void dawayaAlert(tr(lang, 'يرجى إدخال سعر رقمي صحيح.', 'Please enter a valid numeric price.'));
       return;
     }
     setSavingRowId(p.productId);
@@ -564,7 +565,7 @@ export default function CommercialCatalogTab({ uid }: { uid: string }) {
       );
       window.setTimeout(() => setToastMsg(''), 3500);
     } catch {
-      alert(tr(lang, 'تعذر حفظ التعديل. تأكد من صلاحية حسابك.', 'Failed to save change.'));
+      void dawayaAlert(tr(lang, 'تعذر حفظ التعديل. تأكد من صلاحية حسابك.', 'Failed to save change.'));
     }
     setSavingRowId(null);
   };

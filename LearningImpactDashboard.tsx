@@ -1,3 +1,4 @@
+import { dawayaAlert } from './DawayaDialogHost';
 import { SmartNativeSelect } from './SmartChoiceSelect';
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
@@ -119,7 +120,7 @@ export function LearningImpactDashboard() {
 
   const handleExportCSV = () => {
     if (analytics.nPaired < 5 && analytics.startedAttempts < 5) {
-      alert(
+      void dawayaAlert(
         isAr
           ? 'البيانات غير كافية للتصدير التراكمي (أقل من الحد الأدنى للخصوصية: 5 سجلات).'
           : 'Data cannot be exported (below minimum privacy threshold of 5 records).'
