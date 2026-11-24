@@ -437,7 +437,7 @@ function SmartCrossClinicSafetyBanner() {
   );
 }
 
-export default function Layout({
+export default function Layout({ children }: { children: ReactNode }) {
   const [idleOverlaysReady, setIdleOverlaysReady] = useState(false);
   useEffect(() => {
     const win = window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
@@ -447,7 +447,7 @@ export default function Layout({
     }
     const t = window.setTimeout(() => setIdleOverlaysReady(true), 1100);
     return () => window.clearTimeout(t);
-  }, []); children }: { children: ReactNode }) {
+  }, []);
   const { t, lang, setLang } = useLang();
   const { config: siteVisibility } = useWhoCampaignAndVisibility();
   const { emergency, countryName } = useEmergencyLocation();
