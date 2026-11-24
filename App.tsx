@@ -86,6 +86,7 @@ const DoctorVisitPrep = lazyWithRetry(() => import('./DoctorVisitPrep'));
 const EgyptianVaccineTracker = lazyWithRetry(() => import('./EgyptianVaccineTracker'));
 
 const SmartSymptomTriage = lazyWithRetry(() => import('./SmartSymptomTriage'));
+const DownloadApkPage = lazyWithRetry(() => import('./DownloadApkPage'));
 const OphthalmologyClinic = lazyWithRetry(() => import('./OphthalmologyClinic'));
 const EntClinic = lazyWithRetry(() => import('./EntClinic'));
 const LabTestDecoderClinic = lazyWithRetry(() => import('./LabTestDecoderClinic'));
@@ -304,6 +305,8 @@ export default function App() {
                 <Route path="/hair-clinic" element={<HairSkincareClinic />} />
                 <Route path="/chest-clinic" element={<ChestRespiratoryClinic />} />
                 <Route path="/body-map" element={<Navigate to="/#body-map-section" replace />} />
+                <Route path="/download-apk" element={<DownloadApkPage />} />
+                <Route path="/download" element={<DownloadApkPage />} />
                 <Route path="/food-drug-checker" element={<FoodDrugInteractionChecker />} />
                 <Route path="/lab-photo-scanner" element={<SmartLabAndRxPhotoScanner />} />
                 <Route path="/organ-simulator" element={<VisualBodyDrugSimulator />} />

@@ -14,14 +14,16 @@ const DISMISS_KEY = 'pwa-install-dismissed';
  * under `/DAWAYA/` or `/antibiotic-awareness/`, with a fallback to the official DAWAYA release.
  */
 export function resolveApkDownloadUrl(): string {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')) {
     const path = window.location.pathname || '';
-    const match = path.match(/^\/([^/]+)\//);
+    const match = path.match(/^\/([^/]+)(?:\/|$)/);
     const repoName = match && match[1] ? match[1] : 'DAWAYA';
     if (repoName.toLowerCase() === 'antibiotic-awareness') {
       return 'https://github.com/MMO277/antibiotic-awareness/releases/latest/download/DAWAYA.apk';
     }
-    return `https://github.com/MMO277/${repoName}/releases/latest/download/DAWAYA.apk`;
+    if (repoName.toLowerCase() === 'dawaya') {
+      return 'https://github.com/MMO277/DAWAYA/releases/latest/download/DAWAYA.apk';
+    }
   }
   return 'https://github.com/MMO277/DAWAYA/releases/latest/download/DAWAYA.apk';
 }

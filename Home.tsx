@@ -1904,6 +1904,26 @@ export default function Home() {
                 </svg>
                 <span>{tr(lang, 'حدد مكان الألم على الجسم', 'Body Pain Map')}</span>
               </button>
+              <Link
+                to="/download-apk"
+                className="hero-quick-tag"
+                style={{
+                  background: 'rgba(13, 31, 56, 0.72)',
+                  borderColor: '#CFD29D',
+                  color: '#FFFFFF',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 800,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CFD29D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <span>{tr(lang, 'تحميل التطبيق (APK)', 'Download APK')}</span>
+              </Link>
               <Link to="/passport" className="hero-quick-tag" style={{ background: 'rgba(19, 136, 102, 0.32)', borderColor: '#CFD29D', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <DawayaRouteVectorIcon route="/passport" size={16} color="#CFD29D" />
                 <span>{tr(lang, 'الكارت الطبي الذكي (ID)', 'Smart Medical ID')}</span>
