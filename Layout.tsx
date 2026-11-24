@@ -16,9 +16,6 @@ import {
   NavRadarVectorIcon,
   NavShieldSafetyVectorIcon,
 } from './DawayaVectorIcons';
-const AppUpdateManager = lazy(() => import("./AppUpdateManager"));
-const OnboardingTour = lazy(() => import("./OnboardingTour"));
-const GlobalPhoneAlarmOverlay = lazy(() => import('./SmartDoseAlarmCard').then((m) => ({ default: m.GlobalPhoneAlarmOverlay })));
 import { lazy, Suspense, ReactNode, useRef, useEffect, useState, useMemo } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useLang, SUPPORTED_LANGS } from './i18n';
@@ -33,6 +30,9 @@ const GlobalSpotlightModal = lazy(() =>
   import('./SmartPersonaAndSpotlight').then((m) => ({ default: m.GlobalSpotlightModal }))
 );
 const ChatWidget = lazy(() => import('./ChatWidget'));
+const AppUpdateManager = lazy(() => import("./AppUpdateManager"));
+const OnboardingTour = lazy(() => import("./OnboardingTour"));
+const GlobalPhoneAlarmOverlay = lazy(() => import('./SmartDoseAlarmCard').then((m) => ({ default: m.GlobalPhoneAlarmOverlay })));
 const LogoutModal = lazy(() => import('./LogoutModal'));
 
 let hasEverUsedSecondaryDomTranslation = false;
@@ -369,16 +369,6 @@ function SmartCrossClinicSafetyBanner() {
   const isAr = lang === 'ar';
   const { profile } = useSyncedHealthProfile();
   const { schedules } = useSyncedSchedules();
-  const [idleOverlaysReady, setIdleOverlaysReady] = useState(false);
-  useEffect(() => {
-    const win = window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
-    if (typeof win.requestIdleCallback === 'function') {
-      const id = win.requestIdleCallback(() => setIdleOverlaysReady(true), { timeout: 1400 });
-      return () => { if (typeof win.cancelIdleCallback === 'function') win.cancelIdleCallback(id); };
-    }
-    const t = window.setTimeout(() => setIdleOverlaysReady(true), 1100);
-    return () => window.clearTimeout(t);
-  }, []);
 
   const safetyResult = useMemo(() => {
     try {
@@ -447,7 +437,17 @@ function SmartCrossClinicSafetyBanner() {
   );
 }
 
-export default function Layout({ children }: { children: ReactNode }) {
+export default function Layout({
+  const [idleOverlaysReady, setIdleOverlaysReady] = useState(false);
+  useEffect(() => {
+    const win = window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    if (typeof win.requestIdleCallback === 'function') {
+      const id = win.requestIdleCallback(() => setIdleOverlaysReady(true), { timeout: 1400 });
+      return () => { if (typeof win.cancelIdleCallback === 'function') win.cancelIdleCallback(id); };
+    }
+    const t = window.setTimeout(() => setIdleOverlaysReady(true), 1100);
+    return () => window.clearTimeout(t);
+  }, []); children }: { children: ReactNode }) {
   const { t, lang, setLang } = useLang();
   const { config: siteVisibility } = useWhoCampaignAndVisibility();
   const { emergency, countryName } = useEmergencyLocation();
