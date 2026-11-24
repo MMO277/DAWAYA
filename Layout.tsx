@@ -16,9 +16,9 @@ import {
   NavRadarVectorIcon,
   NavShieldSafetyVectorIcon,
 } from './DawayaVectorIcons';
-import AppUpdateManager, { triggerUpdateCheckerManually } from "./AppUpdateManager";
-import OnboardingTour, { triggerOnboardingTourManually } from "./OnboardingTour";
-import { GlobalPhoneAlarmOverlay } from './SmartDoseAlarmCard';
+const AppUpdateManager = lazy(() => import("./AppUpdateManager"));
+const OnboardingTour = lazy(() => import("./OnboardingTour"));
+const GlobalPhoneAlarmOverlay = lazy(() => import('./SmartDoseAlarmCard').then((m) => ({ default: m.GlobalPhoneAlarmOverlay })));
 import { lazy, Suspense, ReactNode, useRef, useEffect, useState, useMemo } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useLang, SUPPORTED_LANGS } from './i18n';
@@ -369,6 +369,16 @@ function SmartCrossClinicSafetyBanner() {
   const isAr = lang === 'ar';
   const { profile } = useSyncedHealthProfile();
   const { schedules } = useSyncedSchedules();
+  const [idleOverlaysReady, setIdleOverlaysReady] = useState(false);
+  useEffect(() => {
+    const win = window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    if (typeof win.requestIdleCallback === 'function') {
+      const id = win.requestIdleCallback(() => setIdleOverlaysReady(true), { timeout: 1400 });
+      return () => { if (typeof win.cancelIdleCallback === 'function') win.cancelIdleCallback(id); };
+    }
+    const t = window.setTimeout(() => setIdleOverlaysReady(true), 1100);
+    return () => window.clearTimeout(t);
+  }, []);
 
   const safetyResult = useMemo(() => {
     try {
@@ -2015,7 +2025,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 className="drawer-item"
                 onClick={() => {
                   closeDrawer(false);
-                  triggerOnboardingTourManually();
+                  void import("./OnboardingTour").then((m) => m.triggerOnboardingTourManually());
                 }}
               >
                 <span className="item-icon" aria-hidden="true">🧭</span>
@@ -2029,7 +2039,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 className="drawer-item"
                 onClick={() => {
                   closeDrawer(false);
-                  triggerUpdateCheckerManually();
+                  void import("./AppUpdateManager").then((m) => m.triggerUpdateCheckerManually());
                 }}
               >
                 <span className="item-icon" aria-hidden="true">🔄</span>
@@ -2237,9 +2247,13 @@ export default function Layout({ children }: { children: ReactNode }) {
         {children}
       </div>
 
-      <GlobalPhoneAlarmOverlay />
-      <OnboardingTour />
-      <AppUpdateManager />
+      {idleOverlaysReady && (
+        <Suspense fallback={null}>
+          <GlobalPhoneAlarmOverlay />
+          <OnboardingTour />
+          <AppUpdateManager />
+        </Suspense>
+      )}
 
       {spotlightOpen && (
         <Suspense fallback={null}>
@@ -2247,10 +2261,12 @@ export default function Layout({ children }: { children: ReactNode }) {
         </Suspense>
       )}
 
-      {/* Lazy-loaded Floating AI Assistant Bubble */}
-      <Suspense fallback={null}>
-        <ChatWidget />
-      </Suspense>
+      {/* Idle-deferred Floating AI Assistant Bubble for instant First Paint */}
+      {idleOverlaysReady && (
+        <Suspense fallback={null}>
+          <ChatWidget />
+        </Suspense>
+      )}
 
       {/* Lazy-loaded Logout Modal */}
       {(showLogoutModal || authCtx.logoutModalOpen) && (

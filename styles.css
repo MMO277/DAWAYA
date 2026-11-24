@@ -8001,3 +8001,11 @@ button:active:not(:disabled), .btn:active:not(:disabled) {
   contain-intrinsic-size: auto 210px;
   contain: layout style;
 }
+
+/* DAWAYA_PERF_CONTENT_VISIBILITY_V29 */
+.pro-tools-section,
+.bento-grid,
+.article-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 340px;
+}

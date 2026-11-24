@@ -15,11 +15,10 @@ import { useLang } from './i18n';
 import { ARTICLES } from './articlesData';
 import { pick, tr } from './types';
 import Disclaimer from './Disclaimer';
-import DidYouKnow from './DidYouKnow';
+const DidYouKnow = lazy(() => import('./DidYouKnow'));
 const LazyInteractiveBodyMap = lazy(() => import('./InteractiveBodyMap'));
-import ResistanceCounter from './ResistanceCounter';
+const ResistanceCounter = lazy(() => import('./ResistanceCounter'));
 import { useClinicalProMode } from './clinicalProData';
-import { EGYPTIAN_COMMERCIAL_PRODUCTS } from './egyptianDrugDatabase';
 import {
   clearRecentlyViewedMedicines,
   DAWAYA_CATEGORY_LABELS,
@@ -38,6 +37,12 @@ const GlobalSpotlightModal = lazy(() =>
 export default function Home() {
   const location = useLocation();
   const [showBodyMapModal, setShowBodyMapModal] = useState(false);
+  const [commercialProducts, setCommercialProducts] = useState<any[]>([]);
+  const ensureCommercialProductsLoaded = () => {
+    if (commercialProducts.length === 0) {
+      void import('./egyptianDrugDatabase').then((m) => setCommercialProducts(m.EGYPTIAN_COMMERCIAL_PRODUCTS));
+    }
+  };
   useEffect(() => {
     if (location.hash === '#body-map-section') {
       setShowBodyMapModal(true);
@@ -587,7 +592,7 @@ export default function Home() {
       return { items: dawayaMatches, totalMatches: suggested.totalMatches };
     }
 
-    const abxMatches = EGYPTIAN_COMMERCIAL_PRODUCTS.filter((p) => {
+    const abxMatches = commercialProducts.filter((p) => {
       const hay = norm(
         `${p.tradeNameAr} ${p.tradeNameEn} ${p.scientificComposition} ${p.barcode || ''} ${p.manufacturer}`
       );
@@ -609,7 +614,7 @@ export default function Home() {
       items: combined,
       totalMatches: Math.max(suggested.totalMatches, combined.length),
     };
-  }, [deferredQ, indexItems, isAr, lang, userProfile]);
+  }, [deferredQ, indexItems, commercialProducts, isAr, lang, userProfile]);
 
   const quickMatches = quickMatchesBundle.items;
 
@@ -1589,12 +1594,12 @@ export default function Home() {
                 type="search"
                 className="hero-search-input"
                 value={q}
-                onFocus={() => { setFocused(true); void import('./dawayaDrugDatabaseService').then((m) => m.ensureDawayaDatabaseLoaded()); }}
+                onFocus={() => { setFocused(true); ensureCommercialProductsLoaded(); void import('./dawayaDrugDatabaseService').then((m) => m.ensureDawayaDatabaseLoaded()); }}
                 onChange={(e) => {
                   setQ(e.target.value);
                   setFocused(true);
                   if (indexItems.length === 0) {
-                    void import('./dawayaDrugDatabaseService').then((m) => m.ensureDawayaDatabaseLoaded());
+                    ensureCommercialProductsLoaded(); void import('./dawayaDrugDatabaseService').then((m) => m.ensureDawayaDatabaseLoaded());
                   }
                 }}
                 onKeyDown={(e) => {
@@ -1904,26 +1909,6 @@ export default function Home() {
                 </svg>
                 <span>{tr(lang, 'حدد مكان الألم على الجسم', 'Body Pain Map')}</span>
               </button>
-              <Link
-                to="/download-apk"
-                className="hero-quick-tag"
-                style={{
-                  background: 'rgba(13, 31, 56, 0.72)',
-                  borderColor: '#CFD29D',
-                  color: '#FFFFFF',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontWeight: 800,
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CFD29D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                <span>{tr(lang, 'تحميل التطبيق (APK)', 'Download APK')}</span>
-              </Link>
               <Link to="/passport" className="hero-quick-tag" style={{ background: 'rgba(19, 136, 102, 0.32)', borderColor: '#CFD29D', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <DawayaRouteVectorIcon route="/passport" size={16} color="#CFD29D" />
                 <span>{tr(lang, 'الكارت الطبي الذكي (ID)', 'Smart Medical ID')}</span>
@@ -2000,7 +1985,7 @@ export default function Home() {
       </section>
 
       <div className="wrap stack" style={{ marginTop: '18px' }}>
-        <DidYouKnow />
+        <Suspense fallback={null}><DidYouKnow /></Suspense>
         {activeCampaign && <SeasonalAwarenessBasketCard campaign={activeCampaign} isAr={isAr} />}
         {secondaryWhoCampaign && <SeasonalAwarenessBasketCard campaign={secondaryWhoCampaign} isAr={isAr} />}
 
@@ -2278,7 +2263,7 @@ export default function Home() {
         {/* Did you know? */}
 
         {/* Real-World AMR Numbers Counter */}
-        <ResistanceCounter />
+        <Suspense fallback={null}><ResistanceCounter /></Suspense>
 
         </>
         )}
