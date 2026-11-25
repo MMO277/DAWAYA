@@ -1071,8 +1071,8 @@ export default function Dashboard() {
       {tab === 'subscriptions_plans' && (
         <div className="stack" style={{ gap: '16px' }}>
           <WhoCampaignAndVisibilityAdminCard isAr={lang === 'ar'} />
-          <SubscriptionAndPlansPanel audience="user" isAr={lang === 'ar'} />
-          <SubscriptionAndPlansPanel audience="pharmacy" isAr={lang === 'ar'} />
+          <SubscriptionAndPlansPanel audience="user" adminManage={true} isAr={lang === 'ar'} />
+          <SubscriptionAndPlansPanel audience="pharmacy" adminManage={true} isAr={lang === 'ar'} />
         </div>
       )}
       {tab === 'partners' && <PartnerManagementCenter adminUid={user.uid} adminRole={role} />}

@@ -6889,8 +6889,89 @@ header.top.dawaya-v2-header {
 /* ══════════════════════════════════════════════════════════════════════════
    DAWAYA | دوايا — Floating Glassmorphic Bottom Navigation Dock (Mobile/APK)
    ══════════════════════════════════════════════════════════════════════════ */
+body {
+  padding-bottom: 94px !important;
+}
+
 .dawaya-floating-bottom-dock {
-  display: none;
+  position: fixed;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, calc(100vw - 24px));
+  height: 66px;
+  z-index: 9050;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.15fr 1fr 1fr;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(10, 25, 42, 0.92) 0%, rgba(6, 17, 30, 0.97) 100%);
+  border: 1.2px solid rgba(207, 210, 157, 0.3);
+  box-shadow: 0 16px 38px rgba(4, 12, 22, 0.52), 0 0 20px rgba(19, 136, 102, 0.18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.dawaya-dock-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #CBD5E1;
+  background: transparent;
+  border: none;
+  border-radius: 14px;
+  text-decoration: none;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 6px 4px;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.dawaya-dock-item:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-2px);
+}
+
+.dawaya-dock-item.active {
+  color: #CFD29D;
+  background: rgba(19, 136, 102, 0.18);
+  transform: translateY(-1px);
+}
+
+.dawaya-dock-center-scan {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: #CFD29D;
+  font-size: 0.74rem;
+  font-weight: 800;
+  transform: translateY(-14px);
+  transition: transform 0.2s ease;
+}
+
+.dawaya-dock-center-scan:hover {
+  transform: translateY(-17px);
+}
+
+.dawaya-dock-scan-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #138866 0%, #0F6E52 100%);
+  border: 2px solid #CFD29D;
+  box-shadow: 0 8px 20px rgba(19, 136, 102, 0.52);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 3px;
 }
 
 @media (max-width: 768px) {
@@ -6901,66 +6982,17 @@ header.top.dawaya-v2-header {
     bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
   }
   .dawaya-floating-bottom-dock {
-    position: fixed;
     bottom: max(10px, env(safe-area-inset-bottom));
     left: 12px;
     right: 12px;
+    transform: none;
+    width: auto;
     height: 64px;
-    z-index: 9050;
-    display: grid;
-    grid-template-columns: 1fr 1fr 1.15fr 1fr 1fr;
-    align-items: center;
     padding: 0 8px;
-    border-radius: 22px;
-    background: linear-gradient(180deg, rgba(13, 31, 56, 0.94) 0%, rgba(9, 22, 41, 0.97) 100%);
-    border: 1.2px solid rgba(207, 210, 157, 0.32);
-    box-shadow: 0 14px 34px rgba(6, 15, 29, 0.55), 0 0 18px rgba(19, 136, 102, 0.22);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
   }
-  .dawaya-dock-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    color: #CBD5E1;
-    background: transparent;
-    border: none;
-    text-decoration: none;
-    font: inherit;
-    font-size: 0.7rem;
-    font-weight: 700;
-    padding: 6px 2px;
-    cursor: pointer;
-    transition: color 0.2s ease, transform 0.2s ease;
-  }
-  .dawaya-dock-item.active {
-    color: #CFD29D;
-    transform: translateY(-1px);
-  }
+  .dawaya-dock-item,
   .dawaya-dock-center-scan {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    color: #CFD29D;
     font-size: 0.7rem;
-    font-weight: 800;
-    transform: translateY(-14px);
-  }
-  .dawaya-dock-scan-circle {
-    width: 48px;
-    height: 48px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, #138866 0%, #0F6E52 100%);
-    border: 2px solid #CFD29D;
-    box-shadow: 0 8px 20px rgba(19, 136, 102, 0.55);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 3px;
   }
 }
 
@@ -8008,4 +8040,71 @@ button:active:not(:disabled), .btn:active:not(:disabled) {
 .article-card {
   content-visibility: auto;
   contain-intrinsic-size: auto 340px;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DAWAYA — FAMILY CARE & SENIOR-FRIENDLY ACCESSIBILITY MODE
+   ══════════════════════════════════════════════════════════════════════════ */
+.dawaya-quick-access-strip {
+  position: fixed;
+  bottom: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9040;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.dawaya-qa-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-decoration: none;
+  color: #E2E8F0;
+  background: rgba(7, 20, 30, 0.88);
+  border: 1px solid rgba(207, 210, 157, 0.32);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.dawaya-qa-pill:hover {
+  color: #FFFFFF;
+  border-color: #24C8B8;
+  transform: translateY(-1px);
+}
+.dawaya-qa-pill.is-on {
+  background: #0F7659;
+  color: #FFFFFF;
+  border-color: #CFD29D;
+}
+@media (max-width: 768px) {
+  .dawaya-quick-access-strip {
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Senior-Friendly High-Clarity Large Font Mode */
+body.dawaya-senior-mode {
+  font-size: 118% !important;
+  line-height: 1.75 !important;
+}
+body.dawaya-senior-mode .btn,
+body.dawaya-senior-mode .input,
+body.dawaya-senior-mode select {
+  min-height: 52px !important;
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+}
+body.dawaya-senior-mode p,
+body.dawaya-senior-mode li,
+body.dawaya-senior-mode span {
+  letter-spacing: 0.15px;
 }

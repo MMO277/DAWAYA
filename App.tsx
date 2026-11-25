@@ -9,6 +9,7 @@ import Layout from './Layout';
 import { AuthProvider } from './authContext';
 import { EmergencyLocationProvider } from './emergencyLocation';
 const AuthModal = lazyWithRetry(() => import('./AuthModal'));
+const FamilyCareHub = lazyWithRetry(() => import('./FamilyCareHub'));
 import Home from './Home';
 import { startPartnerEcosystemSync } from './partnerService';
 import { hydrateCommerceFlagsFromCloud } from './dawayaCommerceStore';
@@ -412,7 +413,8 @@ export default function App() {
                 <Route path="/passport" element={<SmartPassport />} />
                 <Route path="/smart-passport" element={<SmartPassport />} />
                 <Route path="/passport/:uid" element={<PassportView />} />
-                <Route path="*" element={<NotFound />} />
+                <Route path="/family-care" element={<FamilyCareHub />} />
+          <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </DawayaErrorBoundary>

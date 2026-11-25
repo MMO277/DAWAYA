@@ -438,6 +438,16 @@ function SmartCrossClinicSafetyBanner() {
 }
 
 export default function Layout({ children }: { children: ReactNode }) {
+  const [seniorMode, setSeniorMode] = useState<boolean>(() => {
+    try { return localStorage.getItem('dawaya_senior_mode_v1') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try {
+      document.body.classList.toggle('dawaya-senior-mode', seniorMode);
+      localStorage.setItem('dawaya_senior_mode_v1', seniorMode ? '1' : '0');
+    } catch {}
+  }, [seniorMode]);
+
   const [idleOverlaysReady, setIdleOverlaysReady] = useState(false);
   useEffect(() => {
     const win = window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
@@ -2283,7 +2293,24 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {/* Professional Academic & Medical Footer on All Pages */}
       
-      {/* Floating Glass Bottom Navigation Dock for Mobile & Android App */}
+      {/* Quick Family Care & Senior Accessibility Floating Bar */}
+      <div className="dawaya-quick-access-strip no-print" dir={isAr ? 'rtl' : 'ltr'}>
+        <NavLink to="/family-care" className="dawaya-qa-pill">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>{tr(lang, 'الرعاية العائلية', 'Family Care', 'Famille', 'Familia')}</span>
+        </NavLink>
+        <button
+          type="button"
+          className={'dawaya-qa-pill' + (seniorMode ? ' is-on' : '')}
+          onClick={() => setSeniorMode((v) => !v)}
+          aria-pressed={seniorMode}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+          <span>{seniorMode ? tr(lang, 'وضع كبار السن: مفعّل', 'Senior Mode: ON', 'Senior: ON', 'Senior: ON') : tr(lang, 'وضع كبار السن', 'Senior Mode', 'Mode Senior', 'Modo Mayor')}</span>
+        </button>
+      </div>
+
+      {/* Floating Glass Bottom Navigation Dock for Mobile & Desktop */}
       <nav
         className="dawaya-floating-bottom-dock no-print"
         aria-label={tr(lang, 'شريط التنقل السريع السفلي', 'Bottom quick navigation')}
@@ -2330,7 +2357,11 @@ export default function Layout({ children }: { children: ReactNode }) {
           to="/clinics"
           className={({ isActive }) => `dawaya-dock-item${isActive ? ' active' : ''}`}
         >
-          <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>🏥</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="17" rx="3" />
+            <path d="M12 8v8" />
+            <path d="M8 12h8" />
+          </svg>
           <span>{tr(lang, 'العيادات', 'Clinics', 'Cliniques', 'Clínicas')}</span>
         </NavLink>
       </nav>
