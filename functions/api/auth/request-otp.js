@@ -60,7 +60,7 @@ function buildOtpEmailHtml(otp) {
     .map(
       (d) =>
         `<td style="padding:0 4px;">
-          <div style="width:44px; height:56px; line-height:56px; background:linear-gradient(180deg,#112938 0%,#071520 100%); border:2px solid #CFD29D; border-radius:12px; font-size:27px; font-weight:800; color:#F8FAFC; font-family:'Segoe UI',Tahoma,Arial,sans-serif; text-align:center; box-shadow:0 6px 16px rgba(0,0,0,0.45), inset 0 1px 0 rgba(207,210,157,0.35);">${d}</div>
+          <div style="width:44px; height:58px; line-height:58px; background:linear-gradient(180deg,#0E2832 0%,#06131A 100%); border:2px solid #24C8B8; border-radius:14px; font-size:27px; font-weight:800; color:#FFFFFF; font-family:'Segoe UI',Tahoma,Arial,sans-serif; text-align:center; box-shadow:0 0 14px rgba(36,200,184,0.22), inset 0 1px 0 rgba(207,210,157,0.4);">${d}</div>
         </td>`
     )
     .join('');
@@ -68,29 +68,29 @@ function buildOtpEmailHtml(otp) {
   return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0; padding:0; background-color:#040B11; font-family:'Noto Sans Arabic','Segoe UI',Tahoma,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#040B11; padding:26px 12px;">
+<body style="margin:0; padding:0; background-color:#030A0F; font-family:'Noto Sans Arabic','Segoe UI',Tahoma,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#030A0F; padding:24px 12px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px; background:#07141E; border-radius:22px; overflow:hidden; border:1.5px solid #2A434B; box-shadow:0 24px 60px rgba(0,0,0,0.65);">
-          <!-- 3D Bank Vault Hero Image -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px; background:#06121A; border-radius:24px; overflow:hidden; border:1.5px solid #1E3E44; box-shadow:0 24px 64px rgba(0,0,0,0.72);">
+          <!-- 3D Smart Medical Capsule Hero -->
           <tr>
-            <td style="padding:0; background:#061118;">
-              <img src="https://dawaya.pages.dev/otp-vault-hero.jpg" alt="DAWAYA Secure Vault" width="560" style="display:block; width:100%; height:auto; border:0;" />
+            <td style="padding:0; background:#040B10;">
+              <img src="https://dawaya.pages.dev/otp-capsule-hero.jpg" alt="DAWAYA Smart Capsule Security" width="560" style="display:block; width:100%; height:auto; border:0;" />
             </td>
           </tr>
 
-          <!-- Luxury Gold Accent Bar & Brand Header -->
+          <!-- Luminous Brand Ribbon -->
           <tr>
-            <td style="background:linear-gradient(90deg,#0A2229 0%,#123C36 50%,#0A2229 100%); border-top:2px solid #CFD29D; border-bottom:1px solid rgba(207,210,157,0.22); padding:16px 26px;">
+            <td style="background:linear-gradient(90deg,#071C24 0%,#0E3F39 50%,#071C24 100%); border-top:2px solid #24C8B8; border-bottom:1px solid rgba(207,210,157,0.2); padding:15px 26px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="text-align:right; vertical-align:middle;">
-                    <div style="font-size:20px; font-weight:800; color:#FFFFFF; letter-spacing:0.4px;">دوايا <span style="color:#CFD29D;">| DAWAYA</span></div>
-                    <div style="font-size:11.5px; color:#8FDAC3; margin-top:2px;">خزنة الأمان الطبي المشفّرة</div>
+                    <div style="font-size:20px; font-weight:800; color:#FFFFFF;">دوايا <span style="color:#CFD29D;">| DAWAYA</span></div>
+                    <div style="font-size:11.5px; color:#8FDAC3; margin-top:2px;">كبسولة الأمان الطبي المشفّرة</div>
                   </td>
                   <td style="text-align:left; vertical-align:middle;">
-                    <span style="display:inline-block; background:rgba(207,210,157,0.14); border:1px solid #CFD29D; color:#CFD29D; font-size:11px; font-weight:800; padding:5px 13px; border-radius:999px; letter-spacing:0.5px;">VAULT OTP</span>
+                    <span style="display:inline-block; background:rgba(36,200,184,0.14); border:1px solid #24C8B8; color:#5EEAD4; font-size:11px; font-weight:800; padding:5px 13px; border-radius:999px;">CAPSULE KEY</span>
                   </td>
                 </tr>
               </table>
@@ -100,34 +100,34 @@ function buildOtpEmailHtml(otp) {
           <!-- Main Body -->
           <tr>
             <td style="padding:28px 26px 24px 26px; text-align:right; color:#E2E8F0;">
-              <h1 style="margin:0 0 10px 0; font-size:21px; font-weight:800; color:#FFFFFF;">مفتاح فتح الخزنة واستعادة الحساب</h1>
+              <h1 style="margin:0 0 10px 0; font-size:21px; font-weight:800; color:#FFFFFF;">تم فتح كبسولة التحقق الخاصة بك</h1>
               <p style="margin:0 0 22px 0; font-size:14px; line-height:1.8; color:#9FB4C4;">
-                تلقّينا طلباً آمناً لإعادة تعيين كلمة المرور الخاصة بحسابك في <strong style="color:#CFD29D;">دوايا</strong>. أدخل رمز الخزنة المكوّن من 6 أرقام داخل التطبيق لفتح الحساب وتعيين كلمة مرور جديدة:
+                أدخل الشفرة المكوّنة من 6 أرقام داخل تطبيق <strong style="color:#CFD29D;">دوايا</strong> لتفعيل الكبسولة وإعادة تعيين كلمة المرور بأمان فوري:
               </p>
 
-              <!-- Metallic Vault Combination Chamber -->
-              <div style="background:linear-gradient(160deg,#0B1D29 0%,#061119 100%); border:1.5px solid rgba(207,210,157,0.45); border-radius:18px; padding:22px 10px; text-align:center; margin-bottom:22px;">
-                <div style="font-size:11.5px; font-weight:700; color:#CFD29D; letter-spacing:0.8px; margin-bottom:14px;">رمز التحقق المشفّر (صالح لمدة 10 دقائق)</div>
+              <!-- 6 Luminous Crystal Tiles -->
+              <div style="background:linear-gradient(160deg,#0A1F2A 0%,#051017 100%); border:1.5px solid rgba(36,200,184,0.38); border-radius:18px; padding:22px 10px; text-align:center; margin-bottom:22px;">
+                <div style="font-size:11.5px; font-weight:700; color:#CFD29D; letter-spacing:0.6px; margin-bottom:14px;">شفرة كبسولة الأمان (صالحة لمدة 10 دقائق)</div>
                 <table role="presentation" cellpadding="0" cellspacing="0" align="center" dir="ltr" style="margin:0 auto;">
                   <tr>${digitCells}</tr>
                 </table>
-                <div style="font-size:11.5px; color:#6EE7B7; margin-top:14px;">
-                  تشفير HMAC-SHA256 • يُستخدم لمرة واحدة فقط
+                <div style="font-size:11.5px; color:#5EEAD4; margin-top:14px;">
+                  تشفير HMAC-SHA256 • للاستخدام مرة واحدة فقط
                 </div>
               </div>
 
-              <!-- Security Warning -->
-              <div style="background:rgba(207,210,157,0.08); border-right:3.5px solid #CFD29D; border-radius:10px; padding:12px 15px; font-size:12.5px; line-height:1.7; color:#CBD5E1;">
-                <strong style="color:#CFD29D;">تنبيه أمان الخزنة:</strong> لا تشارك هذا الرمز مع أي شخص نهائياً. إذا لم تطلب تغيير كلمة المرور، تجاهل هذه الرسالة وستبقى خزنة حسابك مغلقة وآمنة بالكامل.
+              <!-- Security Notice -->
+              <div style="background:rgba(207,210,157,0.07); border-right:3.5px solid #CFD29D; border-radius:10px; padding:12px 15px; font-size:12.5px; line-height:1.7; color:#CBD5E1;">
+                <strong style="color:#CFD29D;">تنبيه أمان:</strong> لا تشارك هذه الشفرة مع أي شخص. إذا لم تطلب تغيير كلمة المرور، تجاهل هذه الرسالة وسيبقى حسابك محمياً بالكامل.
               </div>
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="background:#050E15; border-top:1px solid rgba(255,255,255,0.08); padding:15px 26px; text-align:center;">
+            <td style="background:#040C12; border-top:1px solid rgba(255,255,255,0.08); padding:15px 26px; text-align:center;">
               <div style="font-size:11.5px; color:#64748B;">
-                نظام الحماية التلقائي • <strong style="color:#24C8B8;">دوايا (DAWAYA)</strong> • <span dir="ltr">dawaya.pages.dev</span>
+                منظومة الرعاية الصحية الذكية • <strong style="color:#24C8B8;">دوايا (DAWAYA)</strong> • <span dir="ltr">dawaya.pages.dev</span>
               </div>
             </td>
           </tr>
@@ -153,6 +153,7 @@ export async function onRequestOptions() {
 
 export async function onRequestGet(context) {
   const env = context.env || {};
+  const hasGasWebhook = Boolean(String(env.GAS_EMAIL_WEBHOOK_URL || '').trim());
   const hasResendKey = Boolean(String(env.RESEND_API_KEY || '').trim());
   const hasBrevoKey = Boolean(String(env.BREVO_API_KEY || '').trim());
   const hasFromEmail = Boolean(String(env.OTP_FROM_EMAIL || '').trim());
@@ -160,8 +161,9 @@ export async function onRequestGet(context) {
   return new Response(
     JSON.stringify({
       ok: true,
-      configured: (hasResendKey || hasBrevoKey) && hasFirebaseJson,
-      provider: hasResendKey ? 'resend' : hasBrevoKey ? 'brevo' : 'none',
+      configured: (hasGasWebhook || hasResendKey || hasBrevoKey) && hasFirebaseJson,
+      provider: hasGasWebhook ? 'google_apps_script_inbox' : hasResendKey ? 'resend' : hasBrevoKey ? 'brevo' : 'none',
+      hasGasWebhook,
       hasBrevoKey,
       hasFromEmail,
       hasFirebaseJson,
@@ -180,12 +182,14 @@ export async function onRequestPost(context) {
     }
 
     const env = context.env || {};
+    const gasWebhookUrl = String(env.GAS_EMAIL_WEBHOOK_URL || '').trim();
+    const gasSecret = String(env.GAS_EMAIL_SECRET || 'dawaya-otp-gas').trim();
     const resendKey = String(env.RESEND_API_KEY || '').trim();
     const brevoKey = String(env.BREVO_API_KEY || '').trim();
     const serviceAccJson = String(env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
-    const signingSecret = String(env.OTP_SIGNING_SECRET || serviceAccJson || resendKey || brevoKey || '').trim();
+    const signingSecret = String(env.OTP_SIGNING_SECRET || serviceAccJson || resendKey || brevoKey || gasWebhookUrl || '').trim();
 
-    if ((!resendKey && !brevoKey) || !serviceAccJson || !signingSecret) {
+    if ((!gasWebhookUrl && !resendKey && !brevoKey) || !serviceAccJson || !signingSecret) {
       return new Response(JSON.stringify({ ok: false, error: 'OTP_SERVICE_NOT_CONFIGURED' }), { status: 503, headers });
     }
 
@@ -210,7 +214,27 @@ export async function onRequestPost(context) {
     let sent = false;
     let providerStatus = 0;
     let providerError = '';
-    if (resendKey) {
+    if (gasWebhookUrl) {
+      try {
+        const resp = await fetch(gasWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secret: gasSecret, to: email, subject, html }),
+        });
+        providerStatus = resp.status;
+        if (resp.ok) {
+          const txt = await resp.text().catch(() => '');
+          if (!txt || txt.includes('"ok":true') || txt.includes('OK')) {
+            sent = true;
+          } else {
+            providerError = txt.slice(0, 180);
+          }
+        }
+      } catch (e) {
+        providerError = String(e || '').slice(0, 120);
+      }
+    }
+    if (!sent && resendKey) {
       const resp = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -222,7 +246,8 @@ export async function onRequestPost(context) {
       sent = resp.ok;
       providerStatus = resp.status;
       if (!resp.ok) providerError = (await resp.text().catch(() => '')).slice(0, 180);
-    } else if (brevoKey) {
+    }
+    if (!sent && brevoKey) {
       const senderEmail = String(env.OTP_FROM_EMAIL || 'no-reply@dawaya.pages.dev').replace(/.*<|>|$/g, '').trim();
       const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',

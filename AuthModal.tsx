@@ -275,61 +275,22 @@ function Lamp({
 
 
 
-function playVaultDialClick() {
-  try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(1100, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(280, ctx.currentTime + 0.045);
-    gain.gain.setValueAtTime(0.18, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.055);
-    window.setTimeout(() => ctx.close().catch(() => {}), 150);
-  } catch {}
-}
-
-function playVaultUnlockSound() {
-  try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const now = ctx.currentTime;
-    // Heavy metallic bolt thud + harmonic emerald chime
-    const notes = [140, 220, 523.25, 659.25, 783.99];
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = i < 2 ? 'sawtooth' : 'sine';
-      const t = now + i * 0.09;
-      osc.frequency.setValueAtTime(freq, t);
-      gain.gain.setValueAtTime(i < 2 ? 0.14 : 0.12, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + (i < 2 ? 0.18 : 0.45));
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.5);
-    });
-    window.setTimeout(() => ctx.close().catch(() => {}), 1100);
-  } catch {}
-}
-
 function Vault3DLockWidget({
   digitsCount,
   unlocked,
+  explodePhase,
   isAr,
 }: {
   digitsCount: number;
   unlocked: boolean;
+  explodePhase: 'idle' | 'shaking' | 'destroyed';
   isAr: boolean;
 }) {
-  const wheelDeg = unlocked ? 540 : digitsCount * 60;
+  const progress = unlocked ? 1 : Math.min(1, digitsCount / 6);
+  const gap = Math.round(26 * (1 - progress));
+  const tilt = Number((8 * (1 - progress)).toFixed(1));
+  const isDanger = explodePhase !== 'idle';
+
   return (
     <div
       className="vault-3d-stage"
@@ -337,110 +298,186 @@ function Vault3DLockWidget({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        marginBottom: '14px',
-        perspective: '700px',
+        marginBottom: '18px',
+        perspective: '900px',
       }}
     >
       <div
+        dir="ltr"
+        className={
+          'dawaya-cap-assembly' +
+          (unlocked ? ' is-success' : '') +
+          (explodePhase === 'shaking' ? ' is-shaking' : '') +
+          (explodePhase === 'destroyed' ? ' is-destroyed' : '')
+        }
         style={{
           position: 'relative',
-          width: '104px',
-          height: '104px',
-          borderRadius: '50%',
-          background: unlocked
-            ? 'radial-gradient(circle, rgba(36,200,184,0.45) 0%, rgba(15,118,89,0.22) 60%, #050f16 100%)'
-            : 'radial-gradient(circle, #0d2230 0%, #050f16 100%)',
-          border: '3px solid #CFD29D',
-          boxShadow: unlocked
-            ? '0 0 28px rgba(36,200,184,0.55), inset 0 0 20px rgba(207,210,157,0.35)'
-            : '0 10px 26px rgba(0,0,0,0.55), inset 0 0 14px rgba(0,0,0,0.8)',
+          width: '210px',
+          height: '78px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          overflow: 'visible',
+          direction: 'ltr',
         }}
       >
-        {/* Inner glowing chamber revealed when 3D door swings open */}
+        {/* Subtle Architectural Core Glow */}
         <div
           style={{
             position: 'absolute',
-            inset: '8px',
+            width: unlocked ? '60px' : '40px',
+            height: unlocked ? '60px' : '40px',
             borderRadius: '50%',
-            background: unlocked
-              ? 'radial-gradient(circle, #24C8B8 0%, #0F7659 65%, #071923 100%)'
-              : '#040b11',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.7s ease',
+            background: isDanger
+              ? 'radial-gradient(circle, rgba(239,68,68,0.65) 0%, transparent 72%)'
+              : 'radial-gradient(circle, rgba(36,200,184,0.45) 0%, transparent 72%)',
+            filter: 'blur(10px)',
+            opacity: unlocked ? 0.9 : isDanger ? 0.9 : 0.7 - progress * 0.45,
+            transition: 'all 0.4s ease',
+            zIndex: 1,
+          }}
+        />
+
+        {/* Left Half — Deep Matte Emerald */}
+        <div
+          style={{
+            width: '74px',
+            height: '46px',
+            borderRadius: '24px 5px 5px 24px',
+            background: isDanger
+              ? 'linear-gradient(180deg, #DC2626 0%, #991B1B 100%)'
+              : 'linear-gradient(180deg, #169B74 0%, #0D644B 55%, #07382B 100%)',
+            border: isDanger ? '1.5px solid rgba(254,202,202,0.75)' : '1px solid rgba(255,255,255,0.22)',
+            borderRight: isDanger ? '2px solid #FCA5A5' : '2px solid rgba(226,234,230,0.4)',
+            boxShadow: '0 10px 24px rgba(0,0,0,0.45), inset 0 4px 8px rgba(255,255,255,0.22)',
+            transform: `translateX(${-gap}px) rotateZ(${-tilt}deg)`,
+            transition: 'transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), background 0.25s ease',
+            position: 'relative',
+            zIndex: 2,
           }}
         >
-          {unlocked && (
-            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          )}
+          <div style={{ position: 'absolute', top: '6px', left: '14px', width: '32px', height: '4px', borderRadius: '99px', background: 'rgba(255,255,255,0.28)' }} />
         </div>
 
-        {/* 3D Swinging Steel & Gold Bank Vault Door */}
+        {/* Right Half — Brushed Pearl Titanium */}
         <div
           style={{
-            position: 'absolute',
-            inset: '4px',
+            width: '74px',
+            height: '46px',
+            borderRadius: '5px 24px 24px 5px',
+            background: isDanger
+              ? 'linear-gradient(180deg, #DC2626 0%, #991B1B 100%)'
+              : 'linear-gradient(180deg, #F1F5F3 0%, #CBD5D0 58%, #8FA099 100%)',
+            border: isDanger ? '1.5px solid rgba(254,202,202,0.75)' : '1px solid rgba(255,255,255,0.45)',
+            borderLeft: isDanger ? '2px solid #FCA5A5' : '2px solid rgba(15,118,89,0.45)',
+            boxShadow: '0 10px 24px rgba(0,0,0,0.45), inset 0 4px 8px rgba(255,255,255,0.55)',
+            transform: `translateX(${gap}px) rotateZ(${tilt}deg)`,
+            transition: 'transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), background 0.25s ease',
+            position: 'relative',
+            zIndex: 2,
+          }}
+        >
+          <div style={{ position: 'absolute', top: '6px', right: '14px', width: '32px', height: '4px', borderRadius: '99px', background: 'rgba(255,255,255,0.55)' }} />
+        </div>
+
+        {/* Minimal Checkmark Seal on Success */}
+        {unlocked && (
+          <div
+            style={{
+              position: 'absolute',
+              zIndex: 5,
+              width: '38px',
+              height: '38px',
+              borderRadius: '50%',
+              background: '#07141E',
+              border: '2px solid #24C8B8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 6px 18px rgba(0,0,0,0.55)',
+            }}
+          >
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5EEAD4" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+        )}
+      </div>
+
+      {/* Minimal Shatter Indicator */}
+      {explodePhase === 'destroyed' && (
+        <div
+          style={{
+            marginTop: '-58px',
+            marginBottom: '14px',
+            width: '44px',
+            height: '44px',
             borderRadius: '50%',
-            background: 'linear-gradient(145deg, #1b3644 0%, #091822 65%, #050d13 100%)',
-            border: '2.5px solid #CFD29D',
-            transformOrigin: 'left center',
-            transform: unlocked ? 'rotateY(-112deg)' : 'rotateY(0deg)',
-            transition: 'transform 0.9s cubic-bezier(0.22, 1, 0.36, 1)',
+            background: 'rgba(239,68,68,0.14)',
+            border: '1.5px solid #EF4444',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: 'inset 0 2px 8px rgba(207,210,157,0.3)',
-            backfaceVisibility: 'visible',
+            position: 'relative',
+            zIndex: 6,
           }}
         >
-          {/* Rotating Combination Wheel */}
-          <svg
-            width="64"
-            height="64"
-            viewBox="0 0 64 64"
-            style={{
-              transform: `rotate(${wheelDeg}deg)`,
-              transition: 'transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)',
-            }}
-          >
-            <circle cx="32" cy="32" r="24" fill="none" stroke="#CFD29D" strokeWidth="3.5" strokeDasharray="6 4" />
-            <circle cx="32" cy="32" r="14" fill="#0B1F2A" stroke="#24C8B8" strokeWidth="2.5" />
-            <line x1="32" y1="8" x2="32" y2="56" stroke="#CFD29D" strokeWidth="3" strokeLinecap="round" />
-            <line x1="8" y1="32" x2="56" y2="32" stroke="#CFD29D" strokeWidth="3" strokeLinecap="round" />
-            <line x1="15" y1="15" x2="49" y2="49" stroke="#CFD29D" strokeWidth="2.5" strokeLinecap="round" />
-            <line x1="49" y1="15" x2="15" y2="49" stroke="#CFD29D" strokeWidth="2.5" strokeLinecap="round" />
-            <circle cx="32" cy="32" r="6" fill="#CFD29D" />
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FCA5A5" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </div>
+      )}
+
+      {/* Clean Minimal 6-Step Progress Bar */}
+      <div style={{ display: 'flex', gap: '5px', marginTop: '4px', marginBottom: '7px' }} dir="ltr">
+        {[0, 1, 2, 3, 4, 5].map((i) => {
+          const lit = unlocked || i < digitsCount;
+          return (
+            <div
+              key={i}
+              style={{
+                width: '18px',
+                height: '3px',
+                borderRadius: '99px',
+                background: isDanger ? '#EF4444' : lit ? '#24C8B8' : 'rgba(255,255,255,0.14)',
+                transition: 'background 0.25s ease',
+              }}
+            />
+          );
+        })}
       </div>
+
       <div
         style={{
-          marginTop: '8px',
-          fontSize: '0.76rem',
-          fontWeight: 800,
-          color: unlocked ? '#5eead4' : '#CFD29D',
-          letterSpacing: '0.3px',
+          fontSize: '0.78rem',
+          fontWeight: 700,
+          color: isDanger ? '#FCA5A5' : unlocked ? '#5EEAD4' : '#9FB4C4',
+          textAlign: 'center',
         }}
       >
-        {unlocked
+        {explodePhase === 'destroyed'
           ? isAr
-            ? 'تم فتح خزنة الحساب وتحديث كلمة المرور'
-            : 'Vault Unlocked • Password Updated'
-          : isAr
-            ? `خزنة الأمان • أدخل رمز التحقق (${digitsCount}/6)`
-            : `Security Vault • Enter 6-Digit Code (${digitsCount}/6)`}
+            ? 'الرمز غير صحيح — حاول مرة أخرى'
+            : 'Invalid Code — Please Try Again'
+          : explodePhase === 'shaking'
+            ? isAr
+              ? 'جاري التحقق...'
+              : 'Verifying...'
+            : unlocked
+              ? isAr
+                ? 'تم التحقق وتغيير كلمة المرور بنجاح'
+                : 'Verified • Password Updated'
+              : digitsCount === 6
+                ? isAr
+                  ? 'الكبسولة مغلقة — اضغط تأكيد الرمز'
+                  : 'Capsule Locked — Tap Verify'
+                : isAr
+                  ? `أدخل رمز التحقق (${digitsCount}/6)`
+                  : `Enter Verification Code (${digitsCount}/6)`}
       </div>
     </div>
   );
 }
-
 export default function AuthModal() {
   const {
     user,
@@ -481,6 +518,7 @@ export default function AuthModal() {
   const [newResetPassword, setNewResetPassword] = useState('');
   const [confirmResetPassword, setConfirmResetPassword] = useState('');
   const [otpCooldown, setOtpCooldown] = useState(0);
+  const [capsuleExplodePhase, setCapsuleExplodePhase] = useState<'idle' | 'shaking' | 'destroyed'>('idle');
   const [localValidationMsg, setLocalValidationMsg] = useState('');
   const [savedGoogleAccounts, setSavedGoogleAccounts] = useState<SavedGoogleAccount[]>([]);
   const [pendingBridgeEmail, setPendingBridgeEmail] = useState<string | null>(null);
@@ -850,9 +888,20 @@ export default function AuthModal() {
             setSubmitting(false);
             return;
           }
-          await verifyPasswordResetOtp(email, otpCode, newResetPassword, otpChallengeToken);
-          playVaultUnlockSound();
-          setForgotStep('done');
+          try {
+            await verifyPasswordResetOtp(email, otpCode, newResetPassword, otpChallengeToken);
+            setForgotStep('done');
+          } catch (otpErr) {
+            setCapsuleExplodePhase('shaking');
+            window.setTimeout(() => {
+              setCapsuleExplodePhase('destroyed');
+            }, 380);
+            window.setTimeout(() => {
+              setCapsuleExplodePhase('idle');
+              setOtpCode('');
+            }, 2200);
+            throw otpErr;
+          }
         }
       }
     } catch {
@@ -1280,12 +1329,13 @@ appId: "1:..."`}
               <Vault3DLockWidget
                 digitsCount={otpCode.length}
                 unlocked={forgotStep === 'done'}
+                explodePhase={capsuleExplodePhase}
                 isAr={isAr}
               />
             )}
             {modalMode === 'forgot' && forgotStep === 'otp' && (
               <div className="auth-success" role="status">
-                {isAr ? `تم إرسال رمز الخزنة (6 أرقام) إلى ${email}` : `A 6-digit vault code was sent to ${email}`}
+                {isAr ? `تم إرسال شفرة الكبسولة (6 أرقام) إلى ${email}` : `A 6-digit capsule code was sent to ${email}`}
               </div>
             )}
             {modalMode === 'forgot' && forgotStep === 'done' && (
@@ -1366,8 +1416,8 @@ appId: "1:..."`}
                             const chars = otpCode.split('');
                             while (chars.length < idx) chars.push('');
                             chars[idx] = val;
-                            setOtpCode(chars.join('').slice(0, 6));
-                            playVaultDialClick();
+                            const nextVal = chars.join('').slice(0, 6);
+                            setOtpCode(nextVal);
                             if (idx < 5) {
                               document.getElementById(`auth-otp-${idx + 1}`)?.focus();
                             }
