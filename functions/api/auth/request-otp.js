@@ -139,8 +139,39 @@ function buildOtpEmailHtml(otp) {
 </html>`;
 }
 
+const CORS_HEADERS = {
+  'Content-Type': 'application/json; charset=utf-8',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Cache-Control': 'no-store',
+};
+
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
+export async function onRequestGet(context) {
+  const env = context.env || {};
+  const hasResendKey = Boolean(String(env.RESEND_API_KEY || '').trim());
+  const hasBrevoKey = Boolean(String(env.BREVO_API_KEY || '').trim());
+  const hasFromEmail = Boolean(String(env.OTP_FROM_EMAIL || '').trim());
+  const hasFirebaseJson = Boolean(String(env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim());
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      configured: (hasResendKey || hasBrevoKey) && hasFirebaseJson,
+      provider: hasResendKey ? 'resend' : hasBrevoKey ? 'brevo' : 'none',
+      hasBrevoKey,
+      hasFromEmail,
+      hasFirebaseJson,
+    }),
+    { status: 200, headers: CORS_HEADERS }
+  );
+}
+
 export async function onRequestPost(context) {
-  const headers = { 'Content-Type': 'application/json; charset=utf-8' };
+  const headers = CORS_HEADERS;
   try {
     const body = await context.request.json().catch(() => ({}));
     const email = String(body.email || '').trim().toLowerCase();
@@ -177,6 +208,8 @@ export async function onRequestPost(context) {
     const html = buildOtpEmailHtml(otp);
 
     let sent = false;
+    let providerStatus = 0;
+    let providerError = '';
     if (resendKey) {
       const resp = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -187,6 +220,8 @@ export async function onRequestPost(context) {
         body: JSON.stringify({ from: fromEmail, to: [email], subject, html }),
       });
       sent = resp.ok;
+      providerStatus = resp.status;
+      if (!resp.ok) providerError = (await resp.text().catch(() => '')).slice(0, 180);
     } else if (brevoKey) {
       const senderEmail = String(env.OTP_FROM_EMAIL || 'no-reply@dawaya.pages.dev').replace(/.*<|>|$/g, '').trim();
       const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -203,10 +238,12 @@ export async function onRequestPost(context) {
         }),
       });
       sent = resp.ok;
+      providerStatus = resp.status;
+      if (!resp.ok) providerError = (await resp.text().catch(() => '')).slice(0, 180);
     }
 
     if (!sent) {
-      return new Response(JSON.stringify({ ok: false, error: 'EMAIL_DELIVERY_FAILED' }), { status: 502, headers });
+      return new Response(JSON.stringify({ ok: false, error: 'EMAIL_DELIVERY_FAILED', providerStatus, providerError }), { status: 502, headers });
     }
 
     return new Response(JSON.stringify({ ok: true, challengeToken, expiresInSec: 600 }), { status: 200, headers });

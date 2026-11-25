@@ -274,6 +274,52 @@ function Lamp({
 }
 
 
+
+function playVaultDialClick() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1100, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(280, ctx.currentTime + 0.045);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.055);
+    window.setTimeout(() => ctx.close().catch(() => {}), 150);
+  } catch {}
+}
+
+function playVaultUnlockSound() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    // Heavy metallic bolt thud + harmonic emerald chime
+    const notes = [140, 220, 523.25, 659.25, 783.99];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = i < 2 ? 'sawtooth' : 'sine';
+      const t = now + i * 0.09;
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(i < 2 ? 0.14 : 0.12, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + (i < 2 ? 0.18 : 0.45));
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.5);
+    });
+    window.setTimeout(() => ctx.close().catch(() => {}), 1100);
+  } catch {}
+}
+
 function Vault3DLockWidget({
   digitsCount,
   unlocked,
@@ -805,6 +851,7 @@ export default function AuthModal() {
             return;
           }
           await verifyPasswordResetOtp(email, otpCode, newResetPassword, otpChallengeToken);
+          playVaultUnlockSound();
           setForgotStep('done');
         }
       }
@@ -1320,6 +1367,7 @@ appId: "1:..."`}
                             while (chars.length < idx) chars.push('');
                             chars[idx] = val;
                             setOtpCode(chars.join('').slice(0, 6));
+                            playVaultDialClick();
                             if (idx < 5) {
                               document.getElementById(`auth-otp-${idx + 1}`)?.focus();
                             }

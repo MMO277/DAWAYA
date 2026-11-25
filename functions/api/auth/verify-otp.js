@@ -97,8 +97,20 @@ async function getGoogleAdminAccessToken(serviceAccount) {
   return data.access_token;
 }
 
+const CORS_HEADERS = {
+  'Content-Type': 'application/json; charset=utf-8',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Cache-Control': 'no-store',
+};
+
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
 export async function onRequestPost(context) {
-  const headers = { 'Content-Type': 'application/json; charset=utf-8' };
+  const headers = CORS_HEADERS;
   try {
     const body = await context.request.json().catch(() => ({}));
     const email = String(body.email || '').trim().toLowerCase();
