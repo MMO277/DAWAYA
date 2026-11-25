@@ -273,6 +273,128 @@ function Lamp({
   );
 }
 
+
+function Vault3DLockWidget({
+  digitsCount,
+  unlocked,
+  isAr,
+}: {
+  digitsCount: number;
+  unlocked: boolean;
+  isAr: boolean;
+}) {
+  const wheelDeg = unlocked ? 540 : digitsCount * 60;
+  return (
+    <div
+      className="vault-3d-stage"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        marginBottom: '14px',
+        perspective: '700px',
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          width: '104px',
+          height: '104px',
+          borderRadius: '50%',
+          background: unlocked
+            ? 'radial-gradient(circle, rgba(36,200,184,0.45) 0%, rgba(15,118,89,0.22) 60%, #050f16 100%)'
+            : 'radial-gradient(circle, #0d2230 0%, #050f16 100%)',
+          border: '3px solid #CFD29D',
+          boxShadow: unlocked
+            ? '0 0 28px rgba(36,200,184,0.55), inset 0 0 20px rgba(207,210,157,0.35)'
+            : '0 10px 26px rgba(0,0,0,0.55), inset 0 0 14px rgba(0,0,0,0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'visible',
+        }}
+      >
+        {/* Inner glowing chamber revealed when 3D door swings open */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: '8px',
+            borderRadius: '50%',
+            background: unlocked
+              ? 'radial-gradient(circle, #24C8B8 0%, #0F7659 65%, #071923 100%)'
+              : '#040b11',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.7s ease',
+          }}
+        >
+          {unlocked && (
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+        </div>
+
+        {/* 3D Swinging Steel & Gold Bank Vault Door */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: '4px',
+            borderRadius: '50%',
+            background: 'linear-gradient(145deg, #1b3644 0%, #091822 65%, #050d13 100%)',
+            border: '2.5px solid #CFD29D',
+            transformOrigin: 'left center',
+            transform: unlocked ? 'rotateY(-112deg)' : 'rotateY(0deg)',
+            transition: 'transform 0.9s cubic-bezier(0.22, 1, 0.36, 1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: 'inset 0 2px 8px rgba(207,210,157,0.3)',
+            backfaceVisibility: 'visible',
+          }}
+        >
+          {/* Rotating Combination Wheel */}
+          <svg
+            width="64"
+            height="64"
+            viewBox="0 0 64 64"
+            style={{
+              transform: `rotate(${wheelDeg}deg)`,
+              transition: 'transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            }}
+          >
+            <circle cx="32" cy="32" r="24" fill="none" stroke="#CFD29D" strokeWidth="3.5" strokeDasharray="6 4" />
+            <circle cx="32" cy="32" r="14" fill="#0B1F2A" stroke="#24C8B8" strokeWidth="2.5" />
+            <line x1="32" y1="8" x2="32" y2="56" stroke="#CFD29D" strokeWidth="3" strokeLinecap="round" />
+            <line x1="8" y1="32" x2="56" y2="32" stroke="#CFD29D" strokeWidth="3" strokeLinecap="round" />
+            <line x1="15" y1="15" x2="49" y2="49" stroke="#CFD29D" strokeWidth="2.5" strokeLinecap="round" />
+            <line x1="49" y1="15" x2="15" y2="49" stroke="#CFD29D" strokeWidth="2.5" strokeLinecap="round" />
+            <circle cx="32" cy="32" r="6" fill="#CFD29D" />
+          </svg>
+        </div>
+      </div>
+      <div
+        style={{
+          marginTop: '8px',
+          fontSize: '0.76rem',
+          fontWeight: 800,
+          color: unlocked ? '#5eead4' : '#CFD29D',
+          letterSpacing: '0.3px',
+        }}
+      >
+        {unlocked
+          ? isAr
+            ? 'تم فتح خزنة الحساب وتحديث كلمة المرور'
+            : 'Vault Unlocked • Password Updated'
+          : isAr
+            ? `خزنة الأمان • أدخل رمز التحقق (${digitsCount}/6)`
+            : `Security Vault • Enter 6-Digit Code (${digitsCount}/6)`}
+      </div>
+    </div>
+  );
+}
+
 export default function AuthModal() {
   const {
     user,
@@ -290,6 +412,8 @@ export default function AuthModal() {
     hasNativeGoogleAccountPicker,
     triggerNativeGoogleAccountPicker,
     resetPassword,
+    requestPasswordResetOtp,
+    verifyPasswordResetOtp,
     error,
     clearError,
   } = useAuth();
@@ -304,6 +428,13 @@ export default function AuthModal() {
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'email' | 'otp' | 'done' | 'link_sent'>('email');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpChallengeToken, setOtpChallengeToken] = useState('');
+  const [newResetPassword, setNewResetPassword] = useState('');
+  const [confirmResetPassword, setConfirmResetPassword] = useState('');
+  const [otpCooldown, setOtpCooldown] = useState(0);
   const [localValidationMsg, setLocalValidationMsg] = useState('');
   const [savedGoogleAccounts, setSavedGoogleAccounts] = useState<SavedGoogleAccount[]>([]);
   const [pendingBridgeEmail, setPendingBridgeEmail] = useState<string | null>(null);
@@ -350,6 +481,12 @@ export default function AuthModal() {
     }, 2200);
     return () => window.clearInterval(timer);
   }, [pendingBridgeEmail, modalOpen, loginWithNativeGoogleAccount]);
+
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const tmr = window.setTimeout(() => setOtpCooldown((c) => Math.max(0, c - 1)), 1000);
+    return () => window.clearTimeout(tmr);
+  }, [otpCooldown]);
 
   useEffect(() => {
     if (stage !== 'lighting') return;
@@ -450,8 +587,8 @@ export default function AuthModal() {
             <h2 style={{ margin: '0 0 6px', fontSize: '1.25rem', color: '#fff' }}>
               {bridgeSuccessDone
                 ? isAr
-                  ? '✅ تم ربط حسابك بالتطبيق بنجاح!'
-                  : '✅ Account Linked to App!'
+                  ? 'تم ربط حسابك بالتطبيق بنجاح!'
+                  : 'Account Linked to App!'
                 : isAr
                   ? 'تأكيد تشغيل حسابك على التطبيق'
                   : 'Confirm Account for Mobile App'}
@@ -494,8 +631,8 @@ export default function AuthModal() {
                       ? 'جاري تأكيد الحساب...'
                       : 'Confirming Account...'
                     : isAr
-                      ? '✅ تأكيد وتشغيل الحساب في التطبيق الآن'
-                      : '✅ Confirm & Activate in App Now'}
+                      ? 'تأكيد وتشغيل الحساب في التطبيق الآن'
+                      : 'Confirm & Activate in App Now'}
                 </button>
                 <button
                   type="button"
@@ -632,8 +769,44 @@ export default function AuthModal() {
           window.location.hash = '#/health-profile?setup=profile';
         }
       } else if (modalMode === 'forgot') {
-        await resetPassword(email);
-        setResetSent(true);
+        if (forgotStep === 'email') {
+          const res = await requestPasswordResetOtp(email);
+          if (res.mode === 'otp') {
+            setOtpChallengeToken(res.challengeToken);
+            setOtpCode('');
+            setNewResetPassword('');
+            setConfirmResetPassword('');
+            setOtpCooldown(45);
+            setForgotStep('otp');
+          } else {
+            setResetSent(true);
+            setForgotStep('link_sent');
+          }
+        } else if (forgotStep === 'otp') {
+          if (!/^\d{6}$/.test(otpCode.trim())) {
+            setLocalValidationMsg(
+              isAr ? 'يرجى إدخال كود التحقق المكون من 6 أرقام.' : 'Please enter the 6-digit verification code.'
+            );
+            setSubmitting(false);
+            return;
+          }
+          if (newResetPassword.length < 6) {
+            setLocalValidationMsg(
+              isAr ? 'كلمة المرور الجديدة يجب أن لا تقل عن 6 أحرف.' : 'New password must be at least 6 characters.'
+            );
+            setSubmitting(false);
+            return;
+          }
+          if (newResetPassword !== confirmResetPassword) {
+            setLocalValidationMsg(
+              isAr ? 'كلمتا المرور غير متطابقتين.' : 'Passwords do not match.'
+            );
+            setSubmitting(false);
+            return;
+          }
+          await verifyPasswordResetOtp(email, otpCode, newResetPassword, otpChallengeToken);
+          setForgotStep('done');
+        }
       }
     } catch {
       /* error is handled in authContext */
@@ -680,8 +853,8 @@ export default function AuthModal() {
       ) {
         setLocalValidationMsg(
           isAr
-            ? '⚠️ تعذر فتح نافذة Google المنبثقة. يرجى السماح بالنوافذ المنبثقة أو اختيار حسابك مباشرة.'
-            : '⚠️ Could not open Google popup. Please allow popups or select your account directly.'
+            ? 'تعذر فتح نافذة Google المنبثقة. يرجى السماح بالنوافذ المنبثقة أو اختيار حسابك مباشرة.'
+            : 'Could not open Google popup. Please allow popups or select your account directly.'
         );
       }
     } finally {
@@ -710,8 +883,16 @@ export default function AuthModal() {
     setSavedGoogleAccounts(getSavedDeviceGoogleAccounts());
   };
 
+  const translateOtpOrAuthError = (code: string) => {
+    if (code === 'INVALID_OTP') return isAr ? 'كود التحقق غير صحيح. تأكد من الأرقام وحاول مرة أخرى.' : 'Invalid verification code.';
+    if (code === 'OTP_EXPIRED') return isAr ? 'انتهت صلاحية الكود. اطلب كوداً جديداً.' : 'Verification code expired. Please request a new one.';
+    if (code === 'USER_NOT_FOUND') return isAr ? 'لا يوجد حساب مسجل بهذا البريد الإلكتروني.' : 'No account found with this email.';
+    if (code === 'INVALID_OR_TAMPERED_TOKEN') return isAr ? 'انتهت الجلسة، اطلب كود تحقق جديد.' : 'Session invalid, please request a new code.';
+    return translateAuthError(code, isAr);
+  };
+
   const errorMessage =
-    localValidationMsg || (error ? translateAuthError(error, isAr) : '');
+    localValidationMsg || (error ? translateOtpOrAuthError(error) : '');
 
   const isLit = stage === 'lit';
   const isOn = stage !== 'dark';
@@ -727,9 +908,11 @@ export default function AuthModal() {
       aria-label={isAr ? 'تسجيل الدخول' : 'Sign in'}
     >
       <div className="auth-stage">
-        <div className="auth-lamp">
-          <Lamp isAr={isAr} interactive={true} onPull={lightUp} handleRef={pullRef} />
-        </div>
+        {stage !== 'lit' && (
+          <div className="auth-lamp">
+            <Lamp isAr={isAr} interactive={true} onPull={lightUp} handleRef={pullRef} />
+          </div>
+        )}
 
         {/* Stage A — dark screen prompt */}
         {stage !== 'lit' && (
@@ -744,7 +927,7 @@ export default function AuthModal() {
                 {isAr ? 'تخطي الحركة' : 'Skip Animation'}
               </button>
               <button type="button" className="auth-guest-btn" onClick={continueAsGuest}>
-                👀 {isAr ? 'متابعة كزائر' : 'Continue as Guest'}
+                {isAr ? 'متابعة كزائر' : 'Continue as Guest'}
               </button>
             </div>
           </div>
@@ -836,7 +1019,7 @@ appId: "1:..."`}
                     }}
                     style={{ background: '#00BFD0', color: '#101E36', fontWeight: 900 }}
                   >
-                    ✅ {isAr ? 'حفظ وتفعيل الفايربيز الآن' : 'Save & Activate Firebase'}
+                    {isAr ? 'حفظ وتفعيل الفايربيز الآن' : 'Save & Activate Firebase'}
                   </button>
                   <button type="button" onClick={closeAuthModal}>
                     {isAr ? 'متابعة التصفح كزائر' : 'Continue as Guest'}
@@ -877,7 +1060,7 @@ appId: "1:..."`}
                 {savedGoogleAccounts.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
                     <div style={{ fontSize: '0.78rem', color: '#5eead4', fontWeight: 800 }}>
-                      ✨ {isAr ? 'اختر حساب Google للدخول الفوري (نفس حساب الموقع بالصورة والبيانات):' : 'Select your Google account (Unified Website & App Account):'}
+                      {isAr ? 'اختر حساب Google للدخول الفوري (نفس حساب الموقع بالصورة والبيانات):' : 'Select your Google account (Unified Website & App Account):'}
                     </div>
                     {savedGoogleAccounts.map((acc) => (
                       <div
@@ -1006,7 +1189,7 @@ appId: "1:..."`}
                         cursor: 'pointer',
                       }}
                     >
-                      ✅ {isAr ? 'تأكيد وتشغيل حساب الموقع بضغطة واحدة' : '1-Tap Confirm Website Account'}
+                      {isAr ? 'تأكيد وتشغيل حساب الموقع بضغطة واحدة' : '1-Tap Confirm Website Account'}
                     </button>
                   </div>
                 )}
@@ -1036,18 +1219,160 @@ appId: "1:..."`}
             {/* Error Alert */}
             {errorMessage && !pendingBridgeEmail && (
               <div className="auth-error" role="alert">
-                ⚠️ {errorMessage}
+                {errorMessage}
               </div>
             )}
 
-            {/* Success Alert for Password Reset */}
-            {modalMode === 'forgot' && resetSent && (
+            {/* Success / Status Alerts for Password Reset */}
+            {modalMode === 'forgot' && forgotStep === 'link_sent' && resetSent && (
               <div className="auth-success" role="status">
-                ✅ {isAr ? 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.' : 'Password reset link sent to your email.'}
+                {isAr ? 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.' : 'Password reset link sent to your email.'}
+              </div>
+            )}
+            {modalMode === 'forgot' && (forgotStep === 'otp' || forgotStep === 'done') && (
+              <Vault3DLockWidget
+                digitsCount={otpCode.length}
+                unlocked={forgotStep === 'done'}
+                isAr={isAr}
+              />
+            )}
+            {modalMode === 'forgot' && forgotStep === 'otp' && (
+              <div className="auth-success" role="status">
+                {isAr ? `تم إرسال رمز الخزنة (6 أرقام) إلى ${email}` : `A 6-digit vault code was sent to ${email}`}
+              </div>
+            )}
+            {modalMode === 'forgot' && forgotStep === 'done' && (
+              <div className="auth-success" role="status" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div>{isAr ? 'تم تغيير كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول بكلمتك الجديدة.' : 'Password updated successfully! You can now sign in.'}</div>
+                <button
+                  type="button"
+                  className="btn auth-submit"
+                  onClick={() => {
+                    setForgotStep('email');
+                    setPassword('');
+                    openAuthModal('login');
+                  }}
+                >
+                  {isAr ? 'تسجيل الدخول الآن ←' : 'Sign In Now →'}
+                </button>
               </div>
             )}
 
+            {!(modalMode === 'forgot' && forgotStep === 'done') && (
             <form onSubmit={handleSubmit} className="auth-form">
+              {modalMode === 'forgot' && forgotStep === 'otp' && (
+                <>
+                  <div>
+                    <div className="auth-label-row">
+                      <label htmlFor="auth-otp">{isAr ? 'كود التحقق (6 أرقام):' : '6-Digit OTP Code:'}</label>
+                      <button
+                        type="button"
+                        className="auth-link"
+                        disabled={submitting || otpCooldown > 0}
+                        onClick={async () => {
+                          setLocalValidationMsg('');
+                          clearError();
+                          setSubmitting(true);
+                          try {
+                            const res = await requestPasswordResetOtp(email);
+                            if (res.mode === 'otp') {
+                              setOtpChallengeToken(res.challengeToken);
+                              setOtpCooldown(45);
+                            }
+                          } catch {} finally {
+                            setSubmitting(false);
+                          }
+                        }}
+                      >
+                        {otpCooldown > 0
+                          ? (isAr ? `إعادة الإرسال (${otpCooldown}ث)` : `Resend (${otpCooldown}s)`)
+                          : (isAr ? 'إعادة إرسال الكود' : 'Resend Code')}
+                      </button>
+                    </div>
+                    <div className="vault-otp-grid" dir="ltr">
+                      {[0, 1, 2, 3, 4, 5].map((idx) => (
+                        <input
+                          key={idx}
+                          id={idx === 0 ? 'auth-otp' : `auth-otp-${idx}`}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          className={'vault-otp-cell' + (otpCode[idx] ? ' is-filled' : '')}
+                          value={otpCode[idx] || ''}
+                          disabled={submitting}
+                          aria-label={`OTP digit ${idx + 1}`}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            if (!val) {
+                              const arr = otpCode.padEnd(6, ' ').split('');
+                              arr[idx] = '';
+                              setOtpCode(arr.join('').replace(/\s+/g, ''));
+                              return;
+                            }
+                            if (val.length > 1) {
+                              const nextCode = val.slice(0, 6);
+                              setOtpCode(nextCode);
+                              const nextEl = document.getElementById(`auth-otp-${Math.min(5, nextCode.length - 1)}`);
+                              nextEl?.focus();
+                              return;
+                            }
+                            const chars = otpCode.split('');
+                            while (chars.length < idx) chars.push('');
+                            chars[idx] = val;
+                            setOtpCode(chars.join('').slice(0, 6));
+                            if (idx < 5) {
+                              document.getElementById(`auth-otp-${idx + 1}`)?.focus();
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Backspace' && !otpCode[idx] && idx > 0) {
+                              document.getElementById(idx - 1 === 0 ? 'auth-otp' : `auth-otp-${idx - 1}`)?.focus();
+                            }
+                          }}
+                          onPaste={(e) => {
+                            const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+                            if (pasted) {
+                              e.preventDefault();
+                              setOtpCode(pasted);
+                              const targetIdx = Math.min(5, pasted.length - 1);
+                              document.getElementById(targetIdx === 0 ? 'auth-otp' : `auth-otp-${targetIdx}`)?.focus();
+                            }
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="auth-new-pw">{isAr ? 'كلمة المرور الجديدة:' : 'New Password:'}</label>
+                    <input
+                      id="auth-new-pw"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={newResetPassword}
+                      disabled={submitting}
+                      onChange={(e) => setNewResetPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      style={{ direction: 'ltr' }}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="auth-confirm-new-pw">{isAr ? 'تأكيد كلمة المرور الجديدة:' : 'Confirm New Password:'}</label>
+                    <input
+                      id="auth-confirm-new-pw"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={confirmResetPassword}
+                      disabled={submitting}
+                      onChange={(e) => setConfirmResetPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      style={{ direction: 'ltr' }}
+                    />
+                  </div>
+                </>
+              )}
+
               {modalMode === 'register' && (
                 <div>
                   <label htmlFor="auth-name">
@@ -1093,23 +1418,47 @@ appId: "1:..."`}
                         onClick={() => {
                           openAuthModal('forgot');
                           setResetSent(false);
+                          setForgotStep('email');
+                          setOtpCode('');
+                          setNewResetPassword('');
+                          setConfirmResetPassword('');
                         }}
                       >
                         {isAr ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
                       </button>
                     )}
                   </div>
-                  <input
-                    id="auth-password"
-                    type="password"
-                    autoComplete={modalMode === 'register' ? 'new-password' : 'current-password'}
-                    value={password}
-                    disabled={submitting || !configured}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    style={{ direction: 'ltr' }}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      id="auth-password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete={modalMode === 'register' ? 'new-password' : 'current-password'}
+                      value={password}
+                      disabled={submitting || !configured}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      style={{ direction: 'ltr', paddingInlineEnd: '54px' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        right: '10px',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#5eead4',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showPassword ? (isAr ? 'إخفاء' : 'Hide') : (isAr ? 'إظهار' : 'Show')}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -1153,9 +1502,12 @@ appId: "1:..."`}
                   ? isAr ? 'تسجيل الدخول' : 'Sign In'
                   : modalMode === 'register'
                   ? isAr ? 'إنشاء الحساب' : 'Create Account'
-                  : isAr ? 'إرسال رابط الاستعادة' : 'Send Reset Link'}
+                  : forgotStep === 'otp'
+                  ? isAr ? 'تأكيد الكود وتغيير كلمة المرور' : 'Verify OTP & Reset Password'
+                  : isAr ? 'إرسال كود التحقق (OTP)' : 'Send Verification Code (OTP)'}
               </button>
             </form>
+            )}
 
             {modalMode === 'forgot' && (
               <div className="auth-back">
@@ -1167,7 +1519,7 @@ appId: "1:..."`}
             {/* Continue as Guest option for all visitors */}
             <div className="auth-guest-prompt">
               <button type="button" className="auth-guest-link" onClick={continueAsGuest}>
-                👀 {isAr ? 'متابعة التصفح كزائر بدون حساب' : 'Continue browsing as guest'}
+                {isAr ? 'متابعة التصفح كزائر بدون حساب' : 'Continue browsing as guest'}
               </button>
             </div>
           </div>

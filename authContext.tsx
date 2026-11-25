@@ -291,6 +291,8 @@ export interface AuthContextType {
   triggerNativeGoogleAccountPicker: () => Promise<string | null>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  requestPasswordResetOtp: (email: string) => Promise<{ mode: 'otp'; challengeToken: string } | { mode: 'link' }>;
+  verifyPasswordResetOtp: (email: string, otp: string, newPassword: string, challengeToken: string) => Promise<void>;
   modalOpen: boolean;
   modalMode: AuthMode;
   openAuthModal: (mode?: AuthMode) => void;
@@ -320,6 +322,8 @@ const AuthContext = createContext<AuthContextType>({
   triggerNativeGoogleAccountPicker: async () => null,
   logout: async () => {},
   resetPassword: async () => {},
+  requestPasswordResetOtp: async () => ({ mode: 'link' }),
+  verifyPasswordResetOtp: async () => {},
   modalOpen: false,
   modalMode: 'login',
   openAuthModal: () => {},
@@ -1142,6 +1146,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const getAuthApiBase = () => {
+    if (typeof window !== 'undefined' && window.location.hostname === 'dawaya.pages.dev') return '';
+    return 'https://dawaya.pages.dev';
+  };
+
+  const requestPasswordResetOtp = async (
+    email: string
+  ): Promise<{ mode: 'otp'; challengeToken: string } | { mode: 'link' }> => {
+    setError(null);
+    if (!configured || !auth) {
+      const code = 'auth/unconfigured';
+      setError(code);
+      throw new Error(code);
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      const resp = await fetch(`${getAuthApiBase()}/api/auth/request-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && data?.ok && data?.challengeToken) {
+        return { mode: 'otp', challengeToken: String(data.challengeToken) };
+      }
+      if (resp.status === 429) {
+        const errCode = 'auth/too-many-requests';
+        setError(errCode);
+        throw new Error(errCode);
+      }
+      // Graceful fallback to Firebase reset link if OTP server env vars aren't configured yet
+      await sendPasswordResetEmail(auth, cleanEmail);
+      return { mode: 'link' };
+    } catch (err: any) {
+      if (err?.message === 'auth/too-many-requests') throw err;
+      try {
+        await sendPasswordResetEmail(auth, cleanEmail);
+        return { mode: 'link' };
+      } catch (fbErr: any) {
+        const code = fbErr?.code || 'auth/unknown';
+        setError(code);
+        throw fbErr;
+      }
+    }
+  };
+
+  const verifyPasswordResetOtp = async (
+    email: string,
+    otp: string,
+    newPassword: string,
+    challengeToken: string
+  ) => {
+    setError(null);
+    const resp = await fetch(`${getAuthApiBase()}/api/auth/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        otp: otp.trim(),
+        newPassword,
+        challengeToken,
+      }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data?.ok) {
+      const errKey = String(data?.error || 'OTP_VERIFICATION_FAILED');
+      setError(errKey);
+      throw new Error(errKey);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -1161,6 +1236,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         triggerNativeGoogleAccountPicker,
         logout,
         resetPassword,
+        requestPasswordResetOtp,
+        verifyPasswordResetOtp,
         modalOpen,
         modalMode,
         openAuthModal,
