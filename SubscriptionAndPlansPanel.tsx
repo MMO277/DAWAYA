@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db, configured } from './firebase';
 import { useAuth } from './authContext';
+import SmartChoiceSelect from './SmartChoiceSelect';
 import {
   DEFAULT_SUBSCRIPTION_CATALOG,
   DynamicPlanPricing,
@@ -342,15 +343,16 @@ export function SubscriptionAndPlansPanel({
                 value={newPromoPct}
                 onChange={(e) => setNewPromoPct(e.target.value)}
               />
-              <select
-                className="input"
+              <SmartChoiceSelect
                 value={newPromoScope}
-                onChange={(e) => setNewPromoScope(e.target.value as 'all' | 'user' | 'pharmacy')}
-              >
-                <option value="all">{isAr ? 'كل الباقات' : 'All Plans'}</option>
-                <option value="user">{isAr ? 'باقة العائلة فقط' : 'Family Only'}</option>
-                <option value="pharmacy">{isAr ? 'الصيدليات فقط' : 'Pharmacy Only'}</option>
-              </select>
+                onChange={(v) => setNewPromoScope(v as 'all' | 'user' | 'pharmacy')}
+                modalTitle={isAr ? 'نطاق تطبيق كود الخصم' : 'Promo Code Scope'}
+                options={[
+                  { value: 'all', label: isAr ? 'كل الباقات' : 'All Plans', description: isAr ? 'يسري على باقات العائلة والصيدليات معاً' : 'Applies to all plans', badge: 'ALL', icon: 'shield' },
+                  { value: 'user', label: isAr ? 'باقة العائلة فقط' : 'Family Only', description: isAr ? 'يسري على اشتراك DAWAYA Plus فقط' : 'DAWAYA Plus only', badge: 'PLUS', icon: 'heart' },
+                  { value: 'pharmacy', label: isAr ? 'الصيدليات فقط' : 'Pharmacy Only', description: isAr ? 'يسري على اشتراكات الصيدليات الشريكة' : 'Pharmacy Pro only', badge: 'PRO', icon: 'pill' },
+                ]}
+              />
               <button type="button" className="btn small" onClick={handleAdminAddPromo}>
                 {isAr ? 'إضافة' : 'Add'}
               </button>

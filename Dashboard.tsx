@@ -203,44 +203,7 @@ function WhoCampaignAndVisibilityAdminCard({ isAr }: { isAr: boolean }) {
             />
             📍 {isAr ? 'إظهار زر «صيدليات قريتي / مركزي» السريع في الرئيسية (فعّله بعد إضافة الصيدليات)' : 'Show "My Village/Markaz Pharmacies" Quick Button on Home'}
           </label>
-          <label className="check" style={{ fontWeight: 700 }}>
-            <input
-              type="checkbox"
-              checked={Boolean(config.showPharmacySubscriptions)}
-              onChange={(e) => void updateCfg({ showPharmacySubscriptions: e.target.checked })}
-            />
-            💳 {isAr ? 'إظهار باقات اشتراكات الصيدليات (فودافون كاش / InstaPay)' : 'Show Pharmacy Subscription Plans'}
-          </label>
-          <label className="check" style={{ fontWeight: 700 }}>
-            <input
-              type="checkbox"
-              checked={Boolean(config.showUserSubscriptions)}
-              onChange={(e) => void updateCfg({ showUserSubscriptions: e.target.checked })}
-            />
-            👨‍👩‍👧‍👦 {isAr ? 'إظهار باقات اشتراكات المستخدمين والعائلة (DAWAYA Plus)' : 'Show User/Family Subscription Plans'}
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '8px', marginTop: '6px' }}>
-            <div>
-              <label className="small muted" style={{ display: 'block', marginBottom: '2px', fontWeight: 700 }}>
-                📱 {isAr ? 'رقم فودافون كاش للاستقبال:' : 'Vodafone Cash Number:'}
-              </label>
-              <input
-                className="input"
-                value={config.vodafoneCashNumber || '01098478954'}
-                onChange={(e) => void updateCfg({ vodafoneCashNumber: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="small muted" style={{ display: 'block', marginBottom: '2px', fontWeight: 700 }}>
-                🏦 {isAr ? 'عنوان InstaPay للاستقبال:' : 'InstaPay Handle:'}
-              </label>
-              <input
-                className="input"
-                value={config.instaPayHandle || 'dawaya@instapay'}
-                onChange={(e) => void updateCfg({ instaPayHandle: e.target.value })}
-              />
-            </div>
-          </div>
+
         </div>
       </div>
     </section>
@@ -541,6 +504,80 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
   );
 }
 
+
+function BillingSettingsAdminCard({ isAr }: { isAr: boolean }) {
+  const [config, setConfig] = useState<PlatformVisibilityConfig>(() => getPlatformVisibilityConfig());
+  const [savedNotice, setSavedNotice] = useState(false);
+
+  const updateCfg = async (patch: Partial<PlatformVisibilityConfig>) => {
+    const next = { ...config, ...patch };
+    setConfig(next);
+    await savePlatformVisibilityConfig(next);
+    setSavedNotice(true);
+    window.setTimeout(() => setSavedNotice(false), 1800);
+  };
+
+  return (
+    <div className="card stack" style={{ border: '1.5px solid #0F7659', gap: '12px' }}>
+      <div className="row wrapRow" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <strong style={{ fontSize: '1.02rem', color: '#081B26' }}>
+            {isAr ? 'إعدادات التحصيل وظهور باقات الاشتراك' : 'Payment Collection & Plan Visibility'}
+          </strong>
+          <div className="small muted">
+            {isAr ? 'تحكم في أرقام الاستقبال (فودافون كاش / InstaPay) وإظهار الباقات للمستخدمين والصيدليات' : 'Manage Vodafone Cash, InstaPay & plan toggles'}
+          </div>
+        </div>
+        {savedNotice && <span className="badge approved">{isAr ? 'تم الحفظ' : 'Saved'}</span>}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+        <label className="check" style={{ fontWeight: 700 }}>
+          <input
+            type="checkbox"
+            checked={Boolean(config.showUserSubscriptions)}
+            onChange={(e) => void updateCfg({ showUserSubscriptions: e.target.checked })}
+          />
+          <span>{isAr ? 'إظهار باقات المستخدمين والعائلة (DAWAYA Plus)' : 'Show User/Family Plans'}</span>
+        </label>
+        <label className="check" style={{ fontWeight: 700 }}>
+          <input
+            type="checkbox"
+            checked={Boolean(config.showPharmacySubscriptions)}
+            onChange={(e) => void updateCfg({ showPharmacySubscriptions: e.target.checked })}
+          />
+          <span>{isAr ? 'إظهار باقات الصيدليات (Pharmacy Pro)' : 'Show Pharmacy Plans'}</span>
+        </label>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+        <div>
+          <label className="small muted" style={{ display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+            {isAr ? 'رقم فودافون كاش للاستقبال:' : 'Vodafone Cash Number:'}
+          </label>
+          <input
+            className="input"
+            value={config.vodafoneCashNumber || '01098478954'}
+            onChange={(e) => void updateCfg({ vodafoneCashNumber: e.target.value })}
+            style={{ direction: 'ltr' }}
+          />
+        </div>
+        <div>
+          <label className="small muted" style={{ display: 'block', marginBottom: '4px', fontWeight: 700 }}>
+            {isAr ? 'عنوان InstaPay للاستقبال:' : 'InstaPay Handle:'}
+          </label>
+          <input
+            className="input"
+            value={config.instaPayHandle || 'dawaya@instapay'}
+            onChange={(e) => void updateCfg({ instaPayHandle: e.target.value })}
+            style={{ direction: 'ltr' }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type AdminTab =
   | 'commerce_control'
   | 'dawaya_db'
@@ -765,317 +802,181 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div
-        className="tabs"
-        role="tablist"
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '8px',
-          borderBottom: '1px solid var(--line)',
-          paddingBottom: '10px',
-        }}
-      >
-        {isSuperOrAdmin && (
-          <button
-            className={tab === 'commerce_control' ? 'on' : ''}
-            onClick={() => setTab('commerce_control')}
-            style={{
-              borderRadius: '10px',
-              border: tab === 'commerce_control' ? '2px solid var(--teal)' : '1px solid var(--line)',
-              background: tab === 'commerce_control' ? 'var(--tint)' : 'var(--card-bg)',
-              padding: '8px 12px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <UnslopIcon name="shield" size={16} color="#059669" />
-            <span>{tr(lang, 'التحكم المركزي (الميزات والصيدليات)', 'Master Control (Features & Pharmacies)')}</span>
-          </button>
-        )}
+      {(() => {
+        const categories: Array<{
+          id: string;
+          label: string;
+          icon: 'pill' | 'shield' | 'hospital' | 'users' | 'book' | 'cpu';
+          tabs: Array<{ id: AdminTab; label: string }>;
+        }> = [
+          {
+            id: 'drugs_hub',
+            label: tr(lang, 'الأدوية والصور', 'Medicines & Images'),
+            icon: 'pill',
+            tabs: [
+              { id: 'dawaya_db', label: tr(lang, 'قاعدة الأدوية الشاملة (26,597)', 'Full Medicine DB') },
+              { id: 'drug_images', label: tr(lang, 'صور الأدوية والعلب', 'Medicine Images') },
+              { id: 'catalog', label: tr(lang, 'العبوات المرجعية (267+)', 'Reference Packages') },
+              { id: 'meds', label: tr(lang, 'المونوجرافات السريرية (32)', 'Clinical Monographs') },
+            ],
+          },
+          {
+            id: 'billing_hub',
+            label: tr(lang, 'الاشتراكات والباقات', 'Subscriptions & Billing'),
+            icon: 'shield',
+            tabs: [
+              { id: 'subscriptions_plans', label: tr(lang, 'الأسعار، الباقات، وأكواد الخصم', 'Plans, Pricing & Promos') },
+            ],
+          },
+          {
+            id: 'partners_hub',
+            label: tr(lang, 'الصيدليات والشركاء', 'Pharmacies & Partners'),
+            icon: 'hospital',
+            tabs: [
+              { id: 'partners', label: tr(lang, 'إدارة الشركاء والتوثيق', 'Partners & Verification') },
+              ...(isSuperOrAdmin ? [{ id: 'commerce_control' as AdminTab, label: tr(lang, 'التحكم التجاري والميزات', 'Commerce & Features') }] : []),
+              { id: 'pharmacy_portal', label: tr(lang, 'بوابة صاحب الصيدلية', 'Pharmacy Owner Portal') },
+            ],
+          },
+          ...(isSuperOrAdmin
+            ? [
+                {
+                  id: 'users_hub',
+                  label: tr(lang, 'المستخدمون والصلاحيات', 'Users & Roles'),
+                  icon: 'users' as const,
+                  tabs: [{ id: 'users' as AdminTab, label: tr(lang, 'المستخدمون والأدوار (RBAC)', 'Users & Roles (RBAC)') }],
+                },
+              ]
+            : []),
+          {
+            id: 'content_hub',
+            label: tr(lang, 'المحتوى والأبحاث', 'Content & Research'),
+            icon: 'book',
+            tabs: [
+              { id: 'content_articles', label: tr(lang, 'المقالات الطبية', 'Medical Articles') },
+              { id: 'survey_bank', label: tr(lang, 'بنك أسئلة الاستبيان والكويز', 'Survey & Quiz Bank') },
+              ...(isSuperOrAdmin
+                ? [
+                    { id: 'research' as AdminTab, label: t('tabResearch') },
+                    { id: 'impact' as AdminTab, label: tr(lang, 'قياس الأثر والتعلم', 'Learning Impact') },
+                    { id: 'quiz' as AdminTab, label: tr(lang, 'نتائج الكويز', 'Quiz Results') },
+                  ]
+                : []),
+            ],
+          },
+          {
+            id: 'system_hub',
+            label: tr(lang, 'المظهر والنظام', 'Appearance & System'),
+            icon: 'cpu',
+            tabs: [
+              { id: 'campaigns_themes', label: tr(lang, 'المواسم والزينة وإظهار الأقسام', 'Themes & Visibility') },
+              { id: 'system_ai_audit', label: tr(lang, 'الذكاء الاصطناعي وسجل المراجعة', 'AI, Sources & Audit') },
+            ],
+          },
+        ];
 
-        <button
-          className={tab === 'drug_images' ? 'on' : ''}
-          onClick={() => setTab('drug_images')}
-          style={{
-            borderRadius: '10px',
-            border: tab === 'drug_images' ? '2px solid var(--teal)' : '1px solid var(--line)',
-            background: tab === 'drug_images' ? 'var(--tint)' : 'var(--card-bg)',
-            padding: '8px 12px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <span>🖼️</span>
-          <span>{tr(lang, 'صور الأدوية والعلب', 'Medicine Images')}</span>
-        </button>
+        const activeCategory = categories.find((c) => c.tabs.some((tItem) => tItem.id === tab)) || categories[0];
 
-        <button
-          className={tab === 'dawaya_db' ? 'on' : ''}
-          onClick={() => setTab('dawaya_db')}
-          style={{
-            borderRadius: '10px',
-            border: tab === 'dawaya_db' ? '2px solid var(--teal)' : '1px solid var(--line)',
-            background: tab === 'dawaya_db' ? 'var(--tint)' : 'var(--card-bg)',
-            padding: '8px 14px',
-            fontWeight: 800,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <UnslopIcon name="pill" size={16} color="#059669" />
-          <span>{tr(lang, 'قاعدة أدوية دوايا الشاملة (26,562+)', 'DAWAYA Full Medicine DB (26,562+)', 'Base de Médicaments (26 562+)', 'Base de Medicamentos (26.562+)', 'DAWAYA Arzneimittel-DB (26.562+)')}</span>
-        </button>
+        return (
+          <div className="stack" style={{ gap: '12px', marginBottom: '16px' }}>
+            {/* Level 1: 6 Clean Executive Sections */}
+            <div
+              role="tablist"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                gap: '8px',
+              }}
+            >
+              {categories.map((cat) => {
+                const isCatActive = cat.id === activeCategory.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setTab(cat.tabs[0].id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '11px 12px',
+                      borderRadius: '14px',
+                      fontWeight: 800,
+                      fontSize: '0.86rem',
+                      cursor: 'pointer',
+                      border: isCatActive ? '2px solid #0F7659' : '1px solid var(--line)',
+                      background: isCatActive ? '#071923' : 'var(--card-bg)',
+                      color: isCatActive ? '#CFD29D' : 'var(--ink)',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <UnslopIcon name={cat.icon} size={17} color={isCatActive ? '#24C8B8' : '#0F7659'} />
+                    <span>{cat.label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-        <button
-          className={tab === 'partners' ? 'on' : ''}
-          onClick={() => setTab('partners')}
-          style={{
-            borderRadius: '10px',
-            border: tab === 'partners' ? '2px solid var(--teal)' : '1px solid var(--line)',
-            background: tab === 'partners' ? 'var(--tint)' : 'var(--card-bg)',
-            padding: '8px 14px',
-            fontWeight: 700,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <UnslopIcon name="hospital" size={16} color="#059669" />
-          <span>{tr(lang, 'إدارة الشركاء والفرنشايز والتوثيق', 'Partners, Franchise & Verification', 'Gestion des Partenaires', 'Socios y Farmacias', 'Partner & Apotheken')}</span>
-        </button>
+            {/* Level 2: Sub-tabs ONLY for the active section */}
+            {activeCategory.tabs.length > 1 && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '6px',
+                  padding: '8px 10px',
+                  borderRadius: '12px',
+                  background: 'var(--tint)',
+                  border: '1px solid var(--line)',
+                }}
+              >
+                {activeCategory.tabs.map((sub) => {
+                  const isSubActive = tab === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setTab(sub.id)}
+                      style={{
+                        padding: '7px 14px',
+                        borderRadius: '999px',
+                        fontSize: '0.82rem',
+                        fontWeight: isSubActive ? 800 : 600,
+                        cursor: 'pointer',
+                        border: isSubActive ? '1.5px solid #0F7659' : '1px solid transparent',
+                        background: isSubActive ? '#0F7659' : 'transparent',
+                        color: isSubActive ? '#FFFFFF' : 'var(--ink)',
+                      }}
+                    >
+                      {sub.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
-        <button
-          className={tab === 'pharmacy_portal' ? 'on' : ''}
-          onClick={() => setTab('pharmacy_portal')}
-          style={{
-            borderRadius: '10px',
-            border: tab === 'pharmacy_portal' ? '2px solid var(--teal)' : '1px solid var(--line)',
-            background: tab === 'pharmacy_portal' ? 'var(--tint)' : 'var(--card-bg)',
-            padding: '8px 14px',
-            fontWeight: 700,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <UnslopIcon name="package" size={16} color="#059669" />
-          <span>{tr(lang, 'بوابة الصيدلية والمخزون والطلبات', 'Pharmacy Owner & Inventory Portal')}</span>
-        </button>
-
-        {isSuperOrAdmin && (
-          <button
-            className={tab === 'users' ? 'on' : ''}
-            onClick={() => setTab('users')}
-            style={{
-              borderRadius: '10px',
-              border: tab === 'users' ? '2px solid var(--teal)' : '1px solid var(--line)',
-              background: tab === 'users' ? 'var(--tint)' : 'var(--card-bg)',
-              padding: '8px 12px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <UnslopIcon name="users" size={16} color="#059669" />
-            <span>{tr(lang, 'المستخدمون والصلاحيات (RBAC)', 'Users & Roles (RBAC)', 'Utilisateurs & Rôles', 'Usuarios y Roles', 'Benutzer & Rollen')}</span>
-          </button>
-        )}
-
-        <button
-          className={tab === 'content_articles' ? 'on' : ''}
-          onClick={() => setTab('content_articles')}
-          style={{
-            borderRadius: '10px',
-            border: tab === 'content_articles' ? '2px solid var(--teal)' : '1px solid var(--line)',
-            background: tab === 'content_articles' ? 'var(--tint)' : 'var(--card-bg)',
-            padding: '8px 12px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <UnslopIcon name="book" size={16} color="#059669" />
-          <span>{tr(lang, 'إدارة المحتوى والمقالات الطبية', 'Content & Medical Articles', 'Contenu & Articles', 'Contenido y Artículos', 'Inhalte & Artikel')}</span>
-        </button>
-
-        <button
-          className={tab === 'subscriptions_plans' ? 'on' : ''}
-          onClick={() => setTab('subscriptions_plans')}
-          style={{
-            borderRadius: '10px',
-            border: tab === 'subscriptions_plans' ? '2px solid var(--teal)' : '1px solid var(--line)',
-            background: tab === 'subscriptions_plans' ? 'var(--tint)' : 'var(--card-bg)',
-            padding: '8px 12px',
-            fontWeight: 800,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <span>💳</span>
-          <span>{tr(lang, 'الاشتراكات والباقات (المستخدمين والصيدليات)', 'Subscriptions & Plans')}</span>
-        </button>
-
-        <button
-          className={tab === 'campaigns_themes' ? 'on' : ''}
-          onClick={() => setTab('campaigns_themes')}
-          style={{
-            borderRadius: '10px',
-            border: tab === 'campaigns_themes' ? '2px solid var(--teal)' : '1px solid var(--line)',
-            background: tab === 'campaigns_themes' ? 'var(--tint)' : 'var(--card-bg)',
-            padding: '8px 12px',
-            fontWeight: 800,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <span>🎨</span>
-          <span>{tr(lang, 'المواسم والزينة وإظهار الأقسام', 'Themes, Campaigns & Visibility')}</span>
-        </button>
-
-        <button
-          className={tab === 'system_ai_audit' ? 'on' : ''}
-          onClick={() => setTab('system_ai_audit')}
-          style={{
-            borderRadius: '10px',
-            border: tab === 'system_ai_audit' ? '2px solid var(--teal)' : '1px solid var(--line)',
-            background: tab === 'system_ai_audit' ? 'var(--tint)' : 'var(--card-bg)',
-            padding: '8px 12px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <UnslopIcon name="cpu" size={16} color="#059669" />
-          <span>{tr(lang, 'الإحصائيات والذكاء الاصطناعي وسجل المراجعة', 'Analytics, AI Config, Data Sources & Audit Logs', 'IA, Sources & Audit', 'IA, Fuentes y Auditoría', 'KI, Datenquellen & Audit')}</span>
-        </button>
-
-        <button
-          className={tab === 'catalog' ? 'on' : ''}
-          onClick={() => setTab('catalog')}
-          style={{
-            borderRadius: '10px',
-            border: tab === 'catalog' ? '2px solid var(--teal)' : '1px solid var(--line)',
-            background: tab === 'catalog' ? 'var(--tint)' : 'var(--card-bg)',
-            padding: '8px 12px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <UnslopIcon name="flask" size={16} color="#059669" />
-          <span>{tr(lang, 'العبوات الدوائية المرجعية (267+)', 'Reference Packages (267+)', 'Antibiotiques Commerciaux', 'Antibióticos Comerciales', 'Antibiotika-Katalog (206+)')}</span>
-        </button>
-
-        <button
-          className={tab === 'meds' ? 'on' : ''}
-          onClick={() => setTab('meds')}
-          style={{
-            borderRadius: '10px',
-            border: tab === 'meds' ? '2px solid var(--teal)' : '1px solid var(--line)',
-            background: tab === 'meds' ? 'var(--tint)' : 'var(--card-bg)',
-            padding: '8px 12px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <UnslopIcon name="fileText" size={16} color="#059669" />
-          <span>{tr(lang, 'المونوجرافات السريرية (32)', 'Clinical Monographs (32)', 'Monographies Cliniques (32)', 'Monografías Clínicas (32)', 'Klinische Monographien (32)')}</span>
-        </button>
-
-        <button
-          className={tab === 'survey_bank' ? 'on' : ''}
-          onClick={() => setTab('survey_bank')}
-          style={{
-            borderRadius: '10px',
-            border: tab === 'survey_bank' ? '2px solid var(--teal)' : '1px solid var(--line)',
-            background: tab === 'survey_bank' ? 'var(--tint)' : 'var(--card-bg)',
-            padding: '8px 12px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <UnslopIcon name="clipboard" size={16} color="#059669" />
-          <span>{tr(lang, 'تعديل أسئلة الاستبيان والكويز', 'Edit Survey & Quiz Questions', 'Modifier Questions Quiz/Enquête', 'Editar Preguntas de Encuesta/Quiz', 'Umfrage- & Quizfragen bearbeiten')}</span>
-        </button>
-
-        {isSuperOrAdmin && (
-          <button
-            className={tab === 'research' ? 'on' : ''}
-            onClick={() => setTab('research')}
-            style={{
-              borderRadius: '10px',
-              border: tab === 'research' ? '2px solid var(--teal)' : '1px solid var(--line)',
-              background: tab === 'research' ? 'var(--tint)' : 'var(--card-bg)',
-              padding: '8px 12px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <UnslopIcon name="chart" size={16} color="#059669" />
-            <span>{t('tabResearch')}</span>
-          </button>
-        )}
-
-        {isSuperOrAdmin && (
-          <button
-            className={tab === 'impact' ? 'on' : ''}
-            onClick={() => setTab('impact')}
-            style={{
-              borderRadius: '10px',
-              border: tab === 'impact' ? '2px solid var(--teal)' : '1px solid var(--line)',
-              background: tab === 'impact' ? 'var(--tint)' : 'var(--card-bg)',
-              padding: '8px 12px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <UnslopIcon name="activity" size={16} color="#059669" />
-            <span>{tr(lang, 'قياس الأثر والتعلم', 'Learning Impact', 'Impact d’Apprentissage', 'Impacto de Aprendizaje', 'Lernwirkung')}</span>
-          </button>
-        )}
-
-        {isSuperOrAdmin && (
-          <button
-            className={tab === 'quiz' ? 'on' : ''}
-            onClick={() => setTab('quiz')}
-            style={{
-              borderRadius: '10px',
-              border: tab === 'quiz' ? '2px solid var(--teal)' : '1px solid var(--line)',
-              background: tab === 'quiz' ? 'var(--tint)' : 'var(--card-bg)',
-              padding: '8px 12px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <UnslopIcon name="award" size={16} color="#059669" />
-            <span>{tr(lang, 'نتائج الكويز', 'Quiz Results', 'Résultats du Quiz', 'Resultados del Quiz', 'Quiz-Ergebnisse')}</span>
-          </button>
-        )}
-      </div>
-
-      {tab === 'commerce_control' && isSuperOrAdmin && <DawayaAdminControlCenter />}
+      {/* Section 1: Medicines & Images */}
       {tab === 'dawaya_db' && <DawayaMedicineAdminManager uid={user.uid} role={role} />}
       {tab === 'drug_images' && <AdminDrugImagesPanel />}
-      {tab === 'campaigns_themes' && <WhoCampaignAndVisibilityAdminCard isAr={lang === 'ar'} />}
+      {tab === 'catalog' && <CommercialCatalogTab uid={user.uid} />}
+      {tab === 'meds' && <MedsTab role={role} uid={user.uid} />}
+
+      {/* Section 2: Subscriptions & Billing ONLY (Zero Themes / Campaigns!) */}
       {tab === 'subscriptions_plans' && (
         <div className="stack" style={{ gap: '16px' }}>
-          <WhoCampaignAndVisibilityAdminCard isAr={lang === 'ar'} />
+          <BillingSettingsAdminCard isAr={lang === 'ar'} />
           <SubscriptionAndPlansPanel audience="user" adminManage={true} isAr={lang === 'ar'} />
-          <SubscriptionAndPlansPanel audience="pharmacy" adminManage={true} isAr={lang === 'ar'} />
+          <SubscriptionAndPlansPanel audience="pharmacy" adminManage={false} isAr={lang === 'ar'} />
         </div>
       )}
+
+      {/* Section 3: Pharmacies & Partners */}
       {tab === 'partners' && <PartnerManagementCenter adminUid={user.uid} adminRole={role} />}
+      {tab === 'commerce_control' && isSuperOrAdmin && <DawayaAdminControlCenter />}
       {tab === 'pharmacy_portal' && (
         <div className="card" style={{ padding: '20px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', borderTop: '3px solid #138866' }}>
           <div>
@@ -1087,20 +988,26 @@ export default function Dashboard() {
           </Link>
         </div>
       )}
+
+      {/* Section 4: Users & Roles */}
       {tab === 'users' && isSuperOrAdmin && <UsersTab myUid={user.uid} />}
+
+      {/* Section 5: Content & Research */}
       {tab === 'content_articles' && <DawayaContentAndArticlesAdmin uid={user.uid} role={role} />}
-      {tab === 'system_ai_audit' && (
-        <>
-          <PreLaunchStressAndHostingPanel isAr={lang === 'ar'} />
-          <DawayaSystemAiDataSourcesAndAuditAdmin uid={user.uid} role={role} />
-        </>
-      )}
-      {tab === 'catalog' && <CommercialCatalogTab uid={user.uid} />}
-      {tab === 'meds' && <MedsTab role={role} uid={user.uid} />}
       {tab === 'survey_bank' && <SurveyQuizManagerTab uid={user.uid} />}
       {tab === 'research' && isSuperOrAdmin && <ResearchTab />}
       {tab === 'impact' && isSuperOrAdmin && <LearningImpactDashboard />}
       {tab === 'quiz' && isSuperOrAdmin && <QuizResultsTab />}
+
+      {/* Section 6: Appearance & System ONLY (Zero Payment Numbers!) */}
+      {tab === 'campaigns_themes' && <WhoCampaignAndVisibilityAdminCard isAr={lang === 'ar'} />}
+      {tab === 'system_ai_audit' && (
+        <div className="stack" style={{ gap: '16px' }}>
+          <PreLaunchStressAndHostingPanel isAr={lang === 'ar'} />
+          <DawayaSystemAiDataSourcesAndAuditAdmin uid={user.uid} role={role} />
+        </div>
+      )}
     </main>
   );
 }
+

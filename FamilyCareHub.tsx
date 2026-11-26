@@ -16,6 +16,7 @@ import { db, configured } from './firebase';
 import { useAuth } from './authContext';
 import { useLang } from './i18n';
 import { SubscriptionAndPlansPanel } from './SubscriptionAndPlansPanel';
+import SmartChoiceSelect from './SmartChoiceSelect';
 
 interface FamilyLinkDoc {
   id: string;
@@ -400,13 +401,19 @@ export default function FamilyCareHub() {
                 <label className="small muted" style={{ display: 'block', marginBottom: '4px', fontWeight: 700 }}>
                   {isAr ? 'صلة القرابة:' : 'Relationship:'}
                 </label>
-                <select className="input" value={relationLabel} onChange={(e) => setRelationLabel(e.target.value)}>
-                  <option value="أمي">{isAr ? 'أمي' : 'Mother'}</option>
-                  <option value="أبي">{isAr ? 'أبي' : 'Father'}</option>
-                  <option value="ابني / ابنتي">{isAr ? 'ابني / ابنتي' : 'Child'}</option>
-                  <option value="الزوج / الزوجة">{isAr ? 'الزوج / الزوجة' : 'Spouse'}</option>
-                  <option value="أخ / أخت">{isAr ? 'أخ / أخت' : 'Sibling'}</option>
-                </select>
+                <SmartChoiceSelect
+                  value={relationLabel}
+                  onChange={(v) => setRelationLabel(v)}
+                  modalTitle={isAr ? 'اختر صلة القرابة' : 'Select Relationship'}
+                  modalSubtitle={isAr ? 'تظهر هذه التسمية على بطاقة المتابعة وجدول الجرعات' : 'Shown on your family monitoring card'}
+                  options={[
+                    { value: 'أمي', label: isAr ? 'أمي' : 'Mother', description: isAr ? 'متابعة أدوية ومواعيد الوالدة' : 'Mother medications & doses', badge: isAr ? 'الوالدة' : 'MOM', icon: 'heart' },
+                    { value: 'أبي', label: isAr ? 'أبي' : 'Father', description: isAr ? 'متابعة أدوية ومواعيد الوالد' : 'Father medications & doses', badge: isAr ? 'الوالد' : 'DAD', icon: 'shield' },
+                    { value: 'ابني / ابنتي', label: isAr ? 'ابني / ابنتي' : 'Child', description: isAr ? 'متابعة جرعات الأطفال والأبناء' : 'Child medication schedule', badge: isAr ? 'الأبناء' : 'CHILD', icon: 'user' },
+                    { value: 'الزوج / الزوجة', label: isAr ? 'الزوج / الزوجة' : 'Spouse', description: isAr ? 'متابعة الرعاية الصحية للزوج أو الزوجة' : 'Spouse health & doses', badge: isAr ? 'شريك الحياة' : 'SPOUSE', icon: 'heart' },
+                    { value: 'أخ / أخت', label: isAr ? 'أخ / أخت' : 'Sibling', description: isAr ? 'متابعة أدوية الأخ أو الأخت' : 'Sibling medication schedule', badge: isAr ? 'العائلة' : 'FAMILY', icon: 'user' },
+                  ]}
+                />
               </div>
             </div>
             <button type="submit" className="btn" disabled={claimBusy}>
@@ -535,12 +542,18 @@ export default function FamilyCareHub() {
                       onChange={(e) => setMedDosage(e.target.value)}
                     />
                     <input className="input" type="time" value={medTime} onChange={(e) => setMedTime(e.target.value)} />
-                    <select className="input" value={medNote} onChange={(e) => setMedNote(e.target.value)}>
-                      <option value="قبل الأكل">{isAr ? 'قبل الأكل' : 'Before meal'}</option>
-                      <option value="بعد الأكل">{isAr ? 'بعد الأكل' : 'After meal'}</option>
-                      <option value="قبل النوم">{isAr ? 'قبل النوم' : 'Before sleep'}</option>
-                      <option value="على الريق">{isAr ? 'على الريق' : 'Empty stomach'}</option>
-                    </select>
+                    <SmartChoiceSelect
+                      value={medNote}
+                      onChange={(v) => setMedNote(v)}
+                      modalTitle={isAr ? 'توقيت الجرعة مع الوجبات' : 'Dose Timing with Meals'}
+                      modalSubtitle={isAr ? 'يظهر للمريض بوضوح مع وقت كل جرعة' : 'Displayed clearly with each scheduled dose'}
+                      options={[
+                        { value: 'بعد الأكل', label: isAr ? 'بعد الأكل' : 'After meal', description: isAr ? 'تُؤخذ بعد الوجبة لحماية المعدة' : 'Take after eating', badge: isAr ? 'الأكثر شيوعاً' : 'COMMON', icon: 'pill' },
+                        { value: 'قبل الأكل', label: isAr ? 'قبل الأكل' : 'Before meal', description: isAr ? 'تُؤخذ قبل الوجبة بـ 30 دقيقة' : '30 mins before meal', badge: isAr ? 'قبل الوجبة' : 'PRE-MEAL', icon: 'clock' },
+                        { value: 'على الريق', label: isAr ? 'على الريق' : 'Empty stomach', description: isAr ? 'صباحاً قبل الإفطار بماء فقط' : 'Morning on empty stomach', badge: isAr ? 'صباحاً' : 'MORNING', icon: 'clock' },
+                        { value: 'قبل النوم', label: isAr ? 'قبل النوم' : 'Before sleep', description: isAr ? 'تُؤخذ مساءً قبل النوم مباشرة' : 'Evening at bedtime', badge: isAr ? 'مساءً' : 'NIGHT', icon: 'clock' },
+                      ]}
+                    />
                   </div>
                   <button type="submit" className="btn small" disabled={medBusy}>
                     {medBusy ? (isAr ? 'جاري الإضافة...' : 'Adding...') : isAr ? 'إرسال الدواء لجدولهم الآن' : 'Add to Their Schedule'}

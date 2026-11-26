@@ -6979,7 +6979,7 @@ body {
     padding-bottom: 88px !important;
   }
   .floating-fab-stack {
-    bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(136px + env(safe-area-inset-bottom, 0px)) !important;
   }
   .dawaya-floating-bottom-dock {
     bottom: max(10px, env(safe-area-inset-bottom));
@@ -8048,13 +8048,14 @@ button:active:not(:disabled), .btn:active:not(:disabled) {
    ══════════════════════════════════════════════════════════════════════════ */
 .dawaya-quick-access-strip {
   position: fixed;
-  bottom: 88px;
+  bottom: 94px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 9040;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
 }
 .dawaya-qa-pill {
   display: inline-flex;
@@ -8087,7 +8088,7 @@ button:active:not(:disabled), .btn:active:not(:disabled) {
 }
 @media (max-width: 768px) {
   .dawaya-quick-access-strip {
-    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   }
 }
 
