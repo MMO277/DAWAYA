@@ -506,13 +506,11 @@ function MedsTab({ role, uid }: { role: Role; uid: string }) {
 
 
 function BillingSettingsAdminCard({ isAr }: { isAr: boolean }) {
-  const [config, setConfig] = useState<PlatformVisibilityConfig>(() => getPlatformVisibilityConfig());
+  const { config } = useWhoCampaignAndVisibility();
   const [savedNotice, setSavedNotice] = useState(false);
 
-  const updateCfg = async (patch: Partial<PlatformVisibilityConfig>) => {
-    const next = { ...config, ...patch };
-    setConfig(next);
-    await savePlatformVisibilityConfig(next);
+  const updateCfg = async (patch: Partial<typeof config>) => {
+    await saveVisibilityConfig({ ...config, ...patch });
     setSavedNotice(true);
     window.setTimeout(() => setSavedNotice(false), 1800);
   };
