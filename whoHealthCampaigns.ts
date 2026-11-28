@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, configured } from './firebase';
 
 export type CampaignVisualKind =
@@ -691,12 +691,18 @@ export function useWhoCampaignAndVisibility() {
     };
     window.addEventListener(VISIBILITY_EVENT, onLocalChange);
 
-    let unsub = () => {};
-    if (configured && db) {
-      unsub = onSnapshot(
-        doc(db, 'settings', 'public'),
-        (snap) => {
-          if (!snap.exists()) return;
+    let cancelled = false;
+    const VIS_TTL_MS = 20 * 60 * 1000; // 20-min Smart Firestore Read Cache
+    const VIS_TS_KEY = 'dawaya_visibility_cached_at_v1';
+    const lastFetched = (() => {
+      try { return Number(localStorage.getItem(VIS_TS_KEY) || '0'); } catch { return 0; }
+    })();
+
+    if (configured && db && Date.now() - lastFetched > VIS_TTL_MS) {
+      try { localStorage.setItem(VIS_TS_KEY, String(Date.now())); } catch {}
+      void getDoc(doc(db, 'settings', 'public'))
+        .then((snap) => {
+          if (cancelled || !snap.exists()) return;
           const data = snap.data();
           const merged: DawayaSiteVisibilityConfig = {
             campaignMode: typeof data.campaignMode === 'string' ? data.campaignMode : 'auto',
@@ -712,14 +718,14 @@ export function useWhoCampaignAndVisibility() {
           try {
             localStorage.setItem(LOCAL_VISIBILITY_KEY, JSON.stringify(merged));
           } catch { /* ignore */ }
-        },
-        () => {}
-      );
+          window.dispatchEvent(new CustomEvent(VISIBILITY_EVENT, { detail: merged }));
+        })
+        .catch(() => {});
     }
 
     return () => {
+      cancelled = true;
       window.removeEventListener(VISIBILITY_EVENT, onLocalChange);
-      unsub();
     };
   }, []);
 

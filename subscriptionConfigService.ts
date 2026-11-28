@@ -139,7 +139,26 @@ export const DEFAULT_SUBSCRIPTION_CATALOG: SubscriptionCatalogConfig = {
   updatedAtIso: new Date().toISOString(),
 };
 
-export async function loadSubscriptionCatalog(): Promise<SubscriptionCatalogConfig> {
+const LOCAL_TS_KEY = 'dawaya_subscription_catalog_ts_v2';
+const CATALOG_TTL_MS = 15 * 60 * 1000; // 15-min Smart Firestore Read Cache
+
+export async function loadSubscriptionCatalog(forceRefresh = false): Promise<SubscriptionCatalogConfig> {
+  if (!forceRefresh) {
+    try {
+      const ts = Number(localStorage.getItem(LOCAL_TS_KEY) || '0');
+      const raw = localStorage.getItem(LOCAL_KEY);
+      if (raw && Date.now() - ts < CATALOG_TTL_MS) {
+        const parsed = JSON.parse(raw) as Partial<SubscriptionCatalogConfig>;
+        if (Array.isArray(parsed.plans) && parsed.plans.length > 0) {
+          return {
+            plans: parsed.plans,
+            promos: Array.isArray(parsed.promos) ? parsed.promos : [],
+            updatedAtIso: parsed.updatedAtIso || new Date().toISOString(),
+          };
+        }
+      }
+    } catch {}
+  }
   if (configured && db) {
     try {
       const snap = await getDoc(doc(db, 'platform_settings', 'pricing_and_promos'));
@@ -153,6 +172,7 @@ export async function loadSubscriptionCatalog(): Promise<SubscriptionCatalogConf
           };
           try {
             localStorage.setItem(LOCAL_KEY, JSON.stringify(merged));
+            localStorage.setItem(LOCAL_TS_KEY, String(Date.now()));
           } catch {}
           return merged;
         }
@@ -185,6 +205,7 @@ export async function saveSubscriptionCatalog(cfg: SubscriptionCatalogConfig): P
   };
   try {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(clean));
+    localStorage.setItem(LOCAL_TS_KEY, String(Date.now()));
   } catch {}
   if (configured && db) {
     await setDoc(

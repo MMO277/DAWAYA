@@ -238,7 +238,62 @@ export async function uploadPassportPhoto(_uid: string, file: File): Promise<str
   });
 }
 
-/** حفظ URL الصورة في localStorage + Firestore */
+
+// ── Smart Deferred Batch Sync Queue (Coalesces rapid edits into 1 single Firestore write) ──
+const DEFERRED_SYNC_QUIET_MS = 25000;
+const pendingPassportPayloads = new Map<string, Record<string, any>>();
+const pendingPassportTimers = new Map<string, number>();
+let flushListenersAttached = false;
+
+export async function flushPendingPassportSync(targetUid?: string): Promise<void> {
+  if (!configured || !db) return;
+  const uids = targetUid ? [targetUid] : Array.from(pendingPassportPayloads.keys());
+  for (const uid of uids) {
+    const timer = pendingPassportTimers.get(uid);
+    if (timer) {
+      window.clearTimeout(timer);
+      pendingPassportTimers.delete(uid);
+    }
+    const payload = pendingPassportPayloads.get(uid);
+    if (!payload) continue;
+    pendingPassportPayloads.delete(uid);
+    try {
+      await setDoc(doc(db, 'passportShares', uid), payload, { merge: true });
+    } catch {
+      /* keep localStorage copy; will retry on next edit */
+    }
+  }
+}
+
+function queueDeferredPassportSync(uid: string, patch: Record<string, any>): void {
+  if (!configured || !db || !uid || uid.startsWith('DWY-')) return;
+  const prev = pendingPassportPayloads.get(uid) || {};
+  pendingPassportPayloads.set(uid, { ...prev, ...patch });
+
+  if (typeof window !== 'undefined') {
+    const existingTimer = pendingPassportTimers.get(uid);
+    if (existingTimer) window.clearTimeout(existingTimer);
+    const nextTimer = window.setTimeout(() => {
+      void flushPendingPassportSync(uid);
+    }, DEFERRED_SYNC_QUIET_MS);
+    pendingPassportTimers.set(uid, nextTimer);
+
+    if (!flushListenersAttached) {
+      flushListenersAttached = true;
+      const flushAll = () => {
+        if (pendingPassportPayloads.size > 0) {
+          void flushPendingPassportSync();
+        }
+      };
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') flushAll();
+      });
+      window.addEventListener('pagehide', flushAll);
+    }
+  }
+}
+
+/** حفظ URL الصورة في localStorage + Firestore (مجمّع بذكاء) */
 export async function savePassportPhotoUrl(uid: string, url: string): Promise<void> {
   const effectiveId = uid || getOrCreateGuestPassportId();
   try {
@@ -248,11 +303,7 @@ export async function savePassportPhotoUrl(uid: string, url: string): Promise<vo
     /* ignore */
   }
   if (!configured || !db || !uid || uid.startsWith('DWY-')) return;
-  try {
-    await setDoc(doc(db, 'passportShares', uid), { photoUrl: url, updatedAt: Date.now() }, { merge: true });
-  } catch {
-    /* ignore if offline */
-  }
+  queueDeferredPassportSync(uid, { photoUrl: url, updatedAt: Date.now() });
 }
 
 /** جيب URL الصورة من السحابة أو التخزين المحلي */
@@ -517,11 +568,7 @@ export async function sharePassport(
   }
 
   if (!configured || !db || !uid || uid.startsWith('DWY-')) return;
-  try {
-    await setDoc(doc(db, 'passportShares', uid), payload, { merge: true });
-  } catch {
-    /* ignore if offline */
-  }
+  queueDeferredPassportSync(uid, payload);
 }
 
 export async function revokePassport(uid: string): Promise<void> {
